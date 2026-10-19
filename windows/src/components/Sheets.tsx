@@ -1,7 +1,7 @@
 import { Globe, Lock, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { accounts } from "../lib/accounts";
-import { displayPath, env, joinPath, slash } from "../lib/env";
+import { displayPath, env, isWindows, joinPath, slash } from "../lib/env";
 import { validBranchName } from "../lib/format";
 import * as Hosting from "../lib/hosting";
 import { ipc } from "../lib/ipc";
@@ -167,7 +167,7 @@ function CloneSheet({ store, close }: { store: RepoStore; close: () => void }) {
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [query, setQuery] = useState("");
   const [remote, setRemote] = useState("");
-  const [parent, setParent] = useState(joinPath(env.home, "source", "repos"));
+  const [parent, setParent] = useState(isWindows() ? joinPath(env.home, "source", "repos") : joinPath(env.home, "Desktop"));
   const [folder, setFolder] = useState("");
   const [folderEdited, setFolderEdited] = useState(false);
 

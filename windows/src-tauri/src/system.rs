@@ -164,12 +164,13 @@ pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
 /// 탐색기(Finder)에서 파일·폴더를 선택해 보여 준다
 #[tauri::command]
 pub fn reveal_path(path: String) -> Result<(), String> {
-    tauri_plugin_opener::reveal_item_in_dir(PathBuf::from(path)).map_err(|e| e.to_string())
+    tauri_plugin_opener::reveal_item_in_dir(PathBuf::from(crate::process::native(&path))).map_err(|e| e.to_string())
 }
 
 /// 바깥 터미널 앱으로 폴더 열기(Windows Terminal → PowerShell, macOS Terminal)
 #[tauri::command]
 pub fn open_terminal(path: String) -> Result<(), String> {
+    let path = crate::process::native(&path);
     if cfg!(windows) {
         if let Some(wt) = crate::process::find_program("wt") {
             Command::new(wt).args(["-d", &path]).spawn().map_err(|e| e.to_string())?;

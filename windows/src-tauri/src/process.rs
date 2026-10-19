@@ -41,6 +41,15 @@ pub fn find_program(program: &str) -> Option<PathBuf> {
     None
 }
 
+/// 운영체제 기본 경로 형식으로(Windows 는 / 를 \ 로). git 은 C:/a/b 로 주지만 일부 Windows API 는 \ 만 받는다.
+pub fn native(p: &str) -> String {
+    if cfg!(windows) {
+        p.replace('/', "\\")
+    } else {
+        p.to_string()
+    }
+}
+
 #[tauri::command]
 pub fn which(program: String) -> Option<String> {
     find_program(&program).map(|p| p.to_string_lossy().into_owned())
@@ -73,7 +82,8 @@ fn run_blocking(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     if let Some(dir) = cwd.as_deref().filter(|d| !d.is_empty()) {
-        if !Path::new(dir).is_dir() {
+        let dir = native(dir);
+        if !Path::new(&dir).is_dir() {
             return Err(format!("폴더가 없습니다: {dir}"));
         }
         cmd.current_dir(dir);

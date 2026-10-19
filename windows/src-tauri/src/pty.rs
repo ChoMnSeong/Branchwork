@@ -75,7 +75,7 @@ pub fn pty_spawn(
     let exe = crate::process::find_program(&program).map(|p| p.to_string_lossy().into_owned()).unwrap_or(program);
     let mut cmd = CommandBuilder::new(exe);
     cmd.args(&args);
-    cmd.cwd(&cwd);
+    cmd.cwd(crate::process::native(&cwd));
     for (k, v) in &env {
         cmd.env(k, v);
     }

@@ -404,7 +404,21 @@ export class RepoStore extends Observable implements AgentHost {
 
   // MARK: - 새로 고침
 
+  private latestReload: Promise<void> | null = null;
+
+  /** 저장소를 다시 읽는다. 도중에 더 새 읽기가 시작되면 그것까지 기다린다(부른 쪽이 늘 최신 상태를 보게). */
   async reload(quiet = false) {
+    const p = this.readAll(quiet);
+    this.latestReload = p;
+    await p;
+    while (this.latestReload && this.latestReload !== p) {
+      const q: Promise<void> = this.latestReload;
+      await q;
+      if (this.latestReload === q) break;
+    }
+  }
+
+  private async readAll(quiet: boolean) {
     const path = this.path;
     if (!path) return;
     const gen = ++this.reloadGeneration;
@@ -699,11 +713,10 @@ export class RepoStore extends Observable implements AgentHost {
         timeoutMs: o.network ? 900_000 : 300_000,
         env: o.network ? await accounts.gitEnvironment(this.target, this.path) : {},
       });
-      this.busy = null;
+      // 다 읽을 때까지 busy 로 두어 파일 감시가 같은 변경으로 또 읽지 않게 한다
       await this.reload();
       return true;
     } catch (e) {
-      this.busy = null;
       this.fail(e);
       await this.reload(true);
       return false;

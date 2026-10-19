@@ -1,6 +1,6 @@
 # Branchwork
 
-> A native macOS Git client with a commit graph, worktrees, GitHub/GitLab pull requests, Claude Code agents and a built-in terminal. (SwiftUI, macOS 15+)
+> A native Git client for macOS and Windows with a commit graph, worktrees, GitHub/GitLab pull requests, Claude Code agents and a built-in terminal. (macOS: SwiftUI · Windows: Tauri)
 
 Git 저장소를 커밋 그래프로 보고 다루는 macOS 앱(SwiftUI, macOS 15+).
 Git 동작은 시스템 `git` 을 그대로 호출하고, 화면·그래프 배치·파싱은 처음부터 새로 만들었다.
@@ -67,8 +67,33 @@ Swift 6 이상(Xcode 또는 Command Line Tools)만 있으면 된다. 외부 패�
 push/pull 이 자격 증명을 물으면 멈추지 않고 실패하도록 해 두었다(`GIT_TERMINAL_PROMPT=0`).
 설정(⌘,)에서 GitHub·GitLab 계정을 연결하면 HTTPS push/pull 에 그 토큰을 쓰고, 그 밖에는 키체인·SSH 키 등 기존 git 자격 증명을 그대로 쓴다.
 
+## Windows
+
+`windows/` 폴더에 같은 기능의 Windows 앱이 있다([Tauri](https://tauri.app) 2 — Rust 백엔드 + React 화면).
+
+- **설치**: [Releases](https://github.com/ChoMnSeong/Branchwork/releases) 의 `Branchwork_<버전>_x64-setup.exe`. Windows 10(1809 이상)·11, [Git for Windows](https://git-scm.com/download/win) 필요.
+  코드 서명을 하지 않은 빌드라 처음 실행할 때 SmartScreen 이 막으면 **추가 정보 → 실행** 을 누른다.
+- **맥 버전과 다른 점**
+  - 저장소 탭은 창 안의 탭(Ctrl+T 새 탭, Ctrl+W 닫기, Ctrl+Tab 이동, 가운데 클릭으로 닫기)
+  - 단축키는 ⌘ 대신 Ctrl(새로 고침은 F5, 다음 검색 결과는 F3)
+  - 터미널은 PowerShell(pwsh 가 있으면 pwsh). Ctrl+C 는 선택이 있으면 복사, Ctrl+V 붙여넣기
+  - Claude Code 에이전트 세션은 Terminal 앱 대신 아래 터미널 패널의 탭에서 돈다
+  - 토큰은 Windows 자격 증명 관리자에, 설정은 `%APPDATA%\Branchwork` 에 둔다
+- **빌드**: Node.js 22 와 Rust(stable) 가 있으면
+
+  ```sh
+  cd windows
+  npm ci
+  npx tauri build      # src-tauri/target/release/bundle/nsis/*-setup.exe
+  npx vitest run       # 파서·그래프 단위 테스트
+  ```
+
+- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 저장소 열기·스테이지·커밋·브랜치·머지·검색·stash·터미널·자격 증명·도우미 모드를 실제 앱에서 차례로 해 보고 결과를 남긴다. GitHub Actions 의 Windows 서버에서 푸시마다 돈다(`.github/workflows/windows.yml`).
+
 ## 라이선스
 
 [MIT](LICENSE) © 2026 조문성 (ChoMnSeong)
 
 포함된 서드파티 코드: [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) v1.20.0 — MIT ([Vendor/SwiftTerm/LICENSE](Vendor/SwiftTerm/LICENSE))
+
+Windows 앱이 쓰는 오픈소스: [Tauri](https://tauri.app)(MIT/Apache-2.0), [React](https://react.dev)(MIT), [xterm.js](https://xtermjs.org)(MIT), [portable-pty](https://github.com/wezterm/wezterm)(MIT), [Lucide](https://lucide.dev) 아이콘(ISC) 등 — 각 패키지의 라이선스를 따른다.

@@ -105,7 +105,7 @@ export async function runSelfTest(): Promise<boolean> {
     await s.stash("selftest", true);
     const stashed = s.stashes.length > 0 && statusIsEmpty(s.status);
     await s.stashPop();
-    return [stashed && !statusIsEmpty(s.status), `stashes=${s.stashes.length}`];
+    return [stashed && !statusIsEmpty(s.status) && !s.stashes.length, `stashed=${stashed} stashes=${s.stashes.length} error=${s.errorMessage}`];
   });
   await step("변경 버리기", async () => {
     const c = s.status.unstaged[0];
