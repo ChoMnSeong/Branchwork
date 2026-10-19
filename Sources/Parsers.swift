@@ -1,0 +1,282 @@
+import Foundation
+
+/// git 의 기계용 출력(porcelain, -z, 커스텀 format)을 모델로 바꾼다.
+enum Parsers {
+    /// 그래프 날짜는 정렬(--date-order) 기준과 같은 커밋 날짜(%ct) — 리베이스·cherry-pick 된 커밋도 순서대로 보이게
+    static let logFormat = "%H%x1f%P%x1f%an%x1f%ae%x1f%ct%x1f%s%x1e"
+    static let refFormat = "%(refname)%1f%(objectname)%1f%(*objectname)%1f%(upstream:short)%1f%(upstream:track,nobracket)%1f%(HEAD)"
+    static let detailFormat = "%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%cn%x1f%ce%x1f%ct%x1f%B"
+    static let stashFormat = "%gd%x1f%H%x1f%gs"
+
+    private static func fields(_ s: Substring) -> [String] {
+        s.split(separator: "\u{1f}", omittingEmptySubsequences: false).map(String.init)
+    }
+
+    private static func date(_ s: String) -> Date {
+        Date(timeIntervalSince1970: TimeInterval(s) ?? 0)
+    }
+
+    // MARK: log
+
+    static func log(_ data: Data) -> [Commit] {
+        let text = String(decoding: data, as: UTF8.self)
+        var out: [Commit] = []
+        for rec in text.split(separator: "\u{1e}") {
+            let r = rec.drop(while: { $0.isNewline })
+            guard !r.isEmpty else { continue }
+            let f = fields(r)
+            guard f.count >= 6 else { continue }
+            out.append(Commit(id: f[0],
+                              parents: f[1].split(separator: " ").map(String.init),
+                              author: f[2], email: f[3], date: date(f[4]), subject: f[5]))
+        }
+        return out
+    }
+
+    static func commitDetail(_ text: String) -> CommitDetail? {
+        let f = fields(Substring(text))
+        guard f.count >= 9 else { return nil }
+        let message = f[8...].joined(separator: "\u{1f}").trimmed
+        let summary = message.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? ""
+        let body = String(message.dropFirst(summary.count)).trimmed
+        return CommitDetail(sha: f[0], parents: f[1].split(separator: " ").map(String.init),
+                            author: f[2], email: f[3], date: date(f[4]),
+                            committer: f[5], committerEmail: f[6], commitDate: date(f[7]),
+                            summary: summary, body: body)
+    }
+
+    // MARK: refs
+
+    static func refs(_ text: String) -> (locals: [Branch], remotes: [Branch], tags: [Tag]) {
+        var locals: [Branch] = [], remotes: [Branch] = [], tags: [Tag] = []
+        for line in text.split(separator: "\n") {
+            let f = fields(line)
+            guard f.count >= 6 else { continue }
+            let ref = f[0], obj = f[1], peeled = f[2], upstream = f[3], track = f[4]
+            if ref.hasPrefix("refs/heads/") {
+                let t = parseTrack(track)
+                locals.append(Branch(name: String(ref.dropFirst(11)), target: obj,
+                                     upstream: upstream.isEmpty ? nil : upstream,
+                                     ahead: t.ahead, behind: t.behind, upstreamGone: t.gone,
+                                     isCurrent: f[5] == "*", isRemote: false))
+            } else if ref.hasPrefix("refs/remotes/") {
+                let name = String(ref.dropFirst(13))
+                if name.hasSuffix("/HEAD") { continue }
+                remotes.append(Branch(name: name, target: obj, upstream: nil, ahead: 0, behind: 0,
+                                      upstreamGone: false, isCurrent: false, isRemote: true))
+            } else if ref.hasPrefix("refs/tags/") {
+                tags.append(Tag(name: String(ref.dropFirst(10)), target: peeled.isEmpty ? obj : peeled))
+            }
+        }
+        return (locals, remotes, tags.sorted { $0.name.localizedStandardCompare($1.name) == .orderedDescending })
+    }
+
+    /// "ahead 2, behind 1" / "gone"
+    static func parseTrack(_ s: String) -> (ahead: Int, behind: Int, gone: Bool) {
+        var ahead = 0, behind = 0, gone = false
+        for part in s.split(separator: ",") {
+            let w = part.split(separator: " ")
+            if w.first == "gone" { gone = true }
+            if w.count == 2, let n = Int(w[1]) {
+                if w[0] == "ahead" { ahead = n } else if w[0] == "behind" { behind = n }
+            }
+        }
+        return (ahead, behind, gone)
+    }
+
+    static func stashes(_ text: String) -> [Stash] {
+        text.split(separator: "\n").compactMap { line in
+            let f = fields(line)
+            guard f.count >= 3 else { return nil }
+            return Stash(ref: f[0], hash: f[1], message: f[2])
+        }
+    }
+
+    /// `git remote -v` → 이름 순서와 fetch URL
+    static func remotes(_ text: String) -> (names: [String], urls: [String: String]) {
+        var names: [String] = [], urls: [String: String] = [:]
+        for line in text.split(separator: "\n") {
+            let parts = line.split(whereSeparator: { $0 == "\t" || $0 == " " })
+            guard parts.count >= 2 else { continue }
+            let name = String(parts[0])
+            if !names.contains(name) { names.append(name) }
+            if parts.count < 3 || parts[2] == "(fetch)" { urls[name] = String(parts[1]) }
+        }
+        return (names, urls)
+    }
+
+    /// `git worktree list --porcelain` (빈 줄로 구분된 블록)
+    static func worktrees(_ text: String) -> [Worktree] {
+        var out: [Worktree] = []
+        for (i, block) in text.components(separatedBy: "\n\n").enumerated() {
+            var path: String?, head: String?, branch: String?
+            var locked = false, prunable = false, bare = false
+            for line in block.split(separator: "\n") {
+                if line.hasPrefix("worktree ") { path = String(line.dropFirst(9)) }
+                else if line.hasPrefix("HEAD ") { head = String(line.dropFirst(5)) }
+                else if line.hasPrefix("branch ") {
+                    let ref = line.dropFirst(7)
+                    branch = ref.hasPrefix("refs/heads/") ? String(ref.dropFirst(11)) : String(ref)
+                }
+                else if line == "bare" { bare = true }
+                else if line.hasPrefix("locked") { locked = true }
+                else if line.hasPrefix("prunable") { prunable = true }
+            }
+            guard let path, !bare else { continue }
+            out.append(Worktree(path: path, head: head, branch: branch, isMain: i == 0, locked: locked, prunable: prunable))
+        }
+        return out
+    }
+
+    // MARK: status (porcelain v2, -z)
+
+    static func status(_ data: Data) -> WorkingStatus {
+        var st = WorkingStatus()
+        let tokens = String(decoding: data, as: UTF8.self).split(separator: "\0").map(String.init)
+        var i = 0
+
+        func add(_ xy: Substring, _ path: String, _ orig: String?) {
+            let chars = Array(xy)
+            guard chars.count == 2 else { return }
+            if chars[0] != "." {
+                st.staged.append(FileChange(path: path, oldPath: orig, kind: ChangeKind(code: chars[0]), staged: true))
+            }
+            if chars[1] != "." {
+                st.unstaged.append(FileChange(path: path, oldPath: nil, kind: ChangeKind(code: chars[1]), staged: false))
+            }
+        }
+
+        while i < tokens.count {
+            let t = tokens[i]
+            i += 1
+            if t.hasPrefix("# ") {
+                let parts = t.dropFirst(2).split(separator: " ", maxSplits: 1).map(String.init)
+                guard parts.count == 2 else { continue }
+                switch parts[0] {
+                case "branch.head": st.branch = parts[1] == "(detached)" ? nil : parts[1]
+                case "branch.upstream": st.upstream = parts[1]
+                case "branch.ab":
+                    for w in parts[1].split(separator: " ") {
+                        if w.hasPrefix("+") { st.ahead = Int(w.dropFirst()) ?? 0 }
+                        if w.hasPrefix("-") { st.behind = Int(w.dropFirst()) ?? 0 }
+                    }
+                default: break
+                }
+            } else if t.hasPrefix("1 ") {
+                let f = t.split(separator: " ", maxSplits: 8, omittingEmptySubsequences: false)
+                if f.count == 9 { add(f[1], String(f[8]), nil) }
+            } else if t.hasPrefix("2 ") {
+                let f = t.split(separator: " ", maxSplits: 9, omittingEmptySubsequences: false)
+                let orig = i < tokens.count ? tokens[i] : nil
+                i += 1
+                if f.count == 10 { add(f[1], String(f[9]), orig) }
+            } else if t.hasPrefix("u ") {
+                let f = t.split(separator: " ", maxSplits: 10, omittingEmptySubsequences: false)
+                if f.count == 11 {
+                    st.conflicted.append(FileChange(path: String(f[10]), oldPath: nil, kind: .conflicted, staged: false))
+                }
+            } else if t.hasPrefix("? ") {
+                st.unstaged.append(FileChange(path: String(t.dropFirst(2)), oldPath: nil, kind: .untracked, staged: false))
+            }
+        }
+        return st
+    }
+
+    // MARK: name-status (-z)
+
+    static func nameStatus(_ data: Data) -> [FileChange] {
+        let tokens = String(decoding: data, as: UTF8.self).split(separator: "\0").map(String.init)
+        var out: [FileChange] = []
+        var i = 0
+        while i < tokens.count {
+            let code = tokens[i]
+            i += 1
+            guard let c = code.first else { continue }
+            if c == "R" || c == "C" {
+                guard i + 1 < tokens.count else { break }
+                out.append(FileChange(path: tokens[i + 1], oldPath: tokens[i],
+                                      kind: c == "R" ? .renamed : .copied, staged: false))
+                i += 2
+            } else {
+                guard i < tokens.count else { break }
+                out.append(FileChange(path: tokens[i], oldPath: nil, kind: ChangeKind(code: c), staged: false))
+                i += 1
+            }
+        }
+        return out
+    }
+
+    /// `--numstat -z`: "추가\t삭제\t경로\0", 이름 변경은 "추가\t삭제\t\0이전\0새\0"
+    static func numstat(_ data: Data) -> [String: LineStat] {
+        let tokens = String(decoding: data, as: UTF8.self).split(separator: "\0", omittingEmptySubsequences: false).map(String.init)
+        var out: [String: LineStat] = [:]
+        var i = 0
+        while i < tokens.count {
+            let f = tokens[i].split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+            i += 1
+            guard f.count == 3 else { continue }
+            let stat = LineStat(added: Int(f[0]), deleted: Int(f[1]))
+            if f[2].isEmpty {
+                guard i + 1 < tokens.count else { break }
+                out[tokens[i + 1]] = stat
+                i += 2
+            } else {
+                out[f[2]] = stat
+            }
+        }
+        return out
+    }
+
+    // MARK: unified diff
+
+    static func diff(_ text: String, maxLines: Int = 20_000) -> DiffDocument {
+        var doc = DiffDocument()
+        var body = Substring(text)
+        if body.hasSuffix("\n") { body = body.dropLast() }
+        guard !body.isEmpty else { return doc }
+
+        var oldNo = 0, newNo = 0, inHunk = false, cols = 1, id = 0
+        func push(_ kind: DiffLine.Kind, _ s: String, _ o: Int?, _ n: Int?) {
+            doc.lines.append(DiffLine(id: id, kind: kind, text: s, oldNo: o, newNo: n))
+            id += 1
+        }
+
+        for raw in body.split(separator: "\n", omittingEmptySubsequences: false) {
+            if doc.lines.count >= maxLines { doc.truncated = true; break }
+            let s = String(raw)
+            if s.hasPrefix("@@") {
+                inHunk = true
+                cols = max(1, s.prefix(while: { $0 == "@" }).count - 1)   // "@@" 1열, 결합 diff "@@@" 2열
+                oldNo = hunkStart(s, "-")
+                newNo = hunkStart(s, "+")
+                push(.hunk, s, nil, nil)
+                continue
+            }
+            if s.hasPrefix("diff ") { inHunk = false; continue }
+            if !inHunk {
+                if s.hasPrefix("Binary files") || s.hasPrefix("GIT binary patch") { doc.isBinary = true }
+                if s.hasPrefix("new file mode") || s.hasPrefix("deleted file mode") || s.hasPrefix("similarity")
+                    || s.hasPrefix("rename ") || s.hasPrefix("old mode") || s.hasPrefix("new mode") {
+                    push(.meta, s, nil, nil)
+                }
+                continue
+            }
+            if s.hasPrefix("\\") { push(.meta, s, nil, nil); continue }
+            let marker = s.prefix(cols)
+            let content = String(s.dropFirst(cols)).replacingOccurrences(of: "\t", with: "    ")
+            if marker.contains("+") && !marker.contains("-") {
+                push(.added, content, nil, newNo); newNo += 1
+            } else if marker.contains("-") {
+                push(.removed, content, oldNo, nil); oldNo += 1
+            } else {
+                push(.context, content, oldNo, newNo); oldNo += 1; newNo += 1
+            }
+        }
+        return doc
+    }
+
+    private static func hunkStart(_ s: String, _ sign: Character) -> Int {
+        guard let r = s.range(of: " \(sign)") else { return 0 }
+        return Int(s[r.upperBound...].prefix(while: { $0.isNumber })) ?? 0
+    }
+}

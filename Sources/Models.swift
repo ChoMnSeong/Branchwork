@@ -1,0 +1,416 @@
+import Foundation
+
+// MARK: - Commits
+
+struct Commit: Identifiable, Hashable {
+    /// 그래프 맨 위 "작업 중인 변경" 가상 행의 ID
+    static let wipID = "__WORKING_TREE__"
+
+    let id: String
+    let parents: [String]
+    let author: String
+    let email: String
+    let date: Date
+    let subject: String
+
+    var short: String { String(id.prefix(7)) }
+    var isWIP: Bool { id == Commit.wipID }
+    var isMerge: Bool { parents.count > 1 }
+
+    static func wip(parent: String?) -> Commit {
+        Commit(id: wipID, parents: parent.map { [$0] } ?? [], author: "", email: "", date: Date(), subject: "")
+    }
+}
+
+struct CommitDetail: Hashable {
+    let sha: String
+    let parents: [String]
+    let author: String
+    let email: String
+    let date: Date
+    let committer: String
+    let committerEmail: String
+    let commitDate: Date
+    let summary: String
+    let body: String
+}
+
+// MARK: - Refs
+
+enum RefKind: Int, Hashable {
+    case head, local, remote, tag
+}
+
+struct RefLabel: Identifiable, Hashable {
+    let name: String
+    let kind: RefKind
+    let isCurrent: Bool
+    var id: String { "\(kind.rawValue):\(name)" }
+}
+
+struct Branch: Identifiable, Hashable {
+    /// 로컬은 "main", 원격은 "origin/main"
+    let name: String
+    let target: String
+    let upstream: String?
+    let ahead: Int
+    let behind: Int
+    let upstreamGone: Bool
+    let isCurrent: Bool
+    let isRemote: Bool
+
+    var id: String { (isRemote ? "r:" : "l:") + name }
+
+    /// 원격 브랜치의 리모트 이름(origin). 로컬이면 nil.
+    var remote: String? {
+        isRemote ? name.split(separator: "/", maxSplits: 1).first.map(String.init) : nil
+    }
+
+    /// 리모트 접두사를 뺀 이름(origin/feature/x → feature/x)
+    var shortName: String {
+        guard isRemote, let slash = name.firstIndex(of: "/") else { return name }
+        return String(name[name.index(after: slash)...])
+    }
+}
+
+struct Tag: Identifiable, Hashable {
+    let name: String
+    let target: String
+    var id: String { name }
+}
+
+struct Stash: Identifiable, Hashable {
+    let ref: String      // stash@{0}
+    let hash: String
+    let message: String
+    var id: String { ref }
+}
+
+// MARK: - Working tree
+
+enum ChangeKind: Hashable {
+    case added, modified, deleted, renamed, copied, typeChanged, untracked, conflicted
+
+    init(code: Character) {
+        switch code {
+        case "A": self = .added
+        case "D": self = .deleted
+        case "R": self = .renamed
+        case "C": self = .copied
+        case "T": self = .typeChanged
+        case "U": self = .conflicted
+        default: self = .modified
+        }
+    }
+}
+
+struct FileChange: Identifiable, Hashable {
+    let path: String
+    let oldPath: String?
+    let kind: ChangeKind
+    let staged: Bool
+
+    var id: String { (staged ? "s:" : "w:") + (oldPath.map { $0 + " → " } ?? "") + path }
+    /// git 명령에 넘길 경로들(이름 변경이면 이전 경로 포함)
+    var paths: [String] { [oldPath, path].compactMap { $0 } }
+    var fileName: String { (path as NSString).lastPathComponent }
+    var directory: String { (path as NSString).deletingLastPathComponent }
+}
+
+struct WorkingStatus: Hashable {
+    var branch: String?
+    var upstream: String?
+    var ahead = 0
+    var behind = 0
+    var staged: [FileChange] = []
+    var unstaged: [FileChange] = []
+    var conflicted: [FileChange] = []
+
+    var isEmpty: Bool { staged.isEmpty && unstaged.isEmpty && conflicted.isEmpty }
+    var count: Int { Set((staged + unstaged + conflicted).map(\.path)).count }
+}
+
+enum RepoState: Hashable {
+    case clean, merging, rebasing, cherryPicking, reverting
+
+    var title: String {
+        switch self {
+        case .clean: return ""
+        case .merging: return "머지 진행 중"
+        case .rebasing: return "리베이스 진행 중"
+        case .cherryPicking: return "Cherry-pick 진행 중"
+        case .reverting: return "Revert 진행 중"
+        }
+    }
+}
+
+/// 파일 하나의 추가·삭제 줄 수(바이너리면 nil)
+struct LineStat: Hashable {
+    let added: Int?
+    let deleted: Int?
+}
+
+/// 로딩 화면에 보여 줄 제목과 지금 하는 일
+struct LoadingInfo: Equatable {
+    var title: String
+    var step: String
+}
+
+struct Identity: Hashable {
+    let name: String
+    let email: String
+}
+
+enum SearchScope: String, CaseIterable, Identifiable {
+    case commits, files, code
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .commits: return "커밋"
+        case .files: return "파일 경로"
+        case .code: return "코드 변경"
+        }
+    }
+    var prompt: String {
+        switch self {
+        case .commits: return "메시지·작성자·SHA·브랜치 검색 (⌘F)"
+        case .files: return "파일 이름이나 경로가 바뀐 커밋 찾기"
+        case .code: return "이 코드가 추가·삭제된 커밋 찾기"
+        }
+    }
+}
+
+// MARK: - Selection / diff
+
+enum Selection: Hashable {
+    case wip
+    case commit(String)
+    case pullRequest(Int)
+}
+
+enum DiffSource: Hashable {
+    case working(FileChange)
+    case commit(sha: String, change: FileChange, parent: String?)
+
+    var change: FileChange {
+        switch self {
+        case .working(let c): return c
+        case .commit(_, let c, _): return c
+        }
+    }
+}
+
+struct DiffLine: Identifiable {
+    enum Kind { case context, added, removed, hunk, meta }
+    let id: Int
+    let kind: Kind
+    let text: String
+    let oldNo: Int?
+    let newNo: Int?
+}
+
+struct DiffDocument {
+    var lines: [DiffLine] = []
+    var isBinary = false
+    var truncated = false
+    var error: String?
+}
+
+// MARK: - Graph
+
+struct GraphSegment: Hashable {
+    /// x 는 레인 번호, y 는 행 높이 비율(0 위, 0.5 노드, 1 아래)
+    let x1: Double
+    let y1: Double
+    let x2: Double
+    let y2: Double
+    let color: Int
+    let dashed: Bool
+}
+
+struct GraphRow: Hashable {
+    let column: Int
+    let color: Int
+    let segments: [GraphSegment]
+    let width: Int
+}
+
+struct GraphEntry: Identifiable {
+    let commit: Commit
+    let row: GraphRow
+    var id: String { commit.id }
+}
+
+// MARK: - Worktrees
+
+struct Worktree: Identifiable, Hashable {
+    let path: String
+    let head: String?
+    let branch: String?
+    let isMain: Bool
+    let locked: Bool
+    let prunable: Bool
+    var id: String { path }
+    var name: String { (path as NSString).lastPathComponent }
+}
+
+struct WorktreeStats: Hashable {
+    var added = 0
+    var modified = 0
+    var deleted = 0
+    var conflicted = 0
+    var ahead = 0
+    var behind = 0
+    var hasUpstream = false
+
+    init(_ s: WorkingStatus) {
+        var kinds: [String: ChangeKind] = [:]
+        for c in s.conflicted + s.staged + s.unstaged where kinds[c.path] == nil { kinds[c.path] = c.kind }
+        for k in kinds.values {
+            switch k {
+            case .conflicted: conflicted += 1
+            case .added, .untracked: added += 1
+            case .deleted: deleted += 1
+            default: modified += 1
+            }
+        }
+        ahead = s.ahead
+        behind = s.behind
+        hasUpstream = s.upstream != nil
+    }
+
+    var isClean: Bool { added + modified + deleted + conflicted == 0 }
+}
+
+// MARK: - Hosting (GitHub / GitLab)
+
+enum Provider: String, Codable, Hashable, CaseIterable, Identifiable {
+    case github, gitlab
+    var id: String { rawValue }
+    var title: String { self == .github ? "GitHub" : "GitLab" }
+    var requestName: String { self == .github ? "Pull Request" : "Merge Request" }
+    var requestShort: String { self == .github ? "PR" : "MR" }
+    var requestsTitle: String { self == .github ? "Pull Requests" : "Merge Requests" }
+}
+
+struct HostAccount: Codable, Hashable, Identifiable {
+    let id: String
+    let provider: Provider
+    /// https://github.com, https://gitlab.회사.co.kr
+    let server: String
+    let username: String
+    let name: String?
+    let avatarURL: String?
+
+    var host: String { URL(string: server)?.host?.lowercased() ?? server }
+    var apiBase: String { provider == .github ? "https://api.github.com" : server + "/api/v4" }
+
+    init(id: String, provider: Provider, server: String, username: String, name: String?, avatarURL: String?) {
+        self.id = id
+        self.provider = provider
+        self.server = server
+        self.username = username
+        self.name = name
+        self.avatarURL = avatarURL
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, provider, server, username, name, avatarURL }
+
+    /// 예전 버전(계정 하나, id·server 없음)으로 저장된 것도 읽는다
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        provider = try c.decode(Provider.self, forKey: .provider)
+        username = try c.decode(String.self, forKey: .username)
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        avatarURL = try c.decodeIfPresent(String.self, forKey: .avatarURL)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? "legacy-\(provider.rawValue)"
+        server = try c.decodeIfPresent(String.self, forKey: .server)
+            ?? (provider == .github ? "https://github.com" : (UserDefaults.standard.string(forKey: "gitlabHost") ?? "https://gitlab.com"))
+    }
+}
+
+/// 열린 저장소의 원격이 가리키는 호스팅 저장소
+struct RepoTarget: Hashable {
+    let provider: Provider
+    let remote: String
+    let host: String
+    let path: String          // owner/repo, group/sub/repo
+    var webURL: String { "https://\(host)/\(path)" }
+}
+
+struct PullRequest: Identifiable, Hashable {
+    let number: Int
+    let title: String
+    let author: String
+    let source: String
+    let target: String
+    let url: String
+    let isDraft: Bool
+    let updated: Date?
+    let body: String
+    let headSHA: String?
+    let fromFork: Bool
+    var id: Int { number }
+}
+
+struct RemoteRepo: Identifiable, Hashable {
+    let fullName: String
+    let cloneURL: String
+    let isPrivate: Bool
+    let summary: String?
+    var id: String { fullName }
+}
+
+enum LoadState: Hashable {
+    case idle, loading, loaded, needsAccount
+    case failed(String)
+}
+
+// MARK: - UI requests
+
+enum SheetKind: Identifiable {
+    case clone
+    case stash
+    case newBranch(start: String, label: String)
+    case tag(sha: String)
+    case createPullRequest
+    /// Claude Code 세션 시작(path 가 있으면 그 워크트리를 미리 고름)
+    case startAgent(path: String?)
+    /// branch 가 있으면 기존 브랜치를, 없으면 start 에서 새 브랜치를 워크트리로 체크아웃
+    case addWorktree(branch: String?, start: String?)
+
+    var id: String {
+        switch self {
+        case .clone: return "clone"
+        case .stash: return "stash"
+        case .newBranch(let s, _): return "branch:" + s
+        case .tag(let s): return "tag:" + s
+        case .createPullRequest: return "pr"
+        case .startAgent(let p): return "agent:" + (p ?? "")
+        case .addWorktree(let b, let s): return "wt:" + (b ?? "") + ":" + (s ?? "")
+        }
+    }
+}
+
+struct ConfirmRequest: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+    let actionTitle: String
+    var destructive = true
+    let action: @MainActor () async -> Void
+}
+
+enum PullMode { case standard, fastForward, merge, rebase }
+
+enum ResetMode: String { case soft, mixed, hard }
+
+enum OpenResult {
+    case opened
+    case notRepository(URL)
+    case failed(String)
+}
+
+extension String {
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
+}

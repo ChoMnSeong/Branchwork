@@ -1,0 +1,256 @@
+import SwiftUI
+import AppKit
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// 마지막 창을 닫으면 종료. 단, 실행 중(스플래시)에는 여분의 빈 창을 닫는 순간 작업 창이 아직 투명하게
+    /// 준비 중이라 '마지막 창'으로 잘못 판단될 수 있어 종료하지 않는다.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        MainActor.assumeIsolated { !RestoreState.shared.active }
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // 보통은 첫 창이 붙을 때 그 자리에 뜬다. 혹시 늦으면 화면 가운데에라도 띄운다.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            MainActor.assumeIsolated { Splash.shared.show() }
+        }
+        // 시스템이 첫 창을 만들지 않고 넘어가는 때가 있다(백그라운드 실행 등) — 그러면 직접 하나 연다
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            MainActor.assumeIsolated { Workspace.shared.ensureWindow() }
+        }
+    }
+}
+
+@main
+struct BranchworkApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+
+    init() {
+        // 커밋 메시지를 stdin 으로 넘기는 중 git 이 먼저 끝나도 SIGPIPE 로 앱이 죽지 않게
+        signal(SIGPIPE, SIG_IGN)
+        // 창 복원은 직접 한다(Workspace) — 시스템 복원과 겹쳐 같은 저장소가 두 번 열리지 않게
+        UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
+        NSWindow.allowsAutomaticWindowTabbing = true
+        // 버튼 설명 툴팁이 기본(1초 넘게)보다 빨리 뜨게 — 사용자가 따로 정했으면 그 값을 따른다
+        UserDefaults.standard.register(defaults: ["NSInitialToolTipDelay": 350])
+    }
+
+    var body: some Scene {
+        WindowGroup("Branchwork", id: "repo", for: String.self) { $path in
+            RepoWindow(path: $path)
+                .frame(minWidth: 1080, minHeight: 640)
+        }
+        .windowToolbarStyle(.unified)
+        .defaultSize(width: 1440, height: 900)   // 툴바 버튼이 이름까지 다 보이는 폭
+        .restorationBehavior(.disabled)   // 탭 복원은 Workspace 가 한다(시스템 복원과 겹치면 빈 창·중복 창이 생김)
+        .commands { AppCommands() }
+
+        Settings {
+            SettingsView()
+        }
+    }
+}
+
+/// 창(탭) 하나 = 저장소 하나
+struct RepoWindow: View {
+    @Binding var path: String?
+    @ViewState private var store = RepoStore()
+    @ViewState private var started = false
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        RepoContainer()
+            .environment(store)
+            .background(WindowTabbing(onAttach: { store.window = $0 }, onClose: {
+                Workspace.shared.unregister(store)
+                store.close()
+            }))
+            .focusedSceneValue(\.repoStore, store)
+            .navigationTitle(store.url == nil ? "Branchwork" : store.name)
+            .task {
+                // 탭을 오가며 화면이 다시 나타나도 한 번만 연다
+                guard !started else { return }
+                started = true
+                await setUp()
+            }
+            .onChange(of: store.url) { _, u in
+                path = u?.path
+                Workspace.shared.persist()
+            }
+            .onChange(of: path) { _, p in
+                // 복원 탭인데 경로가 조금 늦게 들어온 경우: 그때 연다
+                if store.url == nil, let p, started, Workspace.shared.awaitingWindows > 0 {
+                    Workspace.shared.windowArrived()
+                    Task {
+                        await store.openInPlace(URL(fileURLWithPath: p, isDirectory: true))
+                        store.booted = true
+                        RestoreState.shared.finished(store.name)
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                Task { await store.reload(quiet: true) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
+                if let w = note.object as? NSWindow, w === store.window { Workspace.shared.rememberSelected(store) }
+            }
+    }
+
+    private func setUp() async {
+        store.isActive = true
+        // 다른 저장소·워크트리를 열면 새 탭으로(이미 열려 있으면 그 탭이 앞으로 온다)
+        store.openRepo = { url in openWindow(id: "repo", value: url.path) }
+        Workspace.shared.register(store)
+
+        if let path {
+            Workspace.shared.windowArrived()
+            await store.openInPlace(URL(fileURLWithPath: path, isDirectory: true))
+            store.booted = true
+            RestoreState.shared.finished(store.name)
+            return
+        }
+        // 복원 탭인데 경로가 늦게 오는 경우(onChange 에서 연다) / 실행 직후 닫히는 여분 창
+        if Workspace.shared.awaitingWindows > 0 || Workspace.shared.isDuplicate(store.window) { return }
+
+        let restore = Workspace.shared.takeRestoreList()
+        RestoreState.shared.begin(total: restore.count)
+        if let first = restore.first {
+            // 나머지 탭은 이 창이 로딩 화면을 보여 주는 동안 뒤에서 하나씩 붙인다(보이는 탭은 바뀌지 않음)
+            let rest = Array(restore.dropFirst())
+            let open = openWindow
+            Task { @MainActor in
+                for u in rest {
+                    Workspace.shared.expectWindow()
+                    open(id: "repo", value: u.path)
+                    try? await Task.sleep(for: .milliseconds(120))
+                }
+            }
+            await store.openInPlace(first)
+            RestoreState.shared.finished(store.name)
+        }
+        store.booted = true
+    }
+}
+
+struct AppCommands: Commands {
+    @FocusedValue(\.repoStore) private var store
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        // 창이 하나도 없을 때도 새 창을 열 수 있게 메뉴의 openWindow 를 받아 둔다
+        let _ = Workspace.shared.setWindowOpener { [openWindow] in openWindow(id: "repo") }
+        CommandGroup(replacing: .newItem) {
+            Button("새 탭") { openWindow(id: "repo") }
+                .keyboardShortcut("t")
+            Button("저장소 열기…") {
+                if let store { store.presentOpenPanel() } else { openWindow(id: "repo") }
+            }
+            .keyboardShortcut("o")
+            Button("저장소 복제…") { store?.sheet = .clone }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+            Button("새 저장소 만들기…") { store?.presentInitPanel() }
+        }
+        CommandMenu("저장소") {
+            Button("새로 고침") { Task { await store?.reload() } }
+                .keyboardShortcut("r")
+            Button("커밋 검색") { store?.requestSearchFocus() }
+                .keyboardShortcut("f")
+            Button("다음 검색 결과") { store?.nextMatch() }
+                .keyboardShortcut("g")
+            Button("이전 검색 결과") { store?.previousMatch() }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+            Button("작업 중인 변경 보기") { store?.select(.wip) }
+                .keyboardShortcut("1")
+            Divider()
+            Button("Fetch") { Task { await store?.fetch() } }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+            Button("Pull") { Task { await store?.pull() } }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+            Button("Push") { Task { await store?.push() } }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+            Divider()
+            Button("새 브랜치…") { store?.requestNewBranch() }
+                .keyboardShortcut("b", modifiers: [.command, .shift])
+            Button("새 워크트리…") { store?.sheet = .addWorktree(branch: nil, start: nil) }
+                .keyboardShortcut("w", modifiers: [.command, .option])
+            Button("새 Pull/Merge Request…") { store?.sheet = .createPullRequest }
+                .disabled(store?.target == nil || store?.headBranch == nil)
+            Divider()
+            Button("Claude 로 커밋 메시지 작성") { Task { await store?.generateCommitMessage() } }
+                .keyboardShortcut("m", modifiers: [.command, .option])
+                .disabled(store?.status.staged.isEmpty ?? true)
+            Button("Claude Code 세션 시작…") { store?.sheet = .startAgent(path: store?.url?.path) }
+                .keyboardShortcut("k", modifiers: [.command, .option])
+                .disabled(store?.url == nil)
+            Divider()
+            Button(store?.showTerminal == true ? "터미널 숨기기" : "터미널 보기") { store?.toggleTerminal() }
+                .keyboardShortcut("`", modifiers: .control)
+                .disabled(store?.url == nil)
+            Button("새 터미널") { store?.newTerminal() }
+                .keyboardShortcut("`", modifiers: [.control, .shift])
+                .disabled(store?.url == nil)
+            Divider()
+            Button("Stash…") { store?.sheet = .stash }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+            Button("Stash Pop") { Task { await store?.stashPop() } }
+        }
+    }
+}
+
+struct RepoContainer: View {
+    @Environment(RepoStore.self) private var store
+
+    var body: some View {
+        @Bindable var store = store
+        let showLoading = !store.booted || store.loading != nil
+        ZStack {
+            if store.url != nil {
+                RepoView()
+            } else if store.booted && store.loading == nil {
+                WelcomeView()
+            }
+            if showLoading {
+                LoadingView(title: store.loading?.title ?? "Branchwork",
+                            step: store.loading?.step ?? "준비 중…")
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+        }
+        .animation(.easeInOut(duration: 0.4), value: showLoading)
+        .sheet(item: $store.sheet) { kind in
+            switch kind {
+            case .clone: CloneSheet()
+            case .stash: StashSheet()
+            case .newBranch(let start, let label): NewBranchSheet(start: start, label: label)
+            case .tag(let sha): TagSheet(sha: sha)
+            case .createPullRequest: CreatePullRequestSheet()
+            case .startAgent(let path): StartAgentSheet(presetPath: path)
+            case .addWorktree(let branch, let start): AddWorktreeSheet(presetBranch: branch, start: start)
+            }
+        }
+        .alert("작업을 완료하지 못했습니다",
+               isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(store.errorMessage ?? "")
+        }
+        .alert("Git 저장소가 아닙니다",
+               isPresented: Binding(get: { store.notRepoPrompt != nil }, set: { if !$0 { store.notRepoPrompt = nil } }),
+               presenting: store.notRepoPrompt) { folder in
+            Button("여기에 저장소 만들기") { Task { await store.initRepository(at: folder) } }
+            Button("취소", role: .cancel) {}
+        } message: { folder in
+            Text("\(folder.path) 에 새 Git 저장소를 만들까요?")
+        }
+        .confirmationDialog(store.confirm?.title ?? "",
+                            isPresented: Binding(get: { store.confirm != nil }, set: { if !$0 { store.confirm = nil } }),
+                            titleVisibility: .visible,
+                            presenting: store.confirm) { req in
+            Button(req.actionTitle, role: req.destructive ? .destructive : nil) {
+                Task { await req.action() }
+            }
+            Button("취소", role: .cancel) {}
+        } message: { req in
+            Text(req.message)
+        }
+    }
+}
