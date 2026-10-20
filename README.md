@@ -28,17 +28,20 @@ Git 동작은 시스템 `git` 을 그대로 호출하고, 화면·그래프 배�
 - **툴바**: Fetch, Pull(기본/ff-only/merge/rebase), Push(업스트림 자동 설정, force-with-lease), 새 브랜치, Stash/Pop
 - **진행 중 작업**: 머지·리베이스·cherry-pick 충돌 배너(중단/계속), 충돌 파일 "해결됨으로 표시"
 - **워크트리**: 목록(사이드바), 새 워크트리(새 브랜치/기존 브랜치, 기본 위치 `<저장소>-worktrees/<브랜치>`), 제거·강제 제거·정리, Branchwork·Finder·터미널에서 열기, 다른 워크트리가 쓰는 브랜치 표시
-- **Claude**
-  - 연결: 이 맥의 Claude Code 로그인(`claude -p`, 도구 끔) 또는 Anthropic API 키(기본 모델 `claude-opus-5-5`, 거절 시 서버 측 fallbacks)
-  - 스테이지된 변경으로 커밋 메시지 작성(최근 커밋 말투를 따름), 커밋 설명, PR/MR 제목·본문 작성
-  - 워크트리·저장소에서 Claude Code 실행(Terminal, 첫 작업 지시 전달 가능)
+- **AI** (설정 > AI) — 커밋 메시지·커밋 설명·PR/MR 제목·본문 작성
+  - 고를 수 있는 AI: Claude Code·Codex(ChatGPT 로그인)·Gemini CLI(이 PC 의 로그인 그대로, 도구는 끈 채 글만), Claude API·ChatGPT API·Gemini API(키), OpenAI 호환 서버(Ollama·LM Studio·OpenRouter 등). API 는 계정의 모델 목록을 받아 온다
+  - **규칙**(설정 > 규칙): 공통 규칙 + 커밋 메시지·커밋 설명·PR 설명 규칙(예: `prefix 는 Feature, Fix, Hotfix 중 하나`), 자주 쓰는 규칙 버튼, 기능마다 다른 AI 지정
+  - **나눠서 커밋**: AI 가 바뀐 파일을 주요 내용별로 묶은 계획을 보여 주고, 메시지·파일을 고친 뒤 차례로 커밋
+- **에이전트**: Claude Code·Codex·Gemini CLI 세션을 워크트리·저장소에서 실행(첫 작업 지시, 권한 모드). Claude Code 는 상태(작업 중·권한 요청·입력 대기)까지 보인다
+- **도구**(설정 > 도구): git·Claude Code·Codex·Gemini CLI·gh·터미널 셸을 자동으로 찾고, 못 찾으면 **불러오기**로 실행 파일을 직접 고른다
+- **자동 업데이트**: 켤 때와 하루에 한 번 새 버전을 확인해 알리고, 누르면 받아서 설치한 뒤 다시 시작한다(맥: SHA-256·번들 ID·코드 서명 확인, Windows: 업데이트 서명 확인). 메뉴 '업데이트 확인…'
 - **GitHub / GitLab**
   - 계정 연결: 토큰(키체인 보관), GitHub 는 `gh` 로그인 가져오기 지원, GitLab 은 자체 호스팅 주소 지정
   - 열린 PR/MR 목록·상세(사이드바), 브랜치 체크아웃(포크는 `pr/번호`·`mr/번호`), 브라우저로 열기
   - 현재 브랜치로 PR/MR 만들기(필요하면 먼저 push, Draft 지원)
   - 복제 창에서 내 저장소 목록·검색
   - HTTPS push/pull/clone 인증: 연결한 토큰으로 GIT_ASKPASS 응답(기존 키체인·자격 증명 도우미가 우선)
-- **에이전트 탭**(사이드바 목록/에이전트 전환): 워크트리 카드(새 파일·수정·삭제 수, 원격 대비 ↑↓)와 그 안에서 도는 Claude Code 세션 상태(작업 중·권한 요청·입력 대기·종료), 세션 시작(워크트리 선택 또는 새 워크트리, 맡길 작업, 권한 모드), 세션을 누르면 그 Terminal 탭으로 이동
+- **에이전트 탭**(사이드바 목록/에이전트 전환): 워크트리 카드(새 파일·수정·삭제 수, 원격 대비 ↑↓)와 그 안에서 도는 에이전트 세션 상태(작업 중·권한 요청·입력 대기·종료), 세션 시작(워크트리 선택 또는 새 워크트리, 맡길 작업, 권한 모드), 세션을 누르면 그 Terminal 탭으로 이동
   - 상태는 Branchwork 가 띄운 세션에 `--settings` 로 더한 훅(`~/Library/Application Support/Branchwork/agents/hook.sh`)이 남기는 파일로 판단한다. 사용자 설정·훅은 그대로 유지된다.
 - **변경 파일 보기**: 목록 / 폴더 트리 전환(작업 영역·커밋 상세), 트리에서 폴더 단위 스테이지·언스테이지
 - **탭**: macOS 기본 창 탭으로 여러 저장소·워크트리를 열어 두고 오간다(⌘T 새 탭, ⌘W 닫기, ⌃Tab 이동, 탭을 끌어 새 창으로). 다른 저장소·워크트리를 열면 새 탭(이미 열려 있으면 그 탭). 다시 켜면 탭 복원
@@ -77,7 +80,7 @@ push/pull 이 자격 증명을 물으면 멈추지 않고 실패하도록 해 �
   - 저장소 탭은 창 안의 탭(Ctrl+T 새 탭, Ctrl+W 닫기, Ctrl+Tab 이동, 가운데 클릭으로 닫기)
   - 단축키는 ⌘ 대신 Ctrl(새로 고침은 F5, 다음 검색 결과는 F3)
   - 터미널은 PowerShell(pwsh 가 있으면 pwsh). Ctrl+C 는 선택이 있으면 복사, Ctrl+V 붙여넣기
-  - Claude Code 에이전트 세션은 Terminal 앱 대신 아래 터미널 패널의 탭에서 돈다
+  - 에이전트 세션(Claude Code·Codex·Gemini CLI)은 Terminal 앱 대신 아래 터미널 패널의 탭에서 돈다
   - 토큰은 Windows 자격 증명 관리자에, 설정은 `%APPDATA%\Branchwork` 에 둔다
 - **빌드**: Node.js 22 와 Rust(stable) 가 있으면
 
@@ -88,7 +91,8 @@ push/pull 이 자격 증명을 물으면 멈추지 않고 실패하도록 해 �
   npx vitest run       # 파서·그래프 단위 테스트
   ```
 
-- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 저장소 열기·스테이지·커밋·브랜치·머지·검색·stash·터미널·자격 증명·도우미 모드를 실제 앱에서 차례로 해 보고 결과를 남긴다. GitHub Actions 의 Windows 서버에서 푸시마다 돈다(`.github/workflows/windows.yml`).
+- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 저장소 열기·스테이지·커밋·브랜치·머지·검색·stash·터미널·자격 증명·도우미 모드·도구 불러오기·AI 커밋 메시지·규칙·나눠서 커밋·업데이트 서명 확인을 실제 앱에서 차례로 해 보고 결과를 남긴다(가짜 AI·업데이트 서버 `tests/mock-ai-server.mjs`). GitHub Actions 의 Windows 서버에서 푸시마다 돈다(`.github/workflows/windows.yml`).
+- **업데이트 서명**: 릴리스 빌드는 `TAURI_SIGNING_PRIVATE_KEY`(GitHub Actions 비밀 값)로 설치 파일에 서명하고, 앱은 `tauri.conf.json` 의 공개 키로 확인한 뒤에만 설치한다. 릴리스에 `latest.json`(`windows/scripts/latest-json.mjs`)을 함께 올린다.
 
 ## 라이선스
 

@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             MainActor.assumeIsolated { Splash.shared.show() }
         }
+        MainActor.assumeIsolated { UpdateCenter.shared.start() }
         // 시스템이 첫 창을 만들지 않고 넘어가는 때가 있다(백그라운드 실행 등) — 그러면 직접 하나 연다
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             MainActor.assumeIsolated { Workspace.shared.ensureWindow() }
@@ -138,6 +139,9 @@ struct AppCommands: Commands {
     var body: some Commands {
         // 창이 하나도 없을 때도 새 창을 열 수 있게 메뉴의 openWindow 를 받아 둔다
         let _ = Workspace.shared.setWindowOpener { [openWindow] in openWindow(id: "repo") }
+        CommandGroup(after: .appInfo) {
+            Button("업데이트 확인…") { Task { await UpdateCenter.shared.check(manual: true) } }
+        }
         CommandGroup(replacing: .newItem) {
             Button("새 탭") { openWindow(id: "repo") }
                 .keyboardShortcut("t")

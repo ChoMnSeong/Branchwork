@@ -38,8 +38,18 @@ jobs:
           npx tsc --noEmit
           npx vitest run
 
-      - name: 빌드 (설치 파일)
-        run: npx tauri build
+      - name: 빌드 (설치 파일 + 업데이트 서명)
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            npx tauri build
+          else
+            # 서명 열쇠가 없는 곳(포크 PR 등)에서는 업데이트 파일 없이 빌드
+            npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          fi
 
       - name: 테스트 저장소 만들기
         shell: bash
@@ -51,8 +61,11 @@ jobs:
       - name: 자동 점검 (실제 앱 실행)
         shell: pwsh
         run: |
-          # AI 연결 점검용 가짜 OpenAI 호환 서버
-          $mock = Start-Process -FilePath node -ArgumentList "tests/mock-ai-server.mjs", "18080" -PassThru -WindowStyle Hidden
+          # AI 연결·자동 업데이트 점검용 가짜 서버(방금 만든 설치 파일과 서명을 업데이트로 내놓는다)
+          $setup = Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          $mockArgs = @("tests/mock-ai-server.mjs", "18080")
+          if (Test-Path "$($setup.FullName).sig") { $mockArgs += @("`"$($setup.FullName)`"", "`"$($setup.FullName).sig`"") }
+          $mock = Start-Process -FilePath node -ArgumentList $mockArgs -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 2
           try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop } catch { Write-Host "해상도 변경 불가: $_" }
           $exe = Resolve-Path "src-tauri/target/release/branchwork.exe"
@@ -91,4 +104,5 @@ jobs:
           name: branchwork-windows
           path: |
             windows/src-tauri/target/release/bundle/nsis/*.exe
+            windows/src-tauri/target/release/bundle/nsis/*.sig
             windows/src-tauri/target/release/branchwork.exe

@@ -6,6 +6,7 @@ import { initEnv } from "./lib/env";
 import { ai } from "./lib/ai";
 import { gitAvailable } from "./lib/git";
 import { tools } from "./lib/tools";
+import { updater } from "./lib/updater";
 import { ipc } from "./lib/ipc";
 import { settings } from "./lib/settings";
 import { workspace } from "./lib/workspace";
@@ -28,6 +29,7 @@ async function boot() {
   // 첫 화면(로딩 애니메이션)이 그려진 뒤 창을 보여 준다 — 흰 화면 번쩍임 없이.
   // 숨긴 창에서는 requestAnimationFrame 이 돌지 않으므로 타이머로 부른다.
   setTimeout(() => void ipc.appReady(), 30);
+  updater.start();
   window.addEventListener("beforeunload", () => void settings.flush());
   if (git) {
     const test = await runSelfTest();

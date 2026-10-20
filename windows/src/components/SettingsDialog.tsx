@@ -7,7 +7,11 @@ import { ipc } from "../lib/ipc";
 import { accountHost, type HostAccount, type Provider } from "../lib/models";
 import { useObserve } from "../lib/observable";
 import { toolList, tools, type ToolId } from "../lib/tools";
-import { Avatar, Button, Modal, Segmented, Spinner } from "./ui";
+import { updater } from "../lib/updater";
+import { settings } from "../lib/settings";
+import { env } from "../lib/env";
+import icon from "../assets/icon.png";
+import { Avatar, Button, Checkbox, Modal, Segmented, Spinner } from "./ui";
 
 /** Ctrl+, 설정: 계정(GitHub·GitLab), AI, 도구(실행 파일 위치) */
 export function SettingsDialog({ onClose, initialTab = "accounts" }: { onClose: () => void; initialTab?: SettingsTab }) {
@@ -22,16 +26,71 @@ export function SettingsDialog({ onClose, initialTab = "accounts" }: { onClose: 
           { value: "ai", label: "AI" },
           { value: "rules", label: "규칙" },
           { value: "tools", label: "도구" },
+          { value: "about", label: "업데이트" },
         ]}
       />
       <div style={{ minHeight: 420 }}>
-        {tab === "accounts" ? <AccountsSettings /> : tab === "ai" ? <AISettings /> : tab === "rules" ? <RulesSettings /> : <ToolsSettings />}
+        {tab === "accounts" ? (
+          <AccountsSettings />
+        ) : tab === "ai" ? (
+          <AISettings />
+        ) : tab === "rules" ? (
+          <RulesSettings />
+        ) : tab === "tools" ? (
+          <ToolsSettings />
+        ) : (
+          <AboutSettings />
+        )}
       </div>
     </Modal>
   );
 }
 
-export type SettingsTab = "accounts" | "ai" | "rules" | "tools";
+export type SettingsTab = "accounts" | "ai" | "rules" | "tools" | "about";
+
+/** 버전과 자동 업데이트 */
+function AboutSettings() {
+  useObserve(updater);
+  useObserve(settings);
+  const status =
+    updater.state === "checking"
+      ? "확인하는 중…"
+      : updater.state === "available"
+        ? `새 버전 ${updater.info?.version} 이(가) 있습니다`
+        : updater.state === "none"
+          ? "최신 버전입니다"
+          : updater.state === "error"
+            ? `확인 실패: ${updater.error}`
+            : "";
+  return (
+    <div className="col" style={{ gap: 14 }}>
+      <div className="form-section">
+        <div className="row">
+          <img src={icon} width={48} height={48} alt="" />
+          <div className="col grow">
+            <span style={{ fontSize: 16, fontWeight: 600 }}>Branchwork {env.version}</span>
+            <span className="hint">Git 저장소를 그래프로 보고 다루는 앱 · MIT</span>
+          </div>
+          <button className="link" onClick={() => void ipc.openUrl("https://github.com/ChoMnSeong/Branchwork/releases")}>
+            릴리스 노트
+          </button>
+        </div>
+      </div>
+      <div className="form-section">
+        <span className="form-section-title">자동 업데이트</span>
+        <Checkbox checked={updater.autoCheck} onChange={(v) => updater.setAutoCheck(v)} label="켤 때와 하루에 한 번 새 버전 확인" />
+        <div className="row">
+          <Button disabled={updater.state === "checking" || updater.state === "downloading"} onClick={() => void updater.check(true)}>
+            지금 확인
+          </Button>
+          {updater.state === "checking" && <Spinner />}
+          <span className="hint grow">{status}</span>
+        </div>
+        <span className="hint">새 버전이 있으면 알려 주고, 누르면 받아서 설치한 뒤 다시 시작합니다. 설치 파일은 Branchwork 서명이 맞을 때만 설치됩니다.</span>
+      </div>
+    </div>
+  );
+}
 
 /** AI 규칙: 공통 규칙 + 기능별 규칙(커밋 메시지·커밋 설명·PR), 기능마다 쓸 AI */
 function RulesSettings() {

@@ -6,6 +6,7 @@ mod net;
 mod process;
 mod pty;
 mod system;
+mod update;
 mod watch;
 
 use tauri::Manager;
@@ -22,6 +23,8 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(update::PendingUpdate::default())
         .setup(|app| {
             // 배포본에서는 웹뷰의 브라우저 단축키(F5 새로 고침, Ctrl+F 찾기, Ctrl+P 인쇄 등)를 끈다 — 앱 단축키와 겹치지 않게
             #[cfg(all(windows, not(debug_assertions)))]
@@ -79,6 +82,10 @@ pub fn run() {
             system::reveal_path,
             system::open_terminal,
             system::app_ready,
+            update::update_check,
+            update::update_install,
+            update::update_verify,
+            update::app_restart,
         ])
         .run(tauri::generate_context!())
         .expect("Branchwork 를 시작하지 못했습니다");

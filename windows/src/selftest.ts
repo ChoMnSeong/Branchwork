@@ -1,6 +1,7 @@
 import { env, isWindows, joinPath, dirname } from "./lib/env";
 import { ipc } from "./lib/ipc";
 import { isWIP, statusIsEmpty } from "./lib/models";
+import { invoke } from "@tauri-apps/api/core";
 import { ai } from "./lib/ai";
 import { tools } from "./lib/tools";
 import { workspace } from "./lib/workspace";
@@ -242,6 +243,28 @@ export async function runSelfTest(): Promise<boolean> {
     ai.setProvider(prev.provider);
     ai.setBaseURL(prev.base);
     return [ok1 && after.length === before + 2 && subjects.includes("Rule: md 파일 정리") && subjects.includes("Rule: txt 파일 정리") && statusIsEmpty(s.status), `plan=${planText} subjects=${subjects} error=${s.errorMessage}`];
+  });
+
+  // 자동 업데이트: 가짜 업데이트 서버(9.9.9)에서 서명이 맞는 파일만 받는지
+  await step("자동 업데이트(서명 확인)", async () => {
+    const base = "http://127.0.0.1:18080/update";
+    let up = false;
+    try {
+      up = (await ipc.http("GET", base + "/latest.json", {}, undefined, 3000)).status === 200;
+    } catch {
+      up = false;
+    }
+    if (!up) return [true, "가짜 업데이트 서버 없음 — 건너뜀"];
+    const info = await invoke<{ version: string } | null>("update_check", { endpoint: base + "/latest.json" });
+    const size = await invoke<number>("update_verify");
+    await invoke("update_check", { endpoint: base + "/tampered.json" });
+    let rejected = "";
+    try {
+      await invoke("update_verify");
+    } catch (e) {
+      rejected = String(e);
+    }
+    return [info?.version === "9.9.9" && size > 0 && !!rejected, `version=${info?.version} size=${size} tampered=${rejected.slice(0, 120)}`];
   });
 
   await step("설정 화면", async () => {

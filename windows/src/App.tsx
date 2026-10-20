@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { LoadingView } from "./components/LoadingView";
 import { RepoContainer } from "./components/RepoContainer";
 import { SettingsDialog, type SettingsTab } from "./components/SettingsDialog";
+import { UpdateDialog } from "./components/UpdateDialog";
+import { updater } from "./lib/updater";
 import { IconButton, MenuHost, showMenuBelow, Spinner, tip, TooltipHost } from "./components/ui";
 import { env, isMac, keyLabel } from "./lib/env";
 import { ipc } from "./lib/ipc";
@@ -50,6 +52,7 @@ export function App({ gitMissing }: { gitMissing: boolean }) {
           }}
         />
       )}
+      <UpdateDialog />
       <MenuHost />
       <TooltipHost />
     </div>
@@ -86,6 +89,7 @@ function TabBar({ openSettings }: { openSettings: () => void }) {
               { label: "터미널 보기/숨기기", shortcut: "Ctrl+`", disabled: !s?.path, onClick: () => s?.toggleTerminal() },
               "divider",
               { label: "설정…", shortcut: "Ctrl+,", onClick: openSettings },
+              { label: updater.state === "available" ? `업데이트 ${updater.info?.version} 설치…` : "업데이트 확인…", onClick: () => void updater.check(true) },
               { label: `Branchwork ${env.version} · GitHub`, onClick: () => void ipc.openUrl("https://github.com/ChoMnSeong/Branchwork") },
             ]);
           }}
