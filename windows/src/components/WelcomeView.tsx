@@ -4,12 +4,15 @@ import { ipc } from "../lib/ipc";
 import { useObserve } from "../lib/observable";
 import type { RepoStore } from "../lib/repo";
 import { recents, removeRecent, settings } from "../lib/settings";
+import { tools } from "../lib/tools";
 import { Button, showContextMenu } from "./ui";
 import icon from "../assets/icon.png";
 
 /** 저장소를 열기 전 첫 화면: 열기·복제·새로 만들기 + 최근 저장소 */
-export function WelcomeView({ store, gitMissing }: { store: RepoStore; gitMissing: boolean }) {
+export function WelcomeView({ store }: { store: RepoStore; gitMissing?: boolean }) {
   useObserve(settings);
+  useObserve(tools);
+  const gitMissing = !tools.path("git");
   const list = recents();
   return (
     <div className="welcome">
@@ -22,10 +25,25 @@ export function WelcomeView({ store, gitMissing }: { store: RepoStore; gitMissin
             <span className="row" style={{ color: "var(--orange)", fontWeight: 600 }}>
               <TriangleAlert size={15} /> git 을 찾지 못했습니다
             </span>
-            <span className="muted">Branchwork 는 이 PC 의 git 을 그대로 씁니다. Git for Windows 를 설치한 뒤 다시 켜 주세요.</span>
-            <Button kind="primary" onClick={() => void ipc.openUrl("https://git-scm.com/download/win")}>
-              Git for Windows 받기
-            </Button>
+            <span className="muted">Branchwork 는 이 PC 의 git 을 그대로 씁니다. Git for Windows 를 설치하거나, 이미 있다면 git.exe 를 직접 불러오세요.</span>
+            <div className="row">
+              <Button kind="primary" onClick={() => void ipc.openUrl("https://git-scm.com/download/win")}>
+                Git for Windows 받기
+              </Button>
+              <Button
+                onClick={() =>
+                  void ipc.pickFile("git.exe 선택").then((p) => {
+                    if (p)
+                      tools.setCustom("git", p).catch((e) => {
+                        store.errorMessage = String(e instanceof Error ? e.message : e);
+                        store.changed();
+                      });
+                  })
+                }
+              >
+                git.exe 불러오기…
+              </Button>
+            </div>
           </div>
         )}
         <div className="col" style={{ gap: 8, marginTop: 8 }}>

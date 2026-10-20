@@ -26,6 +26,9 @@ export interface EnvInfo {
   version: string;
   /** 자동 점검(CI): 열어 볼 테스트 저장소 경로 */
   selftest: string | null;
+  selftestOpen: string | null;
+  appData: string;
+  localAppData: string;
 }
 
 export type PtyEvent = { kind: "data"; data: string } | { kind: "exit"; code: number | null };
@@ -94,6 +97,7 @@ export const ipc = {
 
   envInfo: () => invoke<EnvInfo>("env_info"),
   pickFolder: (title: string, start?: string) => invoke<string | null>("pick_folder", { title, start: start ?? null }),
+  pickFile: (title: string, start?: string) => invoke<string | null>("pick_file", { title, start: start ?? null }),
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   reveal: (path: string) => invoke<void>("reveal_path", { path }),
   openTerminal: (path: string) => invoke<void>("open_terminal", { path }),

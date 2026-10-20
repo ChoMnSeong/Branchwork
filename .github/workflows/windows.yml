@@ -51,6 +51,9 @@ jobs:
       - name: 자동 점검 (실제 앱 실행)
         shell: pwsh
         run: |
+          # AI 연결 점검용 가짜 OpenAI 호환 서버
+          $mock = Start-Process -FilePath node -ArgumentList "tests/mock-ai-server.mjs", "18080" -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 2
           try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop } catch { Write-Host "해상도 변경 불가: $_" }
           $exe = Resolve-Path "src-tauri/target/release/branchwork.exe"
           $result = "$env:ST_ROOT/selftest-result.json"
@@ -66,6 +69,7 @@ jobs:
           $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
           $bmp.Save("$env:ST_ROOT/selftest.png")
           if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          if (-not $mock.HasExited) { Stop-Process -Id $mock.Id -Force }
           if (-not (Test-Path $result)) { Write-Error "자동 점검 결과가 없습니다(앱이 시작하지 못했거나 멈춤)"; exit 1 }
           $r = Get-Content $result -Raw -Encoding utf8 | ConvertFrom-Json
           foreach ($c in $r.checks) { $mark = if ($c.ok) { "OK  " } else { "FAIL" }; Write-Host "$mark $($c.name) $(if (-not $c.ok) { $c.detail })" }

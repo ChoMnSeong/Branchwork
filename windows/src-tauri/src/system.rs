@@ -113,6 +113,11 @@ pub struct EnvInfo {
     version: String,
     /// 자동 점검(CI): 열어 볼 테스트 저장소 경로
     selftest: Option<String>,
+    /// 자동 점검이 끝난 뒤 열어 둘 설정 탭(화면 확인용)
+    selftest_open: Option<String>,
+    /// %APPDATA% / %LOCALAPPDATA% (맥은 Application Support) — 프로그램 설치 위치를 찾을 때
+    app_data: String,
+    local_app_data: String,
 }
 
 #[tauri::command]
@@ -134,6 +139,9 @@ pub fn env_info(app: AppHandle) -> EnvInfo {
         shell,
         version: app.package_info().version.to_string(),
         selftest: std::env::var("BRANCHWORK_SELFTEST").ok().filter(|s| !s.is_empty()),
+        selftest_open: std::env::var("BRANCHWORK_SELFTEST_OPEN").ok().filter(|s| !s.is_empty()),
+        app_data: dirs::data_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
+        local_app_data: dirs::data_local_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
     }
 }
 
@@ -147,6 +155,24 @@ pub async fn pick_folder(app: AppHandle, title: String, start: Option<String>) -
             d = d.set_directory(s);
         }
         d.blocking_pick_folder().and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().into_owned())
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// 실행 파일 하나 고르기(PC 마다 설치 위치가 달라 자동으로 못 찾을 때)
+#[tauri::command]
+pub async fn pick_file(app: AppHandle, title: String, start: Option<String>) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut d = app.dialog().file().set_title(&title);
+        if cfg!(windows) {
+            d = d.add_filter("프로그램", &["exe", "cmd", "bat"]).add_filter("모든 파일", &["*"]);
+        }
+        if let Some(s) = start.map(|s| crate::process::native(&s)).filter(|s| Path::new(s).is_dir()) {
+            d = d.set_directory(s);
+        }
+        d.blocking_pick_file().and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().into_owned())
     })
     .await
     .ok()

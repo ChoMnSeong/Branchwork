@@ -74,6 +74,7 @@ pub fn run() {
             system::fs_mkdirs,
             system::env_info,
             system::pick_folder,
+            system::pick_file,
             system::open_url,
             system::reveal_path,
             system::open_terminal,

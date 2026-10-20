@@ -1,5 +1,6 @@
 import { isWindows } from "./env";
 import { ipc, type ProcOutput } from "./ipc";
+import { tools } from "./tools";
 
 export class GitError extends Error {
   constructor(
@@ -74,7 +75,7 @@ export async function git(args: string[], cwd: string, o: GitOptions = {}): Prom
 /** 종료 코드와 상관없이 결과를 돌려준다(git 을 띄우지 못했을 때만 던짐) */
 export async function gitRaw(args: string[], cwd: string, o: GitOptions = {}): Promise<GitResult> {
   try {
-    return await ipc.run("git", [...baseArgs, ...args], {
+    return await ipc.run(tools.path("git") ?? "git", [...baseArgs, ...args], {
       cwd,
       env: { ...baseEnv(), ...(o.env ?? {}) },
       stdin: o.input,
@@ -83,18 +84,13 @@ export async function gitRaw(args: string[], cwd: string, o: GitOptions = {}): P
   } catch (e) {
     const m = String(e);
     if (/실행하지 못했습니다/.test(m) && isWindows()) {
-      throw new GitError("git", "git 을 찾지 못했습니다. Git for Windows(https://git-scm.com/download/win)를 설치한 뒤 Branchwork 를 다시 켜 주세요.");
+      throw new GitError("git", "git 을 찾지 못했습니다. Git for Windows(https://git-scm.com/download/win)를 설치하거나, 설정 > 도구에서 git.exe 를 불러오세요.");
     }
     throw new GitError("git", m);
   }
 }
 
-/** git 이 설치돼 있는지(없으면 시작 화면에서 안내) */
-export async function gitVersion(): Promise<string | null> {
-  try {
-    const r = await ipc.run("git", ["--version"], { timeoutMs: 15000 });
-    return r.status === 0 ? r.stdout.trim() : null;
-  } catch {
-    return null;
-  }
+/** git 을 찾았는지(없으면 시작 화면에서 안내) */
+export function gitAvailable(): boolean {
+  return !!tools.path("git");
 }

@@ -3,6 +3,7 @@ import { Terminal, type ITheme } from "@xterm/xterm";
 import { basename, env, isMac, isWindows } from "./env";
 import { ipc } from "./ipc";
 import { Observable } from "./observable";
+import { tools } from "./tools";
 
 export interface TerminalSpec {
   directory: string;
@@ -162,11 +163,10 @@ export class TerminalSession extends Observable {
     return Promise.resolve();
   }
 
+  /** 설정 > 도구의 셸(직접 고른 것 → PowerShell/로그인 셸) */
   private defaultShell(): { program: string; args: string[] } {
-    if (isWindows()) {
-      return { program: env.shell, args: ["-NoLogo"] };
-    }
-    return { program: env.shell || "/bin/zsh", args: ["-l"] };
+    const program = tools.path("shell") ?? (isWindows() ? "powershell.exe" : env.shell || "/bin/zsh");
+    return { program, args: tools.shellArgs(program) };
   }
 
   async start() {

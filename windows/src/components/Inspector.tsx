@@ -1,5 +1,6 @@
 import { ArrowLeft, CircleCheck, CircleMinus, CirclePlus, Clock, ExternalLink, GitBranch, GitMerge, GitPullRequest, Hash, CircleDot, Sparkles, TriangleAlert, Waypoints, ArrowDownToLine } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { ai } from "../lib/ai";
 import { keyLabel } from "../lib/env";
 import { laneColor, longDate, shortDate } from "../lib/format";
 import { providerInfo, sameDiffSource, short, statusCount, statusIsEmpty, type FileChange } from "../lib/models";
@@ -11,6 +12,7 @@ import { Avatar, Button, Card, ChangeBar, Checkbox, Empty, LineStatText, RefBadg
 /** 오른쪽 열: 작업 영역 또는 커밋 상세 */
 export function Inspector({ store }: { store: RepoStore }) {
   useObserve(store);
+  useObserve(ai);
   const sel = store.selection;
   if (!sel) return <Empty icon={<Waypoints size={30} strokeWidth={1.5} />} title="선택된 커밋 없음" detail="그래프에서 커밋을 선택하세요." />;
   if (sel.kind === "wip") return <WorkingChanges store={store} />;
@@ -157,7 +159,7 @@ function CommitComposer({ store }: { store: RepoStore }) {
           size="small"
           disabled={!n || !!store.aiWorking}
           onClick={() => void store.generateCommitMessage()}
-          tip={tip("Claude 로 작성", "스테이지된 변경을 보고 Claude 가 커밋 메시지를 씁니다", "Ctrl+Alt+M")}
+          tip={tip(`${ai.short}로 작성`, `스테이지된 변경을 보고 ${ai.info.title} 가 커밋 메시지를 씁니다. AI 는 설정 > AI 에서 바꿉니다.`, "Ctrl+Alt+M")}
         >
           {store.aiWorking ? (
             <>
@@ -165,7 +167,7 @@ function CommitComposer({ store }: { store: RepoStore }) {
             </>
           ) : (
             <>
-              <Sparkles size={13} /> Claude 로 작성
+              <Sparkles size={13} /> {ai.short}로 작성
             </>
           )}
         </Button>
@@ -288,7 +290,7 @@ function CommitDetailView({ store, sha }: { store: RepoStore; sha: string }) {
         <Card>
           <div className="row">
             <span className="row" style={{ color: "var(--accent)", fontWeight: 600 }}>
-              <Sparkles size={14} /> Claude 설명
+              <Sparkles size={14} /> {ai.short} 설명
             </span>
             <span className="spacer" />
             {store.explaining.has(sha) ? (

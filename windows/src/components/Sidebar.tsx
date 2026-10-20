@@ -398,7 +398,7 @@ function WorktreeSection({ store }: { store: RepoStore }) {
                 { label: "탐색기에서 보기", onClick: () => void ipc.reveal(w.path) },
                 { label: "아래 터미널에서 열기", onClick: () => store.newTerminal(w.path) },
                 { label: "외부 터미널에서 열기", onClick: () => void ipc.openTerminal(w.path) },
-                { label: "Claude Code 실행", onClick: () => void store.startClaude(w.path) },
+                { label: "에이전트 실행", onClick: () => void store.startAgent(w.path) },
                 { label: "경로 복사", onClick: () => store.copy(displayPath(w.path)) },
                 "divider",
                 { label: "제거…", danger: true, disabled: w.isMain || current, onClick: () => store.confirmRemove(w) },

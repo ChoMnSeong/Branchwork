@@ -1,6 +1,6 @@
 import { GitBranch, House, Pencil, Plus, Sparkles, Zap } from "lucide-react";
 import { useEffect } from "react";
-import { agents, agentStatusTitle, type AgentSession, type AgentStatus } from "../lib/agents";
+import { agentKind, agents, agentStatusTitle, type AgentSession, type AgentStatus } from "../lib/agents";
 import { displayPath, samePath } from "../lib/env";
 import { shortDate } from "../lib/format";
 import { statsClean, type Worktree, type WorktreeStats } from "../lib/models";
@@ -39,10 +39,10 @@ export function AgentsPanel({ store }: { store: RepoStore }) {
         <IconButton small icon={<Plus size={13} />} tip="새 워크트리" onClick={() => sheet({ kind: "addWorktree", branch: null, start: null })} />
       </div>
       <div className="row">
-        <Button size="large" className="grow" onClick={() => sheet({ kind: "startAgent", path: null })} tip="Claude Code 세션 시작|작업할 워크트리와 맡길 일을 고릅니다">
+        <Button size="large" className="grow" onClick={() => sheet({ kind: "startAgent", path: null })} tip="에이전트 세션 시작|Claude Code·Codex·Gemini CLI 중 하나로, 작업할 워크트리와 맡길 일을 고릅니다">
           <Sparkles size={14} /> 세션 시작
         </Button>
-        <Button size="large" onClick={() => store.path && void store.startClaude(store.path)} tip="지금 이 워크트리에서 바로 시작">
+        <Button size="large" onClick={() => store.path && void store.startAgent(store.path)} tip={`지금 이 워크트리에서 ${agentKind(agents.defaultKind).title} 바로 시작`}>
           <Zap size={14} />
         </Button>
       </div>
@@ -74,7 +74,7 @@ function WorktreeCard({ store, worktree: w, stats, sessions, isCurrent }: { stor
       onContextMenu={(e) =>
         showContextMenu(e, [
           {
-            label: "Claude Code 세션 시작…",
+            label: "에이전트 세션 시작…",
             onClick: () => {
               store.sheet = { kind: "startAgent", path: w.path };
               store.changed();
@@ -100,7 +100,7 @@ function WorktreeCard({ store, worktree: w, stats, sessions, isCurrent }: { stor
           small
           className="hover-only"
           icon={<Sparkles size={13} />}
-          tip="이 워크트리에서 Claude Code 세션 시작"
+          tip="이 워크트리에서 에이전트 세션 시작"
           onClick={() => {
             store.sheet = { kind: "startAgent", path: w.path };
             store.changed();
@@ -157,6 +157,7 @@ function WorktreeCard({ store, worktree: w, stats, sessions, isCurrent }: { stor
 
 const dotColor: Record<AgentStatus, string> = {
   working: "var(--accent)",
+  running: "var(--accent)",
   permission: "var(--red)",
   starting: "var(--orange)",
   waiting: "var(--orange)",
@@ -173,7 +174,7 @@ function SessionRow({ store, session: s, showPath }: { store: RepoStore; session
       onContextMenu={(e) =>
         showContextMenu(e, [
           { label: "터미널로 이동", disabled: !can, onClick: () => agents.focus(s) },
-          { label: "같은 곳에서 새 세션", onClick: () => void store.startClaude(s.path) },
+          { label: "같은 곳에서 새 세션", onClick: () => void store.startAgent(s.path, "", null, s.kind) },
           "divider",
           s.status === "ended"
             ? { label: "목록에서 지우기", onClick: () => void agents.remove(s.id) }
@@ -181,15 +182,18 @@ function SessionRow({ store, session: s, showPath }: { store: RepoStore; session
                 label: "세션 끝내기…",
                 danger: true,
                 onClick: () =>
-                  store.ask({ title: "Claude Code 세션을 끝낼까요?", message: s.task || s.path, actionTitle: "끝내기", action: () => agents.stop(s) }),
+                  store.ask({ title: `${agentKind(s.kind).title} 세션을 끝낼까요?`, message: s.task || s.path, actionTitle: "끝내기", action: () => agents.stop(s) }),
               },
         ])
       }
     >
-      <span className={`dot ${s.status === "working" ? "pulse" : ""}`} style={{ background: dotColor[s.status], marginTop: 5 }} />
+      <span className={`dot ${s.status === "working" || s.status === "running" ? "pulse" : ""}`} style={{ background: dotColor[s.status], marginTop: 5 }} />
       <span className="col grow">
         <span className="row">
           <span style={{ fontWeight: 500 }}>{agentStatusTitle[s.status]}</span>
+          <span className="faint" style={{ fontSize: 11 }}>
+            {agentKind(s.kind).title.split(" (")[0]}
+          </span>
           {s.detail && s.status !== "ended" && <span className="muted ellipsis">· {s.detail}</span>}
         </span>
         {s.task && (

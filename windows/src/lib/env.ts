@@ -10,6 +10,9 @@ export let env: EnvInfo = {
   shell: "powershell.exe",
   version: "0.1.0",
   selftest: null,
+  selftestOpen: null,
+  appData: "",
+  localAppData: "",
 };
 
 export async function initEnv() {

@@ -1,23 +1,74 @@
 import { env, isWindows, joinPath, samePath, slash } from "./env";
 import { ipc } from "./ipc";
 import { Observable } from "./observable";
+import { settings } from "./settings";
 import type { TerminalSession } from "./terminal";
+import { tools, type ToolId } from "./tools";
 
-/** Claude Code 세션 상태(훅 이벤트로 판단) */
-export type AgentStatus = "starting" | "working" | "permission" | "waiting" | "ended";
+/** 세션 상태: Claude Code 는 훅 이벤트로 자세히, 다른 에이전트는 실행 중/종료만 */
+export type AgentStatus = "starting" | "working" | "permission" | "waiting" | "running" | "ended";
 
 export const agentStatusTitle: Record<AgentStatus, string> = {
   starting: "입력 대기",
   working: "작업 중",
   permission: "권한 요청",
   waiting: "입력 대기",
+  running: "실행 중",
   ended: "종료됨",
 };
 
-export const isActiveStatus = (s: AgentStatus) => s === "working" || s === "permission";
+export const isActiveStatus = (s: AgentStatus) => s === "working" || s === "permission" || s === "running";
+
+/** 아래 터미널에서 띄울 수 있는 코딩 에이전트 */
+export type AgentKind = "claude" | "codex" | "gemini";
+
+export interface AgentKindInfo {
+  id: AgentKind;
+  title: string;
+  tool: ToolId;
+  modes: { value: string; label: string }[];
+}
+
+export const agentKinds: AgentKindInfo[] = [
+  {
+    id: "claude",
+    title: "Claude Code",
+    tool: "claude",
+    modes: [
+      { value: "", label: "기본 (매번 묻기)" },
+      { value: "acceptEdits", label: "파일 편집 자동 승인" },
+      { value: "plan", label: "계획만 세우기" },
+      { value: "auto", label: "자동" },
+    ],
+  },
+  {
+    id: "codex",
+    title: "Codex (ChatGPT)",
+    tool: "codex",
+    modes: [
+      { value: "", label: "기본" },
+      { value: "read-only", label: "읽기 전용" },
+      { value: "workspace-write", label: "작업 폴더 쓰기 허용" },
+    ],
+  },
+  {
+    id: "gemini",
+    title: "Gemini CLI",
+    tool: "gemini",
+    modes: [
+      { value: "", label: "기본 (매번 묻기)" },
+      { value: "auto_edit", label: "파일 편집 자동 승인" },
+      { value: "plan", label: "계획만 세우기(읽기 전용)" },
+      { value: "yolo", label: "모두 자동" },
+    ],
+  },
+];
+
+export const agentKind = (id: AgentKind) => agentKinds.find((k) => k.id === id) ?? agentKinds[0];
 
 export interface AgentSession {
   id: string;
+  kind: AgentKind;
   path: string;
   task: string;
   created: number;
@@ -35,7 +86,7 @@ export interface AgentHost {
 const events = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PermissionRequest", "Notification", "Stop", "SessionEnd"];
 
 /**
- * Branchwork 가 띄운 Claude Code 세션 추적. (맥 버전 AgentCenter)
+ * Branchwork 가 띄운 에이전트(Claude Code·Codex·Gemini CLI) 세션 추적. (맥 버전 AgentCenter)
  *
  * 세션은 아래 터미널 패널의 탭에서 돈다. 띄울 때 `--settings` 로 훅을 더해 두면(사용자 설정·훅은 그대로 유지)
  * 각 이벤트마다 Branchwork 실행 파일이 `--agent-hook` 으로 불려 <데이터>/agents/<id>.state 에 마지막 상태를 쓴다.
@@ -126,9 +177,12 @@ class AgentCenter extends Observable {
             break;
         }
       }
+      const kind = (meta.kind as AgentKind) ?? "claude";
+      // 훅이 없는 에이전트는 터미널이 살아 있으면 실행 중
+      if (kind !== "claude" && !state) status = "running";
       const t = this.terminals.get(id);
       if (!t || !t.term.running) status = "ended";
-      list.push({ id, path: String(meta.path ?? ""), task: String(meta.task ?? ""), created, status, detail, updated });
+      list.push({ id, kind, path: String(meta.path ?? ""), task: String(meta.task ?? ""), created, status, detail, updated });
     }
     list.sort((a, b) => b.created - a.created);
     if (JSON.stringify(list) !== JSON.stringify(this.sessions)) {
@@ -137,15 +191,34 @@ class AgentCenter extends Observable {
     }
   }
 
-  /** 폴더에서 Claude Code 를 아래 터미널의 새 탭으로 띄운다. task 가 있으면 첫 요청으로 보낸다. */
-  async start(host: AgentHost, path: string, task: string, permissionMode: string | null, cli: string | null) {
+  /** 마지막으로 고른 에이전트(빠른 시작에 씀). 없으면 설치된 것 중 첫 번째. */
+  get defaultKind(): AgentKind {
+    const saved = settings.get<AgentKind | null>("agentKind", null);
+    if (saved && tools.path(agentKind(saved).tool)) return saved;
+    return agentKinds.find((k) => tools.path(k.tool))?.id ?? "claude";
+  }
+
+  /** 폴더에서 에이전트를 아래 터미널의 새 탭으로 띄운다. task 가 있으면 첫 요청으로 보낸다. */
+  async start(host: AgentHost, kind: AgentKind, path: string, task: string, mode: string | null) {
+    const info = agentKind(kind);
+    const exe = tools.path(info.tool);
+    if (!exe) throw new Error(`${info.title} 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 설치하세요.`);
+    settings.set("agentKind", kind);
     const id = crypto.randomUUID().toLowerCase();
-    const meta = { id, path, task: task.trim(), created: Date.now() / 1000 };
+    const t = task.trim();
+    const meta = { id, kind, path, task: t, created: Date.now() / 1000 };
     await ipc.writeText(joinPath(this.dir, id + ".meta"), JSON.stringify(meta));
-    const args = ["--settings", this.hooksFile];
-    if (permissionMode) args.push("--permission-mode", permissionMode);
-    if (task.trim()) args.push(task.trim());
-    const term = host.newTerminal(path, { program: cli ?? "claude", args, env: { BRANCHWORK_AGENT_ID: id }, title: "Claude" });
+    let args: string[];
+    if (kind === "claude") {
+      args = ["--settings", this.hooksFile];
+      if (mode) args.push("--permission-mode", mode);
+      if (t) args.push(t);
+    } else if (kind === "codex") {
+      args = [...(mode ? ["--sandbox", mode] : []), ...(t ? [t] : [])];
+    } else {
+      args = [...(mode ? ["--approval-mode", mode] : []), ...(t ? ["-i", t] : [])];
+    }
+    const term = host.newTerminal(path, { program: exe, args, env: { BRANCHWORK_AGENT_ID: id }, title: info.title.split(" (")[0] });
     this.terminals.set(id, { term, host });
     term.onExit = () => void this.load();
     await this.load();

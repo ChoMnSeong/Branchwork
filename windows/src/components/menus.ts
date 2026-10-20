@@ -48,7 +48,7 @@ export function localBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
   if (w) {
     items.push(
       { label: "이 브랜치의 워크트리 열기", onClick: () => void store.openOrReport(w.path) },
-      { label: "워크트리에서 Claude Code 실행", onClick: () => void store.startClaude(w.path) },
+      { label: "워크트리에서 에이전트 실행", onClick: () => void store.startAgent(w.path) },
     );
   }
   items.push(

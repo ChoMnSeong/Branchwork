@@ -3,7 +3,9 @@ import { App } from "./App";
 import { accounts } from "./lib/accounts";
 import { agents } from "./lib/agents";
 import { initEnv } from "./lib/env";
-import { gitVersion } from "./lib/git";
+import { ai } from "./lib/ai";
+import { gitAvailable } from "./lib/git";
+import { tools } from "./lib/tools";
 import { ipc } from "./lib/ipc";
 import { settings } from "./lib/settings";
 import { workspace } from "./lib/workspace";
@@ -19,7 +21,9 @@ window.addEventListener("contextmenu", (e) => {
 async function boot() {
   await initEnv();
   await settings.load();
-  const [git] = await Promise.all([gitVersion(), accounts.load(), agents.init()]);
+  await tools.detectAll();
+  await Promise.all([accounts.load(), ai.load(), agents.init()]);
+  const git = gitAvailable();
   createRoot(document.getElementById("root")!).render(<App gitMissing={!git} />);
   // 첫 화면(로딩 애니메이션)이 그려진 뒤 창을 보여 준다 — 흰 화면 번쩍임 없이.
   // 숨긴 창에서는 requestAnimationFrame 이 돌지 않으므로 타이머로 부른다.

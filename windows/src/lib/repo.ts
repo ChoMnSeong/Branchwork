@@ -1,6 +1,6 @@
 import { accounts } from "./accounts";
-import { agents, type AgentHost } from "./agents";
-import * as Claude from "./claude";
+import { ai, clip, Prompts, splitMessage } from "./ai";
+import { agents, type AgentHost, type AgentKind } from "./agents";
 import { basename, dirname, joinPath, samePath, slash } from "./env";
 import { describe, git, gitRaw, type GitOptions } from "./git";
 import { layoutGraph } from "./graph";
@@ -1354,7 +1354,7 @@ export class RepoStore extends Observable implements AgentHost {
     if (createNew) args.push("-b", branch, path, ...(start ? [start] : []));
     else args.push(path, branch);
     if (!(await this.run("워크트리 만드는 중…", args))) return false;
-    if (launchClaude) await this.startClaude(path, task);
+    if (launchClaude) await this.startAgent(path, task);
     return true;
   }
 
@@ -1373,9 +1373,10 @@ export class RepoStore extends Observable implements AgentHost {
     return this.run("워크트리 정리 중…", ["worktree", "prune"]);
   }
 
-  async startClaude(path: string, task = "", permissionMode: string | null = null) {
+  /** 코딩 에이전트(Claude Code·Codex·Gemini CLI)를 아래 터미널 탭에서 시작 */
+  async startAgent(path: string, task = "", mode: string | null = null, kind: AgentKind = agents.defaultKind) {
     try {
-      await agents.start(this, path, task, permissionMode, accounts.cliPath);
+      await agents.start(this, kind, path, task, mode);
     } catch (e) {
       this.fail(e);
     }
@@ -1540,7 +1541,7 @@ export class RepoStore extends Observable implements AgentHost {
 
   async generateCommitMessage() {
     if (!this.path || this.aiWorking) return;
-    this.aiWorking = "Claude 가 커밋 메시지를 쓰는 중…";
+    this.aiWorking = `${ai.short} 가 커밋 메시지를 쓰는 중…`;
     this.aiNotice = null;
     this.emit();
     try {
@@ -1555,13 +1556,13 @@ export class RepoStore extends Observable implements AgentHost {
       } catch {
         /* 첫 커밋 */
       }
-      const clipped = Claude.clip(diff);
+      const clipped = clip(diff);
       const prompt = `Branch: ${this.headBranch ?? "(detached HEAD)"}\n\nRecent commit messages (style reference):\n${recent || "(none)"}\n\nStaged changes:\n${clipped.text}`;
-      const text = await Claude.complete(Claude.Prompts.commit, prompt, "low");
-      const [s, b] = Claude.splitMessage(text);
+      const text = await ai.complete(Prompts.commit, prompt, "low");
+      const [s, b] = splitMessage(text);
       this.summary = s;
       this.message = b;
-      if (clipped.omitted > 0) this.aiNotice = `변경이 길어 앞부분만 Claude 에 보냈습니다(${Math.floor(clipped.omitted / 1000)}K자 생략).`;
+      if (clipped.omitted > 0) this.aiNotice = `변경이 길어 앞부분만 ${ai.short} 에 보냈습니다(${Math.floor(clipped.omitted / 1000)}K자 생략).`;
     } catch (e) {
       this.errorMessage = describe(e);
     } finally {
@@ -1578,8 +1579,8 @@ export class RepoStore extends Observable implements AgentHost {
       const show = (
         await this.g(["show", "--stat", "--patch", "--diff-merges=first-parent", "--no-ext-diff", "--format=commit %H%nAuthor: %an%nDate: %ad%n%n%B", sha])
       ).stdout;
-      const clipped = Claude.clip(show);
-      let text = await Claude.complete(Claude.Prompts.explain, clipped.text, "medium");
+      const clipped = clip(show);
+      let text = await ai.complete(Prompts.explain, clipped.text, "medium");
       if (clipped.omitted > 0) text += "\n\n(변경이 길어 앞부분만 보고 설명했습니다.)";
       this.explanations = { ...this.explanations, [sha]: text };
     } catch (e) {
@@ -1603,9 +1604,9 @@ export class RepoStore extends Observable implements AgentHost {
         this.emit();
         return null;
       }
-      const clipped = Claude.clip(diff);
+      const clipped = clip(diff);
       const prompt = `Branch ${this.headBranch ?? ""} into ${base}.\n\nCommits:\n${log.trim()}\n\nDiff:\n${clipped.text}`;
-      return Claude.splitMessage(await Claude.complete(Claude.Prompts.pullRequest, prompt, "low"));
+      return splitMessage(await ai.complete(Prompts.pullRequest, prompt, "low"));
     } catch (e) {
       this.fail(e);
       return null;

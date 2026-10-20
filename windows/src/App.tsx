@@ -2,7 +2,7 @@ import { Menu, Plus, Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LoadingView } from "./components/LoadingView";
 import { RepoContainer } from "./components/RepoContainer";
-import { SettingsDialog } from "./components/SettingsDialog";
+import { SettingsDialog, type SettingsTab } from "./components/SettingsDialog";
 import { IconButton, MenuHost, showMenuBelow, Spinner, tip, TooltipHost } from "./components/ui";
 import { env, isMac, keyLabel } from "./lib/env";
 import { ipc } from "./lib/ipc";
@@ -13,6 +13,17 @@ import { workspace } from "./lib/workspace";
 export function App({ gitMissing }: { gitMissing: boolean }) {
   useObserve(workspace);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("accounts");
+
+  // 다른 화면에서 "설정 > 도구" 등으로 바로 보내기
+  useEffect(() => {
+    const open = (e: Event) => {
+      setSettingsTab(((e as CustomEvent).detail as SettingsTab) ?? "accounts");
+      setSettingsOpen(true);
+    };
+    window.addEventListener("bw-open-settings", open);
+    return () => window.removeEventListener("bw-open-settings", open);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => handleShortcut(e, () => setSettingsOpen(true));
@@ -30,7 +41,15 @@ export function App({ gitMissing }: { gitMissing: boolean }) {
         ))}
         {!workspace.tabs.length && <LoadingView title="Branchwork" step={workspace.restoreStep} />}
       </div>
-      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsDialog
+          initialTab={settingsTab}
+          onClose={() => {
+            setSettingsOpen(false);
+            setSettingsTab("accounts");
+          }}
+        />
+      )}
       <MenuHost />
       <TooltipHost />
     </div>

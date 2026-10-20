@@ -1,6 +1,9 @@
 import { Globe, Lock, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { accounts } from "../lib/accounts";
+import { ai } from "../lib/ai";
+import { agentKind, agentKinds, agents, type AgentKind } from "../lib/agents";
+import { tools } from "../lib/tools";
 import { displayPath, env, isWindows, joinPath, slash } from "../lib/env";
 import { validBranchName } from "../lib/format";
 import * as Hosting from "../lib/hosting";
@@ -351,7 +354,7 @@ function CreatePullRequestSheet({ store, close }: { store: RepoStore; close: () 
             });
           }}
         >
-          <Sparkles size={13} /> Claude로 작성
+          <Sparkles size={13} /> {ai.short}로 작성
         </Button>
       </div>
     </Frame>
@@ -445,44 +448,65 @@ function AddWorktreeSheet({ store, close, presetBranch, start }: { store: RepoSt
       </Row>
       {exists && <span className="error-text">이 위치에 이미 폴더가 있습니다.</span>}
       <Row label="">
-        <Checkbox checked={runClaude} onChange={setRunClaude} label="만든 뒤 Claude Code 실행" />
+        <Checkbox checked={runClaude} onChange={setRunClaude} label={`만든 뒤 ${agentKind(agents.defaultKind).title.split(" (")[0]} 실행`} />
       </Row>
       {runClaude && (
-        <textarea className="textarea" style={{ height: 64 }} value={task} placeholder="Claude 에게 맡길 작업 (선택) — 예: 로그인 화면에 비밀번호 찾기 추가" onChange={(e) => setTask(e.target.value)} />
+        <textarea className="textarea" style={{ height: 64 }} value={task} placeholder="에이전트에게 맡길 작업 (선택) — 예: 로그인 화면에 비밀번호 찾기 추가" onChange={(e) => setTask(e.target.value)} />
       )}
     </Frame>
   );
 }
 
 function StartAgentSheet({ store, close, presetPath }: { store: RepoStore; close: () => void; presetPath: string | null }) {
+  useObserve(tools);
   /** 빈 문자열 = 새 워크트리 만들기 */
   const [target, setTarget] = useState(presetPath ?? store.path ?? store.worktrees[0]?.path ?? "");
+  const [kind, setKind] = useState<AgentKind>(agents.defaultKind);
   const [newBranch, setNewBranch] = useState("");
   const [task, setTask] = useState("");
   const [mode, setMode] = useState("");
   const [exists, setExists] = useState(false);
+  const info = agentKind(kind);
+  const found = !!tools.path(info.tool);
   const wtPath = newBranch.trim() ? store.defaultWorktreePath(newBranch.trim()) : "";
   useEffect(() => {
     if (wtPath) void ipc.exists(wtPath).then(setExists);
   }, [wtPath]);
+  useEffect(() => setMode(""), [kind]);
   const validBranch = validBranchName(newBranch) && !exists;
   return (
     <Frame
-      title="Claude Code 세션 시작"
+      title="에이전트 세션 시작"
       confirm="시작"
       width={580}
-      canConfirm={!!target || validBranch}
+      canConfirm={found && (!!target || validBranch)}
       close={close}
       leftFooter="아래 터미널의 새 탭에서 실행되고, 상태는 에이전트 탭에 표시됩니다."
       onConfirm={() =>
         void (async () => {
           const m = mode || null;
           if (!target) {
-            if (await store.addWorktree(wtPath, newBranch.trim(), true, null, false, "")) await store.startClaude(wtPath, task, m);
-          } else await store.startClaude(target, task, m);
+            if (await store.addWorktree(wtPath, newBranch.trim(), true, null, false, "")) await store.startAgent(wtPath, task, m, kind);
+          } else await store.startAgent(target, task, m, kind);
         })()
       }
     >
+      <Row label="에이전트">
+        <Segmented
+          value={kind}
+          onChange={setKind}
+          options={agentKinds.map((k) => ({
+            value: k.id,
+            label: (
+              <span style={{ opacity: tools.path(k.tool) ? 1 : 0.45 }}>
+                {k.title.split(" (")[0]}
+              </span>
+            ),
+            tip: tools.path(k.tool) ? k.title : `${k.title} — 찾지 못함(설정 > 도구에서 불러오기)`,
+          }))}
+        />
+      </Row>
+      {!found && <span className="error-text">{info.title} 실행 파일을 찾지 못했습니다. 설정 &gt; 도구에서 불러오거나 설치하세요.</span>}
       <Row label="작업할 곳">
         <select className="select" value={target} onChange={(e) => setTarget(e.target.value)}>
           {store.worktrees.map((w) => (
@@ -496,7 +520,7 @@ function StartAgentSheet({ store, close, presetPath }: { store: RepoStore; close
       {!target && (
         <>
           <Row label="새 브랜치 이름">
-            <input className="input" autoFocus value={newBranch} placeholder="feature/claude-작업" onChange={(e) => setNewBranch(e.target.value)} spellCheck={false} />
+            <input className="input" autoFocus value={newBranch} placeholder="feature/ai-작업" onChange={(e) => setNewBranch(e.target.value)} spellCheck={false} />
           </Row>
           <Row label="위치">
             <span className="ellipsis muted">{wtPath ? displayPath(wtPath) : "-"}</span>
@@ -508,13 +532,13 @@ function StartAgentSheet({ store, close, presetPath }: { store: RepoStore; close
       </Row>
       <Row label="권한 모드">
         <select className="select" value={mode} onChange={(e) => setMode(e.target.value)}>
-          <option value="">기본 (매번 묻기)</option>
-          <option value="acceptEdits">파일 편집 자동 승인</option>
-          <option value="plan">계획만 세우기</option>
-          <option value="auto">자동</option>
+          {info.modes.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
         </select>
       </Row>
-      {!accounts.cliPath && <span className="error-text">Claude Code(claude)를 찾지 못했습니다. 설치한 뒤 Branchwork 를 다시 켜 주세요.</span>}
     </Frame>
   );
 }

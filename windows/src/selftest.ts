@@ -1,6 +1,8 @@
 import { env, isWindows, joinPath, dirname } from "./lib/env";
 import { ipc } from "./lib/ipc";
 import { isWIP, statusIsEmpty } from "./lib/models";
+import { ai } from "./lib/ai";
+import { tools } from "./lib/tools";
 import { workspace } from "./lib/workspace";
 
 /**
@@ -165,6 +167,52 @@ export async function runSelfTest(): Promise<boolean> {
     const a = await ipc.resolveHost("github.com");
     return [a.length > 0, a.join(",")];
   });
+  // 도구: 자동으로 찾은 git 을 '직접 지정'으로 바꿨다가 되돌리기
+  await step("도구 찾기·불러오기", async () => {
+    const auto = tools.state.git;
+    if (!auto.path) return [false, "git 못 찾음"];
+    await tools.setCustom("git", auto.path);
+    const custom = tools.state.git.source === "custom" && tools.state.git.path === auto.path;
+    let rejected = false;
+    try {
+      await tools.setCustom("git", joinPath(repo, "README.md"));
+    } catch {
+      rejected = true;
+    }
+    await tools.resetToAuto("git");
+    const shell = tools.path("shell");
+    return [custom && rejected && tools.state.git.source === "auto" && !!shell, `git=${auto.path} custom=${custom} rejected=${rejected} shell=${shell} version=${tools.state.git.version}`];
+  });
+
+  // AI: 가짜 OpenAI 호환 서버(tests/mock-ai-server.mjs)가 떠 있으면 실제로 커밋 메시지를 받아 본다
+  await step("AI(OpenAI 호환)로 커밋 메시지", async () => {
+    const base = "http://127.0.0.1:18080/v1";
+    try {
+      const ping = await ipc.http("GET", base + "/models", {}, undefined, 3000);
+      if (ping.status !== 200) return [true, "가짜 AI 서버 없음 — 건너뜀"];
+    } catch {
+      return [true, "가짜 AI 서버 없음 — 건너뜀"];
+    }
+    const prev = { provider: ai.provider, base: ai.baseURL, model: ai.models.compatible };
+    ai.setProvider("compatible");
+    ai.setBaseURL(base);
+    const models = await ai.listModels("compatible");
+    ai.setModel("compatible", models[0] ?? "mock-model");
+    await ipc.writeText(joinPath(repo, "ai-test.txt"), "hello\n");
+    await until(() => s.status.unstaged.some((c) => c.path === "ai-test.txt"), 8000);
+    await s.stage(s.status.unstaged.filter((c) => c.path === "ai-test.txt"));
+    await s.generateCommitMessage();
+    const summary = s.summary;
+    s.setSummary("");
+    s.setMessage("");
+    await s.unstageAll();
+    await ipc.remove(joinPath(repo, "ai-test.txt"));
+    ai.setProvider(prev.provider);
+    ai.setBaseURL(prev.base);
+    if (prev.model !== undefined) ai.setModel("compatible", prev.model);
+    return [summary === "가짜 AI 커밋: ai-test.txt", `models=${models} summary=${summary} error=${s.errorMessage}`];
+  });
+
   await step("설정 화면", async () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", ctrlKey: !isMacLike(), metaKey: isMacLike(), bubbles: true }));
     const ok = await until(() => !!document.querySelector(".modal") && document.body.innerText.includes("사내 GitLab"), 3000);
@@ -178,6 +226,7 @@ export async function runSelfTest(): Promise<boolean> {
   s.select({ kind: "commit", sha: s.headHash! });
   const result = { ok: checks.every((c) => c.ok), os: env.os, windows: isWindows(), checks };
   await ipc.writeText(out, JSON.stringify(result, null, 2));
+  if (env.selftestOpen) window.dispatchEvent(new CustomEvent("bw-open-settings", { detail: env.selftestOpen }));
   return true;
 }
 

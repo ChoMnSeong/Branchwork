@@ -1,25 +1,18 @@
-import { env, isWindows } from "./env";
+import { env } from "./env";
 import * as Hosting from "./hosting";
 import { ipc } from "./ipc";
 import { accountApiBase, accountHost, type HostAccount, type Provider, type RepoTarget } from "./models";
 import { Observable } from "./observable";
 import { settings } from "./settings";
+import { tools } from "./tools";
 
-export type ClaudeMode = "cli" | "api";
-
-/** GitHub·사내 GitLab 계정(여러 개)과 Claude 연결 설정. 앱 전체에서 하나만 쓴다. (맥 버전 AccountStore) */
+/** GitHub·사내 GitLab 계정(여러 개). 앱 전체에서 하나만 쓴다. (맥 버전 AccountStore) */
 class AccountStore extends Observable {
   accounts: HostAccount[] = [];
   /** 계정이 바뀔 때마다 증가 — 열린 저장소가 PR 목록을 다시 읽는 신호 */
   revision = 0;
   /** 열린 저장소가 사내 GitLab 인데 계정이 없을 때, 설정 화면에 미리 채워 둘 서버 주소 */
   suggestedGitLabServer = "";
-  claudeMode: ClaudeMode = "cli";
-  claudeModel = "claude-opus-5-5";
-  claudeCLIModel = "";
-  hasClaudeKey = false;
-  cliPath: string | null = null;
-  ghPath: string | null = null;
 
   private preferred: Record<string, string> = {};
   private aliases: Record<string, string> = {};
@@ -29,32 +22,11 @@ class AccountStore extends Observable {
     this.accounts = settings.get<HostAccount[]>("accounts", []);
     this.preferred = settings.get<Record<string, string>>("preferredAccounts", {});
     this.aliases = settings.get<Record<string, string>>("hostAliases", {});
-    this.claudeModel = settings.get("claudeModel", "claude-opus-5-5");
-    this.claudeCLIModel = settings.get("claudeCLIModel", "");
-    this.hasClaudeKey = settings.get("hasClaudeKey", false);
-    const { findCLI } = await import("./claude");
-    this.cliPath = await findCLI();
-    this.claudeMode = settings.get<ClaudeMode | null>("claudeMode", null) ?? (this.cliPath ? "cli" : "api");
-    this.ghPath =
-      (await ipc.which("gh")) ??
-      (isWindows() ? ((await ipc.exists("C:\\Program Files\\GitHub CLI\\gh.exe")) ? "C:\\Program Files\\GitHub CLI\\gh.exe" : null) : null);
     this.emit();
   }
 
-  setClaudeMode(m: ClaudeMode) {
-    this.claudeMode = m;
-    settings.set("claudeMode", m);
-    this.emit();
-  }
-  setClaudeModel(m: string) {
-    this.claudeModel = m;
-    settings.set("claudeModel", m);
-    this.emit();
-  }
-  setClaudeCLIModel(m: string) {
-    this.claudeCLIModel = m;
-    settings.set("claudeCLIModel", m);
-    this.emit();
+  get ghPath() {
+    return tools.path("gh");
   }
 
   accountsFor(p: Provider) {
@@ -117,14 +89,6 @@ class AccountStore extends Observable {
 
   token(a: HostAccount) {
     return this.secret("acct:" + a.id);
-  }
-
-  async claudeKey() {
-    if (this.hasClaudeKey) {
-      const k = await this.secret("anthropic");
-      if (k) return k;
-    }
-    return null;
   }
 
   // MARK: 연결·해제
@@ -194,15 +158,6 @@ class AccountStore extends Observable {
     settings.set("preferredAccounts", this.preferred);
     settings.set("hostAliases", this.aliases);
     this.save();
-  }
-
-  async setClaudeKey(key: string) {
-    const k = key.trim();
-    await ipc.secretSet("anthropic", k || null);
-    this.secrets.set("anthropic", k || null);
-    this.hasClaudeKey = !!k;
-    settings.set("hasClaudeKey", this.hasClaudeKey);
-    this.emit();
   }
 
   private save() {

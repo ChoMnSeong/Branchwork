@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronDown, FolderOpen, GitBranch, GitPullRequestArrow, PackageOpen, RefreshCcw, SquarePen, SquareTerminal } from "lucide-react";
+import { agentKind, agents } from "../lib/agents";
 import { recents } from "../lib/settings";
 import { basename, displayPath, samePath } from "../lib/env";
 import { providerInfo, statusIsEmpty } from "../lib/models";
@@ -135,14 +136,14 @@ export function Toolbar({ store }: { store: RepoStore }) {
 
       {split(
         <GitBranch size={16} />,
-        tip("브랜치", "지금 위치에서 새 브랜치를 만듭니다. ▾ 에서 새 워크트리, Claude Code 실행.", "Ctrl+Shift+B"),
+        tip("브랜치", "지금 위치에서 새 브랜치를 만듭니다. ▾ 에서 새 워크트리, 에이전트(Claude Code·Codex·Gemini) 실행.", "Ctrl+Shift+B"),
         () => store.requestNewBranch(),
         () => [
           { label: "새 브랜치…", shortcut: "Ctrl+Shift+B", onClick: () => store.requestNewBranch() },
           { label: "새 워크트리…", shortcut: "Ctrl+Alt+W", onClick: () => sheet({ kind: "addWorktree", branch: null, start: null }) },
           "divider",
-          { label: "여기서 Claude Code 실행", onClick: () => store.path && void store.startClaude(store.path) },
-          { label: "Claude Code 세션 시작…", shortcut: "Ctrl+Alt+K", onClick: () => sheet({ kind: "startAgent", path: store.path }) },
+          { label: `여기서 ${agentKind(agents.defaultKind).title} 실행`, onClick: () => store.path && void store.startAgent(store.path) },
+          { label: "에이전트 세션 시작…", shortcut: "Ctrl+Alt+K", onClick: () => sheet({ kind: "startAgent", path: store.path }) },
         ],
       )}
 
