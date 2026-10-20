@@ -245,7 +245,7 @@ export async function runSelfTest(): Promise<boolean> {
     return [ok1 && after.length === before + 2 && subjects.includes("Rule: md 파일 정리") && subjects.includes("Rule: txt 파일 정리") && statusIsEmpty(s.status), `plan=${planText} subjects=${subjects} error=${s.errorMessage}`];
   });
 
-  // 자동 업데이트: 가짜 업데이트 서버(9.9.9)에서 서명이 맞는 파일만 받는지
+  // 자동 업데이트: 가짜 업데이트 서버에서 서명이 맞는 파일만 받는지(점검용 빌드는 한 단계 낮은 버전으로 만든다)
   await step("자동 업데이트(서명 확인)", async () => {
     const base = "http://127.0.0.1:18080/update";
     let up = false;
@@ -255,7 +255,8 @@ export async function runSelfTest(): Promise<boolean> {
       up = false;
     }
     if (!up) return [true, "가짜 업데이트 서버 없음 — 건너뜀"];
-    const info = await invoke<{ version: string } | null>("update_check", { endpoint: base + "/latest.json" });
+    const info = await invoke<{ version: string; current: string } | null>("update_check", { endpoint: base + "/latest.json" });
+    if (!info) return [false, `업데이트를 못 찾음(현재 ${env.version})`];
     const size = await invoke<number>("update_verify");
     await invoke("update_check", { endpoint: base + "/tampered.json" });
     let rejected = "";
@@ -264,7 +265,7 @@ export async function runSelfTest(): Promise<boolean> {
     } catch (e) {
       rejected = String(e);
     }
-    return [info?.version === "9.9.9" && size > 0 && !!rejected, `version=${info?.version} size=${size} tampered=${rejected.slice(0, 120)}`];
+    return [size > 0 && !!rejected, `version=${info.current}→${info.version} size=${size} tampered=${rejected.slice(0, 120)}`];
   });
 
   await step("설정 화면", async () => {

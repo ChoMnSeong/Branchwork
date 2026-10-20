@@ -6,11 +6,13 @@ const port = Number(process.argv[2] ?? 18080);
 // 자동 업데이트 점검용: 설치 파일과 그 서명(.sig)
 const updateFile = process.argv[3];
 const updateSig = process.argv[4] ? fs.readFileSync(process.argv[4], "utf8").trim() : "";
+// 서명에 버전이 적혀 있으면(tauri build 가 만든 서명) 그 버전을 알린다 — 다르면 업데이터가 거절한다
+const signedVersion = updateSig ? (Buffer.from(updateSig, "base64").toString("utf8").match(/version:(\S+)/) ?? [])[1] : undefined;
 const manifest = (sig) => {
   const url = `http://127.0.0.1:${port}/update/file`;
   const p = { signature: sig, url };
   return JSON.stringify({
-    version: "9.9.9",
+    version: signedVersion ?? "9.9.9",
     notes: "자동 점검용 가짜 업데이트",
     pub_date: "2026-10-20T00:00:00Z",
     platforms: { "windows-x86_64": p, "darwin-aarch64": p, "darwin-x86_64": p },

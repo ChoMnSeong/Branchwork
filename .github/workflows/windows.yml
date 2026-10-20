@@ -63,9 +63,9 @@ jobs:
       - name: 점검용 빌드(업데이트 서버 http 허용 — 배포 파일과는 별개)
         shell: bash
         run: |
-          # 가짜 업데이트 서버(http://127.0.0.1)로 서명 확인을 시험하려고 이 설정만 바꿔 다시 빌드한다.
+          # 가짜 업데이트 서버(http://127.0.0.1)로 서명 확인을 시험하려고 http 허용 + 낮은 버전(0.0.1)으로 다시 빌드한다.
           # 배포 파일(위에서 올린 설치 파일)은 https 만 쓴다.
-          npx tauri build --no-bundle --config '{"bundle":{"createUpdaterArtifacts":false},"plugins":{"updater":{"dangerousInsecureTransportProtocol":true}}}'
+          npx tauri build --no-bundle --config '{"version":"0.0.1","bundle":{"createUpdaterArtifacts":false},"plugins":{"updater":{"dangerousInsecureTransportProtocol":true}}}'
 
       - name: 테스트 저장소 만들기
         shell: bash
