@@ -175,7 +175,7 @@ struct SidebarView: View {
             .disabled(b.isCurrent || store.worktree(using: b.name) != nil)
         if let w = store.worktree(using: b.name) {
             Button("이 브랜치의 워크트리 열기") { Task { await store.openOrReport(URL(fileURLWithPath: w.path, isDirectory: true)) } }
-            Button("워크트리에서 Claude Code 실행") { store.startClaude(in: w.path) }
+            Button("워크트리에서 에이전트 실행") { store.startAgent(in: w.path) }
         }
         Button("Push") { Task { await store.pushBranch(b) } }
         Button("이름 복사") { store.copy(b.name) }

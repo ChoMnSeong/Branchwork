@@ -175,10 +175,10 @@ struct AppCommands: Commands {
             Button("새 Pull/Merge Request…") { store?.sheet = .createPullRequest }
                 .disabled(store?.target == nil || store?.headBranch == nil)
             Divider()
-            Button("Claude 로 커밋 메시지 작성") { Task { await store?.generateCommitMessage() } }
+            Button("AI 로 커밋 메시지 작성") { Task { await store?.generateCommitMessage() } }
                 .keyboardShortcut("m", modifiers: [.command, .option])
                 .disabled(store?.status.staged.isEmpty ?? true)
-            Button("Claude Code 세션 시작…") { store?.sheet = .startAgent(path: store?.url?.path) }
+            Button("에이전트 세션 시작…") { store?.sheet = .startAgent(path: store?.url?.path) }
                 .keyboardShortcut("k", modifiers: [.command, .option])
                 .disabled(store?.url == nil)
             Divider()
@@ -225,6 +225,7 @@ struct RepoContainer: View {
             case .createPullRequest: CreatePullRequestSheet()
             case .startAgent(let path): StartAgentSheet(presetPath: path)
             case .addWorktree(let branch, let start): AddWorktreeSheet(presetBranch: branch, start: start)
+            case .splitCommits: SplitCommitsSheet()
             }
         }
         .alert("작업을 완료하지 못했습니다",

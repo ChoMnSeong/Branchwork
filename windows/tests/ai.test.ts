@@ -117,3 +117,41 @@ describe("AI 요청", () => {
     expect(await ai.listModels("openai")).toEqual(["o3", "gpt-5"]);
   });
 });
+
+describe("규칙·나눠서 커밋", () => {
+  it("공통·기능별 규칙이 시스템 지시 뒤에 붙는다", async () => {
+    ai.setInstructions("global", "한국어로 작성");
+    ai.setInstructions("commit", "prefix 는 Feature, Fix 중 하나");
+    const s = ai.systemFor("commit", "BASE");
+    expect(s.startsWith("BASE")).toBe(true);
+    expect(s).toContain("한국어로 작성");
+    expect(s).toContain("prefix 는 Feature, Fix 중 하나");
+    expect(ai.systemFor("explain", "BASE")).not.toContain("Feature, Fix");
+    ai.setInstructions("global", "");
+    ai.setInstructions("commit", "");
+    expect(ai.systemFor("commit", "BASE")).toBe("BASE");
+  });
+
+  it("기능마다 다른 AI 를 쓸 수 있다", () => {
+    ai.setProvider("claudeCode");
+    ai.setFeatureProvider("explain", "gemini");
+    expect(ai.providerFor("explain")).toBe("gemini");
+    expect(ai.providerFor("commit")).toBe("claudeCode");
+    ai.setFeatureProvider("explain", null);
+    expect(ai.providerFor("explain")).toBe("claudeCode");
+  });
+
+  it("AI 가 나눈 JSON 을 계획으로(모르는 경로는 버리고 빠진 파일은 모음)", async () => {
+    const { parseSplitPlan } = await import("../src/lib/split");
+    const ch = (path: string, oldPath: string | null = null) => ({ path, oldPath, kind: "modified" as const, staged: false });
+    const changes = [ch("a.ts"), ch("b.ts"), ch("new.ts", "old.ts"), ch("left.md")];
+    const text = 'Sure:\n```json\n{"commits":[{"message":"Feature: A","files":["a.ts","ghost.ts","./b.ts"]},{"message":"Refactoring: 이름","files":["old.ts","a.ts"]}]}\n```';
+    const plan = parseSplitPlan(text, changes);
+    expect(plan.map((g) => [g.message, g.files])).toEqual([
+      ["Feature: A", ["a.ts", "b.ts"]],
+      ["Refactoring: 이름", ["new.ts"]],
+      ["", ["left.md"]],
+    ]);
+    expect(() => parseSplitPlan("no json here", changes)).toThrow(/JSON/);
+  });
+});

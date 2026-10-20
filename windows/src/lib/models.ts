@@ -319,7 +319,8 @@ export type SheetKind =
   | { kind: "tag"; sha: string }
   | { kind: "createPullRequest" }
   | { kind: "startAgent"; path: string | null }
-  | { kind: "addWorktree"; branch: string | null; start: string | null };
+  | { kind: "addWorktree"; branch: string | null; start: string | null }
+  | { kind: "splitCommits" };
 
 export interface ConfirmRequest {
   title: string;

@@ -38,7 +38,7 @@ final class TerminalSession: Identifiable {
     func start() {
         exitCode = nil
         running = true
-        let shell = Self.loginShell
+        let shell = ToolPaths.shared.get(.shell) ?? Self.loginShell
         view.startProcess(executable: shell, args: [], environment: Self.environment(),
                           execName: "-" + URL(fileURLWithPath: shell).lastPathComponent,
                           currentDirectory: directory)
@@ -135,7 +135,7 @@ final class TerminalSession: Identifiable {
 
     // MARK: 셸·환경
 
-    static var loginShell: String {
+    nonisolated static var loginShell: String {
         if let pw = getpwuid(getuid()), let sh = pw.pointee.pw_shell {
             let s = String(cString: sh)
             if FileManager.default.isExecutableFile(atPath: s) { return s }

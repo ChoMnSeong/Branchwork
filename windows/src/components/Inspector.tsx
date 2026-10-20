@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleCheck, CircleMinus, CirclePlus, Clock, ExternalLink, GitBranch, GitMerge, GitPullRequest, Hash, CircleDot, Sparkles, TriangleAlert, Waypoints, ArrowDownToLine } from "lucide-react";
+import { ArrowLeft, CircleCheck, CircleMinus, CirclePlus, Clock, ExternalLink, GitBranch, GitMerge, GitPullRequest, Hash, CircleDot, Layers, Sparkles, TriangleAlert, Waypoints, ArrowDownToLine } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ai } from "../lib/ai";
 import { keyLabel } from "../lib/env";
@@ -147,7 +147,7 @@ function CommitComposer({ store }: { store: RepoStore }) {
   };
   return (
     <div className="composer">
-      <div className="row">
+      <div className="row" style={{ flexWrap: "wrap" }}>
         {store.me && (
           <span data-tip={`${store.me.name} <${store.me.email}>`}>
             <Avatar name={store.me.name} email={store.me.email} size={22} />
@@ -157,17 +157,28 @@ function CommitComposer({ store }: { store: RepoStore }) {
         <span className="spacer" />
         <Button
           size="small"
+          disabled={store.splittableChanges.length < 2 || !!store.aiWorking || store.status.conflicted.length > 0}
+          onClick={() => void store.planSplit()}
+          tip={tip(
+            "나눠서 커밋",
+            `${ai.shortFor("commit")} 가 바뀐 파일을 주요 내용별로 묶어 여러 커밋으로 나눕니다. 나눈 결과를 확인·수정한 뒤 커밋합니다. 규칙은 설정 > 규칙에서.`,
+          )}
+        >
+          <Layers size={13} /> 나눠서 커밋
+        </Button>
+        <Button
+          size="small"
           disabled={!n || !!store.aiWorking}
           onClick={() => void store.generateCommitMessage()}
-          tip={tip(`${ai.short}로 작성`, `스테이지된 변경을 보고 ${ai.info.title} 가 커밋 메시지를 씁니다. AI 는 설정 > AI 에서 바꿉니다.`, "Ctrl+Alt+M")}
+          tip={tip(`${ai.shortFor("commit")}로 작성`, `스테이지된 변경을 보고 AI 가 커밋 메시지를 씁니다. AI 는 설정 > AI, 규칙은 설정 > 규칙에서 바꿉니다.`, "Ctrl+Alt+M")}
         >
           {store.aiWorking ? (
             <>
-              <Spinner size={11} /> 작성 중
+              <Spinner size={11} /> 작업 중
             </>
           ) : (
             <>
-              <Sparkles size={13} /> {ai.short}로 작성
+              <Sparkles size={13} /> {ai.shortFor("commit")}로 작성
             </>
           )}
         </Button>
@@ -179,6 +190,11 @@ function CommitComposer({ store }: { store: RepoStore }) {
         </div>
         <textarea value={store.message} placeholder="자세한 설명 (선택)" onChange={(e) => store.setMessage(e.target.value)} onKeyDown={onKey} spellCheck={false} />
       </div>
+      {store.aiWorking && (
+        <span className="hint row">
+          <Spinner size={11} /> {store.aiWorking}
+        </span>
+      )}
       {store.aiNotice && <span className="hint">{store.aiNotice}</span>}
       <div className="row">
         <Checkbox checked={store.amend} disabled={!store.headHash} onChange={(v) => void store.setAmend(v)} label="이전 커밋 수정" tip="Amend: 마지막 커밋에 합칩니다" />
@@ -290,7 +306,7 @@ function CommitDetailView({ store, sha }: { store: RepoStore; sha: string }) {
         <Card>
           <div className="row">
             <span className="row" style={{ color: "var(--accent)", fontWeight: 600 }}>
-              <Sparkles size={14} /> {ai.short} 설명
+              <Sparkles size={14} /> {ai.shortFor("explain")} 설명
             </span>
             <span className="spacer" />
             {store.explaining.has(sha) ? (

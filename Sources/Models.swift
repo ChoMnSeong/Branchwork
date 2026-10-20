@@ -374,10 +374,12 @@ enum SheetKind: Identifiable {
     case newBranch(start: String, label: String)
     case tag(sha: String)
     case createPullRequest
-    /// Claude Code 세션 시작(path 가 있으면 그 워크트리를 미리 고름)
+    /// 에이전트 세션 시작(path 가 있으면 그 워크트리를 미리 고름)
     case startAgent(path: String?)
     /// branch 가 있으면 기존 브랜치를, 없으면 start 에서 새 브랜치를 워크트리로 체크아웃
     case addWorktree(branch: String?, start: String?)
+    /// AI 가 나눈 커밋 계획 확인
+    case splitCommits
 
     var id: String {
         switch self {
@@ -388,6 +390,7 @@ enum SheetKind: Identifiable {
         case .createPullRequest: return "pr"
         case .startAgent(let p): return "agent:" + (p ?? "")
         case .addWorktree(let b, let s): return "wt:" + (b ?? "") + ":" + (s ?? "")
+        case .splitCommits: return "split"
         }
     }
 }

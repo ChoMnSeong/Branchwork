@@ -2,9 +2,9 @@ import Foundation
 import AppKit
 import Observation
 
-/// Claude Code 세션 상태(훅 이벤트로 판단)
+/// 세션 상태: Claude Code 는 훅 이벤트로 자세히, 다른 에이전트는 실행 중/종료만
 enum AgentStatus: String {
-    case starting, working, permission, waiting, ended
+    case starting, working, permission, waiting, running, ended
 
     var title: String {
         switch self {
@@ -12,15 +12,61 @@ enum AgentStatus: String {
         case .working: return "작업 중"
         case .permission: return "권한 요청"
         case .waiting: return "입력 대기"
+        case .running: return "실행 중"
         case .ended: return "종료됨"
         }
     }
 
-    var isActive: Bool { self == .working || self == .permission }
+    var isActive: Bool { self == .working || self == .permission || self == .running }
+}
+
+/// Terminal 에서 띄울 수 있는 코딩 에이전트
+enum AgentKind: String, CaseIterable, Identifiable {
+    case claude, codex, gemini
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .claude: return "Claude Code"
+        case .codex: return "Codex"
+        case .gemini: return "Gemini CLI"
+        }
+    }
+
+    var tool: ToolID {
+        switch self {
+        case .claude: return .claude
+        case .codex: return .codex
+        case .gemini: return .gemini
+        }
+    }
+
+    /// 권한 모드: (값, 이름)
+    var modes: [(String, String)] {
+        switch self {
+        case .claude: return [("", "기본 (매번 묻기)"), ("acceptEdits", "파일 편집 자동 승인"), ("plan", "계획만 세우기"), ("auto", "자동")]
+        case .codex: return [("", "기본"), ("read-only", "읽기 전용"), ("workspace-write", "작업 폴더 쓰기 허용")]
+        case .gemini: return [("", "기본 (매번 묻기)"), ("auto_edit", "파일 편집 자동 승인"), ("plan", "계획만 세우기(읽기 전용)"), ("yolo", "모두 자동")]
+        }
+    }
+
+    /// 실행 인자
+    func arguments(hooks: String, task: String, mode: String?) -> [String] {
+        let m = mode.flatMap { $0.isEmpty ? nil : $0 }
+        switch self {
+        case .claude:
+            return ["--settings", hooks] + (m.map { ["--permission-mode", $0] } ?? []) + (task.isEmpty ? [] : [task])
+        case .codex:
+            return (m.map { ["--sandbox", $0] } ?? []) + (task.isEmpty ? [] : [task])
+        case .gemini:
+            return (m.map { ["--approval-mode", $0] } ?? []) + (task.isEmpty ? [] : ["-i", task])
+        }
+    }
 }
 
 struct AgentSession: Identifiable, Hashable {
     let id: String
+    var kind: AgentKind = .claude
     let path: String
     let task: String
     let created: Date
@@ -30,7 +76,7 @@ struct AgentSession: Identifiable, Hashable {
     var updated: Date
 }
 
-/// Branchwork 가 띄운 Claude Code 세션 추적.
+/// Branchwork 가 띄운 에이전트(Claude Code·Codex·Gemini CLI) 세션 추적. 상태는 Claude Code 만 훅으로 자세히 본다.
 ///
 /// 세션을 띄울 때 `--settings` 로 훅을 더해 두면(사용자 설정·훅은 그대로 유지) 각 이벤트마다
 /// hook.sh 가 ~/Library/Application Support/Branchwork/agents/<id>.state 에 마지막 상태를 쓴다.
@@ -119,6 +165,9 @@ final class AgentCenter {
             var detail: String?
             var updated = created
 
+            let kind = AgentKind(rawValue: meta["kind"] as? String ?? "") ?? .claude
+            // 훅이 없는 에이전트는 프로세스가 살아 있으면 실행 중
+            if kind != .claude { status = .running }
             if let state = json(id + ".state") {
                 updated = Date(timeIntervalSince1970: state["time"] as? Double ?? created.timeIntervalSince1970)
                 let payload = state["payload"] as? [String: Any] ?? [:]
@@ -158,7 +207,7 @@ final class AgentCenter {
                 remove(id: id)
                 continue
             }
-            list.append(AgentSession(id: id, path: meta["path"] as? String ?? "", task: meta["task"] as? String ?? "",
+            list.append(AgentSession(id: id, kind: kind, path: meta["path"] as? String ?? "", task: meta["task"] as? String ?? "",
                                      created: created, pid: pid, status: status, detail: detail, updated: updated))
         }
         list.sort { $0.created > $1.created }
@@ -167,15 +216,24 @@ final class AgentCenter {
 
     // MARK: 세션 다루기
 
-    /// 폴더에서 Claude Code 를 새 Terminal 창으로 띄운다. task 가 있으면 첫 요청으로 보낸다.
-    func start(in path: String, task: String, permissionMode: String? = nil) throws {
+    /// 마지막으로 고른 에이전트(빠른 시작에 씀). 없으면 설치된 것 중 첫 번째.
+    var defaultKind: AgentKind {
+        let tools = ToolStore.shared
+        if let saved = UserDefaults.standard.string(forKey: "agentKind").flatMap(AgentKind.init(rawValue:)),
+           tools.path(saved.tool) != nil { return saved }
+        return AgentKind.allCases.first { tools.path($0.tool) != nil } ?? .claude
+    }
+
+    /// 폴더에서 에이전트를 새 Terminal 창으로 띄운다. task 가 있으면 첫 요청으로 보낸다.
+    func start(_ kind: AgentKind, in path: String, task: String, permissionMode: String? = nil) throws {
+        guard let exe = ToolStore.shared.path(kind.tool) else {
+            throw AIError.notConfigured("\(kind.title) 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 설치하세요.")
+        }
+        UserDefaults.standard.set(kind.rawValue, forKey: "agentKind")
         let id = UUID().uuidString.lowercased()
-        let meta: [String: Any] = ["id": id, "path": path, "task": task.trimmed, "created": Date().timeIntervalSince1970]
+        let meta: [String: Any] = ["id": id, "kind": kind.rawValue, "path": path, "task": task.trimmed, "created": Date().timeIntervalSince1970]
         try JSONSerialization.data(withJSONObject: meta).write(to: file(id + ".meta"))
-        var args = ["--settings", hooksFile.path]
-        if let permissionMode, !permissionMode.isEmpty { args += ["--permission-mode", permissionMode] }
-        if !task.trimmed.isEmpty { args.append(task.trimmed) }
-        try Launcher.run(Claude.findCLI() ?? "claude", args: args, in: path,
+        try Launcher.run(exe, args: kind.arguments(hooks: hooksFile.path, task: task.trimmed, mode: permissionMode), in: path,
                          env: ["BRANCHWORK_AGENT_ID": id], pidFile: file(id + ".pid").path)
         load()
     }

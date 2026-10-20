@@ -171,16 +171,22 @@ struct CommitComposer: View {
                 }
                 Text("커밋").font(.headline)
                 Spacer()
+                Button { Task { await store.planSplit() } } label: {
+                    Label("나눠서 커밋", systemImage: "square.stack.3d.up")
+                }
+                .controlSize(.small)
+                .disabled(store.splittableChanges.count < 2 || store.aiWorking != nil || !store.status.conflicted.isEmpty)
+                .help("\(AIStore.shared.short(for: .commit)) 가 바뀐 파일을 주요 내용별로 묶어 여러 커밋으로 나눕니다. 나눈 결과를 확인·수정한 뒤 커밋합니다. 규칙은 설정 > 규칙에서.")
                 Button { Task { await store.generateCommitMessage() } } label: {
                     if store.aiWorking != nil {
-                        HStack(spacing: 4) { ProgressView().controlSize(.mini); Text("작성 중") }
+                        HStack(spacing: 4) { ProgressView().controlSize(.mini); Text("작업 중") }
                     } else {
-                        Label("Claude 로 작성", systemImage: "sparkles")
+                        Label("\(AIStore.shared.short(for: .commit))로 작성", systemImage: "sparkles")
                     }
                 }
                 .controlSize(.small)
                 .disabled(store.status.staged.isEmpty || store.aiWorking != nil)
-                .help("스테이지된 변경을 보고 Claude 가 커밋 메시지를 씁니다 (⌥⌘M)")
+                .help("스테이지된 변경을 보고 \(AIStore.shared.provider.title) 가 커밋 메시지를 씁니다 (⌥⌘M). AI 는 설정 > AI 에서 바꿉니다.")
             }
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
@@ -214,6 +220,10 @@ struct CommitComposer: View {
             .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
 
+            if let working = store.aiWorking {
+                HStack(spacing: 4) { ProgressView().controlSize(.mini); Text(working) }
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if let notice = store.aiNotice {
                 Text(notice).font(.caption).foregroundStyle(.secondary)
             }
@@ -357,7 +367,7 @@ struct CommitDetailView: View {
     private var claude: some View {
         Card {
             HStack {
-                Label("Claude 설명", systemImage: "sparkles")
+                Label("\(AIStore.shared.short(for: .explain)) 설명", systemImage: "sparkles")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.accentColor)
                 Spacer()

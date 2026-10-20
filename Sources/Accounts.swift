@@ -33,18 +33,7 @@ enum Keychain {
     }
 }
 
-enum ClaudeMode: String, CaseIterable, Identifiable {
-    case cli, api
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .cli: return "Claude Code (이 맥의 로그인 사용)"
-        case .api: return "Anthropic API 키"
-        }
-    }
-}
-
-/// GitHub·사내 GitLab 계정(여러 개)과 Claude 연결 설정. 앱 전체에서 하나만 쓴다.
+/// GitHub·사내 GitLab 계정(여러 개). 앱 전체에서 하나만 쓴다.
 @MainActor @Observable
 final class AccountStore {
     static let shared = AccountStore()
@@ -56,20 +45,7 @@ final class AccountStore {
     /// 열린 저장소가 사내 GitLab 인데 계정이 없을 때, 설정 화면에 미리 채워 둘 서버 주소
     var suggestedGitLabServer = ""
 
-    var claudeMode: ClaudeMode {
-        didSet { UserDefaults.standard.set(claudeMode.rawValue, forKey: "claudeMode") }
-    }
-    var claudeModel: String {
-        didSet { UserDefaults.standard.set(claudeModel, forKey: "claudeModel") }
-    }
-    var claudeCLIModel: String {
-        didSet { UserDefaults.standard.set(claudeCLIModel, forKey: "claudeCLIModel") }
-    }
-    private(set) var hasClaudeKey: Bool
-
-    let cliPath: String? = Claude.findCLI()
-    let ghPath: String? = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"]
-        .first { FileManager.default.isExecutableFile(atPath: $0) }
+    var ghPath: String? { ToolStore.shared.path(.gh) }
 
     /// 저장소 경로 → 그 저장소에서 쓸 계정 ID(같은 서버에 계정이 여럿일 때)
     private var preferred: [String: String]
@@ -80,10 +56,6 @@ final class AccountStore {
 
     private init() {
         let d = UserDefaults.standard
-        claudeMode = ClaudeMode(rawValue: d.string(forKey: "claudeMode") ?? "") ?? (Claude.findCLI() != nil ? .cli : .api)
-        claudeModel = d.string(forKey: "claudeModel") ?? Claude.defaultModel
-        claudeCLIModel = d.string(forKey: "claudeCLIModel") ?? ""
-        hasClaudeKey = d.bool(forKey: "hasClaudeKey")
         preferred = (d.dictionary(forKey: "preferredAccounts") as? [String: String]) ?? [:]
         aliases = (d.dictionary(forKey: "hostAliases") as? [String: String]) ?? [:]
         if let data = d.data(forKey: "accounts"),
@@ -165,11 +137,6 @@ final class AccountStore {
         return a.id.hasPrefix("legacy-") ? secret(a.provider.rawValue) : nil
     }
 
-    var claudeKey: String? {
-        if hasClaudeKey, let k = secret("anthropic") { return k }
-        return ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"]
-    }
-
     private func secret(_ name: String) -> String? {
         if let v = secrets[name] { return v }
         let v = Keychain.get(name)
@@ -246,14 +213,6 @@ final class AccountStore {
         aliases = aliases.filter { $0.value != a.id }
         UserDefaults.standard.set(aliases, forKey: "hostAliases")
         save()
-    }
-
-    func setClaudeKey(_ key: String) {
-        let k = key.trimmed
-        Keychain.set(k, for: "anthropic")
-        secrets["anthropic"] = k.isEmpty ? nil : k
-        hasClaudeKey = !k.isEmpty
-        UserDefaults.standard.set(hasClaudeKey, forKey: "hasClaudeKey")
     }
 
     private func save() {

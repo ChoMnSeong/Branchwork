@@ -97,6 +97,7 @@ final class RepoStore: Identifiable {
     var aiNotice: String?
     var explanations: [String: String] = [:]
     var explaining: Set<String> = []
+    var splitPlan: [SplitGroup]?
 
     private var watcher: FileWatcher?
     private var reloadGeneration = 0

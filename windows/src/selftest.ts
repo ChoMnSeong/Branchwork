@@ -213,6 +213,37 @@ export async function runSelfTest(): Promise<boolean> {
     return [summary === "가짜 AI 커밋: ai-test.txt", `models=${models} summary=${summary} error=${s.errorMessage}`];
   });
 
+  // 규칙 + 나눠서 커밋: 확장자별로 나누는 가짜 AI 로 2개 커밋이 생기는지
+  await step("규칙 적용 + 나눠서 커밋", async () => {
+    let up = false;
+    try {
+      up = (await ipc.http("GET", "http://127.0.0.1:18080/v1/models", {}, undefined, 3000)).status === 200;
+    } catch {
+      up = false;
+    }
+    if (!up) return [true, "가짜 AI 서버 없음 — 건너뜀"];
+    const prev = { provider: ai.provider, base: ai.baseURL, rules: ai.instructions.commit ?? "" };
+    ai.setProvider("compatible");
+    ai.setBaseURL("http://127.0.0.1:18080/v1");
+    ai.setModel("compatible", "mock-model");
+    ai.setInstructions("commit", "1. RULE-TEST 규칙");
+    for (const f of ["split-a.md", "split-b.md", "split-c.txt"]) await ipc.writeText(joinPath(repo, f), f + "\n");
+    await until(() => s.splittableChanges.length >= 3, 8000);
+    const before = s.entries.filter((e) => !isWIP(e.commit)).length;
+    await s.planSplit();
+    const plan = s.splitPlan ?? [];
+    const planText = plan.map((g) => `${g.message}=[${g.files}]`).join(" ");
+    s.sheet = null;
+    const ok1 = plan.length === 2 && plan.every((g) => g.message.startsWith("Rule: "));
+    await s.applySplit(plan);
+    const after = s.entries.filter((e) => !isWIP(e.commit));
+    const subjects = after.slice(0, 2).map((e) => e.commit.subject);
+    ai.setInstructions("commit", prev.rules);
+    ai.setProvider(prev.provider);
+    ai.setBaseURL(prev.base);
+    return [ok1 && after.length === before + 2 && subjects.includes("Rule: md 파일 정리") && subjects.includes("Rule: txt 파일 정리") && statusIsEmpty(s.status), `plan=${planText} subjects=${subjects} error=${s.errorMessage}`];
+  });
+
   await step("설정 화면", async () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", ctrlKey: !isMacLike(), metaKey: isMacLike(), bubbles: true }));
     const ok = await until(() => !!document.querySelector(".modal") && document.body.innerText.includes("사내 GitLab"), 3000);

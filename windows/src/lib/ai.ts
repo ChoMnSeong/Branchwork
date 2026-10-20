@@ -36,6 +36,45 @@ export const aiProviders: AIProviderInfo[] = [
 
 export const providerById = (id: AIProviderId) => aiProviders.find((p) => p.id === id)!;
 
+/** AI 를 쓰는 기능. 기능마다 규칙(지시사항)과 쓸 AI 를 따로 정할 수 있다. */
+export type AIFeature = "commit" | "explain" | "pullRequest";
+export type InstructionKey = "global" | AIFeature;
+
+export const instructionInfo: { id: InstructionKey; title: string; detail: string; chips: string[] }[] = [
+  {
+    id: "global",
+    title: "공통 규칙",
+    detail: "아래 기능마다 따로 적은 규칙과 함께 모든 AI 기능에 적용됩니다.",
+    chips: ["한국어로 작성", "영어로 작성", "간결하게", "명령형으로", "기술적인 말투", "부드러운 말투"],
+  },
+  {
+    id: "commit",
+    title: "커밋 메시지 작성 · 나눠서 커밋",
+    detail: "커밋 메시지를 쓰거나 변경을 여러 커밋으로 나눌 때 따릅니다.",
+    chips: [
+      "Conventional Commits 형식(feat: …)",
+      "prefix 는 Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove 중 하나",
+      "prefix 의 첫 글자는 대문자",
+      "제목 50자 이내",
+      "이슈 번호 포함",
+      "본문 없이 제목만",
+      "무엇을·왜 바꿨는지 중심으로",
+    ],
+  },
+  {
+    id: "explain",
+    title: "커밋 설명",
+    detail: "커밋·변경 내용을 설명할 때 따릅니다.",
+    chips: ["업무에 주는 영향 위주로", "글머리표로", "영향받는 부분 포함", "초보자도 알기 쉽게"],
+  },
+  {
+    id: "pullRequest",
+    title: "PR·MR 설명",
+    detail: "Pull/Merge Request 제목과 본문을 쓸 때 따릅니다.",
+    chips: ["변경 이유를 먼저", "테스트 방법 포함", "체크리스트 형식", "관련 이슈 번호 포함", "스크린샷 자리 남기기"],
+  },
+];
+
 /** API 오류를 읽기 쉬운 문장으로 */
 function apiError(provider: string, status: number, body: string) {
   let msg = body.slice(0, 300);
@@ -56,6 +95,10 @@ class AI extends Observable {
   models: Partial<Record<AIProviderId, string>> = {};
   baseURL = "http://localhost:11434/v1";
   hasKey: Partial<Record<AIProviderId, boolean>> = {};
+  /** 사용자가 적은 규칙(공통·기능별) */
+  instructions: Partial<Record<InstructionKey, string>> = {};
+  /** 기능별로 다른 AI 를 쓰고 싶을 때(없으면 기본 AI) */
+  featureProvider: Partial<Record<AIFeature, AIProviderId>> = {};
   private keys = new Map<AIProviderId, string | null>();
 
   async load() {
@@ -75,6 +118,8 @@ class AI extends Observable {
     this.models = settings.get("aiModels", {});
     this.baseURL = settings.get("aiBaseURL", this.baseURL);
     this.hasKey = settings.get("aiKeys", {});
+    this.instructions = settings.get("aiInstructions", {});
+    this.featureProvider = settings.get("aiFeatureProvider", {});
     const saved = settings.get<AIProviderId | null>("aiProvider", null);
     this.provider = saved ?? this.firstAvailable();
     this.emit();
@@ -93,6 +138,41 @@ class AI extends Observable {
   /** "Claude로 작성" 같은 버튼 문구 */
   get short() {
     return this.info.short;
+  }
+
+  providerFor(f: AIFeature): AIProviderId {
+    return this.featureProvider[f] ?? this.provider;
+  }
+
+  shortFor(f: AIFeature) {
+    return providerById(this.providerFor(f)).short;
+  }
+
+  setFeatureProvider(f: AIFeature, id: AIProviderId | null) {
+    const next = { ...this.featureProvider };
+    if (id) next[f] = id;
+    else delete next[f];
+    this.featureProvider = next;
+    settings.set("aiFeatureProvider", next);
+    this.emit();
+  }
+
+  setInstructions(key: InstructionKey, text: string) {
+    this.instructions = { ...this.instructions, [key]: text };
+    settings.set("aiInstructions", this.instructions);
+    this.emit();
+  }
+
+  /** 기본 지시 + 사용자가 적은 규칙(공통 → 기능별). 규칙이 기본 지시보다 우선한다. */
+  systemFor(f: AIFeature, base: string) {
+    const rules = [this.instructions.global, this.instructions[f]].map((r) => (r ?? "").trim()).filter(Boolean);
+    if (!rules.length) return base;
+    return `${base}\n\nThe user set the following rules. Follow them exactly; they take priority over the style guidance above (for example the language, prefixes, and format):\n${rules.join("\n")}`;
+  }
+
+  /** 기능 하나 실행: 그 기능의 AI·규칙으로 */
+  write(f: AIFeature, base: string, prompt: string, effort: string) {
+    return this.complete(this.systemFor(f, base), prompt, effort, this.providerFor(f));
   }
 
   model(id: AIProviderId = this.provider) {
@@ -278,6 +358,13 @@ Match the language and style of the repository's recent commit messages shown in
 Start with one sentence on what the commit does. Then list the key changes as short "-" bullets, naming files and functions.
 End with anything risky or worth a closer look, or say that nothing stands out.
 Be concrete and brief. Plain text only, no headings.`,
+
+  split: `You split a set of uncommitted git changes into a sequence of small, focused commits.
+Group files that belong to the same logical change (one feature, one fix, one refactor, docs, config …). Every listed file must appear in exactly one commit; never invent paths.
+Order the commits so each one builds on the previous (shared refactors and dependencies first).
+Write each commit message as a commit message for that group: a summary line of at most 72 characters, optionally a blank line and a short body.
+Match the language and style of the repository's recent commit messages shown in the input; if there are none, write in Korean.
+Reply with JSON only, no code fences, exactly in this shape: {"commits":[{"message":"summary\\n\\noptional body","files":["path/one","path/two"]}]}`,
 
   pullRequest: `You write pull request descriptions from the commits and diff the user sends.
 Reply in exactly this shape: the first line is the title (at most 72 characters, no "Title:" prefix), then a blank line, then the description in Markdown.

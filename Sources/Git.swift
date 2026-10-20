@@ -24,11 +24,8 @@ struct GitError: LocalizedError {
 
 /// 시스템 git 을 서브프로세스로 실행한다. 앱은 git 의 동작을 새로 구현하지 않고 그대로 위임한다.
 enum Git {
-    static let executable: String = {
-        for p in ["/opt/homebrew/bin/git", "/usr/local/bin/git", "/usr/bin/git"]
-        where FileManager.default.isExecutableFile(atPath: p) { return p }
-        return "/usr/bin/git"
-    }()
+    /// 설정 > 도구에서 고른 git(없으면 자동으로 찾은 것)
+    static var executable: String { ToolPaths.shared.get(.git) ?? "/usr/bin/git" }
 
     /// 사용자 설정이 출력 형식을 바꿔 파싱이 깨지지 않도록 고정하는 옵션
     private static let baseArgs = [

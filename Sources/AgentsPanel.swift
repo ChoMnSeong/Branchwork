@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// 사이드바 '에이전트' 탭: 워크트리 카드 + 그 안에서 도는 Claude Code 세션
+/// 사이드바 '에이전트' 탭: 워크트리 카드 + 그 안에서 도는 에이전트(Claude Code·Codex·Gemini CLI) 세션
 struct AgentsPanel: View {
     @Environment(RepoStore.self) private var store
     private let agents = AgentCenter.shared
@@ -28,12 +28,12 @@ struct AgentsPanel: View {
                             .frame(maxWidth: .infinity)
                     }
                     .controlSize(.large)
-                    .help("Claude Code 세션 시작 — 작업할 워크트리와 맡길 일을 고릅니다")
-                    Button { if let u = store.url { store.startClaude(in: u.path) } } label: {
+                    .help("에이전트 세션 시작 — Claude Code·Codex·Gemini CLI 중 하나로, 작업할 워크트리와 맡길 일을 고릅니다")
+                    Button { if let u = store.url { store.startAgent(in: u.path) } } label: {
                         Image(systemName: "bolt.fill")
                     }
                     .controlSize(.large)
-                    .help("지금 이 워크트리에서 바로 시작")
+                    .help("지금 이 워크트리에서 \(agents.defaultKind.title) 바로 시작")
                 }
 
                 ForEach(store.worktrees) { w in
@@ -92,7 +92,7 @@ private struct WorktreeCard: View {
                 if hover {
                     Button { store.sheet = .startAgent(path: worktree.path) } label: { Image(systemName: "sparkles") }
                         .buttonStyle(.borderless)
-                        .help("이 워크트리에서 Claude Code 세션 시작")
+                        .help("이 워크트리에서 에이전트 세션 시작")
                 }
             }
 
@@ -131,7 +131,7 @@ private struct WorktreeCard: View {
             Task { await store.openOrReport(URL(fileURLWithPath: worktree.path, isDirectory: true)) }
         }
         .contextMenu {
-            Button("Claude Code 세션 시작…") { store.sheet = .startAgent(path: worktree.path) }
+            Button("에이전트 세션 시작…") { store.sheet = .startAgent(path: worktree.path) }
             Button("Branchwork 에서 열기") {
                 Task { await store.openOrReport(URL(fileURLWithPath: worktree.path, isDirectory: true)) }
             }
@@ -159,6 +159,7 @@ private struct SessionRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
                     Text(session.status.title).fontWeight(.medium)
+                    Text(session.kind.title).font(.caption2).foregroundStyle(.tertiary)
                     if let d = session.detail, session.status != .ended {
                         Text("· \(d)").foregroundStyle(.secondary).lineLimit(1)
                     }
@@ -181,13 +182,13 @@ private struct SessionRow: View {
         .contextMenu {
             Button("Terminal 창으로 이동") { agents.focus(session) }
                 .disabled(session.status == .ended)
-            Button("같은 곳에서 새 세션") { store.startClaude(in: session.path) }
+            Button("같은 곳에서 새 세션") { store.startAgent(in: session.path, kind: session.kind) }
             Divider()
             if session.status == .ended {
                 Button("목록에서 지우기") { agents.remove(id: session.id) }
             } else {
                 Button("세션 끝내기…", role: .destructive) {
-                    store.confirm = ConfirmRequest(title: "Claude Code 세션을 끝낼까요?",
+                    store.confirm = ConfirmRequest(title: "\(session.kind.title) 세션을 끝낼까요?",
                                                    message: session.task.isEmpty ? session.path : session.task,
                                                    actionTitle: "끝내기") { agents.stop(session) }
                 }
@@ -204,14 +205,14 @@ private struct StatusDot: View {
         Circle()
             .fill(color)
             .frame(width: 8, height: 8)
-            .opacity(status == .working && pulse ? 0.35 : 1)
-            .animation(status == .working ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default, value: pulse)
+            .opacity((status == .working || status == .running) && pulse ? 0.35 : 1)
+            .animation(status == .working || status == .running ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default, value: pulse)
             .onAppear { pulse = true }
     }
 
     private var color: Color {
         switch status {
-        case .working: return .blue
+        case .working, .running: return .blue
         case .permission: return .red
         case .starting, .waiting: return .orange
         case .ended: return .gray
@@ -225,17 +226,29 @@ struct StartAgentSheet: View {
     @Environment(RepoStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     let presetPath: String?
+    private let tools = ToolStore.shared
 
     /// 빈 문자열 = 새 워크트리 만들기
     @ViewState private var target = ""
+    @ViewState private var kind: AgentKind = AgentCenter.shared.defaultKind
     @ViewState private var newBranch = ""
     @ViewState private var task = ""
     @ViewState private var mode = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Claude Code 세션 시작").font(.title3.weight(.semibold)).padding([.top, .horizontal], 20)
+            Text("에이전트 세션 시작").font(.title3.weight(.semibold)).padding([.top, .horizontal], 20)
             Form {
+                Picker("에이전트", selection: $kind) {
+                    ForEach(AgentKind.allCases) { k in
+                        Text(tools.path(k.tool) == nil ? "\(k.title) (없음)" : k.title).tag(k)
+                    }
+                }
+                .pickerStyle(.segmented)
+                if tools.path(kind.tool) == nil {
+                    Text("\(kind.title) 실행 파일을 찾지 못했습니다. 설정(⌘,) > 도구에서 불러오거나 설치하세요.")
+                        .font(.caption).foregroundStyle(.red)
+                }
                 Picker("작업할 곳", selection: $target) {
                     ForEach(store.worktrees) { w in
                         Text(label(w)).tag(w.path)
@@ -244,16 +257,13 @@ struct StartAgentSheet: View {
                     Text("새 워크트리 만들기…").tag("")
                 }
                 if target.isEmpty {
-                    TextField("새 브랜치 이름", text: $newBranch, prompt: Text("feature/claude-작업"))
+                    TextField("새 브랜치 이름", text: $newBranch, prompt: Text("feature/ai-작업"))
                     LabeledContent("위치", value: newBranch.trimmed.isEmpty ? "-" : (store.defaultWorktreePath(for: newBranch.trimmed) as NSString).abbreviatingWithTildeInPath)
                 }
                 TextField("맡길 작업", text: $task, prompt: Text("예: 로그인 실패 시 잠금 처리 추가하고 테스트까지"), axis: .vertical)
                     .lineLimit(3...6)
                 Picker("권한 모드", selection: $mode) {
-                    Text("기본 (매번 묻기)").tag("")
-                    Text("파일 편집 자동 승인").tag("acceptEdits")
-                    Text("계획만 세우기").tag("plan")
-                    Text("자동").tag("auto")
+                    ForEach(kind.modes, id: \.0) { m in Text(m.1).tag(m.0) }
                 }
             }
             .formStyle(.grouped)
@@ -265,14 +275,15 @@ struct StartAgentSheet: View {
                     .keyboardShortcut(.cancelAction)
                 Button("시작") { start() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(target.isEmpty && !validBranch)
+                    .disabled(tools.path(kind.tool) == nil || (target.isEmpty && !validBranch))
             }
             .padding([.horizontal, .bottom], 20)
         }
-        .frame(width: 560)
+        .frame(width: 580)
         .onAppear {
             target = presetPath ?? store.url?.path ?? store.worktrees.first?.path ?? ""
         }
+        .onChange(of: kind) { _, _ in mode = "" }
     }
 
     private var validBranch: Bool {
@@ -286,18 +297,18 @@ struct StartAgentSheet: View {
     }
 
     private func start() {
-        let path = target, branch = newBranch.trimmed, t = task, m = mode.isEmpty ? nil : mode
+        let path = target, branch = newBranch.trimmed, t = task, m = mode.isEmpty ? nil : mode, k = kind
         dismiss()
         if path.isEmpty {
             let wtPath = store.defaultWorktreePath(for: branch)
             Task {
                 await store.addWorktree(path: wtPath, branch: branch, createNew: true, start: nil, launchClaude: false, task: "")
                 if FileManager.default.fileExists(atPath: wtPath) {
-                    store.startClaude(in: wtPath, task: t, permissionMode: m)
+                    store.startAgent(in: wtPath, task: t, permissionMode: m, kind: k)
                 }
             }
         } else {
-            store.startClaude(in: path, task: t, permissionMode: m)
+            store.startAgent(in: path, task: t, permissionMode: m, kind: k)
         }
     }
 }

@@ -122,14 +122,15 @@ struct RepoView: View {
                 Button("새 워크트리…") { store.sheet = .addWorktree(branch: nil, start: nil) }
                 if let url = store.url {
                     Divider()
-                    Button("여기서 Claude Code 실행") { store.startClaude(in: url.path) }
+                    Button("여기서 \(AgentCenter.shared.defaultKind.title) 실행") { store.startAgent(in: url.path) }
+                    Button("에이전트 세션 시작…") { store.sheet = .startAgent(path: url.path) }
                 }
             } label: {
                 ToolLabel(title: "브랜치", icon: "arrow.triangle.branch")
             } primaryAction: {
                 store.requestNewBranch()
             }
-            .hoverTip("브랜치", "지금 위치에서 새 브랜치를 만듭니다. ▾ 에서 새 워크트리, Claude Code 실행.", shortcut: "⇧⌘B")
+            .hoverTip("브랜치", "지금 위치에서 새 브랜치를 만듭니다. ▾ 에서 새 워크트리, 에이전트(Claude Code·Codex·Gemini) 실행.", shortcut: "⇧⌘B")
 
             if let t = store.target {
                 Button { store.sheet = .createPullRequest } label: {
