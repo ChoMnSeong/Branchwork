@@ -2,7 +2,7 @@ import { CircleCheck, KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { accounts, AccountStore } from "../lib/accounts";
 import { ai, aiProviders, instructionInfo, providerById, type AIFeature, type AIProviderId } from "../lib/ai";
-import { dirname, displayPath, isWindows } from "../lib/env";
+import { dirname, displayPath, isWindows, toWslPath, wslDistroOf } from "../lib/env";
 import { ipc } from "../lib/ipc";
 import { accountHost, type HostAccount, type Provider } from "../lib/models";
 import { useObserve } from "../lib/observable";
@@ -453,7 +453,10 @@ function ToolsSettings() {
     if (!picked) return;
     setBusy(id);
     try {
-      await tools.setCustom(id, picked);
+      // \\wsl.localhost\배포판\… 안의 파일이면 WSL 도구로
+      const distro = wslDistroOf(picked);
+      if (distro && wslCapable.includes(id)) await tools.useWslPath(id, distro, toWslPath(picked));
+      else await tools.setCustom(id, picked);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }

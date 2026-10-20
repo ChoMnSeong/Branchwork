@@ -2,7 +2,7 @@ import { basename, env, isWindows, joinPath } from "./env";
 import { ipc } from "./ipc";
 import { Observable } from "./observable";
 import { settings } from "./settings";
-import { commandVersion, findCommand, listDistros } from "./wsl";
+import { commandVersion, findCommand, isExecutable, listDistros } from "./wsl";
 
 /**
  * 외부 프로그램(git·AI CLI·gh·셸) 위치. PC 마다 설치 위치가 달라
@@ -133,8 +133,23 @@ class Tools extends Observable {
   /** 이 도구를 WSL 배포판 안의 것으로 쓴다 */
   async useWsl(id: ToolId, distro: string, auto = false) {
     const info = this.toolList(id);
-    const path = await findCommand(distro, info.command);
-    if (!path) throw new Error(`${distro} 안에서 ${info.command} 를 찾지 못했습니다. WSL 터미널에서 'which ${info.command}' 로 설치됐는지 확인하세요.`);
+    const found = await findCommand(distro, info.command);
+    if (!found.path) {
+      throw new Error(
+        `${distro} 안에서 ${info.command} 를 찾지 못했습니다.\n` +
+          `WSL 터미널에서 'which ${info.command}' 로 설치 위치를 확인한 뒤, '불러오기…'로 \\\\wsl.localhost\\${distro}\\… 아래의 그 파일을 고르면 됩니다.\n\n(확인한 내용: ${found.detail})`,
+      );
+    }
+    await this.saveWsl(id, distro, found.path, auto);
+  }
+
+  /** 불러오기로 고른 \\wsl.localhost\배포판\… 파일을 WSL 도구로 쓴다 */
+  async useWslPath(id: ToolId, distro: string, path: string) {
+    if (!(await isExecutable(distro, path))) throw new Error(`${path} 은(는) ${distro} 안에서 실행할 수 있는 파일이 아닙니다(chmod +x 확인).`);
+    await this.saveWsl(id, distro, path, false);
+  }
+
+  private async saveWsl(id: ToolId, distro: string, path: string, auto: boolean) {
     this.setWslConfig(id, { distro, path, auto, version: null });
     const version = await commandVersion(distro, path);
     const cur = this.wsl(id);

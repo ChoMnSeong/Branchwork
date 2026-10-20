@@ -282,6 +282,7 @@ export async function runSelfTest(): Promise<boolean> {
       return [true, `${distro} 에 claude 없음 — 건너뜀 (${e})`];
     }
     const w = tools.wsl("claude");
+    if (!w?.path.endsWith("/.claude/local/claude")) return [false, `alias 로만 잡힌 claude 를 못 찾음: ${w?.path}`];
     // 1) 커밋 메시지(시스템 지시는 임시 파일로 넘어감)
     ai.setProvider("claudeCode");
     await ipc.writeText(joinPath(repo, "ai-wsl.txt"), "wsl\n");
