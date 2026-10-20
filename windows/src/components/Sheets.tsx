@@ -469,7 +469,7 @@ function StartAgentSheet({ store, close, presetPath }: { store: RepoStore; close
   const [mode, setMode] = useState("");
   const [exists, setExists] = useState(false);
   const info = agentKind(kind);
-  const found = !!tools.path(info.tool);
+  const found = tools.available(info.tool);
   const wtPath = newBranch.trim() ? store.defaultWorktreePath(newBranch.trim()) : "";
   useEffect(() => {
     if (wtPath) void ipc.exists(wtPath).then(setExists);
@@ -500,15 +500,17 @@ function StartAgentSheet({ store, close, presetPath }: { store: RepoStore; close
           options={agentKinds.map((k) => ({
             value: k.id,
             label: (
-              <span style={{ opacity: tools.path(k.tool) ? 1 : 0.45 }}>
+              <span style={{ opacity: tools.available(k.tool) ? 1 : 0.45 }}>
                 {k.title.split(" (")[0]}
+                {tools.wsl(k.tool) ? " · WSL" : ""}
               </span>
             ),
-            tip: tools.path(k.tool) ? k.title : `${k.title} — 찾지 못함(설정 > 도구에서 불러오기)`,
+            tip: tools.available(k.tool) ? `${k.title}|${tools.describe(k.tool)}` : `${k.title} — 찾지 못함(설정 > 도구에서 불러오기·WSL 에서 찾기)`,
           }))}
         />
       </Row>
-      {!found && <span className="error-text">{info.title} 실행 파일을 찾지 못했습니다. 설정 &gt; 도구에서 불러오거나 설치하세요.</span>}
+      {!found && <span className="error-text">{info.title} 실행 파일을 찾지 못했습니다. 설정 &gt; 도구에서 불러오거나, WSL 에 설치했다면 'WSL 에서 찾기'를 누르세요.</span>}
+      {found && tools.wsl(info.tool) && <span className="hint">WSL({tools.wsl(info.tool)!.distro}) 안에서 실행합니다. 작업 폴더는 리눅스 경로로 바꿔 엽니다.</span>}
       <Row label="작업할 곳">
         <select className="select" value={target} onChange={(e) => setTarget(e.target.value)}>
           {store.worktrees.map((w) => (

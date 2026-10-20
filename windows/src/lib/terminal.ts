@@ -1,6 +1,6 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal, type ITheme } from "@xterm/xterm";
-import { basename, env, isMac, isWindows } from "./env";
+import { basename, env, isMac, isWindows, toWslPath } from "./env";
 import { ipc } from "./ipc";
 import { Observable } from "./observable";
 import { tools } from "./tools";
@@ -13,6 +13,8 @@ export interface TerminalSpec {
   env?: Record<string, string>;
   /** 탭 이름(셸이 제목을 정하면 그걸 따름) */
   title?: string;
+  /** 프로세스를 띄울 윈도 쪽 폴더(비우면 directory). WSL 안 폴더(\\wsl.localhost\…)는 윈도 프로그램이 못 들어가서 따로 준다. */
+  cwd?: string;
 }
 
 function theme(): ITheme {
@@ -163,9 +165,12 @@ export class TerminalSession extends Observable {
     return Promise.resolve();
   }
 
-  /** 설정 > 도구의 셸(직접 고른 것 → PowerShell/로그인 셸) */
-  private defaultShell(): { program: string; args: string[] } {
+  /** 설정 > 도구의 셸(직접 고른 것 → PowerShell/로그인 셸). "wsl:배포판" 이면 그 배포판의 셸을 저장소 폴더에서 연다. */
+  private defaultShell(): { program: string; args: string[]; cwd?: string } {
     const program = tools.path("shell") ?? (isWindows() ? "powershell.exe" : env.shell || "/bin/zsh");
+    if (program.startsWith("wsl:")) {
+      return { program: "wsl.exe", args: ["-d", program.slice(4), "--cd", toWslPath(this.directory)], cwd: env.home };
+    }
     return { program, args: tools.shellArgs(program) };
   }
 
@@ -174,7 +179,8 @@ export class TerminalSession extends Observable {
     this.exitCode = null;
     this.running = true;
     this.emit();
-    const { program, args } = this.spec.program ? { program: this.spec.program, args: this.spec.args ?? [] } : this.defaultShell();
+    const shell = this.spec.program ? { program: this.spec.program, args: this.spec.args ?? [], cwd: this.spec.cwd } : this.defaultShell();
+    const { program, args } = shell;
     const vars: Record<string, string> = {
       TERM: "xterm-256color",
       COLORTERM: "truecolor",
@@ -186,7 +192,7 @@ export class TerminalSession extends Observable {
     const ptyId = crypto.randomUUID();
     this.ptyId = ptyId;
     try {
-      await ipc.ptySpawn(ptyId, program, args, this.directory, vars, this.term.cols, this.term.rows, (ev) => {
+      await ipc.ptySpawn(ptyId, program, args, shell.cwd ?? this.directory, vars, this.term.cols, this.term.rows, (ev) => {
         if (this.ptyId !== ptyId) return;
         if (ev.kind === "data") {
           this.term.write(ev.data);

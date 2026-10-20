@@ -104,3 +104,34 @@ describe("graph", () => {
     expect(rows[0].segments.some((s) => s.x1 === 0 && s.x2 === 1)).toBe(true);
   });
 });
+
+describe("WSL 경로", async () => {
+  const { toWslPath, wslDistroOf } = await import("../src/lib/env");
+  it("Windows 경로 → WSL 경로", () => {
+    expect(toWslPath("C:\\Users\\me\\repo")).toBe("/mnt/c/Users/me/repo");
+    expect(toWslPath("D:/a/_temp/st/repo")).toBe("/mnt/d/a/_temp/st/repo");
+    expect(toWslPath("\\\\wsl.localhost\\Ubuntu-24.04\\home\\me\\repo")).toBe("/home/me/repo");
+    expect(toWslPath("//wsl$/Ubuntu/root")).toBe("/root");
+    expect(toWslPath("/home/me")).toBe("/home/me");
+  });
+  it("배포판 이름", () => {
+    expect(wslDistroOf("\\\\wsl.localhost\\Ubuntu-24.04\\home\\me")).toBe("Ubuntu-24.04");
+    expect(wslDistroOf("C:\\x")).toBeNull();
+  });
+});
+
+describe("믿을 수 없는 저장소(dubious ownership)", async () => {
+  const { unsafeRepository } = await import("../src/lib/git");
+  it("git 이 알려 준 경로를 꺼낸다", () => {
+    const err = `fatal: detected dubious ownership in repository at '//wsl.localhost/Ubuntu/home/me/repo'
+'//wsl.localhost/Ubuntu/home/me/repo' is owned by:
+	(inconvertible) (S-1-5-21-1)
+but the current user is:
+	PC/me (S-1-5-21-2)
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory '%(prefix)///wsl.localhost/Ubuntu/home/me/repo'`;
+    expect(unsafeRepository(err)).toBe("%(prefix)///wsl.localhost/Ubuntu/home/me/repo");
+    expect(unsafeRepository("fatal: not a git repository")).toBeNull();
+  });
+});

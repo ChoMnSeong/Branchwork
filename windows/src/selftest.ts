@@ -1,9 +1,11 @@
-import { env, isWindows, joinPath, dirname } from "./lib/env";
+import { env, isWindows, joinPath, dirname, toWslPath } from "./lib/env";
 import { ipc } from "./lib/ipc";
 import { isWIP, statusIsEmpty } from "./lib/models";
 import { invoke } from "@tauri-apps/api/core";
 import { ai } from "./lib/ai";
 import { tools } from "./lib/tools";
+import { listDistros } from "./lib/wsl";
+import { agents } from "./lib/agents";
 import { workspace } from "./lib/workspace";
 
 /**
@@ -266,6 +268,55 @@ export async function runSelfTest(): Promise<boolean> {
       rejected = String(e);
     }
     return [size > 0 && !!rejected, `version=${info.current}→${info.version} size=${size} tampered=${rejected.slice(0, 120)}`];
+  });
+
+  // WSL: 배포판 안의 (가짜) claude 로 글 작성·에이전트 세션·WSL 셸
+  await step("WSL 의 Claude Code", async () => {
+    const distros = await listDistros(true);
+    if (!distros.length) return [true, "WSL 없음 — 건너뜀"];
+    const distro = distros[0];
+    const prevProvider = ai.provider;
+    try {
+      await tools.useWsl("claude", distro);
+    } catch (e) {
+      return [true, `${distro} 에 claude 없음 — 건너뜀 (${e})`];
+    }
+    const w = tools.wsl("claude");
+    // 1) 커밋 메시지(시스템 지시는 임시 파일로 넘어감)
+    ai.setProvider("claudeCode");
+    await ipc.writeText(joinPath(repo, "ai-wsl.txt"), "wsl\n");
+    await until(() => s.status.unstaged.some((c) => c.path === "ai-wsl.txt"), 8000);
+    await s.stage(s.status.unstaged.filter((c) => c.path === "ai-wsl.txt"));
+    await s.generateCommitMessage();
+    const summary = s.summary;
+    const aiErr = s.errorMessage;
+    s.setSummary("");
+    await s.unstageAll();
+    await ipc.remove(joinPath(repo, "ai-wsl.txt"));
+    // 2) 에이전트 세션: WSL 경로로 열리고, 훅(윈도 실행 파일)이 세션 상태를 남기는지
+    await s.startAgent(repo, "", null, "claude");
+    const t = s.activeTerminal!;
+    const pathOk = await until(() => bufferText(t.term).includes(`pwd=${toWslPath(repo)}`), 30000);
+    const hookOk = await until(() => agents.sessions.some((x) => x.kind === "claude" && x.status === "waiting"), 15000);
+    const agentLine = bufferText(t.term).split("\n").find((l) => l.includes("FAKE CLAUDE")) ?? bufferText(t.term).slice(-300);
+    t.terminate();
+    // 3) 터미널 셸을 WSL 로
+    tools.setShellWsl(distro);
+    await until(() => tools.path("shell") === `wsl:${distro}`, 3000);
+    const sh = s.newTerminal();
+    const shellOk = await until(async () => {
+      if (sh.running && !bufferText(sh.term).includes("WSLSHELL")) await sh.send("echo WSLSHELL:$WSL_DISTRO_NAME:$PWD\r");
+      return bufferText(sh.term).split("\n").some((l) => l.trim() === `WSLSHELL:${distro}:${toWslPath(repo)}`);
+    }, 30000);
+    const shellLine = bufferText(sh.term).slice(-200);
+    sh.terminate();
+    await tools.resetToAuto("shell");
+    tools.useWindows("claude");
+    ai.setProvider(prevProvider);
+    return [
+      summary === `WSL 커밋: You write git / b/ai-wsl.txt` && pathOk && hookOk && shellOk,
+      `distro=${distro} path=${w?.path} summary=${summary} err=${aiErr} agent=${agentLine} hook=${hookOk} shell=${shellOk} ${shellLine.replace(/\s+/g, " ")}`,
+    ];
   });
 
   await step("설정 화면", async () => {

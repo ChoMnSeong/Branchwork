@@ -3,6 +3,7 @@ import { ipc } from "./ipc";
 import { Observable } from "./observable";
 import { settings } from "./settings";
 import { tools, type ToolId } from "./tools";
+import { tempFile, wslArgs } from "./wsl";
 
 /**
  * 글 작성(커밋 메시지·커밋 설명·PR 본문)에 쓰는 AI.
@@ -127,7 +128,7 @@ class AI extends Observable {
 
   /** 처음 켰을 때: 설치된 CLI 가 있으면 그걸로 */
   private firstAvailable(): AIProviderId {
-    for (const p of aiProviders) if (p.kind === "cli" && p.tool && tools.path(p.tool)) return p.id;
+    for (const p of aiProviders) if (p.kind === "cli" && p.tool && tools.available(p.tool)) return p.id;
     return "anthropic";
   }
 
@@ -215,7 +216,7 @@ class AI extends Observable {
   /** 지금 고른 AI 를 쓸 수 있는지(안 되면 이유) */
   problem(id: AIProviderId = this.provider): string | null {
     const p = providerById(id);
-    if (p.kind === "cli") return p.tool && tools.path(p.tool) ? null : `${p.title.split(" (")[0]} 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 설치하세요.`;
+    if (p.kind === "cli") return p.tool && tools.available(p.tool) ? null : `${p.title.split(" (")[0]} 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 WSL 에서 찾아 주세요.`;
     if (id === "compatible") return this.baseURL ? null : "서버 주소를 입력하세요.";
     return this.hasKey[id] ? null : `설정 > AI 에서 ${p.title} 키를 입력하세요.`;
   }
@@ -227,17 +228,17 @@ class AI extends Observable {
     const model = this.model(id);
     switch (id) {
       case "claudeCode":
-        return this.cli(tools.path("claude")!, ["-p", "--output-format", "text", "--tools", "", "--no-session-persistence", "--system-prompt", system, ...(model ? ["--model", model] : [])], prompt, "Claude Code");
+        return this.cli("claude", ["-p", "--output-format", "text", "--tools", "", "--no-session-persistence", "--system-prompt", { text: system }, ...(model ? ["--model", model] : [])], prompt, "Claude Code");
       case "codex":
         return this.cli(
-          tools.path("codex")!,
+          "codex",
           ["exec", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", ...(model ? ["-m", model] : []), "-"],
           `${system}\n\n---\n\n${prompt}`,
           "Codex",
         );
       case "geminiCli":
         // -p 의 글은 표준 입력 뒤에 붙는다: 내용(표준 입력) 다음에 지시(시스템 프롬프트)
-        return this.cli(tools.path("gemini")!, ["-p", system, "-o", "text", "--approval-mode", "plan", ...(model ? ["-m", model] : [])], prompt, "Gemini CLI");
+        return this.cli("gemini", ["-p", { text: system }, "-o", "text", "--approval-mode", "plan", ...(model ? ["-m", model] : [])], prompt, "Gemini CLI");
       case "anthropic":
         return this.anthropic((await this.key(id))!, model, system, prompt, effort);
       case "openai":
@@ -249,8 +250,34 @@ class AI extends Observable {
     }
   }
 
-  private async cli(exe: string, args: string[], stdin: string, name: string) {
-    const r = await ipc.run(exe, args, { cwd: env.temp, stdin, timeoutMs: 300_000 });
+  /** CLI 실행. 여러 줄 글({ text })은 WSL 로 실행할 때 임시 파일로 넘긴다. */
+  private async cli(tool: ToolId, args: (string | { text: string })[], stdin: string, name: string) {
+    const cmd = tools.command(tool);
+    if (!cmd) throw new Error(`${name} 를 찾지 못했습니다.`);
+    let exe: string, argv: string[];
+    const temps: string[] = [];
+    if (cmd.kind === "native") {
+      exe = cmd.exe;
+      argv = args.map((a) => (typeof a === "string" ? a : a.text));
+    } else {
+      exe = "wsl.exe";
+      const mapped: string[] = [];
+      for (const a of args) {
+        if (typeof a === "string") mapped.push(a);
+        else {
+          const f = await tempFile("arg.txt", a.text);
+          temps.push(f.windows);
+          mapped.push("@file:" + f.wsl);
+        }
+      }
+      argv = wslArgs(cmd.distro, cmd.path, mapped);
+    }
+    let r;
+    try {
+      r = await ipc.run(exe, argv, { cwd: env.temp, stdin, timeoutMs: 300_000 });
+    } finally {
+      for (const t of temps) void ipc.remove(t);
+    }
     const out = r.stdout.trim();
     if (r.status !== 0 || !out) {
       const err = r.stderr.trim().split(/\r?\n/).slice(-6).join("\n");

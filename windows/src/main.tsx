@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { accounts } from "./lib/accounts";
 import { agents } from "./lib/agents";
-import { initEnv } from "./lib/env";
+import { env, initEnv } from "./lib/env";
 import { ai } from "./lib/ai";
 import { gitAvailable } from "./lib/git";
 import { tools } from "./lib/tools";
@@ -30,6 +30,8 @@ async function boot() {
   // 숨긴 창에서는 requestAnimationFrame 이 돌지 않으므로 타이머로 부른다.
   setTimeout(() => void ipc.appReady(), 30);
   updater.start();
+  // 윈도에서 못 찾은 AI CLI 는 WSL 에서 한 번 찾아 둔다(WSL 을 깨우느라 몇 초 걸릴 수 있어 뒤에서)
+  if (!env.selftest) setTimeout(() => void tools.probeWsl(), 6000);
   window.addEventListener("beforeunload", () => void settings.flush());
   if (git) {
     const test = await runSelfTest();

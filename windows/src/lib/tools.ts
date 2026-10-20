@@ -2,6 +2,7 @@ import { basename, env, isWindows, joinPath } from "./env";
 import { ipc } from "./ipc";
 import { Observable } from "./observable";
 import { settings } from "./settings";
+import { commandVersion, findCommand, listDistros } from "./wsl";
 
 /**
  * 외부 프로그램(git·AI CLI·gh·셸) 위치. PC 마다 설치 위치가 달라
@@ -36,6 +37,20 @@ interface ToolState {
   source: ToolSource;
   version: string | null;
 }
+
+/** WSL 안에 설치된 도구(배포판 + 리눅스 절대 경로) */
+export interface WslTool {
+  distro: string;
+  path: string;
+  version?: string | null;
+  /** 자동으로 찾은 것인지(사용자가 고른 게 아니면 true) */
+  auto?: boolean;
+}
+
+/** WSL 에서도 돌릴 수 있는 도구(AI CLI) */
+export const wslCapable: ToolId[] = ["claude", "codex", "gemini"];
+
+export type ToolCommand = { kind: "native"; exe: string } | { kind: "wsl"; distro: string; path: string };
 
 /** 흔한 설치 위치(PATH 에 없을 때) */
 function candidates(id: ToolId): string[] {
@@ -83,6 +98,74 @@ class Tools extends Observable {
     return settings.get<Partial<Record<ToolId, string>>>("toolPaths", {});
   }
 
+  /** WSL 에서 실행하도록 정한 도구 */
+  wsl(id: ToolId): WslTool | null {
+    return settings.get<Partial<Record<ToolId, WslTool>>>("toolWsl", {})[id] ?? null;
+  }
+
+  private setWslConfig(id: ToolId, v: WslTool | null) {
+    const all = { ...settings.get<Partial<Record<ToolId, WslTool>>>("toolWsl", {}) };
+    if (v) all[id] = v;
+    else delete all[id];
+    settings.set("toolWsl", all);
+    this.emit();
+  }
+
+  /** 실행 방법: WSL 로 정했으면 WSL, 아니면 윈도 실행 파일 */
+  command(id: ToolId): ToolCommand | null {
+    const w = this.wsl(id);
+    if (w) return { kind: "wsl", distro: w.distro, path: w.path };
+    const p = this.path(id);
+    return p ? { kind: "native", exe: p } : null;
+  }
+
+  available(id: ToolId) {
+    return !!this.command(id);
+  }
+
+  /** 화면에 보여 줄 위치 */
+  describe(id: ToolId): string | null {
+    const w = this.wsl(id);
+    if (w) return `WSL (${w.distro}) ${w.path}`;
+    return this.path(id);
+  }
+
+  /** 이 도구를 WSL 배포판 안의 것으로 쓴다 */
+  async useWsl(id: ToolId, distro: string, auto = false) {
+    const info = this.toolList(id);
+    const path = await findCommand(distro, info.command);
+    if (!path) throw new Error(`${distro} 안에서 ${info.command} 를 찾지 못했습니다. WSL 터미널에서 'which ${info.command}' 로 설치됐는지 확인하세요.`);
+    this.setWslConfig(id, { distro, path, auto, version: null });
+    const version = await commandVersion(distro, path);
+    const cur = this.wsl(id);
+    if (cur && cur.path === path) this.setWslConfig(id, { ...cur, version });
+  }
+
+  /** 윈도에 설치된 것으로 되돌린다 */
+  useWindows(id: ToolId) {
+    this.setWslConfig(id, null);
+  }
+
+  /**
+   * 윈도에서 못 찾은 AI CLI 를 기본 WSL 배포판에서 한 번 찾아 둔다(찾으면 기억해서 다음부터는 바로 씀).
+   * WSL 을 깨우는 데 몇 초 걸릴 수 있어 시작하고 조금 뒤 뒤에서 한다.
+   */
+  async probeWsl() {
+    if (!isWindows()) return;
+    const missing = wslCapable.filter((id) => !this.path(id) && !this.wsl(id));
+    if (!missing.length || settings.get("wslProbed", false)) return;
+    const distros = await listDistros();
+    settings.set("wslProbed", true);
+    if (!distros.length) return;
+    for (const id of missing) {
+      try {
+        await this.useWsl(id, distros[0], true);
+      } catch {
+        /* 그 배포판에 없음 */
+      }
+    }
+  }
+
   path(id: ToolId): string | null {
     return this.state[id].path;
   }
@@ -96,7 +179,11 @@ class Tools extends Observable {
     const custom = this.custom()[id];
     let path: string | null = null;
     let source: ToolSource = "none";
-    if (custom && (await ipc.exists(custom))) {
+    if (custom && custom.startsWith("wsl:")) {
+      // 셸을 WSL 배포판으로 고른 경우
+      path = custom;
+      source = "custom";
+    } else if (custom && (await ipc.exists(custom))) {
       path = custom;
       source = "custom";
     } else {
@@ -109,7 +196,7 @@ class Tools extends Observable {
     }
     this.state[id] = { path, source, version: null };
     this.emit();
-    if (path && info.versionArgs.length) void this.readVersion(id, path);
+    if (path && info.versionArgs.length && !path.startsWith("wsl:")) void this.readVersion(id, path);
   }
 
   private async readVersion(id: ToolId, path: string) {
@@ -150,6 +237,12 @@ class Tools extends Observable {
     delete c[id];
     settings.set("toolPaths", c);
     await this.detect(id);
+  }
+
+  /** 셸을 WSL 배포판으로(path 는 "wsl:배포판") */
+  setShellWsl(distro: string) {
+    settings.set("toolPaths", { ...this.custom(), shell: `wsl:${distro}` });
+    void this.detect("shell");
   }
 
   /** 셸에 맞는 시작 인자 */

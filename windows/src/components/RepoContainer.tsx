@@ -86,6 +86,28 @@ function Dialogs({ store }: { store: RepoStore }) {
           <div className="modal-message">{store.notRepoPrompt} 에 새 Git 저장소를 만들까요?</div>
         </Modal>
       )}
+      {store.unsafePrompt && (
+        <Modal
+          title="git 이 이 저장소를 막았습니다"
+          width={560}
+          onClose={close(() => (store.unsafePrompt = null))}
+          footer={
+            <>
+              <Button onClick={close(() => (store.unsafePrompt = null))}>취소</Button>
+              <Button kind="primary" onClick={() => void store.trustRepository()}>
+                믿을 수 있는 저장소로 등록하고 열기
+              </Button>
+            </>
+          }
+        >
+          <div className="modal-message">
+            저장소 폴더의 소유자가 지금 사용자와 달라서(WSL 안의 저장소, 외장 디스크 등) git 이 안전을 위해 열지 않았습니다. 내가 아는 저장소라면 등록하세요.
+          </div>
+          <div className="mono selectable" style={{ fontSize: 11.5, wordBreak: "break-all" }}>
+            git config --global --add safe.directory '{store.unsafePrompt.safePath}'
+          </div>
+        </Modal>
+      )}
       {store.confirm && (
         <Modal
           title={store.confirm.title}

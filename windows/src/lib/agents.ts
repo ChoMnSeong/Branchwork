@@ -1,9 +1,10 @@
-import { env, isWindows, joinPath, samePath, slash } from "./env";
+import { env, isWindows, joinPath, samePath, slash, toWslPath, wslDistroOf } from "./env";
 import { ipc } from "./ipc";
 import { Observable } from "./observable";
 import { settings } from "./settings";
 import type { TerminalSession } from "./terminal";
 import { tools, type ToolId } from "./tools";
+import { tempFile, withWslEnv, wslArgs } from "./wsl";
 
 /** 세션 상태: Claude Code 는 훅 이벤트로 자세히, 다른 에이전트는 실행 중/종료만 */
 export type AgentStatus = "starting" | "working" | "permission" | "waiting" | "running" | "ended";
@@ -79,7 +80,7 @@ export interface AgentSession {
 
 /** 세션을 띄울 저장소 창(탭) — 순환 참조를 피하려고 필요한 것만 */
 export interface AgentHost {
-  newTerminal(path: string, spec?: { program?: string; args?: string[]; env?: Record<string, string>; title?: string }): TerminalSession;
+  newTerminal(path: string, spec?: { program?: string; args?: string[]; env?: Record<string, string>; title?: string; cwd?: string }): TerminalSession;
   focusTerminal(t: TerminalSession): void;
 }
 
@@ -108,6 +109,11 @@ class AgentCenter extends Observable {
     this.timer = setInterval(() => void this.load(), 2000);
   }
 
+  /** WSL 안의 Claude Code 가 읽는 훅 설정(윈도 실행 파일을 /mnt/c/… 경로로 부른다) */
+  private get hooksWslFile() {
+    return joinPath(this.dir, "hooks-wsl.json");
+  }
+
   private async installHooks() {
     // Windows 경로도 / 로 쓰면 cmd·Git Bash 어느 셸로 실행돼도 그대로 통한다
     const exe = isWindows() ? slash(env.exe) : env.exe;
@@ -116,6 +122,12 @@ class AgentCenter extends Observable {
       hooks[e] = [{ matcher: "", hooks: [{ type: "command", command: `"${exe}" --agent-hook ${e}`, timeout: 5 }] }];
     }
     await ipc.writeText(this.hooksFile, JSON.stringify({ hooks }, null, 2));
+    if (isWindows()) {
+      const wslExe = toWslPath(env.exe).replace(/'/g, "'\\''");
+      const wslHooks: Record<string, unknown> = {};
+      for (const e of events) wslHooks[e] = [{ matcher: "", hooks: [{ type: "command", command: `'${wslExe}' --agent-hook ${e}`, timeout: 10 }] }];
+      await ipc.writeText(this.hooksWslFile, JSON.stringify({ hooks: wslHooks }, null, 2));
+    }
   }
 
   sessionsIn(path: string) {
@@ -194,15 +206,16 @@ class AgentCenter extends Observable {
   /** 마지막으로 고른 에이전트(빠른 시작에 씀). 없으면 설치된 것 중 첫 번째. */
   get defaultKind(): AgentKind {
     const saved = settings.get<AgentKind | null>("agentKind", null);
-    if (saved && tools.path(agentKind(saved).tool)) return saved;
-    return agentKinds.find((k) => tools.path(k.tool))?.id ?? "claude";
+    if (saved && tools.available(agentKind(saved).tool)) return saved;
+    return agentKinds.find((k) => tools.available(k.tool))?.id ?? "claude";
   }
 
   /** 폴더에서 에이전트를 아래 터미널의 새 탭으로 띄운다. task 가 있으면 첫 요청으로 보낸다. */
   async start(host: AgentHost, kind: AgentKind, path: string, task: string, mode: string | null) {
     const info = agentKind(kind);
-    const exe = tools.path(info.tool);
-    if (!exe) throw new Error(`${info.title} 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 설치하세요.`);
+    const cmd = tools.command(info.tool);
+    if (!cmd) throw new Error(`${info.title} 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 WSL 에서 찾아 주세요.`);
+    const inWsl = cmd.kind === "wsl";
     settings.set("agentKind", kind);
     const id = crypto.randomUUID().toLowerCase();
     const t = task.trim();
@@ -210,7 +223,7 @@ class AgentCenter extends Observable {
     await ipc.writeText(joinPath(this.dir, id + ".meta"), JSON.stringify(meta));
     let args: string[];
     if (kind === "claude") {
-      args = ["--settings", this.hooksFile];
+      args = ["--settings", inWsl ? toWslPath(this.hooksWslFile) : this.hooksFile];
       if (mode) args.push("--permission-mode", mode);
       if (t) args.push(t);
     } else if (kind === "codex") {
@@ -218,7 +231,25 @@ class AgentCenter extends Observable {
     } else {
       args = [...(mode ? ["--approval-mode", mode] : []), ...(t ? ["-i", t] : [])];
     }
-    const term = host.newTerminal(path, { program: exe, args, env: { BRANCHWORK_AGENT_ID: id }, title: info.title.split(" (")[0] });
+    const title = info.title.split(" (")[0];
+    let term: TerminalSession;
+    if (cmd.kind === "native") {
+      term = host.newTerminal(path, { program: cmd.exe, args, env: { BRANCHWORK_AGENT_ID: id }, title });
+    } else {
+      // WSL: 작업 폴더를 리눅스 경로로 바꾸고, 훅이 부르는 윈도 실행 파일까지 세션 ID 가 넘어가게(WSLENV)
+      const mapped: string[] = [];
+      for (const a of args) {
+        if (a.includes("\n")) mapped.push("@file:" + (await tempFile("task.txt", a)).wsl);
+        else mapped.push(a);
+      }
+      term = host.newTerminal(path, {
+        program: "wsl.exe",
+        args: wslArgs(cmd.distro, cmd.path, mapped, { cwd: path, interactive: true }),
+        env: withWslEnv({ BRANCHWORK_AGENT_ID: id }),
+        cwd: wslDistroOf(path) ? env.home : undefined,
+        title: `${title} · WSL`,
+      });
+    }
     this.terminals.set(id, { term, host });
     term.onExit = () => void this.load();
     await this.load();

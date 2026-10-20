@@ -74,6 +74,24 @@ jobs:
           bash tests/make-test-repo.sh "$ROOT/repo"
           echo "ST_ROOT=$ROOT" >> "$GITHUB_ENV"
 
+      - name: WSL 준비(Ubuntu)
+        id: wsl
+        continue-on-error: true
+        uses: Vampire/setup-wsl@v7
+        with:
+          distribution: Ubuntu-24.04
+          wsl-version: 1
+
+      - name: WSL 에 가짜 claude 두기
+        if: steps.wsl.outcome == 'success'
+        continue-on-error: true
+        shell: wsl-bash {0}
+        run: |
+          # 윈도에서 받은 파일이라 줄 끝(CR)을 지우고 둔다
+          tr -d '\r' < tests/fake-claude.sh > /usr/local/bin/claude
+          chmod 755 /usr/local/bin/claude
+          claude --version
+
       - name: 자동 점검 (실제 앱 실행)
         shell: pwsh
         run: |

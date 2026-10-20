@@ -1,8 +1,8 @@
 import { accounts } from "./accounts";
 import { ai, clip, Prompts, splitMessage } from "./ai";
 import { agents, type AgentHost, type AgentKind } from "./agents";
-import { basename, dirname, joinPath, samePath, slash } from "./env";
-import { describe, git, gitRaw, type GitOptions } from "./git";
+import { basename, dirname, env, joinPath, samePath, slash } from "./env";
+import { describe, git, gitRaw, unsafeRepository, type GitOptions } from "./git";
 import { layoutGraph } from "./graph";
 import * as Hosting from "./hosting";
 import { ipc } from "./ipc";
@@ -57,6 +57,8 @@ import * as P from "./parsers";
 import { addRecent } from "./settings";
 import { parseSplitPlan, type SplitGroup } from "./split";
 export type { SplitGroup } from "./split";
+
+
 import { TerminalSession, type TerminalSpec } from "./terminal";
 
 export const branchPayload = "branchwork-branch:";
@@ -117,6 +119,8 @@ export class RepoStore extends Observable implements AgentHost {
   sheet: SheetKind | null = null;
   confirm: ConfirmRequest | null = null;
   notRepoPrompt: string | null = null;
+  /** git 이 "소유자가 달라 믿을 수 없는 저장소"로 막았을 때(WSL·외장 디스크 등): 등록할 경로 */
+  unsafePrompt: { folder: string; safePath: string } | null = null;
   dropRequest: DropRequest | null = null;
   loading: LoadingInfo | null = null;
   /** 탭이 처음 무엇을 보여 줄지 정했는지(그 전에는 로딩 화면) */
@@ -229,6 +233,12 @@ export class RepoStore extends Observable implements AgentHost {
     if (r.status !== 0) {
       if (!this.path) this.loading = null;
       this.emit();
+      const unsafe = unsafeRepository(r.stderr);
+      if (unsafe) {
+        this.unsafePrompt = { folder, safePath: unsafe };
+        this.emit();
+        return { kind: "failed", message: "" };
+      }
       if (r.stderr.includes("not a git repository")) return { kind: "notRepository", path: folder };
       return { kind: "failed", message: r.stderr.trim() };
     }
@@ -267,7 +277,7 @@ export class RepoStore extends Observable implements AgentHost {
   async openInPlace(folder: string) {
     const r = await this.open(folder);
     if (r.kind === "notRepository") this.notRepoPrompt = r.path;
-    else if (r.kind === "failed") this.errorMessage = r.message;
+    else if (r.kind === "failed" && r.message) this.errorMessage = r.message;
     this.booted = true;
     this.emit();
   }
@@ -280,12 +290,30 @@ export class RepoStore extends Observable implements AgentHost {
     }
     const top = await RepoStore.toplevel(folder);
     if (!top) {
-      this.notRepoPrompt = folder;
+      const r = await gitRaw(["rev-parse", "--show-toplevel"], folder).catch(() => null);
+      const unsafe = r ? unsafeRepository(r.stderr) : null;
+      if (unsafe) this.unsafePrompt = { folder, safePath: unsafe };
+      else this.notRepoPrompt = folder;
       this.emit();
       return;
     }
     if (samePath(top, this.path)) return;
     this.openRepo?.(top);
+  }
+
+  /** 막힌 저장소를 git 의 safe.directory 에 등록하고 다시 연다 */
+  async trustRepository() {
+    const p = this.unsafePrompt;
+    if (!p) return;
+    this.unsafePrompt = null;
+    this.emit();
+    try {
+      await git(["config", "--global", "--add", "safe.directory", p.safePath], env.home || env.temp);
+    } catch (e) {
+      this.fail(e);
+      return;
+    }
+    await this.openOrReport(p.folder);
   }
 
   close() {

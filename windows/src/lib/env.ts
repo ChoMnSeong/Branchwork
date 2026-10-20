@@ -78,6 +78,22 @@ export function nativePath(p: string) {
   return isWindows() ? slash(p).replace(/\//g, "\\") : p;
 }
 
+/** WSL 배포판 안의 경로인지(\\wsl.localhost\Ubuntu\home\…, \\wsl$\…) — 그렇다면 배포판 이름 */
+export function wslDistroOf(p: string): string | null {
+  const m = slash(p).match(/^\/\/(?:wsl\.localhost|wsl\$)\/([^/]+)/i);
+  return m ? m[1] : null;
+}
+
+/** Windows 경로를 WSL 안에서 보이는 경로로: C:\a\b → /mnt/c/a/b, \\wsl.localhost\Ubuntu\home\x → /home/x */
+export function toWslPath(p: string): string {
+  const s = slash(p);
+  const unc = s.match(/^\/\/(?:wsl\.localhost|wsl\$)\/[^/]+(\/.*)?$/i);
+  if (unc) return unc[1] || "/";
+  const drive = s.match(/^([A-Za-z]):(\/.*)?$/);
+  if (drive) return `/mnt/${drive[1].toLowerCase()}${drive[2] ?? "/"}`;
+  return s;
+}
+
 /** 임시 폴더 안의 워크트리인지(재부팅하면 지워질 수 있음) */
 export function isTemporaryPath(p: string) {
   const s = samePathKey(p);

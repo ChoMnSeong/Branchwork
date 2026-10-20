@@ -94,3 +94,10 @@ export async function gitRaw(args: string[], cwd: string, o: GitOptions = {}): P
 export function gitAvailable(): boolean {
   return !!tools.path("git");
 }
+
+/** git 의 "detected dubious ownership" 오류에서 등록할 경로를 꺼낸다(git 이 알려 주는 명령 그대로) */
+export function unsafeRepository(stderr: string): string | null {
+  if (!/dubious ownership/i.test(stderr)) return null;
+  const m = stderr.match(/safe\.directory\s+'([^']+)'/) ?? stderr.match(/safe\.directory\s+"([^"]+)"/) ?? stderr.match(/safe\.directory\s+(\S+)/);
+  return m ? m[1] : null;
+}
