@@ -92,6 +92,19 @@ jobs:
           chmod 755 /usr/local/bin/claude
           claude --version
 
+      - name: WSL 첫 실행 설정(계정 만들기 화면) 건너뛰기
+        if: steps.wsl.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          # 막 설치한 배포판은 처음 열 때 사용자 계정을 만들라고 묻는다(사용자 PC 에서는 이미 끝난 단계) — root 로 바로 열리게
+          Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss | ForEach-Object {
+            Set-ItemProperty -Path $_.PSPath -Name RunOOBE -Value 0 -Type DWord -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $_.PSPath -Name DefaultUid -Value 0 -Type DWord -ErrorAction SilentlyContinue
+          }
+          wsl.exe --terminate Ubuntu-24.04 2>$null
+          wsl.exe -d Ubuntu-24.04 --cd / -- echo ready
+
       - name: 자동 점검 (실제 앱 실행)
         shell: pwsh
         run: |
