@@ -51,6 +51,22 @@ jobs:
             npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
           fi
 
+      - name: 설치 파일 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: branchwork-windows
+          path: |
+            windows/src-tauri/target/release/bundle/nsis/*.exe
+            windows/src-tauri/target/release/bundle/nsis/*.sig
+            windows/src-tauri/target/release/branchwork.exe
+
+      - name: 점검용 빌드(업데이트 서버 http 허용 — 배포 파일과는 별개)
+        shell: bash
+        run: |
+          # 가짜 업데이트 서버(http://127.0.0.1)로 서명 확인을 시험하려고 이 설정만 바꿔 다시 빌드한다.
+          # 배포 파일(위에서 올린 설치 파일)은 https 만 쓴다.
+          npx tauri build --no-bundle --config '{"bundle":{"createUpdaterArtifacts":false},"plugins":{"updater":{"dangerousInsecureTransportProtocol":true}}}'
+
       - name: 테스트 저장소 만들기
         shell: bash
         run: |
@@ -98,11 +114,3 @@ jobs:
             ${{ env.ST_ROOT }}/selftest.png
           if-no-files-found: ignore
 
-      - name: 설치 파일 올리기
-        uses: actions/upload-artifact@v4
-        with:
-          name: branchwork-windows
-          path: |
-            windows/src-tauri/target/release/bundle/nsis/*.exe
-            windows/src-tauri/target/release/bundle/nsis/*.sig
-            windows/src-tauri/target/release/branchwork.exe
