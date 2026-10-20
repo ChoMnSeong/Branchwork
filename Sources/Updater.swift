@@ -74,15 +74,27 @@ final class UpdateCenter {
         guard phase != .checking, phase != .downloading, phase != .installing else { return }
         phase = .checking
         do {
-            var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(Self.repo)/releases/latest")!, timeoutInterval: 20)
+            // 최근 릴리스 중 맥 파일이 있는 가장 새 것(Windows 만 고친 릴리스가 'latest' 일 수 있어서)
+            var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(Self.repo)/releases?per_page=20")!, timeoutInterval: 20)
             req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             req.setValue("Branchwork", forHTTPHeaderField: "User-Agent")
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard (resp as? HTTPURLResponse)?.statusCode == 200,
-                  let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                  let list = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
                 throw AIError.failed("GitHub", "릴리스 정보를 받지 못했습니다(\((resp as? HTTPURLResponse)?.statusCode ?? 0)).")
             }
             lastChecked = Date()
+            let macReleases = list.filter { r in
+                r["draft"] as? Bool != true && r["prerelease"] as? Bool != true
+                    && (r["assets"] as? [[String: Any]] ?? []).contains { ($0["name"] as? String ?? "").hasSuffix("-macOS.zip") }
+            }
+            let version = { (r: [String: Any]) in (r["tag_name"] as? String ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "vV")) }
+            guard let obj = macReleases.max(by: { Self.isNewer(version($1), than: version($0)) }) else {
+                latest = nil
+                phase = .upToDate
+                if manual { showWindow() }
+                return
+            }
             let tag = (obj["tag_name"] as? String ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
             let assets = obj["assets"] as? [[String: Any]] ?? []
             let zip = assets.first { ($0["name"] as? String ?? "").hasSuffix("-macOS.zip") }
