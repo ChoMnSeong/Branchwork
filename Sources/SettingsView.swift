@@ -80,6 +80,16 @@ private struct AccountsSettings: View {
                 Text(error).foregroundStyle(.red).font(.callout)
             }
 
+            Section("커밋 그래프") {
+                Toggle("작성자 프로필 사진 보이기", isOn: Binding(get: { AvatarStore.shared.enabled }, set: { AvatarStore.shared.enabled = $0 }))
+                HStack {
+                    Text("GitHub 프로필 → 연결한 사내 GitLab 프로필 → Gravatar 순으로 찾고, 없으면 이니셜을 씁니다. Gravatar 에는 이메일 해시가 전송됩니다.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("다시 받기") { AvatarStore.shared.refresh() }.controlSize(.small)
+                }
+            }
+
             Section {
                 Text("토큰은 macOS 키체인에 계정별로 저장되고 PR·MR 조회와 생성, 저장소 목록, HTTPS push·pull 인증에 쓰입니다.")
                     .font(.caption)

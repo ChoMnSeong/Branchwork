@@ -9,6 +9,7 @@ import { useObserve } from "../lib/observable";
 import { toolList, tools, wslCapable, type ToolId } from "../lib/tools";
 import { listDistros } from "../lib/wsl";
 import { updater } from "../lib/updater";
+import { avatars } from "../lib/avatars";
 import { settings } from "../lib/settings";
 import { env } from "../lib/env";
 import icon from "../assets/icon.png";
@@ -160,6 +161,7 @@ function RuleEditor({ info }: { info: (typeof instructionInfo)[number] }) {
 
 function AccountsSettings() {
   useObserve(accounts);
+  useObserve(avatars);
   const [githubToken, setGithubToken] = useState("");
   const [gitlabServer, setGitlabServer] = useState(accounts.suggestedGitLabServer);
   const [gitlabToken, setGitlabToken] = useState("");
@@ -249,6 +251,11 @@ function AccountsSettings() {
         <span className="hint">회사에서 운영하는 GitLab 서버만 연결합니다(gitlab.com 은 아직 지원하지 않음). 서버마다 여러 계정을 연결할 수 있습니다.</span>
       </div>
 
+      <div className="form-section">
+        <span className="form-section-title">커밋 그래프</span>
+        <Checkbox checked={avatars.enabled} onChange={(v) => avatars.setEnabled(v)} label="작성자 프로필 사진 보이기" />
+        <span className="hint">GitHub 프로필 → 연결한 사내 GitLab 프로필 → Gravatar 순으로 찾고, 없으면 이니셜을 씁니다. Gravatar 에는 이메일 해시가 전송됩니다.</span>
+      </div>
       {error && <span className="error-text">{error}</span>}
       <span className="hint">
         토큰은 {isWindows() ? "Windows 자격 증명 관리자" : "키체인"}에 계정별로 저장되고 PR·MR 조회와 생성, 저장소 목록, HTTPS push·pull 인증에 쓰입니다.

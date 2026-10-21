@@ -898,6 +898,62 @@ select {
   outline-offset: -2px;
   background: var(--accent-soft);
 }
+.ref-col {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  padding-left: 6px;
+  flex: none;
+  min-width: 0;
+}
+.ref-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 150px;
+  line-height: 16px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ref-pill .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.ref-pill.solid {
+  font-weight: 700;
+}
+.ref-more {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 0 4px;
+  border-radius: 999px;
+  flex: none;
+}
+.ref-line {
+  flex: 1;
+  height: 1.5px;
+  min-width: 6px;
+}
+.avatar-node {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+}
+.avatar-node img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .commit-row .msg {
   flex: 1;
   min-width: 0;
