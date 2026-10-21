@@ -99,6 +99,17 @@ final class RepoStore: Identifiable {
     var explaining: Set<String> = []
     var splitPlan: [SplitGroup]?
 
+    // CI/CD (GitLab 파이프라인 · GitHub Actions)
+    var ciPipelines: [CIPipeline] = []
+    var ciState: LoadState = .idle
+    var ciJobs: [Int: [CIJob]] = [:]
+    var ciDeployments: [Int: [CIDeployment]] = [:]
+    /// 진행 중인 버튼 동작(같은 버튼을 두 번 누르지 않게)
+    var ciBusy: Set<String> = []
+    var ciCurrentBranchOnly = UserDefaults.standard.bool(forKey: "ciCurrentBranchOnly") {
+        didSet { UserDefaults.standard.set(ciCurrentBranchOnly, forKey: "ciCurrentBranchOnly") }
+    }
+
     private var watcher: FileWatcher?
     private var reloadGeneration = 0
     private var watchTask: Task<Void, Never>?
@@ -315,6 +326,7 @@ final class RepoStore: Identifiable {
             if let t = newTarget, t.provider == .github { AvatarStore.shared.noteGitHubRepo(t.path) }
             if newTarget != target {
                 target = newTarget
+                resetCI()
                 Task { await loadPullRequests() }
             }
             hasMore = more

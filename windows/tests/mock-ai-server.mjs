@@ -18,6 +18,7 @@ const manifest = (sig) => {
     platforms: { "windows-x86_64": p, "darwin-aarch64": p, "darwin-x86_64": p },
   });
 };
+const ciCalls = [];
 http
   .createServer((req, res) => {
     let body = "";
@@ -42,6 +43,35 @@ http
       if (updateFile && req.url === "/update/file") {
         res.setHeader("content-type", "application/octet-stream");
         return res.end(fs.readFileSync(updateFile));
+      }
+      // CI/CD 점검용 가짜 GitLab(/api/v4/projects/g%2Fp/…)·GitHub(/gh/repos/o/r/…). 받은 실행 요청은 /ci/calls 로 확인
+      if (req.url === "/ci/calls") return res.end(JSON.stringify(ciCalls));
+      if (req.url.startsWith("/api/v4/projects/g%2Fp/") || req.url.startsWith("/gh/repos/o/r/")) {
+        const u = req.url.split("?")[0];
+        if (req.method === "POST") ciCalls.push({ url: u, body: body ? JSON.parse(body) : null, token: req.headers["private-token"] ?? req.headers.authorization });
+        const sha = "1111111111111111111111111111111111111111";
+        if (u.endsWith("/pipelines"))
+          return res.end(JSON.stringify([{ id: 11, iid: 3, sha, ref: "main", status: "success", source: "push", created_at: "2026-10-20T00:00:00Z", web_url: "http://x/p/11", user: { username: "dev" } }]));
+        if (u.endsWith("/pipelines/11/jobs"))
+          return res.end(
+            JSON.stringify([
+              { id: 102, name: "deploy-prod", stage: "deploy", status: "manual", web_url: "http://x/j/102", allow_failure: true, duration: null },
+              { id: 101, name: "build", stage: "build", status: "success", web_url: "http://x/j/101", allow_failure: false, duration: 42.4 },
+            ]),
+          );
+        if (u.endsWith("/jobs/102/play")) return res.end(JSON.stringify({ id: 102, status: "pending" }));
+        if (u.endsWith("/pipeline")) return res.end(JSON.stringify({ id: 12, status: "created" }));
+        if (u.endsWith("/actions/workflows"))
+          return res.end(JSON.stringify({ workflows: [{ id: 7, name: "Deploy", path: ".github/workflows/deploy.yml", state: "active" }, { id: 8, name: "CI", path: ".github/workflows/ci.yml", state: "active" }] }));
+        if (u.endsWith("/contents/.github/workflows/deploy.yml")) {
+          const yml = "on:\n  workflow_dispatch:\n    inputs:\n      target:\n        description: 배포 대상\n        type: choice\n        options: [staging, production]\n        required: true\n";
+          return res.end(JSON.stringify({ content: Buffer.from(yml).toString("base64").replace(/(.{60})/g, "$1\n") }));
+        }
+        if (u.endsWith("/contents/.github/workflows/ci.yml")) return res.end(JSON.stringify({ content: Buffer.from("on: [push]\n").toString("base64") }));
+        if (u.endsWith("/actions/workflows/7/dispatches")) {
+          res.statusCode = 204;
+          return res.end();
+        }
       }
       if (req.url === "/v1/chat/completions" && req.method === "POST") {
         const j = JSON.parse(body || "{}");

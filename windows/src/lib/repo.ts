@@ -3,6 +3,7 @@ import { ai, clip, Prompts, splitMessage } from "./ai";
 import { agents, type AgentHost, type AgentKind } from "./agents";
 import { avatars } from "./avatars";
 import { basename, dirname, env, joinPath, samePath, slash } from "./env";
+import { CIStore } from "./ci";
 import { describe, git, gitRaw, unsafeRepository, type GitOptions } from "./git";
 import { layoutGraph } from "./graph";
 import * as Hosting from "./hosting";
@@ -155,6 +156,9 @@ export class RepoStore extends Observable implements AgentHost {
   aiNotice: string | null = null;
   explanations: Record<string, string> = {};
   explaining = new Set<string>();
+
+  /** CI/CD 패널(파이프라인·Actions) */
+  readonly ci: CIStore = new CIStore(this);
 
   // 터미널 패널
   terminals: TerminalSession[] = [];
@@ -387,6 +391,7 @@ export class RepoStore extends Observable implements AgentHost {
     this.target = null;
     this.pullRequests = [];
     this.prState = { kind: "idle" };
+    this.ci.reset();
     this.aiWorking = null;
     this.aiNotice = null;
     this.explanations = {};
@@ -431,6 +436,11 @@ export class RepoStore extends Observable implements AgentHost {
 
   fail(e: unknown) {
     this.errorMessage = describe(e);
+    this.emit();
+  }
+
+  showError(message: string) {
+    this.errorMessage = message;
     this.emit();
   }
 
@@ -502,6 +512,7 @@ export class RepoStore extends Observable implements AgentHost {
       if (newTarget?.provider === "github") avatars.noteGitHubRepo(newTarget.path);
       if (!sameTarget(newTarget, this.target)) {
         this.target = newTarget;
+        this.ci.reset();
         void this.loadPullRequests();
       }
       this.hasMore = more;

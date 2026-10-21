@@ -320,7 +320,9 @@ export type SheetKind =
   | { kind: "createPullRequest" }
   | { kind: "startAgent"; path: string | null }
   | { kind: "addWorktree"; branch: string | null; start: string | null }
-  | { kind: "splitCommits" };
+  | { kind: "splitCommits" }
+  /** 새 파이프라인(GitLab) / 워크플로 실행(GitHub) */
+  | { kind: "runPipeline" };
 
 export interface ConfirmRequest {
   title: string;

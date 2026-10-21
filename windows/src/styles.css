@@ -1322,3 +1322,6 @@ select {
   font-weight: 600;
   color: var(--text);
 }
+.icon-btn.on {
+  color: var(--accent);
+}

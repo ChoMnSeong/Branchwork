@@ -11,6 +11,7 @@ struct SidebarView: View {
             Picker("", selection: $mode) {
                 Text("목록").tag("list")
                 Text(activeAgents > 0 ? "에이전트 \(activeAgents)" : "에이전트").tag("agents")
+                Text("CI/CD").tag("ci")
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -18,6 +19,8 @@ struct SidebarView: View {
             .padding(.vertical, 6)
             if mode == "agents" {
                 AgentsPanel()
+            } else if mode == "ci" {
+                CIPanel()
             } else {
                 branchList
             }

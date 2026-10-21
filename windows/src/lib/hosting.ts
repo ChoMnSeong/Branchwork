@@ -88,14 +88,19 @@ function headers(p: Provider, token: string, json: boolean): Record<string, stri
   return h;
 }
 
-async function send<T>(p: Provider, url: string, token: string, method = "GET", body?: unknown): Promise<T> {
-  const r = await ipc.http(method, url, headers(p, token, body !== undefined), body === undefined ? undefined : JSON.stringify(body));
-  if (r.status < 200 || r.status >= 300) throw new HostingError(r.status, r.body);
-  return JSON.parse(r.body) as T;
+export async function send<T>(p: Provider, url: string, token: string, method = "GET", body?: unknown): Promise<T> {
+  return JSON.parse(await sendRaw(p, url, token, method, body)) as T;
 }
 
-const projectID = (path: string) => encodeURIComponent(path);
-const date = (s?: string | null) => (s ? Date.parse(s) / 1000 : null);
+/** 응답 본문(204 처럼 본문이 없어도 성공이면 빈 문자열) */
+export async function sendRaw(p: Provider, url: string, token: string, method = "GET", body?: unknown): Promise<string> {
+  const r = await ipc.http(method, url, headers(p, token, body !== undefined), body === undefined ? undefined : JSON.stringify(body));
+  if (r.status < 200 || r.status >= 300) throw new HostingError(r.status, r.body);
+  return r.body;
+}
+
+export const projectID = (path: string) => encodeURIComponent(path);
+export const date = (s?: string | null) => (s ? Date.parse(s) / 1000 : null);
 
 interface GHUser { login: string; name?: string | null; avatar_url?: string | null }
 interface GHRef { ref: string; sha: string; repo?: { full_name: string } | null }

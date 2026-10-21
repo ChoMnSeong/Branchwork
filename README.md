@@ -41,6 +41,12 @@ Git 동작은 시스템 `git` 을 그대로 호출하고, 화면·그래프 배�
   - 현재 브랜치로 PR/MR 만들기(필요하면 먼저 push, Draft 지원)
   - 복제 창에서 내 저장소 목록·검색
   - HTTPS push/pull/clone 인증: 연결한 토큰으로 GIT_ASKPASS 응답(기존 키체인·자격 증명 도우미가 우선)
+- **CI/CD 탭**(사이드바 목록/에이전트/CI/CD 전환): GitLab 파이프라인·GitHub Actions 실행 목록(상태·브랜치·시간, 현재 브랜치만 보기), 펼치면 단계별 작업
+  - **수동 작업 실행**: GitLab `when: manual`·`when: delayed` 작업의 ▶ 버튼(최근 파이프라인은 기다리는 수동 작업 수를 미리 표시)
+  - 작업·파이프라인 다시 실행(GitHub 은 실패한 작업만도), 실행 취소, 브라우저로 열기·커밋 보기
+  - **실행…**: GitLab — 브랜치와 변수로 새 파이프라인(`.gitlab-ci.yml` 의 설명 붙은 변수는 미리 채움) / GitHub — `workflow_dispatch` 워크플로를 브랜치·입력값(선택·참거짓·글)으로 실행
+  - GitHub 환경 보호 규칙의 배포 승인·거부
+  - 실행 중인 게 있으면 8초마다, 없으면 45초마다 새로 고침. 실행하려면 토큰에 GitLab 은 `api` 권한, GitHub 은 Actions 쓰기 권한(클래식 토큰은 `repo`)이 필요하다
 - **에이전트 탭**(사이드바 목록/에이전트 전환): 워크트리 카드(새 파일·수정·삭제 수, 원격 대비 ↑↓)와 그 안에서 도는 에이전트 세션 상태(작업 중·권한 요청·입력 대기·종료), 세션 시작(워크트리 선택 또는 새 워크트리, 맡길 작업, 권한 모드), 세션을 누르면 그 Terminal 탭으로 이동
   - 상태는 Branchwork 가 띄운 세션에 `--settings` 로 더한 훅(`~/Library/Application Support/Branchwork/agents/hook.sh`)이 남기는 파일로 판단한다. 사용자 설정·훅은 그대로 유지된다.
 - **변경 파일 보기**: 목록 / 폴더 트리 전환(작업 영역·커밋 상세), 트리에서 폴더 단위 스테이지·언스테이지
@@ -91,7 +97,7 @@ push/pull 이 자격 증명을 물으면 멈추지 않고 실패하도록 해 �
   npx vitest run       # 파서·그래프 단위 테스트
   ```
 
-- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 저장소 열기·스테이지·커밋·브랜치·머지·검색·stash·터미널·자격 증명·도우미 모드·도구 불러오기·AI 커밋 메시지·규칙·나눠서 커밋·업데이트 서명 확인을 실제 앱에서 차례로 해 보고 결과를 남긴다(가짜 AI·업데이트 서버 `tests/mock-ai-server.mjs`). GitHub Actions 의 Windows 서버에서 푸시마다 돈다(`.github/workflows/windows.yml`).
+- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 저장소 열기·스테이지·커밋·브랜치·머지·검색·stash·터미널·자격 증명·도우미 모드·도구 불러오기·AI 커밋 메시지·규칙·나눠서 커밋·업데이트 서명 확인·CI/CD(가짜 GitLab·GitHub 로 수동 작업 실행·워크플로 실행)를 실제 앱에서 차례로 해 보고 결과를 남긴다(가짜 AI·업데이트·GitLab·GitHub 서버 `tests/mock-ai-server.mjs`). GitHub Actions 의 Windows 서버에서 푸시마다 돈다(`.github/workflows/windows.yml`).
 - **업데이트 서명**: 릴리스 빌드는 `TAURI_SIGNING_PRIVATE_KEY`(GitHub Actions 비밀 값)로 설치 파일에 서명하고, 앱은 `tauri.conf.json` 의 공개 키로 확인한 뒤에만 설치한다. 릴리스에 `latest.json`(`windows/scripts/latest-json.mjs`)을 함께 올린다.
 
 ## 라이선스

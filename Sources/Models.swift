@@ -380,6 +380,8 @@ enum SheetKind: Identifiable {
     case addWorktree(branch: String?, start: String?)
     /// AI 가 나눈 커밋 계획 확인
     case splitCommits
+    /// 새 파이프라인(GitLab) / 워크플로 실행(GitHub)
+    case runPipeline
 
     var id: String {
         switch self {
@@ -391,6 +393,7 @@ enum SheetKind: Identifiable {
         case .startAgent(let p): return "agent:" + (p ?? "")
         case .addWorktree(let b, let s): return "wt:" + (b ?? "") + ":" + (s ?? "")
         case .splitCommits: return "split"
+        case .runPipeline: return "runPipeline"
         }
     }
 }

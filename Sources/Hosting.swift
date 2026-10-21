@@ -82,7 +82,7 @@ enum Hosting {
     }()
 
 
-    private static func request(_ p: Provider, _ url: String, token: String, method: String = "GET",
+    static func request(_ p: Provider, _ url: String, token: String, method: String = "GET",
                                 body: [String: Any]? = nil) throws -> URLRequest {
         guard let u = URL(string: url) else { throw HostingError(status: 0, body: Data("잘못된 주소: \(url)".utf8)) }
         var r = URLRequest(url: u, timeoutInterval: 30)
@@ -103,20 +103,26 @@ enum Hosting {
         return r
     }
 
-    private static func send<T: Decodable>(_ type: T.Type, _ req: URLRequest) async throws -> T {
+    static func send<T: Decodable>(_ type: T.Type, _ req: URLRequest) async throws -> T {
+        try decoder.decode(T.self, from: try await data(req))
+    }
+
+    /// 응답 본문(204 처럼 본문이 없어도 성공이면 빈 Data)
+    @discardableResult
+    static func data(_ req: URLRequest) async throws -> Data {
         let (data, resp) = try await URLSession.shared.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else { throw HostingError(status: code, body: data) }
-        return try decoder.decode(T.self, from: data)
+        return data
     }
 
-    private static func projectID(_ path: String) -> String {
+    static func projectID(_ path: String) -> String {
         var allowed = CharacterSet.alphanumerics
         allowed.insert(charactersIn: "-_.~")
         return path.addingPercentEncoding(withAllowedCharacters: allowed) ?? path
     }
 
-    private static func date(_ s: String?) -> Date? {
+    static func date(_ s: String?) -> Date? {
         guard let s else { return nil }
         let f = ISO8601DateFormatter()
         if let d = f.date(from: s) { return d }

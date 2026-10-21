@@ -10,6 +10,7 @@ import { useObserve } from "../lib/observable";
 import { branchPayload, type RepoStore } from "../lib/repo";
 import { settings } from "../lib/settings";
 import { AgentsPanel } from "./AgentsPanel";
+import { CIPanel } from "./CIPanel";
 import { localBranchMenu, remoteBranchMenu } from "./menus";
 import { IconButton, Segmented, showContextMenu, showMenuBelow, Spinner, tip, type MenuItem } from "./ui";
 
@@ -17,7 +18,7 @@ export function Sidebar({ store, openSettings }: { store: RepoStore; openSetting
   useObserve(store);
   useObserve(settings);
   useObserve(agents);
-  const mode = settings.get<"list" | "agents">("sidebarMode", "list");
+  const mode = settings.get<"list" | "agents" | "ci">("sidebarMode", "list");
   const active = agents.sessions.filter((s) => isActiveStatus(s.status) && store.worktrees.some((w) => samePath(w.path, s.path))).length;
   return (
     <>
@@ -29,10 +30,11 @@ export function Sidebar({ store, openSettings }: { store: RepoStore; openSetting
           options={[
             { value: "list", label: "목록" },
             { value: "agents", label: active ? `에이전트 ${active}` : "에이전트" },
+            { value: "ci", label: "CI/CD", tip: "파이프라인·Actions|수동 작업 실행, 다시 실행, 취소, 배포 승인" },
           ]}
         />
       </div>
-      {mode === "agents" ? <AgentsPanel store={store} /> : <BranchList store={store} openSettings={openSettings} />}
+      {mode === "agents" ? <AgentsPanel store={store} /> : mode === "ci" ? <CIPanel store={store} openSettings={openSettings} /> : <BranchList store={store} openSettings={openSettings} />}
     </>
   );
 }

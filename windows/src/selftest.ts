@@ -7,6 +7,8 @@ import { tools } from "./lib/tools";
 import { listDistros } from "./lib/wsl";
 import { agents } from "./lib/agents";
 import { workspace } from "./lib/workspace";
+import { CIAPI, canPlay } from "./lib/ci";
+import { settings } from "./lib/settings";
 
 /**
  * 자동 점검(CI 의 Windows 서버에서): BRANCHWORK_SELFTEST=<테스트 저장소> 로 켜면
@@ -318,6 +320,43 @@ export async function runSelfTest(): Promise<boolean> {
       summary === `WSL 커밋: You write git / b/ai-wsl.txt` && pathOk && hookOk && shellOk,
       `distro=${distro} path=${w?.path} summary=${summary} err=${aiErr} agent=${agentLine} hook=${hookOk} shell=${shellOk} ${shellLine.replace(/\s+/g, " ")}`,
     ];
+  });
+
+  // CI/CD: 가짜 GitLab·GitHub 서버로 파이프라인·작업 읽기, 수동 작업 실행, 새 파이프라인, workflow_dispatch
+  await step("CI/CD(수동 작업 실행·워크플로 실행)", async () => {
+    const root = "http://127.0.0.1:18080";
+    try {
+      if ((await ipc.http("GET", root + "/ci/calls", {}, undefined, 3000)).status !== 200) return [true, "가짜 서버 없음 — 건너뜀"];
+    } catch {
+      return [true, "가짜 서버 없음 — 건너뜀"];
+    }
+    const gl = { target: { provider: "gitlab" as const, remote: "origin", host: "127.0.0.1", path: "g/p" }, token: "gl-token", apiBase: root + "/api/v4" };
+    const pipes = await CIAPI.pipelines(gl, null);
+    const jobs = await CIAPI.jobs(gl, pipes[0].id);
+    const manual = jobs.filter(canPlay);
+    await CIAPI.play(gl, manual[0].id);
+    await CIAPI.runPipeline(gl, "main", [["DEPLOY_ENV", "staging"]]);
+    const gh = { target: { provider: "github" as const, remote: "origin", host: "github.com", path: "o/r" }, token: "gh-token", apiBase: root + "/gh" };
+    const flows = await CIAPI.workflows(gh, "main");
+    await CIAPI.dispatch(gh, flows[0].id, "main", { target: "production" });
+    const calls = JSON.parse((await ipc.http("GET", root + "/ci/calls", {})).body) as { url: string; body: unknown; token: string }[];
+    const urls = calls.map((c) => c.url);
+    // 화면: CI/CD 탭이 그려지는지(이 저장소는 원격이 없어 안내 문구)
+    settings.set("sidebarMode", "ci");
+    const panel = await until(() => document.body.innerText.includes("원격이 있는 저장소에서 파이프라인"), 3000);
+    settings.set("sidebarMode", "list");
+    const ok =
+      pipes.length === 1 &&
+      pipes[0].status === "success" &&
+      jobs.map((j) => j.name).join(",") === "build,deploy-prod" &&
+      manual.length === 1 &&
+      urls.includes("/api/v4/projects/g%2Fp/jobs/102/play") &&
+      calls.some((c) => c.url === "/api/v4/projects/g%2Fp/pipeline" && JSON.stringify(c.body).includes("DEPLOY_ENV") && c.token === "gl-token") &&
+      flows.length === 1 &&
+      flows[0].inputs[0]?.options.join(",") === "staging,production" &&
+      calls.some((c) => c.url === "/gh/repos/o/r/actions/workflows/7/dispatches" && JSON.stringify(c.body) === '{"ref":"main","inputs":{"target":"production"}}' && c.token === "Bearer gh-token") &&
+      panel;
+    return [ok, `pipes=${pipes.length} jobs=${jobs.map((j) => `${j.stage}/${j.name}:${j.status}`)} flows=${flows.map((f) => f.name + ":" + f.inputs.map((i) => i.name))} calls=${urls} panel=${panel}`];
   });
 
   await step("설정 화면", async () => {

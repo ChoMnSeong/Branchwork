@@ -11,6 +11,7 @@ import { ipc } from "../lib/ipc";
 import { accountApiBase, accountHost, providerInfo, type RemoteRepo, type SheetKind } from "../lib/models";
 import { useObserve } from "../lib/observable";
 import type { RepoStore, SplitGroup } from "../lib/repo";
+import { RunPipelineSheet } from "./CIPanel";
 import { Button, Checkbox, IconButton, Modal, Segmented, Spinner, StatusBadge } from "./ui";
 
 export function SheetHost({ store }: { store: RepoStore }) {
@@ -41,6 +42,8 @@ function SheetSwitch({ store, sheet, close }: { store: RepoStore; sheet: SheetKi
       return <AddWorktreeSheet store={store} close={close} presetBranch={sheet.branch} start={sheet.start} />;
     case "splitCommits":
       return <SplitCommitsSheet store={store} close={close} />;
+    case "runPipeline":
+      return <RunPipelineSheet store={store} close={close} />;
   }
 }
 

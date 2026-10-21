@@ -230,6 +230,7 @@ struct RepoContainer: View {
             case .startAgent(let path): StartAgentSheet(presetPath: path)
             case .addWorktree(let branch, let start): AddWorktreeSheet(presetBranch: branch, start: start)
             case .splitCommits: SplitCommitsSheet()
+            case .runPipeline: RunPipelineSheet()
             }
         }
         .alert("작업을 완료하지 못했습니다",
