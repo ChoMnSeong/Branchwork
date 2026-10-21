@@ -402,7 +402,7 @@ function RefPill({ store, group, tint }: { store: RepoStore; group: RefGroup; ti
 /** 커밋 동그라미: 작성자 프로필 사진(없으면 이니셜) */
 function AvatarNode({ name, email, x }: { name: string; email: string; x: number }) {
   useObserve(avatars);
-  const url = avatars.url(email);
+  const url = avatars.url(email, name);
   const ok = url && !avatars.failed.has(url);
   return (
     <span className="avatar-node" style={{ left: x - AVATAR / 2, top: (ROW_H - AVATAR) / 2 }} data-tip={name}>

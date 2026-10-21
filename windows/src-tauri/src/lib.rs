@@ -65,6 +65,7 @@ pub fn run() {
             watch::watch_start,
             watch::watch_stop,
             net::http_request,
+            net::http_image,
             net::resolve_host,
             system::secret_get,
             system::secret_set,

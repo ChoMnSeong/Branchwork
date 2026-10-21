@@ -53,6 +53,50 @@ pub async fn http_request(
     Ok(HttpResponse { status, body })
 }
 
+/// 이미지를 받아 data: 주소로(사내 GitLab 의 프로필 사진은 토큰이 있어야 열리기도 해서 웹뷰 대신 여기서 받는다)
+#[tauri::command]
+pub async fn http_image(url: String, headers: HashMap<String, String>) -> Option<String> {
+    let mut req = client().get(&url).timeout(Duration::from_secs(15));
+    for (k, v) in headers {
+        req = req.header(k, v);
+    }
+    let resp = req.send().await.ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    let kind = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if !kind.starts_with("image/") {
+        return None;
+    }
+    let bytes = resp.bytes().await.ok()?;
+    if bytes.is_empty() || bytes.len() > 2_000_000 {
+        return None;
+    }
+    Some(format!("data:{kind};base64,{}", base64(&bytes)))
+}
+
+fn base64(data: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
+    for c in data.chunks(3) {
+        let n = (c[0] as u32) << 16 | (*c.get(1).unwrap_or(&0) as u32) << 8 | *c.get(2).unwrap_or(&0) as u32;
+        out.push(T[(n >> 18) as usize & 63] as char);
+        out.push(T[(n >> 12) as usize & 63] as char);
+        out.push(if c.len() > 1 { T[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if c.len() > 2 { T[n as usize & 63] as char } else { '=' });
+    }
+    out
+}
+
 /// 호스트 이름이 가리키는 IP 주소들(같은 서버의 다른 도메인인지 볼 때)
 #[tauri::command]
 pub async fn resolve_host(host: String) -> Vec<String> {

@@ -312,6 +312,7 @@ final class RepoStore: Identifiable {
             stagedStats = Parsers.numstat(sn.data)
             let newTarget = Hosting.target(remotes: remotes, urls: remoteURLs,
                                            gitlabHosts: AccountStore.shared.accounts(for: .gitlab).map(\.host))
+            if let t = newTarget, t.provider == .github { AvatarStore.shared.noteGitHubRepo(t.path) }
             if newTarget != target {
                 target = newTarget
                 Task { await loadPullRequests() }

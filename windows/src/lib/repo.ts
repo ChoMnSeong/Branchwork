@@ -1,6 +1,7 @@
 import { accounts } from "./accounts";
 import { ai, clip, Prompts, splitMessage } from "./ai";
 import { agents, type AgentHost, type AgentKind } from "./agents";
+import { avatars } from "./avatars";
 import { basename, dirname, env, joinPath, samePath, slash } from "./env";
 import { describe, git, gitRaw, unsafeRepository, type GitOptions } from "./git";
 import { layoutGraph } from "./graph";
@@ -498,6 +499,7 @@ export class RepoStore extends Observable implements AgentHost {
         this.remoteURLs,
         accounts.accountsFor("gitlab").map((a) => new URL(a.server).host.toLowerCase()),
       );
+      if (newTarget?.provider === "github") avatars.noteGitHubRepo(newTarget.path);
       if (!sameTarget(newTarget, this.target)) {
         this.target = newTarget;
         void this.loadPullRequests();

@@ -33,8 +33,18 @@ final class AvatarStore {
         SHA256.hash(data: Data(email.utf8)).prefix(12).map { String(format: "%02x", $0) }.joined()
     }
 
+    /// 작성자 이름(이메일로 못 찾을 때 GitLab 사용자 이름으로 찾는 데 씀)
+    @ObservationIgnored private var names: [String: String] = [:]
+    /// 열린 GitHub 저장소들(커밋 작성자의 GitHub 계정을 찾을 때) — 저장소 경로 owner/repo
+    @ObservationIgnored private var githubRepos: [String] = []
+
+    func noteGitHubRepo(_ path: String) {
+        if !githubRepos.contains(path) { githubRepos.insert(path, at: 0) }
+        if githubRepos.count > 3 { githubRepos.removeLast() }
+    }
+
     /// 있으면 사진, 없으면 nil(필요하면 뒤에서 받기 시작)
-    func image(for rawEmail: String) -> NSImage? {
+    func image(for rawEmail: String, name: String = "") -> NSImage? {
         guard enabled else { return nil }
         _ = version
         let email = rawEmail.trimmed.lowercased()
@@ -53,6 +63,7 @@ final class AvatarStore {
             missing.insert(email)
             return nil
         }
+        if !name.isEmpty { names[email] = name }
         queued.insert(email)
         queue.append(email)
         pump()
@@ -64,7 +75,7 @@ final class AvatarStore {
             let email = queue.removeFirst()
             running += 1
             Task {
-                let data = await Self.fetch(email, gitlab: gitlabAccounts())
+                let data = await Self.fetch(email, name: names[email] ?? "", gitlab: gitlabAccounts(), github: githubContext())
                 running -= 1
                 queued.remove(email)
                 let base = directory.appendingPathComponent(key(email))
@@ -79,6 +90,12 @@ final class AvatarStore {
                 pump()
             }
         }
+    }
+
+    private func githubContext() -> (token: String, repos: [String])? {
+        let store = AccountStore.shared
+        guard !githubRepos.isEmpty, let a = store.accounts(for: .github).first, let t = store.token(for: a) else { return nil }
+        return (t, githubRepos)
     }
 
     private func gitlabAccounts() -> [(server: String, token: String)] {
@@ -116,7 +133,24 @@ final class AvatarStore {
         return "https://www.gravatar.com/avatar/\(md5)?s=64&d=404"
     }
 
-    nonisolated private static func fetch(_ email: String, gitlab: [(server: String, token: String)]) async -> Data? {
+    nonisolated private static func json(_ url: String, headers: [String: String]) async -> Any? {
+        guard let (code, data) = await get(url, headers: headers), code == 200 else { return nil }
+        return try? JSONSerialization.jsonObject(with: data)
+    }
+
+    /// GitLab 사용자 목록에서 사진 주소(올린 사진만 — Gravatar 로 돌려주면 nil)
+    nonisolated private static func gitlabAvatar(_ users: Any?, matchName: String? = nil) -> String? {
+        var list = users as? [[String: Any]] ?? []
+        if let n = matchName?.trimmed.lowercased(), !n.isEmpty {
+            list = list.filter { ($0["name"] as? String)?.trimmed.lowercased() == n }
+        }
+        // 같은 이름이 여럿이면 누군지 몰라 쓰지 않는다
+        guard list.count == 1, let url = list[0]["avatar_url"] as? String, !url.isEmpty, !url.contains("gravatar.com") else { return nil }
+        return url
+    }
+
+    nonisolated private static func fetch(_ email: String, name: String, gitlab: [(server: String, token: String)],
+                                          github: (token: String, repos: [String])?) async -> Data? {
         // ① GitHub noreply: 12345+name@users.noreply.github.com 또는 name@users.noreply.github.com
         if email.hasSuffix("@users.noreply.github.com") {
             let local = String(email.dropLast("@users.noreply.github.com".count))
@@ -124,17 +158,36 @@ final class AvatarStore {
                 if let d = await image("https://avatars.githubusercontent.com/u/\(id)?s=64") { return d }
             } else if let d = await image("https://github.com/\(local).png?size=64") { return d }
         }
-        // ② 사내 GitLab: /api/v4/avatar?email= (그 서버에 사진이 올라간 사용자만 — Gravatar 로 돌려주면 ③에서)
+        // ② 사내 GitLab: 공개 이메일 → 이메일 검색 → 사용자 이름(이메일 앞부분) → 이름이 정확히 같은 한 사람
+        let q = { (s: String) in s.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? s }
+        let local = String(email.split(separator: "@").first ?? "")
         for g in gitlab {
-            let q = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? email
-            guard let (code, data) = await get("\(g.server)/api/v4/avatar?email=\(q)&size=64", headers: ["PRIVATE-TOKEN": g.token]),
-                  code == 200,
-                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let url = obj["avatar_url"] as? String, !url.isEmpty, !url.contains("gravatar.com") else { continue }
-            let full = url.hasPrefix("/") ? g.server + url : url
-            if let d = await image(full, headers: full.hasPrefix(g.server) ? ["PRIVATE-TOKEN": g.token] : [:]) { return d }
+            let h = ["PRIVATE-TOKEN": g.token]
+            var url: String?
+            if let obj = await json("\(g.server)/api/v4/avatar?email=\(q(email))&size=64", headers: h) as? [String: Any],
+               let u = obj["avatar_url"] as? String, !u.isEmpty, !u.contains("gravatar.com") { url = u }
+            if url == nil { url = gitlabAvatar(await json("\(g.server)/api/v4/users?search=\(q(email))&per_page=5", headers: h)) }
+            if url == nil, !local.isEmpty {
+                // 회사 GitLab 은 보통 사용자 이름 = 이메일 앞부분
+                url = gitlabAvatar(await json("\(g.server)/api/v4/users?username=\(q(local))", headers: h))
+            }
+            if url == nil, !name.trimmed.isEmpty {
+                url = gitlabAvatar(await json("\(g.server)/api/v4/users?search=\(q(name.trimmed))&per_page=20", headers: h), matchName: name)
+            }
+            guard let u = url else { continue }
+            let full = u.hasPrefix("/") ? g.server + u : u
+            if let d = await image(full, headers: full.hasPrefix(g.server) ? h : [:]) { return d }
         }
-        // ③ Gravatar(없으면 404)
+        // ③ GitHub 저장소: 그 이메일로 한 커밋의 GitHub 계정 사진
+        if let github {
+            for repo in github.repos {
+                let h = ["Authorization": "Bearer \(github.token)", "Accept": "application/vnd.github+json"]
+                if let list = await json("https://api.github.com/repos/\(repo)/commits?author=\(q(email))&per_page=1", headers: h) as? [[String: Any]],
+                   let author = list.first?["author"] as? [String: Any], let u = author["avatar_url"] as? String,
+                   let d = await image(u.contains("?") ? u + "&s=64" : u + "?s=64") { return d }
+            }
+        }
+        // ④ Gravatar(없으면 404)
         return await image(gravatarURL(email))
     }
 }
@@ -146,7 +199,7 @@ struct AuthorAvatar: View {
     var size: CGFloat = 20
 
     var body: some View {
-        if let img = AvatarStore.shared.image(for: email) {
+        if let img = AvatarStore.shared.image(for: email, name: name) {
             Image(nsImage: img)
                 .resizable()
                 .interpolation(.high)
