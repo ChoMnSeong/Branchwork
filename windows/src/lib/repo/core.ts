@@ -42,6 +42,7 @@ import {
   type WorktreeStats,
 } from "../models";
 import { Observable } from "../observable";
+import type { UndoPoint } from "./undo-model";
 import * as P from "../parsers";
 import { addRecent } from "../settings";
 import type { SplitGroup } from "../split";
@@ -158,6 +159,9 @@ export abstract class RepoCore extends Observable implements AgentHost {
   aiNotice: string | null = null;
   explanations: Record<string, string> = {};
   explaining = new Set<string>();
+
+  /** 되돌릴 수 있는 작업(마지막이 맨 뒤) */
+  undoStack: UndoPoint[] = [];
 
   // 터미널 패널
   terminals: TerminalSession[] = [];
@@ -385,6 +389,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
     this.hasMore = false;
     this.limit = 2000;
     this.lastLog = null;
+    this.undoStack = [];
     this.lastRefs = null;
     this.pendingKind = null;
     this.commonDir = null;

@@ -397,6 +397,29 @@ export async function runSelfTest(): Promise<boolean> {
     return [same.includes("이미") && !!choice && merged, `same=${same} choices=${req?.choices.map((c) => c.title)} head=${s.headBranch} merged=${merged}`];
   });
 
+  // 되돌리기: 커밋 → 되돌리면 변경이 스테이지된 채로 돌아오고 메시지도 입력 칸에, 체크아웃 → 되돌리면 원래 브랜치
+  await step("되돌리기(커밋·체크아웃)", async () => {
+    const head = s.headHash;
+    await ipc.writeText(joinPath(repo, "undo-test.txt"), "undo\n");
+    await until(() => s.status.unstaged.some((c) => c.path === "undo-test.txt"), 8000);
+    await s.stageAll();
+    s.setSummary("되돌릴 커밋");
+    await s.commit();
+    const title = s.undoStack[s.undoStack.length - 1]?.title;
+    await s.undo();
+    const commitOk = s.headHash === head && s.status.staged.some((c) => c.path === "undo-test.txt") && s.summary === "되돌릴 커밋";
+    await s.unstageAll();
+    await ipc.remove(joinPath(repo, "undo-test.txt"));
+    s.setSummary("");
+    const base = s.headBranch;
+    const other = s.localBranches.find((b) => !b.isCurrent);
+    if (other) await s.checkout(other);
+    const moved = s.headBranch !== base;
+    await s.undo();
+    const checkoutOk = moved && s.headBranch === base;
+    return [commitOk && checkoutOk, `title=${title} commit=${commitOk} checkout=${checkoutOk} head=${s.headBranch} error=${s.errorMessage}`];
+  });
+
   // 탭 우클릭 → '다른 탭 모두 닫기': 실제 화면의 탭에서 메뉴를 띄워 눌러 본다
   await step("탭 우클릭 메뉴(다른 탭 모두 닫기)", async () => {
     workspace.newTab();

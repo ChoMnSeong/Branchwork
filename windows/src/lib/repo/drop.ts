@@ -1,12 +1,12 @@
 import { gitRaw } from "../git";
 import { isWIP, short, type DropChoice, type DropRequest, type GraphEntry, type RefLabel } from "../models";
-import { RepoActions } from "./actions";
+import { RepoUndo } from "./undo";
 
 export const branchPayload = "branchwork-branch:";
 export const commitPayload = "branchwork-commit:";
 
 /** 그래프 끌어다 놓기: 머지·리베이스·빨리 감기·cherry-pick */
-export abstract class RepoDrop extends RepoActions {
+export abstract class RepoDrop extends RepoUndo {
   branchNamed(name: string) {
     return this.localBranches.find((b) => b.name === name) ?? this.remoteBranches.find((b) => b.name === name) ?? null;
   }

@@ -98,6 +98,8 @@ final class RepoStore: Identifiable {
     var explanations: [String: String] = [:]
     var explaining: Set<String> = []
     var splitPlan: [SplitGroup]?
+    /// 되돌릴 수 있는 작업(마지막이 맨 뒤)
+    var undoStack: [UndoPoint] = []
 
     // CI/CD (GitLab 파이프라인 · GitHub Actions)
     var ciPipelines: [CIPipeline] = []
@@ -309,7 +311,7 @@ final class RepoStore: Identifiable {
         selection = nil; detail = nil; detailFiles = []; diffSource = nil; diff = nil
         summary = ""; message = ""; amend = false; mergeMessageFilled = false
         worktrees = []; remoteURLs = [:]; target = nil; pullRequests = []; prState = .idle
-        aiWorking = nil; aiNotice = nil; explanations = [:]; explaining = []
+        aiWorking = nil; aiNotice = nil; explanations = [:]; explaining = []; undoStack = []
         detailTask?.cancel(); diffTask?.cancel(); watchTask?.cancel()
     }
 

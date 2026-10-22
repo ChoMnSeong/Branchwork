@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ChevronDown, FolderOpen, GitBranch, GitPullRequestArrow, PackageOpen, RefreshCcw, SquarePen, SquareTerminal } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, FolderOpen, GitBranch, GitPullRequestArrow, PackageOpen, RefreshCcw, SquarePen, SquareTerminal, Undo2 } from "lucide-react";
 import { agentKind, agents } from "../lib/agents";
 import { recents } from "../lib/settings";
 import { basename, displayPath, samePath } from "../lib/env";
@@ -63,6 +63,20 @@ export function Toolbar({ store }: { store: RepoStore }) {
       )}
 
       <div className="tool-group">
+        <button
+          className="tool"
+          disabled={!store.undoStack.length || store.busy != null}
+          onClick={() => store.confirmUndo()}
+          data-tip={tip(
+            "되돌리기",
+            store.undoStack.length
+              ? `마지막 작업 「${store.undoStack[store.undoStack.length - 1].title}」을(를) 되돌립니다. 커밋은 취소해도 변경이 남습니다.`
+              : "되돌릴 작업이 없습니다. 커밋·머지·리베이스·체크아웃·브랜치 삭제 같은 작업을 하면 여기서 되돌릴 수 있습니다.",
+            "Ctrl+Z",
+          )}
+        >
+          <Undo2 size={16} />
+        </button>
         <button
           className="tool"
           onClick={() => store.select({ kind: "wip" })}

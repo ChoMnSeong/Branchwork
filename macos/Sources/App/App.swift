@@ -159,6 +159,10 @@ struct AppCommands: Commands {
             Button("새 저장소 만들기…") { store?.presentInitPanel() }
         }
         CommandMenu("저장소") {
+            Button(store?.undoStack.last.map { "되돌리기: \($0.title)" } ?? "되돌리기") { store?.confirmUndo() }
+                .keyboardShortcut("z", modifiers: [.command, .option])
+                .disabled(store?.undoStack.isEmpty ?? true)
+            Divider()
             Button("새로 고침") { Task { await store?.reload() } }
                 .keyboardShortcut("r")
             Button("커밋 검색") { store?.requestSearchFocus() }

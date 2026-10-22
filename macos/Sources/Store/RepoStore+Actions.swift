@@ -6,14 +6,17 @@ extension RepoStore {
     // MARK: - 작업 실행
 
     /// git 명령 하나를 실행하고 저장소를 다시 읽는다. 실패하면 git 의 메시지를 그대로 보여 준다.
+    /// 전후로 브랜치·태그·HEAD 를 기록해 두어 '되돌리기'로 되돌릴 수 있게 한다(머지·리베이스가 진행 중일 때는 빼고).
     @discardableResult
     func run(_ label: String, _ args: [String], network: Bool = false, input: String? = nil) async -> Bool {
         guard let url, busy == nil else { return false }
         busy = label
         defer { busy = nil }
+        let before = repoState == .clean ? await refSnapshot() : nil
         do {
             try await Git.run(args, in: url, input: input, timeout: network ? 900 : 300,
                               env: network ? AccountStore.shared.gitEnvironment(target: target, repoPath: url.path) : [:])
+            if let before, let after = await refSnapshot() { recordUndo(args: args, input: input, before: before, after: after) }
             await reload()
             return true
         } catch {

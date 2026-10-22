@@ -69,6 +69,15 @@ struct RepoView: View {
 
         ToolbarItemGroup(placement: .primaryAction) {
 
+            Button { store.confirmUndo() } label: {
+                ToolLabel(title: "되돌리기", icon: "arrow.uturn.backward")
+            }
+            .disabled(store.undoStack.isEmpty || store.busy != nil)
+            .hoverTip("되돌리기",
+                      store.undoStack.last.map { "마지막 작업 「\($0.title)」을(를) 되돌립니다. 커밋은 취소해도 변경이 남습니다." }
+                        ?? "되돌릴 작업이 없습니다. 커밋·머지·리베이스·체크아웃·브랜치 삭제 같은 작업을 하면 여기서 되돌릴 수 있습니다.",
+                      shortcut: "⌥⌘Z")
+
             Button { store.select(.wip) } label: {
                 ToolLabel(title: store.status.isEmpty ? "변경" : "변경 \(store.status.count)", icon: "square.and.pencil")
             }

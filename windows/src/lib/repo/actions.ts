@@ -17,20 +17,31 @@ import {
 } from "../models";
 
 import { RepoSearch } from "./search";
+import type { RefSnapshot } from "./undo-model";
 
 /** git 작업: 실행·Fetch·Pull·Push·브랜치·태그·스태시·스테이지·커밋·진행 중인 머지/리베이스 */
 export abstract class RepoActions extends RepoSearch {
-  /** git 명령 하나를 실행하고 저장소를 다시 읽는다. 실패하면 git 의 메시지를 그대로 보여 준다. */
+  // 되돌리기(repo/undo.ts)
+  protected abstract refSnapshot(): Promise<RefSnapshot | null>;
+  protected abstract recordUndo(args: string[], input: string | undefined, before: RefSnapshot, after: RefSnapshot): void;
+
+  /**
+   * git 명령 하나를 실행하고 저장소를 다시 읽는다. 실패하면 git 의 메시지를 그대로 보여 준다.
+   * 전후로 브랜치·태그·HEAD 를 기록해 두어 '되돌리기'로 되돌릴 수 있게 한다(머지·리베이스가 진행 중일 때는 빼고).
+   */
   async run(label: string, args: string[], o: { network?: boolean; input?: string } = {}): Promise<boolean> {
     if (!this.path || this.busy != null) return false;
     this.busy = label;
     this.emit();
+    const before = this.repoState === "clean" ? await this.refSnapshot() : null;
     try {
       await this.g(args, {
         input: o.input,
         timeoutMs: o.network ? 900_000 : 300_000,
         env: o.network ? await accounts.gitEnvironment(this.target, this.path) : {},
       });
+      const after = before ? await this.refSnapshot() : null;
+      if (before && after) this.recordUndo(args, o.input, before, after);
       // 다 읽을 때까지 busy 로 두어 파일 감시가 같은 변경으로 또 읽지 않게 한다
       await this.reload();
       return true;
