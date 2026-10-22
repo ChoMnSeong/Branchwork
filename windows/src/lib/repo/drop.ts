@@ -1,5 +1,5 @@
 import { gitRaw } from "../git";
-import { isWIP, short, type DropChoice, type DropRequest, type GraphEntry } from "../models";
+import { isWIP, short, type DropChoice, type DropRequest, type GraphEntry, type RefLabel } from "../models";
 import { RepoActions } from "./actions";
 
 export const branchPayload = "branchwork-branch:";
@@ -26,24 +26,43 @@ export abstract class RepoDrop extends RepoActions {
     }
   }
 
-  /** 커밋 줄에 무언가를 놓았을 때. 그 줄의 브랜치(현재 브랜치 우선, 없으면 로컬, 원격 순)를 대상으로 삼는다. */
+  /**
+   * 커밋 줄에 무언가를 놓았을 때. 그 줄의 브랜치(현재 브랜치 우선, 없으면 로컬, 원격 순)를 대상으로 삼는다.
+   * 끌고 온 브랜치 자신(과 그 원격 추적 브랜치)은 대상에서 뺀다 — 같은 커밋에 main 과 feature 가 함께 있을 때
+   * feature 를 그 줄에 놓으면 main 이 대상이 되게.
+   */
   handleDrop(payload: string, entry: GraphEntry) {
     if (isWIP(entry.commit) || this.busy != null) return;
     const refs = this.refsByCommit.get(entry.commit.id) ?? [];
-    const target =
-      refs.find((r) => r.kind === "local" && r.isCurrent)?.name ??
-      refs.find((r) => r.kind === "local")?.name ??
-      refs.find((r) => r.kind === "remote")?.name ??
-      null;
+    const pick = (list: RefLabel[]) =>
+      list.find((r) => r.kind === "local" && r.isCurrent)?.name ?? list.find((r) => r.kind === "local")?.name ?? list.find((r) => r.kind === "remote")?.name ?? null;
     if (payload.startsWith(branchPayload)) {
       const source = payload.slice(branchPayload.length);
-      if (target) {
-        if (target !== source) void this.offerBranchDrop(source, target);
-      } else this.offerBranchOnCommit(source, entry.commit.id);
+      const sourceBranch = this.branchNamed(source);
+      const short = source.includes("/") && sourceBranch?.isRemote ? source.slice(source.indexOf("/") + 1) : source;
+      const others = refs.filter((r) => r.name !== source && !(r.kind === "remote" && !sourceBranch?.isRemote && r.name.endsWith("/" + short)));
+      const target = pick(others);
+      if (target) void this.offerBranchDrop(source, target);
+      else if (sourceBranch?.target !== entry.commit.id) this.offerBranchOnCommit(source, entry.commit.id);
     } else if (payload.startsWith(commitPayload)) {
       const sha = payload.slice(commitPayload.length);
-      if (sha !== entry.commit.id) this.offerCommitDrop(sha, target);
+      if (sha !== entry.commit.id) this.offerCommitDrop(sha, pick(refs));
     }
+  }
+
+  /** source 를 target 브랜치에 머지. target 이 현재 브랜치가 아니면 먼저 체크아웃한다(머지는 체크아웃한 브랜치에만 할 수 있다). */
+  async mergeBranch(source: string, target: string) {
+    if (target !== this.headBranch && !(await this.run(`'${target}' 체크아웃 중…`, ["switch", target]))) return;
+    await this.merge(source);
+  }
+
+  /** 머지할 대상으로 고를 만한 로컬 브랜치(main·master·develop 먼저) */
+  mergeTargets(exclude: string) {
+    const preferred = ["main", "master", "develop", "dev"];
+    const rank = (n: string) => (preferred.includes(n) ? preferred.indexOf(n) : preferred.length);
+    return this.localBranches
+      .filter((b) => b.name !== exclude)
+      .sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   }
 
   protected setDrop(r: DropRequest) {
@@ -77,6 +96,8 @@ export abstract class RepoDrop extends RepoActions {
       choices.push({ title: `'${source}'을(를) '${target}'(현재)에 머지`, action: () => this.merge(source) });
       choices.push({ title: `'${target}'(현재)을(를) '${source}' 위로 리베이스`, action: () => this.rebase(source) });
     } else if (source === current) {
+      // 가장 흔한 경우: 작업한 브랜치(현재)를 main 같은 브랜치에 합치기
+      if (targetIsLocal) choices.push({ title: `'${source}'(현재)을(를) '${target}'에 머지 — '${target}' 체크아웃`, action: () => this.mergeBranch(source, target) });
       choices.push({ title: `'${source}'(현재)을(를) '${target}' 위로 리베이스`, action: () => this.rebase(target) });
       choices.push({ title: `'${target}'을(를) '${source}'(현재)에 머지`, action: () => this.merge(target) });
     } else {

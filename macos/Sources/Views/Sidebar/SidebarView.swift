@@ -172,6 +172,7 @@ struct SidebarView: View {
             Button("'\(b.name)'을(를) '\(current)'에 머지") { Task { await store.merge(b.name) } }
             Button("'\(current)'을(를) '\(b.name)' 위로 리베이스") { Task { await store.rebase(onto: b.name) } }
         }
+        MergeIntoMenu(source: b.name)
         Divider()
         Button("여기서 새 브랜치…") { store.requestNewBranch(from: b.target, label: b.name) }
         Button("새 워크트리에서 체크아웃…") { store.sheet = .addWorktree(branch: b.name, start: nil) }
@@ -196,6 +197,7 @@ struct SidebarView: View {
             Button("'\(b.name)'을(를) '\(current)'에 머지") { Task { await store.merge(b.name) } }
             Button("'\(current)'을(를) '\(b.name)' 위로 리베이스") { Task { await store.rebase(onto: b.name) } }
         }
+        MergeIntoMenu(source: b.name)
         Divider()
         Button("여기서 새 브랜치…") { store.requestNewBranch(from: b.target, label: b.name) }
         Button("이름 복사") { store.copy(b.name) }

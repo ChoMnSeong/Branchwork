@@ -23,6 +23,18 @@ export function refMenu(store: RepoStore, ref: RefLabel): MenuItem[] {
   return [];
 }
 
+/** '이 브랜치를 다른 브랜치에 머지' 하위 메뉴(고른 브랜치를 체크아웃한 뒤 머지) */
+function mergeIntoMenu(store: RepoStore, source: string): MenuItem[] {
+  const targets = store.mergeTargets(source);
+  if (!targets.length) return [];
+  return [
+    {
+      label: `'${source}'을(를) 다른 브랜치에 머지`,
+      submenu: targets.map((t): MenuItem => ({ label: t.isCurrent ? `${t.name} (현재)` : t.name, onClick: () => void store.mergeBranch(source, t.name) })),
+    },
+  ];
+}
+
 export function localBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
   const current = store.headBranch;
   const w = store.worktreeUsing(b.name);
@@ -33,6 +45,7 @@ export function localBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
       { label: `'${current}'을(를) '${b.name}' 위로 리베이스`, onClick: () => void store.rebase(b.name) },
     );
   }
+  items.push(...mergeIntoMenu(store, b.name));
   items.push(
     "divider",
     { label: "여기서 새 브랜치…", onClick: () => store.requestNewBranch(b.target, b.name) },
@@ -70,6 +83,7 @@ export function remoteBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
       { label: `'${current}'을(를) '${b.name}' 위로 리베이스`, onClick: () => void store.rebase(b.name) },
     );
   }
+  items.push(...mergeIntoMenu(store, b.name));
   items.push(
     "divider",
     { label: "여기서 새 브랜치…", onClick: () => store.requestNewBranch(b.target, b.name) },

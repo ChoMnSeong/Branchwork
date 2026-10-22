@@ -35,22 +35,32 @@ extension RepoStore {
     }
 
     /// 커밋 줄에 무언가를 놓았을 때. 그 줄의 브랜치(현재 브랜치 우선, 없으면 로컬, 원격 순)를 대상으로 삼는다.
+    /// 끌고 온 브랜치 자신(과 그 원격 추적 브랜치)은 대상에서 뺀다 — 같은 커밋에 main 과 feature 가 함께 있을 때
+    /// feature 를 그 줄에 놓으면 main 이 대상이 되게.
     func handleDrop(_ payload: String, onto entry: GraphEntry) {
         guard !entry.commit.isWIP, busy == nil else { return }
         let refs = refsByCommit[entry.id] ?? []
-        let target = refs.first { $0.kind == .local && $0.isCurrent }?.name
-            ?? refs.first { $0.kind == .local }?.name
-            ?? refs.first { $0.kind == .remote }?.name
+        func pick(_ list: [RefLabel]) -> String? {
+            list.first { $0.kind == .local && $0.isCurrent }?.name
+                ?? list.first { $0.kind == .local }?.name
+                ?? list.first { $0.kind == .remote }?.name
+        }
 
         if payload.hasPrefix(Self.branchPayload) {
             let source = String(payload.dropFirst(Self.branchPayload.count))
-            if let target {
-                guard target != source else { return }
+            let short = source.split(separator: "/", maxSplits: 1).last.map(String.init) ?? source
+            let others = refs.filter { r in
+                r.name != source && !(r.kind == .remote && r.name.hasSuffix("/" + short) && branch(named: source)?.isRemote == false)
+            }
+            if let target = pick(others) {
                 Task { await offerBranchDrop(source, onto: target) }
+            } else if branch(named: source)?.target == entry.id {
+                return      // 자기 자신의 커밋에 놓음
             } else {
                 offerBranchOnCommit(source, entry.commit)
             }
         } else if payload.hasPrefix(Self.commitPayload) {
+            let target = pick(refs)
             let sha = String(payload.dropFirst(Self.commitPayload.count))
             guard sha != entry.id else { return }
             offerCommitDrop(sha, onto: target)
@@ -90,6 +100,12 @@ extension RepoStore {
                 await self?.rebase(onto: source)
             })
         } else if source == current {
+            // 가장 흔한 경우: 작업한 브랜치(현재)를 main 같은 브랜치에 합치기
+            if targetIsLocal {
+                choices.append(DropChoice(title: "'\(source)'(현재)을(를) '\(target)'에 머지 — '\(target)' 체크아웃") { [weak self] in
+                    await self?.mergeBranch(source, into: target)
+                })
+            }
             choices.append(DropChoice(title: "'\(source)'(현재)을(를) '\(target)' 위로 리베이스") { [weak self] in
                 await self?.rebase(onto: target)
             })
@@ -113,6 +129,23 @@ extension RepoStore {
         dropRequest = DropRequest(title: "'\(source)'  →  '\(target)'",
                                   message: choices.isEmpty ? "여기에서 할 수 있는 작업이 없습니다." : "무엇을 할까요? 충돌이 나면 오른쪽에서 해결할 수 있습니다.",
                                   choices: choices)
+    }
+
+    /// source 를 target 브랜치에 머지. target 이 현재 브랜치가 아니면 먼저 체크아웃한다(머지는 체크아웃한 브랜치에만 할 수 있다).
+    func mergeBranch(_ source: String, into target: String) async {
+        if target != headBranch {
+            guard await run("'\(target)' 체크아웃 중…", ["switch", target]) else { return }
+        }
+        await merge(source)
+    }
+
+    /// 머지할 대상으로 고를 만한 로컬 브랜치(main·master·develop 먼저)
+    func mergeTargets(excluding name: String) -> [Branch] {
+        let preferred = ["main", "master", "develop", "dev"]
+        return localBranches.filter { $0.name != name }.sorted { a, b in
+            let ia = preferred.firstIndex(of: a.name) ?? preferred.count, ib = preferred.firstIndex(of: b.name) ?? preferred.count
+            return ia != ib ? ia < ib : a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
     }
 
     /// 브랜치를 브랜치 없는 커밋에 놓았을 때(현재 브랜치일 때만 의미가 있다)
@@ -173,6 +206,7 @@ struct RefMenu: View {
                     Button("'\(b.name)'을(를) '\(current)'에 머지") { Task { await store.merge(b.name) } }
                     Button("'\(current)'을(를) '\(b.name)' 위로 리베이스") { Task { await store.rebase(onto: b.name) } }
                 }
+                MergeIntoMenu(source: b.name)
                 Divider()
                 Button("여기서 새 브랜치…") { store.requestNewBranch(from: b.target, label: b.name) }
                 if !b.isRemote {
@@ -194,6 +228,23 @@ struct RefMenu: View {
             }
         case .head:
             EmptyView()
+        }
+    }
+}
+
+/// '이 브랜치를 다른 브랜치에 머지' 하위 메뉴(고른 브랜치를 체크아웃한 뒤 머지)
+struct MergeIntoMenu: View {
+    @Environment(RepoStore.self) private var store
+    let source: String
+
+    var body: some View {
+        let targets = store.mergeTargets(excluding: source)
+        if !targets.isEmpty {
+            Menu("'\(source)'을(를) 다른 브랜치에 머지") {
+                ForEach(targets) { t in
+                    Button(t.isCurrent ? "\(t.name) (현재)" : t.name) { Task { await store.mergeBranch(source, into: t.name) } }
+                }
+            }
         }
     }
 }

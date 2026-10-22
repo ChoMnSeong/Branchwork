@@ -1,12 +1,13 @@
 import { env, isWindows, joinPath, dirname, toWslPath } from "./lib/env";
 import { ipc } from "./lib/ipc";
-import { isWIP, statusIsEmpty } from "./lib/models";
+import { isWIP, statusIsEmpty, type DropRequest } from "./lib/models";
 import { invoke } from "@tauri-apps/api/core";
 import { ai } from "./lib/ai";
 import { tools } from "./lib/tools";
 import { listDistros } from "./lib/wsl";
 import { agents } from "./lib/agents";
 import { workspace } from "./lib/workspace";
+import { branchPayload } from "./lib/repo";
 import { CIAPI } from "./lib/ci/api";
 import { canPlay } from "./lib/ci/models";
 import { settings } from "./lib/settings";
@@ -367,6 +368,33 @@ export async function runSelfTest(): Promise<boolean> {
       calls.some((c) => c.url === "/gh/repos/o/r/actions/workflows/7/dispatches" && JSON.stringify(c.body) === '{"ref":"main","inputs":{"target":"production"}}' && c.token === "Bearer gh-token") &&
       panel;
     return [ok, `pipes=${pipes.length} jobs=${jobs.map((j) => `${j.stage}/${j.name}:${j.status}`)} flows=${flows.map((f) => f.name + ":" + f.inputs.map((i) => i.name))} calls=${urls} panel=${panel}`];
+  });
+
+  // 다른 브랜치에 머지: 방금 만든 브랜치(같은 커밋)를 그 줄에 놓으면 '이미 들어 있음', 커밋 후 놓으면 '…에 머지 — 체크아웃'
+  await step("다른 브랜치에 머지(끌어다 놓기)", async () => {
+    const base = s.headBranch!;
+    const branch = "selftest/merge-into";
+    await s.createBranch(branch, s.headHash!, true);
+    const row = () => s.entries.find((e) => (s.refsByCommit.get(e.commit.id) ?? []).some((r) => r.name === base))!;
+    const drop = async () => {
+      s.dropRequest = null;
+      s.handleDrop(branchPayload + branch, row());
+      await until(() => !!s.dropRequest, 3000);
+      const r = s.dropRequest as DropRequest | null; // handleDrop 이 비동기로 채운다
+      s.dropRequest = null;
+      return r;
+    };
+    const same = (await drop())?.title ?? "";
+    await ipc.writeText(joinPath(repo, "merge-into.txt"), "merge\n");
+    await until(() => s.status.unstaged.some((c) => c.path === "merge-into.txt"), 8000);
+    await s.stageAll();
+    s.setSummary("머지할 커밋");
+    await s.commit();
+    const req = await drop();
+    const choice = req?.choices.find((c) => c.title.includes(`'${base}'에 머지`));
+    await choice?.action();
+    const merged = s.headBranch === base && (await s.isAncestor(`refs/heads/${branch}`, `refs/heads/${base}`));
+    return [same.includes("이미") && !!choice && merged, `same=${same} choices=${req?.choices.map((c) => c.title)} head=${s.headBranch} merged=${merged}`];
   });
 
   // 탭 우클릭 → '다른 탭 모두 닫기': 실제 화면의 탭에서 메뉴를 띄워 눌러 본다
