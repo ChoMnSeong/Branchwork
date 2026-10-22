@@ -111,8 +111,21 @@ final class RepoStore: Identifiable {
     }
 
     private var watcher: FileWatcher?
+    /// 여러 워크트리가 함께 쓰는 .git(연결된 워크트리면 gitDir 과 다르다)
+    private var commonDir: URL?
     private var reloadGeneration = 0
+    /// 상태만 다시 읽는 가벼운 새로 고침의 세대(전체 새로 고침이 시작되면 함께 올라간다)
+    private var statusGeneration = 0
     private var watchTask: Task<Void, Never>?
+    /// 파일 감시가 모아 둔 새로 고침 종류(전체가 상태만보다 우선)
+    private var pendingKind: ReloadKind?
+    /// 마지막으로 인덱스를 새로 고친 때와 그 뒤 .git/index 의 수정 시각(우리가 쓴 변경엔 다시 읽지 않게)
+    private var lastIndexRefresh: Date?
+    private var ownIndexStamp: Date?
+    /// 마지막으로 그래프를 만든 git log 출력·'작업 중인 변경' 행 여부·HEAD — 같으면 다시 해석·배치하지 않는다
+    private var lastLog: (data: Data, wip: Bool, head: String?)?
+
+    enum ReloadKind: Comparable { case status, full }
     var detailTask: Task<Void, Never>?
     var diffTask: Task<Void, Never>?
 
@@ -135,7 +148,9 @@ final class RepoStore: Identifiable {
         guard url != nil else { return }
         if pendingReload {
             pendingReload = false
-            await reload(quiet: true)
+            let k = pendingKind ?? .full
+            pendingKind = nil
+            if k == .full { await reload(quiet: true) } else { await reloadStatus() }
         }
     }
 
@@ -146,7 +161,7 @@ final class RepoStore: Identifiable {
         defer { if url == nil { loading = nil } }
         let r: GitResult
         do {
-            r = try await Git.raw(["rev-parse", "--show-toplevel", "--absolute-git-dir"], in: folder)
+            r = try await Git.raw(["rev-parse", "--show-toplevel", "--absolute-git-dir", "--git-common-dir"], in: folder)
         } catch {
             return .failed(describe(error))
         }
@@ -161,16 +176,20 @@ final class RepoStore: Identifiable {
         let top = URL(fileURLWithPath: lines[0], isDirectory: true)
         loading = LoadingInfo(title: "\(top.lastPathComponent) 여는 중", step: "커밋과 브랜치 읽는 중…")
         url = top
-        gitDir = URL(fileURLWithPath: lines[1], isDirectory: true)
+        let git = URL(fileURLWithPath: lines[1], isDirectory: true)
+        gitDir = git
+        // --git-common-dir 은 상대 경로(.git)로 나올 수 있다. 경로를 정리(standardize)하면 /private 가 빠져
+        // FSEvents 가 알려 주는 실제 경로와 달라지므로 git 이 준 그대로 쓴다.
+        let common = lines.count > 2
+            ? (lines[2].hasPrefix("/") ? URL(fileURLWithPath: lines[2], isDirectory: true) : top.appendingPathComponent(lines[2], isDirectory: true))
+            : git
+        commonDir = common
         recents = Recents.add(top)
-        if let t = try? await Git.run(["hash-object", "-t", "tree", "/dev/null"], in: top) {
-            emptyTree = t.output.trimmed
-        }
-        if let n = try? await Git.run(["config", "user.name"], in: top, ok: [0, 1]),
-           let e = try? await Git.run(["config", "user.email"], in: top, ok: [0, 1]), !n.output.trimmed.isEmpty {
-            me = Identity(name: n.output.trimmed, email: e.output.trimmed)
-        }
-        watcher = FileWatcher(path: top.path) { [weak self] paths in
+        Task { await loadRepoInfo(in: top) }
+        // 작업 트리 + 그 밖에 있는 git 폴더(연결된 워크트리의 .git/worktrees/<이름>, 공용 .git)
+        var watched = [top.path]
+        for d in [git.path, common.path] where !d.hasPrefix(top.path + "/") && !watched.contains(d) { watched.append(d) }
+        watcher = FileWatcher(paths: watched) { [weak self] paths in
             Task { @MainActor in self?.fileSystemChanged(paths) }
         }
         await reload()
@@ -202,9 +221,28 @@ final class RepoStore: Identifiable {
         }
     }
 
+    /// 그래프를 읽는 동안 나란히: 내 이름·이메일, 저장소의 해시 방식(빈 트리 SHA 가 SHA-1 / SHA-256 에 따라 다르다)
+    private func loadRepoInfo(in top: URL) async {
+        async let configR = Git.raw(["config", "--get-regexp", "^user\\.(name|email)$"], in: top)
+        async let formatR = Git.raw(["rev-parse", "--show-object-format"], in: top)
+        let (config, format) = (try? await configR, try? await formatR)
+        guard url == top else { return }
+        if format?.status == 0, format?.output.trimmed == "sha256" {
+            emptyTree = "6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321"
+        }
+        var name = "", email = ""
+        for line in (config?.output ?? "").split(separator: "\n") {
+            let parts = line.split(separator: " ", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { continue }
+            if parts[0] == "user.name" { name = parts[1] } else if parts[0] == "user.email" { email = parts[1] }
+        }
+        if !name.isEmpty { me = Identity(name: name, email: email) }
+    }
+
     func close() {
         closeAllTerminals()
         watcher = nil
+        commonDir = nil
         resetState()
         url = nil
         gitDir = nil
@@ -266,7 +304,8 @@ final class RepoStore: Identifiable {
         entries = []; maxLanes = 1; commitIndex = [:]; refsByCommit = [:]
         localBranches = []; remoteBranches = []; remotes = []; tags = []; stashes = []
         status = WorkingStatus(); headHash = nil; headBranch = nil; repoState = .clean
-        hasMore = false; limit = 2000
+        hasMore = false; limit = 2000; lastLog = nil
+        emptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
         selection = nil; detail = nil; detailFiles = []; diffSource = nil; diff = nil
         summary = ""; message = ""; amend = false; mergeMessageFilled = false
         worktrees = []; remoteURLs = [:]; target = nil; pullRequests = []; prState = .idle
@@ -276,12 +315,36 @@ final class RepoStore: Identifiable {
 
     // MARK: - 새로 고침
 
+    private static let statusArgs = ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"]
+
+    /// BRANCHWORK_TRACE=1 이면 새로 고침 종류와 걸린 시간을 표준 오류로(성능 확인용)
+    static let tracing = ProcessInfo.processInfo.environment["BRANCHWORK_TRACE"] == "1"
+    static func trace(_ s: @autoclosure () -> String) {
+        if tracing { FileHandle.standardError.write(Data("[branchwork] \(s())\n".utf8)) }
+    }
+
+    /// 바뀐 값만 넣는다(같은 값을 다시 넣어도 화면이 다시 그려져서, 큰 저장소에서 2,000줄 그래프가 매번 다시 계산된다)
+    private func update<T: Equatable>(_ keyPath: ReferenceWritableKeyPath<RepoStore, T>, _ value: T) {
+        if self[keyPath: keyPath] != value { self[keyPath: keyPath] = value }
+    }
+
+    /// git status 를 실행하고 걸린 시간도 돌려준다(오래 걸리면 인덱스를 새로 고친다)
+    private static func timedStatus(_ url: URL) async throws -> (GitResult, Duration) {
+        let clock = ContinuousClock()
+        let start = clock.now
+        let r = try await Git.run(statusArgs, in: url)
+        return (r, clock.now - start)
+    }
+
     func reload(quiet: Bool = false) async {
         guard let url else { return }
         reloadGeneration += 1
+        statusGeneration += 1
         let gen = reloadGeneration
+        let started = ContinuousClock.now
+        defer { Self.trace("full reload \(ContinuousClock.now - started)") }
         do {
-            async let statusR = Git.run(["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"], in: url)
+            async let statusR = Self.timedStatus(url)
             async let logR = Git.run(["log", "--exclude=refs/stash", "--all", "--date-order", "-n", String(limit + 1),
                                       "--format=" + Parsers.logFormat], in: url, ok: [0, 128])
             async let refsR = Git.run(["for-each-ref", "--format=" + Parsers.refFormat,
@@ -292,35 +355,43 @@ final class RepoStore: Identifiable {
             async let worktreeR = Git.run(["worktree", "list", "--porcelain"], in: url, ok: [0, 128])
             async let unstagedNumR = Git.run(["diff", "--no-ext-diff", "--numstat", "-z"], in: url, ok: [0, 128])
             async let stagedNumR = Git.run(["diff", "--cached", "--no-ext-diff", "-M", "--numstat", "-z"], in: url, ok: [0, 128])
-            let (st, lg, rf, sh, hd, rm, wt) = try await (statusR, logR, refsR, stashR, headR, remoteR, worktreeR)
+            let ((st, statusTime), lg, rf, sh, hd, rm, wt) = try await (statusR, logR, refsR, stashR, headR, remoteR, worktreeR)
             let (un, sn) = try await (unstagedNumR, stagedNumR)
             guard gen == reloadGeneration, self.url == url else { return }
 
             let newStatus = Parsers.status(st.data)
             let head = hd.status == 0 ? hd.output.trimmed : nil
-            var commits = Parsers.log(lg.data)
-            let more = commits.count > limit
-            if more { commits.removeLast(commits.count - limit) }
-            if !newStatus.isEmpty { commits.insert(.wip(parent: head), at: 0) }
-            if loading != nil { loading?.step = "커밋 \(commits.count)개로 그래프 그리는 중…" }
-            let list = commits
-            let layout = await Task.detached(priority: .userInitiated) { GraphLayout.compute(list) }.value
+            // 커밋이 그대로면(파일만 고친 경우 등) 해석·배치를 건너뛰고 지금 그래프를 그대로 쓴다
+            let wip = !newStatus.isEmpty
+            var graph: (commits: [Commit], layout: (rows: [GraphRow], maxLanes: Int), more: Bool)?
+            if lastLog?.data != lg.data || lastLog?.wip != wip || lastLog?.head != head || entries.isEmpty {
+                var commits = Parsers.log(lg.data)
+                let more = commits.count > limit
+                if more { commits.removeLast(commits.count - limit) }
+                if wip { commits.insert(.wip(parent: head), at: 0) }
+                if loading != nil { loading?.step = "커밋 \(commits.count)개로 그래프 그리는 중…" }
+                let list = commits
+                let layout = await Task.detached(priority: .userInitiated) { GraphLayout.compute(list) }.value
+                graph = (list, layout, more)
+            }
             guard gen == reloadGeneration, self.url == url else { return }
+            if graph != nil { lastLog = (lg.data, wip, head) }
+            Self.trace("  graph \(graph == nil ? "reused" : "rebuilt (\(graph!.commits.count) commits)"), status \(statusTime)")
 
             let refs = Parsers.refs(rf.output)
-            status = newStatus
-            headHash = head
-            headBranch = newStatus.branch
-            localBranches = refs.locals
-            remoteBranches = refs.remotes
-            tags = refs.tags
-            stashes = Parsers.stashes(sh.output)
+            update(\.status, newStatus)
+            update(\.headHash, head)
+            update(\.headBranch, newStatus.branch)
+            update(\.localBranches, refs.locals)
+            update(\.remoteBranches, refs.remotes)
+            update(\.tags, refs.tags)
+            update(\.stashes, Parsers.stashes(sh.output))
             let parsedRemotes = Parsers.remotes(rm.output)
-            remotes = parsedRemotes.names
-            remoteURLs = parsedRemotes.urls
-            worktrees = Parsers.worktrees(wt.output)
-            unstagedStats = Parsers.numstat(un.data)
-            stagedStats = Parsers.numstat(sn.data)
+            update(\.remotes, parsedRemotes.names)
+            update(\.remoteURLs, parsedRemotes.urls)
+            update(\.worktrees, Parsers.worktrees(wt.output))
+            update(\.unstagedStats, Parsers.numstat(un.data))
+            update(\.stagedStats, Parsers.numstat(sn.data))
             let newTarget = Hosting.target(remotes: remotes, urls: remoteURLs,
                                            gitlabHosts: AccountStore.shared.accounts(for: .gitlab).map(\.host))
             if let t = newTarget, t.provider == .github { AvatarStore.shared.noteGitHubRepo(t.path) }
@@ -329,17 +400,20 @@ final class RepoStore: Identifiable {
                 resetCI()
                 Task { await loadPullRequests() }
             }
-            hasMore = more
-            maxLanes = layout.maxLanes
-            entries = zip(list, layout.rows).map { GraphEntry(commit: $0, row: $1) }
-            commitIndex = Dictionary(entries.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { a, _ in a })
-            refsByCommit = buildRefMap(head: head)
-            repoState = detectState()
+            if let graph {
+                update(\.hasMore, graph.more)
+                update(\.maxLanes, graph.layout.maxLanes)
+                entries = zip(graph.commits, graph.layout.rows).map { GraphEntry(commit: $0, row: $1) }
+                commitIndex = Dictionary(entries.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { a, _ in a })
+            }
+            update(\.refsByCommit, buildRefMap(head: head))
+            update(\.repoState, detectState())
             prefillMergeMessage()
             fixSelection()
             if !searchMatchSet.isEmpty {
-                searchMatches = entries.compactMap { searchMatchSet.contains($0.id) ? $0.id : nil }
+                update(\.searchMatches, entries.compactMap { searchMatchSet.contains($0.id) ? $0.id : nil })
             }
+            refreshIndexIfSlow(statusTime)
         } catch {
             guard gen == reloadGeneration, !quiet else { return }
             errorMessage = describe(error)
@@ -351,19 +425,91 @@ final class RepoStore: Identifiable {
         await reload()
     }
 
+    /// 바뀐 파일로 필요한 새로 고침을 고른다:
+    /// 작업 트리 파일·.git/index 만 바뀌었으면 상태만, HEAD·브랜치·태그·packed-refs·FETCH_HEAD 등이 바뀌었으면 전체.
     private func fileSystemChanged(_ paths: [String]) {
         guard let root = url?.path else { return }
-        let git = gitDir?.path ?? root + "/.git"
-        let relevant = paths.contains { p in
-            !(p.hasPrefix(git + "/objects") || p.hasPrefix(git + "/logs"))
+        let gitDirs = Set([gitDir?.path ?? root + "/.git", commonDir?.path].compactMap { $0 })
+        var kind: ReloadKind?
+        for p in paths {
+            if let g = gitDirs.first(where: { p == $0 || p.hasPrefix($0 + "/") }) {
+                let rel = p == g ? "" : String(p.dropFirst(g.count + 1))
+                if rel.isEmpty || rel.hasPrefix("objects") || rel.hasPrefix("logs/") || rel.hasSuffix(".lock") || rel.hasPrefix("lfs/") {
+                    continue
+                }
+                if rel == "index" {
+                    // 우리가 방금 새로 고쳐 쓴 인덱스면 다시 읽을 것 없음
+                    if let own = ownIndexStamp, own == indexModified() { continue }
+                    kind = max(kind ?? .status, .status)
+                } else {
+                    kind = .full
+                }
+            } else {
+                kind = max(kind ?? .status, .status)
+            }
+            if kind == .full { break }
         }
-        guard relevant else { return }
+        guard let kind else { return }
+        pendingKind = max(pendingKind ?? kind, kind)
         guard isActive else { pendingReload = true; return }
         watchTask?.cancel()
         watchTask = Task {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled, busy == nil else { return }
+            let k = pendingKind ?? .full
+            pendingKind = nil
+            if k == .full { await reload(quiet: true) } else { await reloadStatus() }
+        }
+    }
+
+    /// 가벼운 새로 고침: 작업 트리·스테이지 상태와 줄 수만(커밋 목록·브랜치는 그대로).
+    /// 변경이 생기거나 다 없어져 '작업 중인 변경' 행이 생기고 없어지면 전체를 다시 읽는다.
+    func reloadStatus() async {
+        guard let url else { return }
+        statusGeneration += 1
+        let gen = statusGeneration
+        let started = ContinuousClock.now
+        defer { Self.trace("status reload \(ContinuousClock.now - started)") }
+        do {
+            async let statusR = Self.timedStatus(url)
+            async let unstagedNumR = Git.run(["diff", "--no-ext-diff", "--numstat", "-z"], in: url, ok: [0, 128])
+            async let stagedNumR = Git.run(["diff", "--cached", "--no-ext-diff", "-M", "--numstat", "-z"], in: url, ok: [0, 128])
+            let ((st, statusTime), un, sn) = try await (statusR, unstagedNumR, stagedNumR)
+            guard gen == statusGeneration, self.url == url else { return }
+            let newStatus = Parsers.status(st.data)
+            if newStatus.isEmpty != status.isEmpty || newStatus.branch != status.branch {
+                await reload(quiet: true)
+                return
+            }
+            update(\.status, newStatus)
+            update(\.unstagedStats, Parsers.numstat(un.data))
+            update(\.stagedStats, Parsers.numstat(sn.data))
+            update(\.repoState, detectState())
+            prefillMergeMessage()
+            fixSelection()
+            refreshIndexIfSlow(statusTime)
+        } catch {
             await reload(quiet: true)
+        }
+    }
+
+    private func indexModified() -> Date? {
+        guard let g = gitDir else { return nil }
+        return (try? FileManager.default.attributesOfItem(atPath: g.appendingPathComponent("index").path))?[.modificationDate] as? Date
+    }
+
+    /// git status 가 느리면(인덱스의 파일 정보가 낡아 매번 파일 내용을 다시 해시하는 경우) 인덱스를 한 번 새로 고친다.
+    /// 앱의 git 명령은 GIT_OPTIONAL_LOCKS=0 이라 status 가 인덱스를 고쳐 쓰지 않아서, 그대로 두면 계속 느리다.
+    /// 터미널의 git 과 index.lock 이 부딪히지 않게 1분에 한 번까지만.
+    private func refreshIndexIfSlow(_ statusTime: Duration) {
+        guard statusTime > .milliseconds(120), let url else { return }
+        if let last = lastIndexRefresh, Date().timeIntervalSince(last) < 60 { return }
+        lastIndexRefresh = Date()
+        Self.trace("status took \(statusTime) — refreshing index")
+        Task {
+            _ = try? await Git.raw(["update-index", "-q", "--refresh"], in: url)
+            guard self.url == url else { return }
+            ownIndexStamp = indexModified()
         }
     }
 

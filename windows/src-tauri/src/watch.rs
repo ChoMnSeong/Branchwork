@@ -40,12 +40,19 @@ pub fn watch_start(app: AppHandle, state: tauri::State<'_, Watches>, id: String,
     std::thread::spawn(move || {
         while let Ok(first) = rx.recv() {
             let mut batch = first;
+            let mut overflow = false;
             while let Ok(more) = rx.recv_timeout(Duration::from_millis(300)) {
                 if batch.len() < 200 {
                     batch.extend(more);
+                } else {
+                    overflow = true;
                 }
             }
-            batch.truncate(200);
+            if overflow || batch.len() > 200 {
+                // 너무 많아 다 못 보냈다는 표시(화면은 전체를 다시 읽는다)
+                batch.truncate(199);
+                batch.push("*".into());
+            }
             let _ = app.emit(&event, batch);
         }
     });

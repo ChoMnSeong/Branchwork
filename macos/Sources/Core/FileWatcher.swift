@@ -2,11 +2,13 @@ import Foundation
 import CoreServices
 
 /// 저장소 폴더(작업 트리 + .git)의 변경을 FSEvents 로 받아 콜백한다.
+/// 파일 단위로 받아서(.git/index 와 .git/HEAD 를 구별해야 해서) 어떤 새로 고침이 필요한지 고를 수 있게 한다.
 final class FileWatcher {
     private var stream: FSEventStreamRef?
     private let callback: ([String]) -> Void
 
-    init(path: String, callback: @escaping ([String]) -> Void) {
+    /// paths: 작업 트리와, 그 밖에 있는 git 폴더들(연결된 워크트리의 .git/worktrees/<이름>, 공용 .git)
+    init(paths: [String], callback: @escaping ([String]) -> Void) {
         self.callback = callback
         var context = FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(),
                                            retain: nil, release: nil, copyDescription: nil)
@@ -16,8 +18,9 @@ final class FileWatcher {
             let list = (unsafeBitCast(paths, to: NSArray.self) as? [String]) ?? []
             watcher.callback(list)
         }
-        let flags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagNoDefer)
-        stream = FSEventStreamCreate(nil, handler, &context, [path] as CFArray,
+        let flags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagNoDefer
+                                             | kFSEventStreamCreateFlagFileEvents)
+        stream = FSEventStreamCreate(nil, handler, &context, paths as CFArray,
                                      FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.3, flags)
         if let stream {
             FSEventStreamSetDispatchQueue(stream, .main)

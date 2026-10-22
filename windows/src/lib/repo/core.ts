@@ -49,6 +49,15 @@ import { TerminalSession, type TerminalSpec } from "../terminal";
 
 export const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
+/** 개발자 도구에서 localStorage.branchworkTrace = "1" 이면 새로 고침 종류와 걸린 시간을 콘솔에(성능 확인용) */
+function trace(s: string) {
+  try {
+    if (localStorage.getItem("branchworkTrace") === "1") console.debug("[branchwork]", s);
+  } catch {
+    /* 무시 */
+  }
+}
+
 /** 저장소 하나(=탭 하나)의 상태, 열기·닫기, 새로 고침 */
 export abstract class RepoCore extends Observable implements AgentHost {
   // 뒤 단계(repo/*.ts)에서 채우는 것들
@@ -164,6 +173,16 @@ export abstract class RepoCore extends Observable implements AgentHost {
   protected watchIds: string[] = [];
   protected unlisten: (() => void)[] = [];
   protected watchTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 파일 감시가 모아 둔 새로 고침 종류(전체가 상태만보다 우선) */
+  protected pendingKind: "status" | "full" | null = null;
+  /** 상태만 다시 읽는 가벼운 새로 고침의 세대(전체 새로 고침이 시작되면 함께 올라간다) */
+  protected statusGeneration = 0;
+  /** 마지막으로 그래프·브랜치를 만든 git 출력 — 같으면 다시 해석·배치하지 않는다(행 객체도 그대로라 화면이 다시 그리지 않음) */
+  protected lastLog: { out: string; wip: boolean; head: string | null } | null = null;
+  protected lastRefs: string | null = null;
+  protected lastIndexRefresh = 0;
+  /** 공용 .git(연결된 워크트리면 gitDir 과 다르다) */
+  protected commonDir: string | null = null;
   protected detailGen = 0;
   protected diffGen = 0;
 
@@ -209,7 +228,9 @@ export abstract class RepoCore extends Observable implements AgentHost {
     if (!this.path) return;
     if (this.pendingReload) {
       this.pendingReload = false;
-      await this.reload(true);
+      const k = this.pendingKind ?? "full";
+      this.pendingKind = null;
+      await (k === "full" ? this.reload(true) : this.reloadStatus());
     }
   }
 
@@ -251,13 +272,14 @@ export abstract class RepoCore extends Observable implements AgentHost {
     this.gitDir = lines[1].trim();
     addRecent(top);
     this.emit();
-    try {
-      const n = await this.g(["config", "user.name"], { ok: [0, 1] });
-      const e = await this.g(["config", "user.email"], { ok: [0, 1] });
-      if (n.stdout.trim()) this.me = { name: n.stdout.trim(), email: e.stdout.trim() };
-    } catch {
-      /* 없음 */
-    }
+    // 내 이름·이메일과 공용 .git 위치를 한 번에(따로 띄우면 Windows 에선 git 하나에 수십 ms)
+    const [cfg, common] = await Promise.all([
+      this.g(["config", "--get-regexp", "^user\\.(name|email)$"], { ok: [0, 1] }).catch(() => null),
+      this.g(["rev-parse", "--path-format=absolute", "--git-common-dir"]).catch(() => null),
+    ]);
+    const conf = Object.fromEntries((cfg?.stdout ?? "").split(/\r?\n/).map((l) => [l.slice(0, l.indexOf(" ")), l.slice(l.indexOf(" ") + 1).trim()]));
+    if (conf["user.name"]) this.me = { name: conf["user.name"], email: conf["user.email"] ?? "" };
+    this.commonDir = common?.stdout.trim() || null;
     await this.startWatching();
     await this.reload();
     this.selectDefault();
@@ -324,13 +346,8 @@ export abstract class RepoCore extends Observable implements AgentHost {
     if (!this.path) return;
     const dirs = [this.path];
     // 연결된 워크트리는 HEAD·refs 가 저장소 밖(.git/worktrees, 공용 .git)에 있어 그쪽도 본다
-    try {
-      const common = (await this.g(["rev-parse", "--path-format=absolute", "--git-common-dir"])).stdout.trim();
-      for (const d of [this.gitDir, common]) {
-        if (d && !slash(d).toLowerCase().startsWith(slash(this.path).toLowerCase() + "/") && !dirs.some((x) => samePath(x, d))) dirs.push(d);
-      }
-    } catch {
-      /* 무시 */
+    for (const d of [this.gitDir, this.commonDir]) {
+      if (d && !slash(d).toLowerCase().startsWith(slash(this.path).toLowerCase() + "/") && !dirs.some((x) => samePath(x, d))) dirs.push(d);
     }
     for (const d of dirs) {
       const id = `${this.id}-${this.watchIds.length}`;
@@ -367,6 +384,10 @@ export abstract class RepoCore extends Observable implements AgentHost {
     this.repoState = "clean";
     this.hasMore = false;
     this.limit = 2000;
+    this.lastLog = null;
+    this.lastRefs = null;
+    this.pendingKind = null;
+    this.commonDir = null;
     this.selection = null;
     this.detail = null;
     this.detailFiles = [];
@@ -454,9 +475,11 @@ export abstract class RepoCore extends Observable implements AgentHost {
     const path = this.path;
     if (!path) return;
     const gen = ++this.reloadGeneration;
+    this.statusGeneration++;
+    const started = performance.now();
     try {
-      const [st, lg, rf, sh, hd, rm, wt, un, sn] = await Promise.all([
-        this.g(["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"]),
+      const [[st, statusMs], lg, rf, sh, hd, rm, wt, un, sn] = await Promise.all([
+        this.timedStatus(),
         this.g(["log", "--exclude=refs/stash", "--all", "--date-order", "-n", String(this.limit + 1), "--format=" + P.logFormat], { ok: [0, 128] }),
         this.g(["for-each-ref", "--format=" + P.refFormat, "refs/heads", "refs/remotes", "refs/tags"]),
         this.g(["stash", "list", "--format=" + P.stashFormat], { ok: [0, 1, 128] }),
@@ -470,23 +493,40 @@ export abstract class RepoCore extends Observable implements AgentHost {
 
       const newStatus = P.parseStatus(st.stdout);
       const head = hd.status === 0 ? hd.stdout.trim() : null;
-      let commits = P.parseLog(lg.stdout);
-      const more = commits.length > this.limit;
-      if (more) commits = commits.slice(0, this.limit);
-      if (!statusIsEmpty(newStatus)) commits.unshift(wipCommit(head));
-      if (this.loading) {
-        this.loading = { ...this.loading, step: `커밋 ${commits.length}개로 그래프 그리는 중…` };
-        this.emit();
+      // 커밋이 그대로면(파일만 고친 경우 등) 해석·배치를 건너뛰고 지금 그래프를 그대로 쓴다
+      const wip = !statusIsEmpty(newStatus);
+      const sameLog = !!this.lastLog && this.lastLog.out === lg.stdout && this.lastLog.wip === wip && this.lastLog.head === head && this.entries.length > 0;
+      if (!sameLog) {
+        let commits = P.parseLog(lg.stdout);
+        const more = commits.length > this.limit;
+        if (more) commits = commits.slice(0, this.limit);
+        if (wip) commits.unshift(wipCommit(head));
+        if (this.loading) {
+          this.loading = { ...this.loading, step: `커밋 ${commits.length}개로 그래프 그리는 중…` };
+          this.emit();
+        }
+        const layout = layoutGraph(commits);
+        this.hasMore = more;
+        this.maxLanes = layout.maxLanes;
+        this.entries = commits.map((c, i) => ({ commit: c, row: layout.rows[i] }));
+        this.commitIndex = new Map();
+        this.entries.forEach((e, i) => {
+          if (!this.commitIndex.has(e.commit.id)) this.commitIndex.set(e.commit.id, i);
+        });
+        this.lastLog = { out: lg.stdout, wip, head };
       }
-      const layout = layoutGraph(commits);
 
-      const refs = P.parseRefs(rf.stdout);
       this.status = newStatus;
       this.headHash = head;
       this.headBranch = newStatus.branch;
-      this.localBranches = refs.locals;
-      this.remoteBranches = refs.remotes;
-      this.tags = refs.tags;
+      const refsChanged = this.lastRefs !== rf.stdout || !sameLog || this.refsByCommit.size === 0;
+      if (this.lastRefs !== rf.stdout) {
+        const refs = P.parseRefs(rf.stdout);
+        this.localBranches = refs.locals;
+        this.remoteBranches = refs.remotes;
+        this.tags = refs.tags;
+        this.lastRefs = rf.stdout;
+      }
       this.stashes = P.parseStashes(sh.stdout);
       const parsed = P.parseRemotes(rm.stdout);
       this.remotes = parsed.names;
@@ -505,19 +545,14 @@ export abstract class RepoCore extends Observable implements AgentHost {
         this.ci.reset();
         void this.loadPullRequests();
       }
-      this.hasMore = more;
-      this.maxLanes = layout.maxLanes;
-      this.entries = commits.map((c, i) => ({ commit: c, row: layout.rows[i] }));
-      this.commitIndex = new Map();
-      this.entries.forEach((e, i) => {
-        if (!this.commitIndex.has(e.commit.id)) this.commitIndex.set(e.commit.id, i);
-      });
-      this.refsByCommit = this.buildRefMap(head);
+      if (refsChanged || this.headBranch == null) this.refsByCommit = this.buildRefMap(head);
       this.repoState = await this.detectState();
       await this.prefillMergeMessage();
       this.fixSelection();
       if (this.searchMatchSet.size) this.searchMatches = this.entries.filter((e) => this.searchMatchSet.has(e.commit.id)).map((e) => e.commit.id);
       this.emit();
+      trace(`full reload ${Math.round(performance.now() - started)}ms (graph ${sameLog ? "reused" : "rebuilt"}, status ${Math.round(statusMs)}ms)`);
+      this.refreshIndexIfSlow(statusMs);
     } catch (e) {
       if (gen !== this.reloadGeneration || quiet) return;
       this.fail(e);
@@ -529,16 +564,100 @@ export abstract class RepoCore extends Observable implements AgentHost {
     await this.reload();
   }
 
+  /**
+   * 바뀐 파일로 필요한 새로 고침을 고른다:
+   * 작업 트리 파일·.git/index 만 바뀌었으면 상태만, HEAD·브랜치·태그·packed-refs·FETCH_HEAD 등이 바뀌었으면 전체.
+   */
   protected fileSystemChanged(paths: string[]) {
     if (!this.path || !paths.length) return;
+    const gitDirs = [this.gitDir ?? joinPath(this.path, ".git"), this.commonDir].filter((d): d is string => !!d).map((d) => slash(d).toLowerCase());
+    let kind: "status" | "full" | null = null;
+    for (const raw of paths) {
+      if (raw === "*") {
+        kind = "full";
+        break;
+      }
+      const p = slash(raw).toLowerCase();
+      const g = gitDirs.find((d) => p === d || p.startsWith(d + "/"));
+      if (g) {
+        const rel = p === g ? "" : p.slice(g.length + 1);
+        if (!rel || rel.startsWith("objects") || rel.startsWith("logs/") || rel.endsWith(".lock") || rel.startsWith("lfs/")) continue;
+        if (rel === "index") {
+          kind ??= "status";
+          continue;
+        }
+        kind = "full";
+        break;
+      }
+      kind ??= "status";
+    }
+    if (!kind) return;
+    this.pendingKind = this.pendingKind === "full" || kind === "full" ? "full" : "status";
     if (!this.isActive) {
       this.pendingReload = true;
       return;
     }
     if (this.watchTimer) clearTimeout(this.watchTimer);
     this.watchTimer = setTimeout(() => {
-      if (this.busy == null) void this.reload(true);
+      if (this.busy != null) return;
+      const k = this.pendingKind ?? "full";
+      this.pendingKind = null;
+      void (k === "full" ? this.reload(true) : this.reloadStatus());
     }, 500);
+  }
+
+  /** git status 를 실행하고 걸린 시간(ms)도 */
+  protected async timedStatus(): Promise<[Awaited<ReturnType<typeof git>>, number]> {
+    const t = performance.now();
+    const r = await this.g(["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"]);
+    return [r, performance.now() - t];
+  }
+
+  /**
+   * 가벼운 새로 고침: 작업 트리·스테이지 상태와 줄 수만(커밋 목록·브랜치는 그대로).
+   * 변경이 생기거나 다 없어져 '작업 중인 변경' 행이 생기고 없어지면 전체를 다시 읽는다.
+   */
+  async reloadStatus() {
+    const path = this.path;
+    if (!path) return;
+    const gen = ++this.statusGeneration;
+    const started = performance.now();
+    try {
+      const [[st, statusMs], un, sn] = await Promise.all([
+        this.timedStatus(),
+        this.g(["diff", "--no-ext-diff", "--numstat", "-z"], { ok: [0, 128] }),
+        this.g(["diff", "--cached", "--no-ext-diff", "-M", "--numstat", "-z"], { ok: [0, 128] }),
+      ]);
+      if (gen !== this.statusGeneration || this.path !== path) return;
+      const newStatus = P.parseStatus(st.stdout);
+      if (statusIsEmpty(newStatus) !== statusIsEmpty(this.status) || newStatus.branch !== this.status.branch) {
+        await this.reload(true);
+        return;
+      }
+      this.status = newStatus;
+      this.unstagedStats = P.parseNumstat(un.stdout);
+      this.stagedStats = P.parseNumstat(sn.stdout);
+      this.repoState = await this.detectState();
+      await this.prefillMergeMessage();
+      this.fixSelection();
+      this.emit();
+      trace(`status reload ${Math.round(performance.now() - started)}ms (status ${Math.round(statusMs)}ms)`);
+      this.refreshIndexIfSlow(statusMs);
+    } catch {
+      await this.reload(true);
+    }
+  }
+
+  /**
+   * git status 가 느리면(인덱스의 파일 정보가 낡아 매번 파일 내용을 다시 해시하는 경우) 인덱스를 한 번 새로 고친다.
+   * 앱의 git 명령은 GIT_OPTIONAL_LOCKS=0 이라 status 가 인덱스를 고쳐 쓰지 않아서, 그대로 두면 계속 느리다.
+   * 터미널의 git 과 index.lock 이 부딪히지 않게 1분에 한 번까지만. 새로 고친 인덱스에 대한 감시 알림은 상태만 다시 읽는다.
+   */
+  protected refreshIndexIfSlow(statusMs: number) {
+    if (statusMs < 250 || !this.path || Date.now() - this.lastIndexRefresh < 60_000) return;
+    this.lastIndexRefresh = Date.now();
+    trace(`status took ${Math.round(statusMs)}ms — refreshing index`);
+    void this.g(["update-index", "-q", "--refresh"], { ok: [0, 1, 128] }).catch(() => undefined);
   }
 
   protected buildRefMap(head: string | null) {

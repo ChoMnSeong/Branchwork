@@ -100,7 +100,7 @@ final class AgentCenter {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         installHooks()
         load()
-        watcher = FileWatcher(path: directory.path) { [weak self] _ in
+        watcher = FileWatcher(paths: [directory.path]) { [weak self] _ in
             Task { @MainActor in self?.load() }
         }
         // 터미널을 닫아 훅 없이 끝난 세션도 잡도록 주기적으로 프로세스 확인

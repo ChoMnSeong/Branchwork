@@ -73,6 +73,13 @@ export async function runSelfTest(): Promise<boolean> {
     s.closeDiff();
     return [ok, s.diff?.error];
   });
+  // 이미 바뀐 파일이 있는 상태에서 다른 파일을 저장하면 상태만 다시 읽고(git 3개) 그래프는 그대로 둔다
+  await step("파일 저장 → 상태만 새로 고침", async () => {
+    const graph = s.entries;
+    await ipc.writeText(joinPath(repo, "README.md"), "# demo\n상태만 새로 고침\n");
+    const ok = await until(() => !!s.unstagedStats["README.md"], 10000);
+    return [ok && s.entries === graph, `stats=${JSON.stringify(s.unstagedStats["README.md"])} sameGraph=${s.entries === graph}`];
+  });
   await step("스테이지", async () => {
     await s.stageAll();
     return [s.status.staged.length > 0 && !s.status.unstaged.length, `staged=${s.status.staged.length}`];

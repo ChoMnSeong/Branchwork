@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, CircleDashed, Search, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { searchScopes, type SearchScope } from "../../lib/models";
+import { isWIP, searchScopes, type SearchScope } from "../../lib/models";
 import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { Button, Empty, Spinner } from "../shared/ui";
@@ -46,6 +46,7 @@ export function GraphView({ store }: { store: RepoStore }) {
   const last = Math.min(entries.length, Math.ceil((viewport.top + viewport.height) / ROW_H) + 10);
   const searching = store.isSearching && (!store.searching || store.searchMatchSet.size > 0);
   const selected = store.selectedID;
+  const wipCount = store.wipCount;
 
   return (
     <div className="col grow" style={{ background: "var(--surface)" }}>
@@ -88,7 +89,7 @@ export function GraphView({ store }: { store: RepoStore }) {
                   refs={store.refsByCommit.get(e.commit.id)}
                   selected={selected === e.commit.id}
                   isHead={e.commit.id === store.headHash}
-                  wipCount={store.wipCount}
+                  wipCount={isWIP(e.commit) ? wipCount : 0}
                   match={!searching ? 0 : store.searchMatchSet.has(e.commit.id) ? 1 : 2}
                 />
               );

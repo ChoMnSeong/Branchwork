@@ -35,7 +35,7 @@ struct GraphView: View {
                                       refs: store.refsByCommit[entry.id] ?? [],
                                       selected: isSelected(entry),
                                       isHead: entry.id == store.headHash,
-                                      wipCount: store.status.count,
+                                      wipCount: entry.commit.isWIP ? store.status.count : 0,
                                       match: matchState(entry))
                                 .id(entry.id)
                                 .onTapGesture {
