@@ -442,6 +442,19 @@ export async function runSelfTest(): Promise<boolean> {
     return [ok, `editable=${editable} staged=${staged} split=${split} images=${images} shown=${shown} error=${s.errorMessage}`];
   });
 
+  // 파일 히스토리·blame: app.txt 를 바꾼 커밋들과 줄마다 마지막 커밋
+  await step("파일 히스토리·줄별 작성자", async () => {
+    s.openFileHistory("app.txt");
+    const history = await until(() => s.fileHistory.length >= 4 && !!s.fileHistoryDiff?.lines.length, 8000);
+    const rows = await until(() => document.querySelectorAll(".history-row").length >= 4, 3000);
+    s.setFileInspectMode("blame");
+    const blame = await until(() => s.blameLines.length >= 4 && s.blameLines.every((l) => l.author === "Self Test"), 8000);
+    const gutter = await until(() => document.querySelectorAll(".blame-gutter").length >= 4, 3000);
+    const n = s.fileHistory.length;
+    s.closeFileInspect();
+    return [history && rows && blame && gutter, `history=${n} rows=${rows} blame=${s.blameLines.length} gutter=${gutter}`];
+  });
+
   // 그래프 거르기: 브랜치 숨기기(그 브랜치만의 커밋이 빠짐), 모두 보이기, 현재 브랜치만, 고정
   await step("그래프 거르기(숨기기·현재 브랜치만·고정)", async () => {
     const has = () => s.entries.some((e) => e.commit.subject === "이미지 바꿈");

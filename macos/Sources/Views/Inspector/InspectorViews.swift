@@ -38,6 +38,11 @@ struct WorkingChangesView: View {
                             Button("스테이지") { Task { await store.stage([c]) } }
                             Button("변경 버리기…", role: .destructive) { store.confirmDiscard(c) }
                             Divider()
+                            if c.kind != .untracked {
+                                Button("파일 히스토리") { store.openFileHistory(c.path) }
+                                Button("줄별 작성자 보기") { store.openBlame(c.path) }.disabled(c.kind == .deleted)
+                                Divider()
+                            }
                             Button("Finder 에서 보기") { store.revealInFinder(c) }
                             Button("경로 복사") { store.copy(c.path) }
                         }
@@ -51,6 +56,11 @@ struct WorkingChangesView: View {
                                    onOpen: open) { c in
                             Button("언스테이지") { Task { await store.unstage([c]) } }
                             Divider()
+                            if c.kind != .added {
+                                Button("파일 히스토리") { store.openFileHistory(c.path) }
+                                Button("줄별 작성자 보기") { store.openBlame(c.path) }.disabled(c.kind == .deleted)
+                                Divider()
+                            }
                             Button("Finder 에서 보기") { store.revealInFinder(c) }
                             Button("경로 복사") { store.copy(c.path) }
                         }
@@ -413,6 +423,9 @@ struct CommitDetailView: View {
                        isSelected: { store.diffSource == .commit(sha: sha, change: $0, parent: d.parents.first) },
                        stats: store.detailStats,
                        onOpen: { store.openDiff(.commit(sha: sha, change: $0, parent: d.parents.first)) }) { f in
+                Button("파일 히스토리") { store.openFileHistory(f.path) }
+                Button("이 커밋 기준 줄별 작성자 보기") { store.openBlame(f.path, rev: sha) }.disabled(f.kind == .deleted)
+                Divider()
                 Button("경로 복사") { store.copy(f.path) }
             }
         }

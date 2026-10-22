@@ -248,6 +248,40 @@ struct DiffSplitRow: Identifiable {
     var right: Int?
 }
 
+// MARK: - 파일 히스토리 · blame
+
+/// 파일 히스토리 한 줄: 그 파일을 바꾼 커밋과, 그 커밋에서의 파일 경로(이름이 바뀌었을 수 있다)
+struct FileHistoryEntry: Identifiable, Hashable {
+    let commit: Commit
+    let path: String
+    var id: String { commit.id }
+}
+
+/// blame 한 줄: 그 줄을 마지막으로 바꾼 커밋
+struct BlameLine: Identifiable {
+    /// 줄 번호(1부터)
+    let id: Int
+    let sha: String
+    let text: String
+    let author: String
+    let email: String
+    let date: Date
+    let summary: String
+    /// 앞 줄과 다른 커밋이면 true(작성자·날짜는 이 줄에만 보여 준다)
+    let startsBlock: Bool
+    /// 아직 커밋하지 않은 줄
+    var uncommitted: Bool { sha.allSatisfy { $0 == "0" } }
+}
+
+/// 가운데 영역에 띄우는 파일 보기
+struct FileInspect: Equatable {
+    enum Mode: Equatable { case history, blame }
+    var mode: Mode
+    let path: String
+    /// blame 할 커밋(nil 이면 작업 트리)
+    var rev: String?
+}
+
 // MARK: - Graph
 
 struct GraphSegment: Hashable {

@@ -40,6 +40,9 @@ import {
   type WorkingStatus,
   type Worktree,
   type WorktreeStats,
+  type BlameLine,
+  type FileHistoryEntry,
+  type FileInspect,
 } from "../models";
 import { Observable } from "../observable";
 import type { UndoPoint } from "./undo-model";
@@ -169,6 +172,14 @@ export abstract class RepoCore extends Observable implements AgentHost {
   /** 되돌릴 수 있는 작업(마지막이 맨 뒤) */
   undoStack: UndoPoint[] = [];
   /** 그래프에서 숨긴 브랜치(refs/heads/x · refs/remotes/o/x), 사이드바 맨 위에 고정한 로컬 브랜치, 현재 브랜치만 보기 */
+  /** 가운데에 띄운 파일 히스토리·blame */
+  fileInspect: FileInspect | null = null;
+  fileHistory: FileHistoryEntry[] = [];
+  fileHistorySelected: string | null = null;
+  fileHistoryDiff: DiffDocument | null = null;
+  blameLines: BlameLine[] = [];
+  fileInspectLoading = false;
+  fileInspectError: string | null = null;
   hiddenRefs = new Set<string>();
   pinnedBranches = new Set<string>();
   graphCurrentOnly = false;

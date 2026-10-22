@@ -135,3 +135,49 @@ To add an exception for this directory, call:
     expect(unsafeRepository("fatal: not a git repository")).toBeNull();
   });
 });
+
+import { parseBlame, parseFileHistory } from "../src/lib/parsers";
+
+describe("파일 히스토리 · blame", () => {
+  it("히스토리: 커밋마다 그때의 경로", () => {
+    const text =
+      "\x1ea1\x1fp1\x1f김하늘\x1fh@example.com\x1f1700000000\x1fRefactor: 이름 바꿈\n\nsrc/pay.ts\n" +
+      "\x1ep1\x1f\x1f박서연\x1fs@example.com\x1f1690000000\x1fFeat: 결제\n\nsrc/payment.ts\n";
+    const h = parseFileHistory(text);
+    expect(h.map((e) => [e.commit.id, e.path, e.commit.parents.length])).toEqual([
+      ["a1", "src/pay.ts", 1],
+      ["p1", "src/payment.ts", 0],
+    ]);
+  });
+
+  it("blame --porcelain: 같은 커밋이 이어지면 첫 줄만 표시, 커밋 정보는 처음 나올 때만", () => {
+    const a = "a".repeat(40),
+      b = "b".repeat(40);
+    const text = [
+      `${a} 1 1 2`,
+      "author 김하늘",
+      "author-mail <h@example.com>",
+      "author-time 1700000000",
+      "summary 첫 커밋",
+      "filename f.txt",
+      "\tline one",
+      `${a} 2 2`,
+      "\tline two",
+      `${b} 3 3 1`,
+      "author 박서연",
+      "author-mail <s@example.com>",
+      "author-time 1710000000",
+      "summary 둘째",
+      "filename f.txt",
+      "\tline three",
+      "",
+    ].join("\n");
+    const l = parseBlame(text);
+    expect(l.map((x) => [x.no, x.author, x.startsBlock, x.text])).toEqual([
+      [1, "김하늘", true, "line one"],
+      [2, "김하늘", false, "line two"],
+      [3, "박서연", true, "line three"],
+    ]);
+    expect(l[0].email).toBe("h@example.com");
+  });
+});

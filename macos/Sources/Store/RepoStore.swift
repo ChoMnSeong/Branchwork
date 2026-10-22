@@ -104,6 +104,14 @@ final class RepoStore: Identifiable {
     var hiddenRefs: Set<String> = []
     var pinnedBranches: Set<String> = []
     var graphCurrentOnly = false
+    /// 가운데에 띄운 파일 히스토리·blame
+    var fileInspect: FileInspect?
+    var fileHistory: [FileHistoryEntry] = []
+    var fileHistorySelected: String?
+    var fileHistoryDiff: DiffDocument?
+    var blameLines: [BlameLine] = []
+    var fileInspectLoading = false
+    var fileInspectError: String?
     /// diff 화면에서 고른 줄(DiffLine.id)과 Shift 범위의 시작
     var diffSelection: Set<Int> = []
     var diffSelectionAnchor: Int?

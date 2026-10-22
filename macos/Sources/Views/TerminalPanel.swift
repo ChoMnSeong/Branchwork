@@ -12,7 +12,9 @@ struct ContentColumn: View {
     var body: some View {
         VStack(spacing: 0) {
             Group {
-                if let source = store.diffSource {
+                if let f = store.fileInspect {
+                    FileInspectView(inspect: f)
+                } else if let source = store.diffSource {
                     DiffView(source: source)
                 } else {
                     GraphView()

@@ -1,4 +1,4 @@
-import { ChevronLeft, Columns2, Equal, FileArchive, ImageOff, Rows3, Space, TriangleAlert } from "lucide-react";
+import { ChevronLeft, Columns2, Equal, FileArchive, History, ImageOff, Rows3, ScanText, Space, TriangleAlert } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { splitRows, type SplitRow } from "../../lib/diff";
 import { short, type DiffDocument, type DiffLine } from "../../lib/models";
@@ -46,6 +46,19 @@ export function DiffView({ store }: { store: RepoStore }) {
             {subtitle}
           </span>
         </div>
+        {c.kind !== "untracked" && (
+          <>
+            <IconButton icon={<History size={15} />} aria-label="파일 히스토리" tip="파일 히스토리|이 파일을 바꾼 커밋들" onClick={() => store.openFileHistory(c.path)} />
+            {c.kind !== "deleted" && (
+              <IconButton
+                icon={<ScanText size={15} />}
+                aria-label="줄별 작성자"
+                tip="줄별 작성자(blame)|줄마다 누가 언제 바꿨는지"
+                onClick={() => store.openBlame(c.path, source.kind === "commit" ? source.sha : null)}
+              />
+            )}
+          </>
+        )}
         <div className="segmented" style={{ flex: "none" }}>
           <button type="button" className={!store.diffSplit ? "on" : ""} data-tip="한 줄로 보기" aria-label="한 줄로 보기" onClick={() => store.setDiffSplit(false)}>
             <Rows3 size={14} />
@@ -94,17 +107,20 @@ export function DiffView({ store }: { store: RepoStore }) {
           detail={store.diffIgnoreWhitespace ? "공백만 바뀌었습니다(공백 무시를 끄면 보입니다)." : "내용 변경 없이 권한·이름만 바뀌었을 수 있습니다."}
         />
       ) : (
-        <DiffBody store={store} doc={doc} />
+        <DiffBody
+          store={store}
+          doc={doc}
+          split={store.diffSplit}
+          editable={store.canEditDiffLines}
+          staged={store.diffSource?.kind === "working" && store.diffSource.change.staged}
+        />
       )}
     </div>
   );
 }
 
-/** 보이는 줄만 그리는 diff 본문(줄마다 높이가 다를 수 있어 위치를 미리 계산) */
-function DiffBody({ store, doc }: { store: RepoStore; doc: DiffDocument }) {
-  const split = store.diffSplit;
-  const editable = store.canEditDiffLines;
-  const staged = store.diffSource?.kind === "working" && store.diffSource.change.staged;
+/** 보이는 줄만 그리는 diff 본문(줄마다 높이가 다를 수 있어 위치를 미리 계산). 파일 히스토리에서도 쓴다. */
+export function DiffBody({ store, doc, split, editable, staged }: { store: RepoStore; doc: DiffDocument; split: boolean; editable: boolean; staged: boolean }) {
   const rows: SplitRow[] = useMemo(
     () => (split ? splitRows(doc.lines) : doc.lines.map((l, i) => (l.kind === "hunk" || l.kind === "meta" ? { full: i } : { left: i }))),
     [doc, split],
@@ -133,7 +149,7 @@ function DiffBody({ store, doc }: { store: RepoStore; doc: DiffDocument }) {
   }, []);
   useLayoutEffect(() => {
     if (ref.current) ref.current.scrollTop = 0;
-  }, [store.diffSource]);
+  }, [doc]);
 
   const find = (y: number) => {
     let lo = 0,

@@ -2,12 +2,14 @@ import { markWords } from "./diff";
 import {
   changeKind,
   emptyStatus,
+  type BlameLine,
   type Branch,
   type Commit,
   type CommitDetail,
   type DiffDocument,
   type DiffKind,
   type FileChange,
+  type FileHistoryEntry,
   type LineStat,
   type Stash,
   type Tag,
@@ -359,4 +361,56 @@ export function newFileDiff(text: string, truncated: boolean, maxLines = 20000):
   all.slice(0, maxLines).forEach((l, i) => doc.lines.push({ kind: "added", text: l.replace(/\t/g, "    "), oldNo: null, newNo: i + 1 }));
   if (all.length > maxLines) doc.truncated = true;
   return doc;
+}
+
+// MARK: - 파일 히스토리 · blame
+
+/** git log --follow --name-only 와 함께 쓰는 형식(커밋마다 \x1e 로 시작) */
+export const fileHistoryFormat = "%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%ct%x1f%s";
+
+export function parseFileHistory(text: string): FileHistoryEntry[] {
+  return text
+    .split("\x1e")
+    .filter((r) => r.trim())
+    .flatMap((rec): FileHistoryEntry[] => {
+      const lines = rec.split(/\r?\n/).filter(Boolean);
+      const f = (lines[0] ?? "").split("\x1f");
+      if (f.length < 6) return [];
+      const commit: Commit = { id: f[0], parents: f[1] ? f[1].split(" ") : [], author: f[2], email: f[3], date: Number(f[4]) || 0, subject: f.slice(5).join("\x1f") };
+      return [{ commit, path: lines[1] ?? "" }];
+    });
+}
+
+/** git blame --porcelain */
+export function parseBlame(text: string): BlameLine[] {
+  const infos = new Map<string, { author: string; email: string; time: number; summary: string }>();
+  const out: BlameLine[] = [];
+  let sha = "",
+    lineNo = 0,
+    prev = "";
+  for (const raw of text.split("\n")) {
+    const line = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
+    if (line.startsWith("\t")) {
+      const info = infos.get(sha) ?? { author: "", email: "", time: 0, summary: "" };
+      out.push({ no: lineNo, sha, text: line.slice(1).replace(/\t/g, "    "), author: info.author, email: info.email, date: info.time, summary: info.summary, startsBlock: sha !== prev });
+      prev = sha;
+      continue;
+    }
+    const sp = line.indexOf(" ");
+    const key = sp < 0 ? line : line.slice(0, sp);
+    const value = sp < 0 ? "" : line.slice(sp + 1);
+    if (/^[0-9a-f]{40}$|^[0-9a-f]{64}$/.test(key)) {
+      sha = key;
+      lineNo = Number(value.split(" ")[1]) || lineNo + 1;
+      if (!infos.has(sha)) infos.set(sha, { author: "", email: "", time: 0, summary: "" });
+      continue;
+    }
+    const info = infos.get(sha);
+    if (!info) continue;
+    if (key === "author") info.author = value;
+    else if (key === "author-mail") info.email = value.replace(/^<|>$/g, "");
+    else if (key === "author-time") info.time = Number(value) || 0;
+    else if (key === "summary") info.summary = value;
+  }
+  return out;
 }

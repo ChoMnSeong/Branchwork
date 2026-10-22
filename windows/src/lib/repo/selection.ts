@@ -2,7 +2,7 @@ import { canEditLines, buildPatch } from "../diff";
 import { joinPath } from "../env";
 import { describe, gitBytes } from "../git";
 import { ipc } from "../ipc";
-import { changePaths, isWIP, sameDiffSource, type DiffDocument, type DiffLine, type DiffSource, type Selection } from "../models";
+import { changePaths, isWIP, sameDiffSource, type DiffDocument, type DiffLine, type DiffSource, type FileHistoryEntry, type Selection } from "../models";
 import { settings } from "../settings";
 
 const IMAGE_EXT: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", bmp: "image/bmp", ico: "image/x-icon", tif: "image/tiff", tiff: "image/tiff" };
@@ -85,6 +85,7 @@ export abstract class RepoSelection extends RepoCore {
   // MARK: - Diff
 
   openDiff(source: DiffSource) {
+    if (this.fileInspect) this.closeFileInspect();
     if (sameDiffSource(source, this.diffSource)) return;
     this.diffSource = source;
     this.diffSelection = new Set();
@@ -99,6 +100,74 @@ export abstract class RepoSelection extends RepoCore {
     this.diffImages = null;
     this.diffSelection = new Set();
     this.diffLoading = false;
+    this.emit();
+  }
+
+  // MARK: 파일 히스토리 · blame(가운데 영역에 띄운다)
+
+  openFileHistory(path: string) {
+    this.fileInspect = { mode: "history", path, rev: null };
+    void this.loadFileInspect();
+  }
+
+  openBlame(path: string, rev: string | null = null) {
+    this.fileInspect = { mode: "blame", path, rev };
+    void this.loadFileInspect();
+  }
+
+  setFileInspectMode(mode: "history" | "blame") {
+    if (!this.fileInspect || this.fileInspect.mode === mode) return;
+    this.fileInspect = { ...this.fileInspect, mode };
+    void this.loadFileInspect();
+  }
+
+  closeFileInspect() {
+    this.fileInspect = null;
+    this.fileHistory = [];
+    this.fileHistoryDiff = null;
+    this.fileHistorySelected = null;
+    this.blameLines = [];
+    this.fileInspectError = null;
+    this.emit();
+  }
+
+  protected async loadFileInspect() {
+    const f = this.fileInspect;
+    if (!f || !this.path) return;
+    this.fileInspectLoading = true;
+    this.fileInspectError = null;
+    this.emit();
+    try {
+      if (f.mode === "history") {
+        const r = await this.g(["log", "--follow", "-M", "--name-only", "--format=" + P.fileHistoryFormat, "--", f.path]);
+        if (this.fileInspect !== f) return;
+        this.fileHistory = P.parseFileHistory(r.stdout);
+        const first = this.fileHistory[0];
+        if (first && !this.fileHistory.some((e) => e.commit.id === this.fileHistorySelected)) void this.selectHistory(first);
+      } else {
+        const r = await this.g(["blame", "--porcelain", ...(f.rev ? [f.rev] : []), "--", f.path]);
+        if (this.fileInspect !== f) return;
+        this.blameLines = P.parseBlame(r.stdout);
+      }
+    } catch (e) {
+      if (this.fileInspect === f) this.fileInspectError = describe(e);
+    }
+    if (this.fileInspect === f) this.fileInspectLoading = false;
+    this.emit();
+  }
+
+  /** 히스토리에서 커밋을 고르면 그 커밋에서 이 파일이 어떻게 바뀌었는지 */
+  async selectHistory(e: FileHistoryEntry) {
+    this.fileHistorySelected = e.commit.id;
+    this.fileHistoryDiff = null;
+    this.emit();
+    try {
+      const r = await this.g(["diff", "--no-ext-diff", "-M", e.commit.parents[0] ?? EMPTY_TREE, e.commit.id, "--", e.path]);
+      if (this.fileHistorySelected !== e.commit.id) return;
+      this.fileHistoryDiff = P.parseDiff(r.stdout);
+    } catch (err) {
+      this.fileHistoryDiff = { lines: [], isBinary: false, truncated: false, header: [], hunks: [], error: describe(err) };
+    }
     this.emit();
   }
 

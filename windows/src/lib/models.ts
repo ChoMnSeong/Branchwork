@@ -193,6 +193,37 @@ export interface DiffLine {
   changes?: Array<[number, number]>;
 }
 
+/** 파일 히스토리 한 줄: 그 파일을 바꾼 커밋과, 그 커밋에서의 파일 경로(이름이 바뀌었을 수 있다) */
+export interface FileHistoryEntry {
+  commit: Commit;
+  path: string;
+}
+
+/** blame 한 줄: 그 줄을 마지막으로 바꾼 커밋 */
+export interface BlameLine {
+  /** 줄 번호(1부터) */
+  no: number;
+  sha: string;
+  text: string;
+  author: string;
+  email: string;
+  /** 유닉스 초 */
+  date: number;
+  summary: string;
+  /** 앞 줄과 다른 커밋이면 true(작성자·날짜는 이 줄에만 보여 준다) */
+  startsBlock: boolean;
+}
+
+export const isUncommittedLine = (l: BlameLine) => /^0+$/.test(l.sha);
+
+/** 가운데 영역에 띄우는 파일 보기 */
+export interface FileInspect {
+  mode: "history" | "blame";
+  path: string;
+  /** blame 할 커밋(null 이면 작업 트리) */
+  rev: string | null;
+}
+
 /** diff 의 덩어리 하나(@@ -oldStart,oldCount +newStart,newCount @@) */
 export interface DiffHunk {
   /** lines 에서 @@ 줄의 위치 */

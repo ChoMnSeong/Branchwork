@@ -30,6 +30,13 @@ function WorkingChanges({ store }: { store: RepoStore }) {
   const isOpen = (c: FileChange) => sameDiffSource(store.diffSource, { kind: "working", change: c });
   const open = (c: FileChange) => store.openDiff({ kind: "working", change: c });
   const common = (c: FileChange): MenuItem[] => [
+    ...(c.kind !== "untracked" && c.kind !== "added"
+      ? ([
+          { label: "파일 히스토리", onClick: () => store.openFileHistory(c.path) },
+          { label: "줄별 작성자 보기", disabled: c.kind === "deleted", onClick: () => store.openBlame(c.path) },
+          "divider",
+        ] as MenuItem[])
+      : []),
     { label: "탐색기에서 보기", onClick: () => store.revealFile(c) },
     { label: "경로 복사", onClick: () => store.copy(c.path) },
   ];
@@ -339,7 +346,12 @@ function CommitDetailView({ store, sha }: { store: RepoStore; sha: string }) {
             stats={store.detailStats}
             isSelected={(c) => sameDiffSource(store.diffSource, { kind: "commit", sha, change: c, parent: d.parents[0] ?? null })}
             onOpen={(c) => store.openDiff({ kind: "commit", sha, change: c, parent: d.parents[0] ?? null })}
-            menu={(c) => [{ label: "경로 복사", onClick: () => store.copy(c.path) }]}
+            menu={(c) => [
+              { label: "파일 히스토리", onClick: () => store.openFileHistory(c.path) },
+              { label: "이 커밋 기준 줄별 작성자 보기", disabled: c.kind === "deleted", onClick: () => store.openBlame(c.path, sha) },
+              "divider",
+              { label: "경로 복사", onClick: () => store.copy(c.path) },
+            ]}
           />
         </Card>
       </div>

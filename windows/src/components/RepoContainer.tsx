@@ -4,6 +4,7 @@ import type { RepoStore } from "../lib/repo";
 import { settings } from "../lib/settings";
 import { DiffView } from "./graph/DiffView";
 import { GraphView } from "./graph/GraphView";
+import { FileInspectView } from "./graph/FileInspectView";
 import { Inspector } from "./inspector/Inspector";
 import { LoadingView } from "./shared/LoadingView";
 import { SheetHost } from "./sheets";
@@ -201,7 +202,7 @@ function RepoView({ store, openSettings }: { store: RepoStore; openSettings: () 
         </div>
         <div className="splitter" onMouseDown={resize("sidebarWidth", sidebarW, 200, 420, 1)} />
         <div className="center" ref={centerRef}>
-          {store.diffSource ? <DiffView store={store} /> : <GraphView store={store} />}
+          {store.fileInspect ? <FileInspectView store={store} /> : store.diffSource ? <DiffView store={store} /> : <GraphView store={store} />}
           {store.showTerminal && <TerminalPanel store={store} columnHeight={centerH} />}
         </div>
         <div className="splitter" onMouseDown={resize("inspectorWidth", inspectorW, 320, 600, -1)} />

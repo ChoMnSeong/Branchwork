@@ -283,6 +283,59 @@ enum Parsers {
         return doc
     }
 
+    // MARK: 파일 히스토리 · blame
+
+    /// git log --follow --name-only 와 함께 쓰는 형식(커밋마다 \x1e 로 시작)
+    static let fileHistoryFormat = "%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%ct%x1f%s"
+
+    static func fileHistory(_ text: String) -> [FileHistoryEntry] {
+        text.split(separator: "\u{1e}", omittingEmptySubsequences: true).compactMap { rec in
+            let lines = rec.split(separator: "\n", omittingEmptySubsequences: true)
+            guard let head = lines.first else { return nil }
+            let f = head.split(separator: "\u{1f}", omittingEmptySubsequences: false).map(String.init)
+            guard f.count >= 6 else { return nil }
+            let commit = Commit(id: f[0], parents: f[1].split(separator: " ").map(String.init), author: f[2], email: f[3],
+                                date: Date(timeIntervalSince1970: TimeInterval(f[4]) ?? 0), subject: f[5...].joined(separator: "\u{1f}"))
+            let path = lines.dropFirst().first.map(String.init) ?? ""
+            return FileHistoryEntry(commit: commit, path: path)
+        }
+    }
+
+    /// git blame --porcelain
+    static func blame(_ text: String) -> [BlameLine] {
+        struct Info { var author = "", email = "", time: TimeInterval = 0, summary = "" }
+        var infos: [String: Info] = [:]
+        var out: [BlameLine] = []
+        var sha = "", lineNo = 0, prevSha = ""
+        for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            if raw.hasPrefix("\t") {
+                let info = infos[sha] ?? Info()
+                out.append(BlameLine(id: lineNo, sha: sha, text: String(raw.dropFirst()).replacingOccurrences(of: "\t", with: "    "),
+                                     author: info.author, email: info.email, date: Date(timeIntervalSince1970: info.time),
+                                     summary: info.summary, startsBlock: sha != prevSha))
+                prevSha = sha
+                continue
+            }
+            let parts = raw.split(separator: " ", maxSplits: 1)
+            guard let key = parts.first else { continue }
+            let value = parts.count > 1 ? String(parts[1]) : ""
+            if key.count == 40 || key.count == 64, key.allSatisfy(\.isHexDigit) {
+                sha = String(key)
+                lineNo = Int(value.split(separator: " ").dropFirst().first ?? "") ?? lineNo + 1
+                if infos[sha] == nil { infos[sha] = Info() }
+                continue
+            }
+            switch key {
+            case "author": infos[sha]?.author = value
+            case "author-mail": infos[sha]?.email = value.trimmingCharacters(in: CharacterSet(charactersIn: "<>"))
+            case "author-time": infos[sha]?.time = TimeInterval(value) ?? 0
+            case "summary": infos[sha]?.summary = value
+            default: break
+            }
+        }
+        return out
+    }
+
     /// "@@ -12,5 +12,7 @@" 의 줄 수(생략되면 1)
     private static func hunkCount(_ s: String, _ sign: Character) -> Int {
         guard let r = s.range(of: " \(sign)") else { return 0 }

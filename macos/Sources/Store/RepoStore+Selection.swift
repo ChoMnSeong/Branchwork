@@ -77,6 +77,7 @@ extension RepoStore {
     // MARK: - Diff
 
     func openDiff(_ source: DiffSource) {
+        if fileInspect != nil { closeFileInspect() }
         guard source != diffSource else { return }
         diffSource = source
         diffSelection = []

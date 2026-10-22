@@ -1406,3 +1406,40 @@ select {
   margin-left: 6px;
   cursor: pointer;
 }
+/* 파일 히스토리 · blame */
+.history-list {
+  flex: none;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+  padding: 2px 6px;
+  background: var(--surface);
+}
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: default;
+}
+.history-row:hover {
+  background: var(--hover);
+}
+.history-row.on {
+  background: var(--select);
+}
+.blame-gutter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 250px;
+  flex: none;
+  padding: 0 8px;
+  font-family: var(--font);
+  font-size: 11px;
+  overflow: hidden;
+}
+.blame-line.block-start {
+  border-top: 1px solid var(--border);
+}

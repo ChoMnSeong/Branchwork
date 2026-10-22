@@ -24,6 +24,7 @@ struct DiffView: View {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer()
+                fileButtons(change)
                 viewOptions
                 actions(change)
             }
@@ -65,6 +66,25 @@ struct DiffView: View {
         }
     }
 
+    /// 이 파일의 히스토리·blame 열기
+    @ViewBuilder
+    private func fileButtons(_ c: FileChange) -> some View {
+        if c.kind != .untracked {
+            Button { store.openFileHistory(c.path) } label: { Image(systemName: "clock.arrow.circlepath") }
+                .buttonStyle(.borderless)
+                .help("파일 히스토리 — 이 파일을 바꾼 커밋들")
+                .accessibilityLabel("파일 히스토리")
+            if c.kind != .deleted {
+                Button {
+                    if case .commit(let sha, _, _) = source { store.openBlame(c.path, rev: sha) } else { store.openBlame(c.path) }
+                } label: { Image(systemName: "person.text.rectangle") }
+                    .buttonStyle(.borderless)
+                    .help("줄별 작성자(blame) — 줄마다 누가 언제 바꿨는지")
+                    .accessibilityLabel("줄별 작성자")
+            }
+        }
+    }
+
     /// 보기: 한 줄로 / 나란히, 공백 무시
     private var viewOptions: some View {
         HStack(spacing: 6) {
@@ -99,7 +119,8 @@ struct DiffView: View {
     }
 }
 
-private struct DiffLinesView: View {
+/// diff 줄 목록(한 줄로 / 나란히). 파일 히스토리에서도 쓴다.
+struct DiffLinesView: View {
     @Environment(RepoStore.self) private var store
     let doc: DiffDocument
     let split: Bool
