@@ -16,11 +16,11 @@ import {
   type Tag,
 } from "../models";
 
-import { RepoSearch } from "./search";
+import { RepoFilters } from "./filters";
 import type { RefSnapshot } from "./undo-model";
 
 /** git 작업: 실행·Fetch·Pull·Push·브랜치·태그·스태시·스테이지·커밋·진행 중인 머지/리베이스 */
-export abstract class RepoActions extends RepoSearch {
+export abstract class RepoActions extends RepoFilters {
   // 되돌리기(repo/undo.ts)
   protected abstract refSnapshot(): Promise<RefSnapshot | null>;
   protected abstract recordUndo(args: string[], input: string | undefined, before: RefSnapshot, after: RefSnapshot): void;

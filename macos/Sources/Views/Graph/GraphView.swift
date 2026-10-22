@@ -155,6 +155,8 @@ private struct SearchBar: View {
             .fixedSize()
             .help("검색 대상")
 
+            GraphFilterMenu()
+
             if store.isSearching {
                 Text(resultText)
                     .font(.caption.monospacedDigit())
@@ -210,5 +212,32 @@ private struct GraphHeader: View {
         .padding(.trailing, 12)
         .frame(height: 26)
         .background(.bar)
+    }
+}
+
+/// 그래프 거르기: 현재 브랜치만 보기, 숨긴 브랜치 다시 보이기
+private struct GraphFilterMenu: View {
+    @Environment(RepoStore.self) private var store
+
+    var body: some View {
+        let hidden = store.hiddenRefs.count
+        let active = store.graphCurrentOnly || hidden > 0
+        Menu {
+            Toggle("현재 브랜치만 보기", isOn: Binding(get: { store.graphCurrentOnly }, set: { on in Task { await store.setCurrentOnly(on) } }))
+            Divider()
+            Button(hidden > 0 ? "숨긴 브랜치 \(hidden)개 모두 보이기" : "숨긴 브랜치 없음") { Task { await store.showAllBranches() } }
+                .disabled(hidden == 0)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: active ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                if store.graphCurrentOnly { Text("현재 브랜치만").font(.caption) }
+                else if hidden > 0 { Text("숨김 \(hidden)").font(.caption) }
+            }
+            .foregroundStyle(active ? Color.accentColor : .secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("그래프 거르기 — 현재 브랜치만 보기, 숨긴 브랜치(사이드바 우클릭으로 숨김) 다시 보이기")
+        .accessibilityLabel("그래프 거르기")
     }
 }

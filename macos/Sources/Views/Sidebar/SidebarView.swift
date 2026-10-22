@@ -39,6 +39,13 @@ struct SidebarView: View {
                 PullRequestSection(target: target)
             }
 
+            let pinned = store.localBranches.filter { store.isPinned($0) }
+            if !pinned.isEmpty {
+                Section("고정") {
+                    ForEach(pinned) { b in localRow(b, label: b.name) }
+                }
+            }
+
             Section("로컬 브랜치 \(store.localBranches.count)") {
                 let groups = BranchFolders(store.localBranches) { $0.name }
                 ForEach(groups.loose) { b in localRow(b, label: b.name) }
@@ -141,7 +148,8 @@ struct SidebarView: View {
     }
 
     private func localRow(_ b: Branch, label: String) -> some View {
-        BranchRow(branch: b, label: label, worktreePath: store.worktree(using: b.name)?.path)
+        BranchRow(branch: b, label: label, worktreePath: store.worktree(using: b.name)?.path,
+                  hidden: store.isHidden(b), pinned: store.isPinned(b))
             .contentShape(Rectangle())
             .draggable(RepoStore.branchPayload + b.name) { Label(b.name, systemImage: "arrow.triangle.branch").padding(6) }
             .onTapGesture(count: 2) { Task { await store.checkout(b) } }
@@ -150,7 +158,7 @@ struct SidebarView: View {
     }
 
     private func remoteRow(_ b: Branch, label: String) -> some View {
-        BranchRow(branch: b, label: label)
+        BranchRow(branch: b, label: label, hidden: store.isHidden(b))
             .contentShape(Rectangle())
             .draggable(RepoStore.branchPayload + b.name) { Label(b.name, systemImage: "cloud").padding(6) }
             .onTapGesture(count: 2) { Task { await store.checkout(b) } }
@@ -184,6 +192,10 @@ struct SidebarView: View {
         Button("Push") { Task { await store.pushBranch(b) } }
         Button("이름 복사") { store.copy(b.name) }
         Divider()
+        Button(store.isPinned(b) ? "고정 풀기" : "맨 위에 고정") { store.setPinned(b, !store.isPinned(b)) }
+        Button(store.isHidden(b) ? "그래프에 다시 보이기" : "그래프에서 숨기기") { Task { await store.setHidden(b, !store.isHidden(b)) } }
+            .disabled(b.isCurrent && !store.isHidden(b))
+        Divider()
         Button("삭제…", role: .destructive) { store.confirmDelete(b) }
             .disabled(b.isCurrent)
         Button("강제 삭제…", role: .destructive) { store.confirmForceDelete(b) }
@@ -201,6 +213,7 @@ struct SidebarView: View {
         Divider()
         Button("여기서 새 브랜치…") { store.requestNewBranch(from: b.target, label: b.name) }
         Button("이름 복사") { store.copy(b.name) }
+        Button(store.isHidden(b) ? "그래프에 다시 보이기" : "그래프에서 숨기기") { Task { await store.setHidden(b, !store.isHidden(b)) } }
         Divider()
         Button("원격에서 삭제…", role: .destructive) { store.confirmDelete(b) }
     }
@@ -247,6 +260,8 @@ private struct BranchRow: View {
     let branch: Branch
     var label: String? = nil
     var worktreePath: String? = nil
+    var hidden = false
+    var pinned = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -255,10 +270,17 @@ private struct BranchRow: View {
                 .frame(width: 16)
             Text(label ?? (branch.isRemote ? branch.shortName : branch.name))
                 .fontWeight(branch.isCurrent ? .semibold : .regular)
+                .foregroundStyle(hidden ? .secondary : .primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .help(branch.name)
             Spacer(minLength: 4)
+            if pinned {
+                Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.secondary).help("맨 위에 고정한 브랜치")
+            }
+            if hidden {
+                Image(systemName: "eye.slash").foregroundStyle(.secondary).help("그래프에서 숨긴 브랜치 — 우클릭으로 다시 보이기")
+            }
             if let worktreePath {
                 Image(systemName: "folder").foregroundStyle(.secondary)
                     .help("워크트리에서 사용 중: \(worktreePath)")

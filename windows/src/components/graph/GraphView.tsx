@@ -1,9 +1,9 @@
-import { ChevronDown, ChevronUp, CircleDashed, Search, X } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleDashed, ListFilter, Search, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isWIP, searchScopes, type SearchScope } from "../../lib/models";
 import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
-import { Button, Empty, Spinner } from "../shared/ui";
+import { Button, Empty, showMenuBelow, Spinner } from "../shared/ui";
 import { CommitRow } from "./CommitRow";
 import { REF_W, ROW_H, graphWidth } from "./metrics";
 
@@ -165,6 +165,7 @@ function SearchBar({ store }: { store: RepoStore }) {
           </option>
         ))}
       </select>
+      <GraphFilterButton store={store} />
       {store.isSearching && (
         <>
           <span className="muted" style={{ fontSize: 12, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
@@ -186,5 +187,30 @@ function SearchBar({ store }: { store: RepoStore }) {
         </>
       )}
     </div>
+  );
+}
+
+/** 그래프 거르기: 현재 브랜치만 보기, 숨긴 브랜치 다시 보이기 */
+function GraphFilterButton({ store }: { store: RepoStore }) {
+  const hidden = store.hiddenRefs.size;
+  const active = store.graphCurrentOnly || hidden > 0;
+  return (
+    <button
+      type="button"
+      className={`tool ${active ? "on" : ""}`}
+      style={{ gap: 4, color: active ? "var(--accent)" : undefined }}
+      aria-label="그래프 거르기"
+      data-tip="그래프 거르기|현재 브랜치만 보기, 숨긴 브랜치(사이드바 우클릭으로 숨김) 다시 보이기"
+      onClick={(e) =>
+        showMenuBelow(e.currentTarget, [
+          { label: "현재 브랜치만 보기", checked: store.graphCurrentOnly, onClick: () => void store.setCurrentOnly(!store.graphCurrentOnly) },
+          "divider",
+          { label: hidden ? `숨긴 브랜치 ${hidden}개 모두 보이기` : "숨긴 브랜치 없음", disabled: !hidden, onClick: () => void store.showAllBranches() },
+        ])
+      }
+    >
+      <ListFilter size={15} />
+      {store.graphCurrentOnly ? <span style={{ fontSize: 11.5 }}>현재 브랜치만</span> : hidden > 0 ? <span style={{ fontSize: 11.5 }}>숨김 {hidden}</span> : null}
+    </button>
   );
 }

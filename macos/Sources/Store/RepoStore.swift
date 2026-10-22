@@ -100,6 +100,10 @@ final class RepoStore: Identifiable {
     var splitPlan: [SplitGroup]?
     /// 되돌릴 수 있는 작업(마지막이 맨 뒤)
     var undoStack: [UndoPoint] = []
+    /// 그래프에서 숨긴 브랜치(refs/heads/x · refs/remotes/o/x), 사이드바 맨 위에 고정한 로컬 브랜치, 현재 브랜치만 보기
+    var hiddenRefs: Set<String> = []
+    var pinnedBranches: Set<String> = []
+    var graphCurrentOnly = false
     /// diff 화면에서 고른 줄(DiffLine.id)과 Shift 범위의 시작
     var diffSelection: Set<Int> = []
     var diffSelectionAnchor: Int?
@@ -204,6 +208,7 @@ final class RepoStore: Identifiable {
             : git
         commonDir = common
         recents = Recents.add(top)
+        loadGraphFilters()
         Task { await loadRepoInfo(in: top) }
         // 작업 트리 + 그 밖에 있는 git 폴더(연결된 워크트리의 .git/worktrees/<이름>, 공용 .git)
         var watched = [top.path]
@@ -365,7 +370,7 @@ final class RepoStore: Identifiable {
         defer { Self.trace("full reload \(ContinuousClock.now - started)") }
         do {
             async let statusR = Self.timedStatus(url)
-            async let logR = Git.run(["log", "--exclude=refs/stash", "--all", "--date-order", "-n", String(limit + 1),
+            async let logR = Git.run(["log"] + logScope + ["--date-order", "-n", String(limit + 1),
                                       "--format=" + Parsers.logFormat], in: url, ok: [0, 128])
             async let refsR = Git.run(["for-each-ref", "--format=" + Parsers.refFormat,
                                        "refs/heads", "refs/remotes", "refs/tags"], in: url)
@@ -541,10 +546,10 @@ final class RepoStore: Identifiable {
         if headBranch == nil, let head {
             map[head, default: []].append(RefLabel(name: "HEAD", kind: .head, isCurrent: true))
         }
-        for b in localBranches {
+        for b in localBranches where b.isCurrent || !hiddenRefs.contains("refs/heads/" + b.name) {
             map[b.target, default: []].append(RefLabel(name: b.name, kind: .local, isCurrent: b.isCurrent))
         }
-        for b in remoteBranches {
+        for b in remoteBranches where !hiddenRefs.contains("refs/remotes/" + b.name) {
             map[b.target, default: []].append(RefLabel(name: b.name, kind: .remote, isCurrent: false))
         }
         for t in tags {

@@ -44,7 +44,7 @@ import {
 import { Observable } from "../observable";
 import type { UndoPoint } from "./undo-model";
 import * as P from "../parsers";
-import { addRecent } from "../settings";
+import { addRecent, settings } from "../settings";
 import type { SplitGroup } from "../split";
 import { TerminalSession, type TerminalSpec } from "../terminal";
 
@@ -168,6 +168,10 @@ export abstract class RepoCore extends Observable implements AgentHost {
 
   /** 되돌릴 수 있는 작업(마지막이 맨 뒤) */
   undoStack: UndoPoint[] = [];
+  /** 그래프에서 숨긴 브랜치(refs/heads/x · refs/remotes/o/x), 사이드바 맨 위에 고정한 로컬 브랜치, 현재 브랜치만 보기 */
+  hiddenRefs = new Set<string>();
+  pinnedBranches = new Set<string>();
+  graphCurrentOnly = false;
 
   // 터미널 패널
   terminals: TerminalSession[] = [];
@@ -281,6 +285,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
     this.path = top;
     this.gitDir = lines[1].trim();
     addRecent(top);
+    this.loadGraphFilters();
     this.emit();
     // 내 이름·이메일과 공용 .git 위치를 한 번에(따로 띄우면 Windows 에선 git 하나에 수십 ms)
     const [cfg, common] = await Promise.all([
@@ -491,7 +496,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
     try {
       const [[st, statusMs], lg, rf, sh, hd, rm, wt, un, sn] = await Promise.all([
         this.timedStatus(),
-        this.g(["log", "--exclude=refs/stash", "--all", "--date-order", "-n", String(this.limit + 1), "--format=" + P.logFormat], { ok: [0, 128] }),
+        this.g(["log", ...this.logScope, "--date-order", "-n", String(this.limit + 1), "--format=" + P.logFormat], { ok: [0, 128] }),
         this.g(["for-each-ref", "--format=" + P.refFormat, "refs/heads", "refs/remotes", "refs/tags"]),
         this.g(["stash", "list", "--format=" + P.stashFormat], { ok: [0, 1, 128] }),
         this.g(["rev-parse", "--verify", "-q", "HEAD"], { ok: [0, 1, 128] }),
@@ -671,6 +676,24 @@ export abstract class RepoCore extends Observable implements AgentHost {
     void this.g(["update-index", "-q", "--refresh"], { ok: [0, 1, 128] }).catch(() => undefined);
   }
 
+  /** 그래프에 그릴 커밋의 범위(git log 인자) */
+  protected get logScope(): string[] {
+    if (this.graphCurrentOnly) {
+      const up = this.status.upstream;
+      return ["HEAD", ...(up && this.remoteBranches.some((b) => b.name === up) ? [`refs/remotes/${up}`] : [])];
+    }
+    return [...[...this.hiddenRefs].sort().map((r) => `--exclude=${r}`), "--exclude=refs/stash", "--all"];
+  }
+
+  /** 저장소를 열 때: 이 저장소에서 숨긴·고정한 브랜치, 현재 브랜치만 보기 */
+  protected loadGraphFilters() {
+    const p = this.path;
+    if (!p) return;
+    this.hiddenRefs = new Set(settings.get<Record<string, string[]>>("graphHiddenRefs", {})[p] ?? []);
+    this.pinnedBranches = new Set(settings.get<Record<string, string[]>>("pinnedBranches", {})[p] ?? []);
+    this.graphCurrentOnly = settings.get<Record<string, boolean>>("graphCurrentOnly", {})[p] ?? false;
+  }
+
   protected buildRefMap(head: string | null) {
     const map = new Map<string, RefLabel[]>();
     const add = (k: string, r: RefLabel) => {
@@ -679,8 +702,8 @@ export abstract class RepoCore extends Observable implements AgentHost {
       else map.set(k, [r]);
     };
     if (!this.headBranch && head) add(head, { name: "HEAD", kind: "head", isCurrent: true });
-    for (const b of this.localBranches) add(b.target, { name: b.name, kind: "local", isCurrent: b.isCurrent });
-    for (const b of this.remoteBranches) add(b.target, { name: b.name, kind: "remote", isCurrent: false });
+    for (const b of this.localBranches) if (b.isCurrent || !this.hiddenRefs.has(`refs/heads/${b.name}`)) add(b.target, { name: b.name, kind: "local", isCurrent: b.isCurrent });
+    for (const b of this.remoteBranches) if (!this.hiddenRefs.has(`refs/remotes/${b.name}`)) add(b.target, { name: b.name, kind: "remote", isCurrent: false });
     for (const t of this.tags) add(t.target, { name: t.name, kind: "tag", isCurrent: false });
     for (const l of map.values()) l.sort((a, b) => (a.isCurrent ? 0 : 1) - (b.isCurrent ? 0 : 1) || refOrder[a.kind] - refOrder[b.kind]);
     return map;

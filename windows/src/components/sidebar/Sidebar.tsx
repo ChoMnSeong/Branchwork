@@ -1,4 +1,4 @@
-import { ChevronDown, CircleCheck, Cloud, CloudAlert, Folder, FolderOpen, GitBranch, Tag as TagIcon, Archive } from "lucide-react";
+import { Archive, ChevronDown, CircleCheck, Cloud, CloudAlert, EyeOff, Folder, FolderOpen, GitBranch, Pin, Tag as TagIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { agents, isActiveStatus } from "../../lib/agents";
 import { drag } from "../../lib/drag";
@@ -103,6 +103,16 @@ function BranchList({ store, openSettings }: { store: RepoStore; openSettings: (
   return (
     <div className="side-scroll">
       {store.target && <PullRequestSection store={store} target={store.target} openSettings={openSettings} />}
+
+      {store.localBranches.some((b) => store.isPinned(b)) && (
+        <Section id="pinned" title="고정">
+          {store.localBranches
+            .filter((b) => store.isPinned(b))
+            .map((b) => (
+              <BranchRow key={"pin:" + b.name} store={store} branch={b} label={b.name} />
+            ))}
+        </Section>
+      )}
 
       <Section id="local" title="로컬 브랜치" count={store.localBranches.length}>
         {locals.loose.map((b) => (
@@ -227,7 +237,19 @@ function BranchRow({ store, branch: b, label }: { store: RepoStore; branch: Bran
       data-tip={tip(b.name, "클릭: 그래프에서 보기 · 더블클릭: 체크아웃 · 그래프의 다른 브랜치로 끌어 놓기: 머지·리베이스")}
     >
       <span className="lead">{b.isCurrent ? <CircleCheck size={14} /> : <GitBranch size={14} />}</span>
-      <span className="ellipsis grow">{label}</span>
+      <span className="ellipsis grow" style={store.isHidden(b) ? { color: "var(--text-2)" } : undefined}>
+        {label}
+      </span>
+      {store.isPinned(b) && (
+        <span className="muted" data-tip="맨 위에 고정한 브랜치" style={{ display: "inline-flex" }}>
+          <Pin size={11} />
+        </span>
+      )}
+      {store.isHidden(b) && (
+        <span className="muted" data-tip="그래프에서 숨긴 브랜치 — 우클릭으로 다시 보이기" style={{ display: "inline-flex" }}>
+          <EyeOff size={12} />
+        </span>
+      )}
       {w && (
         <span className="muted" data-tip={`워크트리에서 사용 중: ${displayPath(w.path)}`} style={{ display: "inline-flex" }}>
           <Folder size={12} />

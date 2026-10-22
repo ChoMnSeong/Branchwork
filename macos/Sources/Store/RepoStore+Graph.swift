@@ -215,6 +215,8 @@ struct RefMenu: View {
                     Button("Push") { Task { await store.pushBranch(b) } }
                 }
                 Button("이름 복사") { store.copy(b.name) }
+                Button("그래프에서 숨기기") { Task { await store.setHidden(b, true) } }
+                    .disabled(b.isCurrent)
                 Divider()
                 Button(b.isRemote ? "원격에서 삭제…" : "삭제…", role: .destructive) { store.confirmDelete(b) }
                     .disabled(b.isCurrent)

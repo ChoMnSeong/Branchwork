@@ -68,6 +68,13 @@ export function localBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
     { label: "Push", onClick: () => void store.pushBranch(b) },
     { label: "이름 복사", onClick: () => store.copy(b.name) },
     "divider",
+    { label: store.isPinned(b) ? "고정 풀기" : "맨 위에 고정", onClick: () => store.setPinned(b, !store.isPinned(b)) },
+    {
+      label: store.isHidden(b) ? "그래프에 다시 보이기" : "그래프에서 숨기기",
+      disabled: b.isCurrent && !store.isHidden(b),
+      onClick: () => void store.setHidden(b, !store.isHidden(b)),
+    },
+    "divider",
     { label: "삭제…", danger: true, disabled: b.isCurrent, onClick: () => store.confirmDelete(b) },
     { label: "강제 삭제…", danger: true, disabled: b.isCurrent, onClick: () => store.confirmForceDelete(b) },
   );
@@ -88,6 +95,7 @@ export function remoteBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
     "divider",
     { label: "여기서 새 브랜치…", onClick: () => store.requestNewBranch(b.target, b.name) },
     { label: "이름 복사", onClick: () => store.copy(b.name) },
+    { label: store.isHidden(b) ? "그래프에 다시 보이기" : "그래프에서 숨기기", onClick: () => void store.setHidden(b, !store.isHidden(b)) },
     "divider",
     { label: "원격에서 삭제…", danger: true, onClick: () => store.confirmDelete(b) },
   );

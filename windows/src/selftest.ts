@@ -442,6 +442,25 @@ export async function runSelfTest(): Promise<boolean> {
     return [ok, `editable=${editable} staged=${staged} split=${split} images=${images} shown=${shown} error=${s.errorMessage}`];
   });
 
+  // 그래프 거르기: 브랜치 숨기기(그 브랜치만의 커밋이 빠짐), 모두 보이기, 현재 브랜치만, 고정
+  await step("그래프 거르기(숨기기·현재 브랜치만·고정)", async () => {
+    const has = () => s.entries.some((e) => e.commit.subject === "이미지 바꿈");
+    const b = s.localBranches.find((x) => x.name === "image-v2");
+    if (!b) return [false, "image-v2 없음"];
+    const before = has();
+    await s.setHidden(b, true);
+    const hidden = !has() && !(s.refsByCommit.get(b.target) ?? []).some((r) => r.name === "image-v2");
+    await s.showAllBranches();
+    const back = has();
+    await s.setCurrentOnly(true);
+    const current = !has() && s.entries.length > 0;
+    await s.setCurrentOnly(false);
+    s.setPinned(b, true);
+    const pinned = await until(() => [...document.querySelectorAll(".side-section")].some((x) => x.textContent?.startsWith("고정")), 3000);
+    s.setPinned(b, false);
+    return [before && hidden && back && current && pinned, `before=${before} hidden=${hidden} back=${back} current=${current} pinned=${pinned}`];
+  });
+
   // 되돌리기: 커밋 → 되돌리면 변경이 스테이지된 채로 돌아오고 메시지도 입력 칸에, 체크아웃 → 되돌리면 원래 브랜치
   await step("되돌리기(커밋·체크아웃)", async () => {
     const head = s.headHash;
