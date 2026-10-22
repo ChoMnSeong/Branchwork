@@ -48,6 +48,16 @@ pub struct FileHead {
     size: u64,
 }
 
+/// 파일 전체를 base64 로(이미지 diff 용, 너무 크면 None)
+#[tauri::command]
+pub fn fs_read_base64(path: String, max: u64) -> Option<String> {
+    let meta = std::fs::metadata(&path).ok()?;
+    if meta.len() > max {
+        return None;
+    }
+    std::fs::read(&path).ok().map(|b| crate::net::base64(&b))
+}
+
 /// 파일 앞부분(새 파일 diff 용). NUL 이 있으면 바이너리로 본다.
 #[tauri::command]
 pub fn fs_read_head(path: String, max: usize) -> Result<FileHead, String> {

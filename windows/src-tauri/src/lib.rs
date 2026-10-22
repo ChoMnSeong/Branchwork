@@ -57,6 +57,8 @@ pub fn run() {
         .manage(watch::Watches::default())
         .invoke_handler(tauri::generate_handler![
             process::run_process,
+            process::run_process_bytes,
+            system::fs_read_base64,
             process::which,
             pty::pty_spawn,
             pty::pty_write,

@@ -100,6 +100,13 @@ final class RepoStore: Identifiable {
     var splitPlan: [SplitGroup]?
     /// 되돌릴 수 있는 작업(마지막이 맨 뒤)
     var undoStack: [UndoPoint] = []
+    /// diff 화면에서 고른 줄(DiffLine.id)과 Shift 범위의 시작
+    var diffSelection: Set<Int> = []
+    var diffSelectionAnchor: Int?
+    /// 이미지 파일의 바뀌기 전·후
+    var diffImages: DiffImages?
+    /// 보기 설정(나란히·공백 무시)이 바뀐 것을 화면에 알리는 값
+    var diffSettingsVersion = 0
 
     // CI/CD (GitLab 파이프라인 · GitHub Actions)
     var ciPipelines: [CIPipeline] = []

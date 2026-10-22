@@ -55,6 +55,11 @@ export const ipc = {
       stdin: o.stdin ?? null,
       timeoutMs: o.timeoutMs ?? null,
     }),
+  /** run 과 같되 stdout 을 바이트 그대로 base64 로(이미지 등) */
+  runBytes: (program: string, args: string[], o: { cwd?: string; env?: Record<string, string> } = {}) =>
+    invoke<ProcOutput>("run_process_bytes", { program, args, cwd: o.cwd ?? null, env: o.env ?? null }),
+  /** 파일 전체를 base64 로(max 바이트보다 크면 null) */
+  readBase64: (path: string, max = 20_000_000) => invoke<string | null>("fs_read_base64", { path, max }),
   which: (program: string) => invoke<string | null>("which", { program }),
 
   ptySpawn: (

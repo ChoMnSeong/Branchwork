@@ -84,7 +84,7 @@ pub async fn http_image(url: String, headers: HashMap<String, String>) -> Option
     Some(format!("data:{kind};base64,{}", base64(&bytes)))
 }
 
-fn base64(data: &[u8]) -> String {
+pub(crate) fn base64(data: &[u8]) -> String {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for c in data.chunks(3) {

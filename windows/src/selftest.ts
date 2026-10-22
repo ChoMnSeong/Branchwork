@@ -1,5 +1,6 @@
 import { env, isWindows, joinPath, dirname, toWslPath } from "./lib/env";
 import { ipc } from "./lib/ipc";
+import { gitRaw } from "./lib/git";
 import { isWIP, statusIsEmpty, type DropRequest } from "./lib/models";
 import { invoke } from "@tauri-apps/api/core";
 import { ai } from "./lib/ai";
@@ -395,6 +396,44 @@ export async function runSelfTest(): Promise<boolean> {
     await choice?.action();
     const merged = s.headBranch === base && (await s.isAncestor(`refs/heads/${branch}`, `refs/heads/${base}`));
     return [same.includes("이미") && !!choice && merged, `same=${same} choices=${req?.choices.map((c) => c.title)} head=${s.headBranch} merged=${merged}`];
+  });
+
+  // diff: 두 군데 고친 파일에서 한 줄만 스테이지, 나란히 보기, 이미지 비교
+  await step("diff(줄 단위 스테이지·나란히·이미지)", async () => {
+    const file = "lines.txt";
+    const nums = Array.from({ length: 30 }, (_, i) => String(i + 1));
+    await ipc.writeText(joinPath(repo, file), nums.join("\n") + "\n");
+    await until(() => s.status.unstaged.some((c) => c.path === file), 8000);
+    await s.stage(s.status.unstaged.filter((c) => c.path === file));
+    s.setSummary("줄 파일");
+    await s.commit();
+    const edited = nums.map((n) => (n === "3" ? "three" : n === "15" ? "fifteen" : n === "16" ? "sixteen" : n));
+    await ipc.writeText(joinPath(repo, file), edited.join("\n") + "\n");
+    await until(() => s.status.unstaged.some((c) => c.path === file), 8000);
+    s.openDiff({ kind: "working", change: s.status.unstaged.find((c) => c.path === file)! });
+    await until(() => !!s.diff && s.diff.hunks.length === 2, 5000);
+    const editable = s.canEditDiffLines;
+    const idx = s.diff!.lines.findIndex((l) => l.kind === "added" && l.text === "sixteen");
+    s.toggleDiffLine(idx, false);
+    await s.applyLines("stage", s.diff!.lines[idx].hunk!);
+    const staged = (await gitRaw(["diff", "--cached", "-U0"], repo)).stdout.split(/\r?\n/).filter((l) => /^[-+][^-+]/.test(l));
+    s.setDiffSplit(true);
+    const split = await until(() => !!document.querySelector(".diff-split-row"), 3000);
+    s.setDiffSplit(false);
+    s.closeDiff();
+    await s.unstageAll();
+    await gitRaw(["checkout", "--", file], repo);
+    // 이미지: image-v2 의 그림으로 작업 트리만 바꾸고 비교
+    await gitRaw(["restore", "--source=image-v2", "--worktree", "img.png"], repo);
+    await until(() => s.status.unstaged.some((c) => c.path === "img.png"), 8000);
+    s.openDiff({ kind: "working", change: s.status.unstaged.find((c) => c.path === "img.png")! });
+    const images = await until(() => !!s.diffImages?.old && !!s.diffImages?.new, 8000);
+    const shown = await until(() => document.querySelectorAll(".image-diff img").length === 2, 3000);
+    s.closeDiff();
+    await gitRaw(["checkout", "--", "img.png"], repo);
+    await s.reload();
+    const ok = editable && staged.join(",") === "+sixteen" && split && images && shown;
+    return [ok, `editable=${editable} staged=${staged} split=${split} images=${images} shown=${shown} error=${s.errorMessage}`];
   });
 
   // 되돌리기: 커밋 → 되돌리면 변경이 스테이지된 채로 돌아오고 메시지도 입력 칸에, 체크아웃 → 되돌리면 원래 브랜치

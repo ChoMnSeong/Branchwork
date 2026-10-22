@@ -23,4 +23,11 @@ echo "login" > login.txt; git add . && git commit -qm "로그인 화면 추가 (
 echo "check" >> login.txt; git add . && git commit -qm "로그인 검증"
 git switch -q main
 echo "fix" > fix.txt; git add . && git commit -qm "버그 수정"
+# 이미지 비교 점검용: img.png(1×1 빨강), image-v2 브랜치에는 2×2 파랑
+printf '%s' "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4o6EBAAMQAS0ujiXaAAAAAElFTkSuQmCC" | base64 -d > img.png
+git add img.png && git commit -qm "이미지 추가"
+git switch -q -c image-v2
+printf '%s' "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGPUiLrDwMDAxAAGAA/eAWJXVXcYAAAAAElFTkSuQmCC" | base64 -d > img.png
+git add img.png && git commit -qm "이미지 바꿈"
+git switch -q main
 echo "ok: $R"

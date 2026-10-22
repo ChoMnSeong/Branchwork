@@ -1040,6 +1040,80 @@ select {
 .diff-line.meta {
   color: var(--text-2);
 }
+.diff-line.selectable {
+  cursor: pointer;
+}
+.diff-line.selected {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.diff-word {
+  color: inherit;
+  border-radius: 2px;
+}
+.diff-line.added .diff-word {
+  background: color-mix(in srgb, var(--green) 34%, transparent);
+}
+.diff-line.removed .diff-word {
+  background: color-mix(in srgb, var(--red) 32%, transparent);
+}
+.diff-hunk {
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 0;
+  min-width: 0;
+}
+/* 나란히 보기: 반씩 나누고, 넘치는 줄은 자른다 */
+.diff-split-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.diff-split-row > .diff-line {
+  min-width: 0;
+  overflow: hidden;
+}
+.diff-split-row > .diff-line:first-child {
+  border-right: 1px solid var(--border);
+}
+.diff-line.empty-cell {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+/* 이미지 비교 */
+.image-diff {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+  background: var(--surface);
+}
+.image-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  min-height: 0;
+}
+.image-pane + .image-pane {
+  border-left: 1px solid var(--border);
+}
+.image-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--green) 50%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--text) 8%, transparent) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+.image-frame.red {
+  border-color: color-mix(in srgb, var(--red) 50%, transparent);
+}
+.image-frame img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
 
 /* MARK: 오른쪽 패널 */
 .panel-head {

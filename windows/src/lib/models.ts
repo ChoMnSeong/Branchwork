@@ -181,9 +181,26 @@ export type DiffKind = "context" | "added" | "removed" | "hunk" | "meta";
 
 export interface DiffLine {
   kind: DiffKind;
+  /** 화면용(탭을 공백으로 편 것) */
   text: string;
   oldNo: number | null;
   newNo: number | null;
+  /** 패치용 원문(앞의 +·-·공백 표시는 뺀 것) */
+  raw?: string;
+  /** 몇 번째 덩어리(@@)에 속하는지 */
+  hunk?: number;
+  /** 단어 단위로 바뀐 부분([시작, 끝) 글자 위치) */
+  changes?: Array<[number, number]>;
+}
+
+/** diff 의 덩어리 하나(@@ -oldStart,oldCount +newStart,newCount @@) */
+export interface DiffHunk {
+  /** lines 에서 @@ 줄의 위치 */
+  line: number;
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
 }
 
 export interface DiffDocument {
@@ -191,6 +208,11 @@ export interface DiffDocument {
   isBinary: boolean;
   truncated: boolean;
   error?: string;
+  /** 첫 @@ 앞의 원문 머리(diff --git·index·---·+++ …) — 줄 단위 스테이지용 패치에 쓴다 */
+  header: string[];
+  hunks: DiffHunk[];
+  /** 머지 커밋의 결합 diff(@@@) */
+  combined?: boolean;
 }
 
 export interface GraphSegment {

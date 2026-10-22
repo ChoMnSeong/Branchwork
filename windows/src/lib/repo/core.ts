@@ -72,6 +72,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
   abstract newTerminal(path?: string, spec?: Partial<TerminalSpec>): TerminalSession;
   abstract focusTerminal(s: TerminalSession): void;
   abstract closeAllTerminals(): void;
+  abstract run(label: string, args: string[], o?: { network?: boolean; input?: string }): Promise<boolean>;
 
   readonly id = crypto.randomUUID();
   /** 지금 보이는 탭인지 — 뒤에 있는 탭은 파일이 바뀌어도 바로 다시 읽지 않고 돌아왔을 때 읽는다 */
@@ -110,6 +111,11 @@ export abstract class RepoCore extends Observable implements AgentHost {
   diffSource: DiffSource | null = null;
   diff: DiffDocument | null = null;
   diffLoading = false;
+  /** diff 화면에서 고른 줄(lines 의 위치)과 Shift 범위의 시작 */
+  diffSelection = new Set<number>();
+  diffAnchor: number | null = null;
+  /** 이미지 파일의 바뀌기 전·후(data: 주소) */
+  diffImages: { old: string | null; new: string | null } | null = null;
   scrollTarget: string | null = null;
 
   // 커밋 입력

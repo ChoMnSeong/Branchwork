@@ -79,6 +79,8 @@ extension RepoStore {
     func openDiff(_ source: DiffSource) {
         guard source != diffSource else { return }
         diffSource = source
+        diffSelection = []
+        diffSelectionAnchor = nil
         loadDiff(keepCurrent: false)
     }
 
@@ -86,36 +88,45 @@ extension RepoStore {
         diffTask?.cancel()
         diffSource = nil
         diff = nil
+        diffImages = nil
+        diffSelection = []
         diffLoading = false
     }
 
     func loadDiff(keepCurrent: Bool) {
         diffTask?.cancel()
         guard let source = diffSource, let url else { diff = nil; return }
-        if !keepCurrent { diff = nil }
+        if !keepCurrent { diff = nil; diffImages = nil }
         diffLoading = true
         let empty = emptyTree
+        let ws = diffIgnoreWhitespace ? ["-w"] : []
         diffTask = Task {
             var args: [String]
             var ok: Set<Int32> = [0]
             switch source {
             case .working(let c):
                 if c.kind == .untracked {
-                    args = ["diff", "--no-index", "--no-ext-diff", "--", "/dev/null", c.path]
+                    args = ["diff", "--no-index", "--no-ext-diff"] + ws + ["--", "/dev/null", c.path]
                     ok = [0, 1]
                 } else if c.staged {
-                    args = ["diff", "--cached", "--no-ext-diff", "-M", "--"] + c.paths
+                    args = ["diff", "--cached", "--no-ext-diff", "-M"] + ws + ["--"] + c.paths
                 } else {
-                    args = ["diff", "--no-ext-diff", "--"] + c.paths
+                    args = ["diff", "--no-ext-diff"] + ws + ["--"] + c.paths
                 }
             case .commit(let sha, let c, let parent):
-                args = ["diff", "--no-ext-diff", "-M", parent ?? empty, sha, "--"] + c.paths
+                args = ["diff", "--no-ext-diff", "-M"] + ws + [parent ?? empty, sha, "--"] + c.paths
             }
             do {
+                async let images = loadDiffImages(source)
                 let r = try await Git.run(args, in: url, ok: ok)
                 let doc = await Task.detached { Parsers.diff(r.output) }.value
+                let imgs = await images
                 guard !Task.isCancelled, self.diffSource == source else { return }
                 self.diff = doc
+                self.diffImages = imgs
+                // 다시 읽은 diff 에 없는 줄은 고른 것에서 뺀다
+                let ids = Set(doc.lines.map(\.id))
+                self.diffSelection = self.diffSelection.filter { ids.contains($0) }
             } catch {
                 guard !Task.isCancelled, self.diffSource == source else { return }
                 self.diff = DiffDocument(error: describe(error))

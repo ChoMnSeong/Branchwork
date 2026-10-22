@@ -72,6 +72,16 @@ export async function git(args: string[], cwd: string, o: GitOptions = {}): Prom
   return r;
 }
 
+/** git 출력을 바이트 그대로 base64 로(git show 로 이미지 읽기). 실패하면 null */
+export async function gitBytes(args: string[], cwd: string): Promise<string | null> {
+  try {
+    const r = await ipc.runBytes(tools.path("git") ?? "git", [...baseArgs, ...args], { cwd, env: baseEnv() });
+    return r.status === 0 ? r.stdout : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 종료 코드와 상관없이 결과를 돌려준다(git 을 띄우지 못했을 때만 던짐) */
 export async function gitRaw(args: string[], cwd: string, o: GitOptions = {}): Promise<GitResult> {
   try {

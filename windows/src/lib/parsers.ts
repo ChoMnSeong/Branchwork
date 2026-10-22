@@ -1,3 +1,4 @@
+import { markWords } from "./diff";
 import {
   changeKind,
   emptyStatus,
@@ -272,36 +273,50 @@ function hunkStart(s: string, sign: string) {
   return m ? Number(m[1]) : 0;
 }
 
+function hunkCount(s: string, sign: string) {
+  const m = s.match(new RegExp(` \\${sign}\\d+(?:,(\\d+))?`));
+  return m ? (m[1] === undefined ? 1 : Number(m[1])) : 0;
+}
+
 export function parseDiff(text: string, maxLines = 20000): DiffDocument {
-  const doc: DiffDocument = { lines: [], isBinary: false, truncated: false };
-  let body = text.replace(/\r\n/g, "\n");
+  const doc: DiffDocument = { lines: [], isBinary: false, truncated: false, header: [], hunks: [] };
+  // 줄 끝의 \r(CRLF 파일)은 화면에서는 빼고, 줄 단위 스테이지 패치용 원문(raw)에는 남긴다
+  let body = text;
   if (body.endsWith("\n")) body = body.slice(0, -1);
+  if (body.endsWith("\r")) body = body.slice(0, -1);
   if (!body) return doc;
 
   let oldNo = 0,
     newNo = 0,
     inHunk = false,
-    cols = 1;
-  const push = (kind: DiffKind, t: string, o: number | null, n: number | null) => doc.lines.push({ kind, text: t, oldNo: o, newNo: n });
+    cols = 1,
+    files = 0;
+  const push = (kind: DiffKind, t: string, o: number | null, n: number | null, raw = "") =>
+    doc.lines.push({ kind, text: t, oldNo: o, newNo: n, raw, hunk: !doc.hunks.length || (kind === "meta" && !inHunk) ? undefined : doc.hunks.length - 1 });
 
-  for (const s of body.split("\n")) {
+  for (const line of body.split("\n")) {
     if (doc.lines.length >= maxLines) {
       doc.truncated = true;
       break;
     }
+    const cr = line.endsWith("\r");
+    const s = cr ? line.slice(0, -1) : line;
     if (s.startsWith("@@")) {
       inHunk = true;
       cols = Math.max(1, (s.match(/^@+/)?.[0].length ?? 2) - 1); // "@@" 1열, 결합 diff "@@@" 2열
+      if (cols > 1) doc.combined = true;
       oldNo = hunkStart(s, "-");
       newNo = hunkStart(s, "+");
+      doc.hunks.push({ line: doc.lines.length, oldStart: oldNo, oldCount: hunkCount(s, "-"), newStart: newNo, newCount: hunkCount(s, "+") });
       push("hunk", s, null, null);
       continue;
     }
     if (s.startsWith("diff ")) {
       inHunk = false;
-      continue;
+      files++;
     }
     if (!inHunk) {
+      if (files <= 1) doc.header.push(s);
       if (s.startsWith("Binary files") || s.startsWith("GIT binary patch")) doc.isBinary = true;
       if (
         s.startsWith("new file mode") ||
@@ -315,25 +330,27 @@ export function parseDiff(text: string, maxLines = 20000): DiffDocument {
       continue;
     }
     if (s.startsWith("\\")) {
-      push("meta", s, null, null);
+      push("meta", s, null, null, s);
       continue;
     }
     const marker = s.slice(0, cols);
+    const raw = line.slice(cols);
     const content = s.slice(cols).replace(/\t/g, "    ");
     if (marker.includes("+") && !marker.includes("-")) {
-      push("added", content, null, newNo++);
+      push("added", content, null, newNo++, raw);
     } else if (marker.includes("-")) {
-      push("removed", content, oldNo++, null);
+      push("removed", content, oldNo++, null, raw);
     } else {
-      push("context", content, oldNo++, newNo++);
+      push("context", content, oldNo++, newNo++, raw);
     }
   }
+  markWords(doc.lines);
   return doc;
 }
 
 /** 추적하지 않는 새 파일: 내용 전체를 추가된 줄로 */
 export function newFileDiff(text: string, truncated: boolean, maxLines = 20000): DiffDocument {
-  const doc: DiffDocument = { lines: [{ kind: "meta", text: "new file", oldNo: null, newNo: null }], isBinary: false, truncated };
+  const doc: DiffDocument = { lines: [{ kind: "meta", text: "new file", oldNo: null, newNo: null }], isBinary: false, truncated, header: [], hunks: [] };
   let body = text.replace(/\r\n/g, "\n");
   if (body.endsWith("\n")) body = body.slice(0, -1);
   if (!body) return { ...doc, lines: [] };

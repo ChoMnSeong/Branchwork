@@ -73,6 +73,7 @@ fn run_blocking(
     env: HashMap<String, String>,
     stdin: Option<String>,
     timeout: Duration,
+    binary: bool,
 ) -> Result<ProcOutput, String> {
     let exe = find_program(&program).unwrap_or_else(|| PathBuf::from(&program));
     let mut cmd = Command::new(&exe);
@@ -125,7 +126,9 @@ fn run_blocking(
     if status == -2 {
         stderr.push_str(&format!("\n{name} 이(가) {}초 안에 끝나지 않아 중단했습니다.", timeout.as_secs()));
     }
-    Ok(ProcOutput { status, stdout: String::from_utf8_lossy(&stdout).into_owned(), stderr })
+    // binary: 이미지처럼 글이 아닌 출력은 그대로(base64) 넘긴다
+    let stdout = if binary { crate::net::base64(&stdout) } else { String::from_utf8_lossy(&stdout).into_owned() };
+    Ok(ProcOutput { status, stdout, stderr })
 }
 
 /// 프로그램을 실행하고 끝날 때까지 기다린다. 종료 코드와 출력을 그대로 돌려준다.
@@ -139,7 +142,15 @@ pub async fn run_process(
     timeout_ms: Option<u64>,
 ) -> Result<ProcOutput, String> {
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(120_000));
-    tauri::async_runtime::spawn_blocking(move || run_blocking(program, args, cwd, env.unwrap_or_default(), stdin, timeout))
+    tauri::async_runtime::spawn_blocking(move || run_blocking(program, args, cwd, env.unwrap_or_default(), stdin, timeout, false))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// run_process 와 같되 stdout 을 바이트 그대로 base64 로(git show 로 이미지 읽기 등)
+#[tauri::command]
+pub async fn run_process_bytes(program: String, args: Vec<String>, cwd: Option<String>, env: Option<HashMap<String, String>>) -> Result<ProcOutput, String> {
+    tauri::async_runtime::spawn_blocking(move || run_blocking(program, args, cwd, env.unwrap_or_default(), None, Duration::from_secs(60), true))
         .await
         .map_err(|e| e.to_string())?
 }

@@ -204,9 +204,26 @@ struct DiffLine: Identifiable {
     enum Kind { case context, added, removed, hunk, meta }
     let id: Int
     let kind: Kind
+    /// 화면용(탭을 공백으로 편 것)
     let text: String
     let oldNo: Int?
     let newNo: Int?
+    /// 패치용 원문(앞의 +·-·공백 표시는 뺀 것)
+    var raw: String = ""
+    /// 몇 번째 덩어리(@@)에 속하는지
+    var hunk: Int?
+    /// 단어 단위로 바뀐 부분(text 의 글자 위치)
+    var changes: [Range<Int>] = []
+}
+
+/// diff 의 덩어리 하나(@@ -oldStart,oldCount +newStart,newCount @@)
+struct DiffHunk {
+    /// lines 에서 @@ 줄의 위치
+    let line: Int
+    let oldStart: Int
+    let oldCount: Int
+    let newStart: Int
+    let newCount: Int
 }
 
 struct DiffDocument {
@@ -214,6 +231,21 @@ struct DiffDocument {
     var isBinary = false
     var truncated = false
     var error: String?
+    /// 첫 @@ 앞의 원문 머리(diff --git·index·---·+++ …) — 줄 단위 스테이지용 패치에 쓴다
+    var header: [String] = []
+    var hunks: [DiffHunk] = []
+    /// 머지 커밋의 결합 diff(@@@)
+    var combined = false
+    /// 나란히 보기의 줄들(왼쪽 이전 · 오른쪽 이후)
+    var splitRows: [DiffSplitRow] = []
+}
+
+/// 나란히 보기 한 줄: @@·메타 줄은 가로 전체(full), 그 밖에는 왼쪽(지운 줄·문맥)과 오른쪽(더한 줄·문맥). 값은 lines 의 위치.
+struct DiffSplitRow: Identifiable {
+    let id: Int
+    var full: Int?
+    var left: Int?
+    var right: Int?
 }
 
 // MARK: - Graph

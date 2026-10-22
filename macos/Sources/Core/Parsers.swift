@@ -235,9 +235,10 @@ enum Parsers {
         if body.hasSuffix("\n") { body = body.dropLast() }
         guard !body.isEmpty else { return doc }
 
-        var oldNo = 0, newNo = 0, inHunk = false, cols = 1, id = 0
-        func push(_ kind: DiffLine.Kind, _ s: String, _ o: Int?, _ n: Int?) {
-            doc.lines.append(DiffLine(id: id, kind: kind, text: s, oldNo: o, newNo: n))
+        var oldNo = 0, newNo = 0, inHunk = false, cols = 1, id = 0, files = 0
+        func push(_ kind: DiffLine.Kind, _ s: String, _ o: Int?, _ n: Int?, raw: String = "") {
+            doc.lines.append(DiffLine(id: id, kind: kind, text: s, oldNo: o, newNo: n, raw: raw,
+                                      hunk: doc.hunks.isEmpty || kind == .meta && !inHunk ? nil : doc.hunks.count - 1))
             id += 1
         }
 
@@ -247,13 +248,17 @@ enum Parsers {
             if s.hasPrefix("@@") {
                 inHunk = true
                 cols = max(1, s.prefix(while: { $0 == "@" }).count - 1)   // "@@" 1열, 결합 diff "@@@" 2열
+                if cols > 1 { doc.combined = true }
                 oldNo = hunkStart(s, "-")
                 newNo = hunkStart(s, "+")
+                doc.hunks.append(DiffHunk(line: doc.lines.count, oldStart: oldNo, oldCount: hunkCount(s, "-"),
+                                          newStart: newNo, newCount: hunkCount(s, "+")))
                 push(.hunk, s, nil, nil)
                 continue
             }
-            if s.hasPrefix("diff ") { inHunk = false; continue }
+            if s.hasPrefix("diff ") { inHunk = false; files += 1 }
             if !inHunk {
+                if files <= 1 { doc.header.append(s) }
                 if s.hasPrefix("Binary files") || s.hasPrefix("GIT binary patch") { doc.isBinary = true }
                 if s.hasPrefix("new file mode") || s.hasPrefix("deleted file mode") || s.hasPrefix("similarity")
                     || s.hasPrefix("rename ") || s.hasPrefix("old mode") || s.hasPrefix("new mode") {
@@ -261,18 +266,29 @@ enum Parsers {
                 }
                 continue
             }
-            if s.hasPrefix("\\") { push(.meta, s, nil, nil); continue }
+            if s.hasPrefix("\\") { push(.meta, s, nil, nil, raw: s); continue }
             let marker = s.prefix(cols)
-            let content = String(s.dropFirst(cols)).replacingOccurrences(of: "\t", with: "    ")
+            let raw = String(s.dropFirst(cols))
+            let content = raw.replacingOccurrences(of: "\t", with: "    ")
             if marker.contains("+") && !marker.contains("-") {
-                push(.added, content, nil, newNo); newNo += 1
+                push(.added, content, nil, newNo, raw: raw); newNo += 1
             } else if marker.contains("-") {
-                push(.removed, content, oldNo, nil); oldNo += 1
+                push(.removed, content, oldNo, nil, raw: raw); oldNo += 1
             } else {
-                push(.context, content, oldNo, newNo); oldNo += 1; newNo += 1
+                push(.context, content, oldNo, newNo, raw: raw); oldNo += 1; newNo += 1
             }
         }
+        WordDiff.mark(&doc)
+        doc.splitRows = DiffSplit.rows(doc.lines)
         return doc
+    }
+
+    /// "@@ -12,5 +12,7 @@" 의 줄 수(생략되면 1)
+    private static func hunkCount(_ s: String, _ sign: Character) -> Int {
+        guard let r = s.range(of: " \(sign)") else { return 0 }
+        let field = s[r.upperBound...].prefix(while: { $0.isNumber || $0 == "," })
+        let parts = field.split(separator: ",", omittingEmptySubsequences: false)
+        return parts.count > 1 ? Int(parts[1]) ?? 1 : 1
     }
 
     private static func hunkStart(_ s: String, _ sign: Character) -> Int {
