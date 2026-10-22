@@ -61,6 +61,18 @@
   </tr>
 </table>
 
+### Windows
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/windows-light.png" alt="Windows 버전 — 라이트"></td>
+    <td width="50%"><img src="docs/images/windows-dark.png" alt="Windows 버전 — 다크"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>Windows 도 같은 화면과 기능 — 창 안의 탭, Ctrl 단축키, PowerShell · WSL 터미널, 제목 표시줄까지 테마를 따름</sub></td>
+  </tr>
+</table>
+
 <sub>스크린샷의 저장소·작성자는 모두 지어낸 데모입니다(<a href="docs/make-demo-repo.sh"><code>docs/make-demo-repo.sh</code></a>로 똑같이 만들 수 있습니다).</sub>
 
 ## 설치
