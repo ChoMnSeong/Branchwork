@@ -1,6 +1,6 @@
 [package]
 name = "branchwork"
-version = "0.3.2"
+version = "0.3.3"
 description = "Branchwork — Git client with a commit graph, worktrees, PRs, Claude Code agents and a terminal"
 authors = ["조문성 (ChoMnSeong)"]
 license = "MIT"
