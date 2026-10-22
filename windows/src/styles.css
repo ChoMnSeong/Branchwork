@@ -32,32 +32,31 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1e1e21;
-    --surface: #242427;
-    --sidebar: #212124;
-    --bar: #2a2a2e;
-    --card: #2b2b2f;
-    --input: #1c1c1f;
-    --border: #38383d;
-    --border-strong: #4a4a50;
-    --text: #e8e8ea;
-    --text-2: #a3a3ab;
-    --text-3: #75757d;
-    --accent: #4c8dff;
-    --accent-soft: rgba(76, 141, 255, 0.2);
-    --hover: rgba(255, 255, 255, 0.06);
-    --select: rgba(76, 141, 255, 0.24);
-    --danger: #ff5c66;
-    --green: #3fbf6f;
-    --orange: #f0a030;
-    --red: #ff6670;
-    --hit: rgba(255, 200, 0, 0.14);
-    --term-bg: #1c1c1f;
-    --shadow: 0 10px 32px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
-    color-scheme: dark;
-  }
+/* 다크: 설정 > 화면에서 고르거나 시스템을 따른다(lib/theme.ts 가 시작할 때 data-theme 을 넣는다) */
+:root[data-theme="dark"] {
+  --bg: #1e1e21;
+  --surface: #242427;
+  --sidebar: #212124;
+  --bar: #2a2a2e;
+  --card: #2b2b2f;
+  --input: #1c1c1f;
+  --border: #38383d;
+  --border-strong: #4a4a50;
+  --text: #e8e8ea;
+  --text-2: #a3a3ab;
+  --text-3: #75757d;
+  --accent: #4c8dff;
+  --accent-soft: rgba(76, 141, 255, 0.2);
+  --hover: rgba(255, 255, 255, 0.06);
+  --select: rgba(76, 141, 255, 0.24);
+  --danger: #ff5c66;
+  --green: #3fbf6f;
+  --orange: #f0a030;
+  --red: #ff6670;
+  --hit: rgba(255, 200, 0, 0.14);
+  --term-bg: #1c1c1f;
+  --shadow: 0 10px 32px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
 }
 
 * {

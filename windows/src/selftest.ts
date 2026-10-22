@@ -10,6 +10,8 @@ import { workspace } from "./lib/workspace";
 import { CIAPI } from "./lib/ci/api";
 import { canPlay } from "./lib/ci/models";
 import { settings } from "./lib/settings";
+import { theme } from "./lib/theme";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 /**
  * 자동 점검(CI 의 Windows 서버에서): BRANCHWORK_SELFTEST=<테스트 저장소> 로 켜면
@@ -381,6 +383,24 @@ export async function runSelfTest(): Promise<boolean> {
     ([...document.querySelectorAll(".menu-item")].find((m) => m.textContent?.includes("다른 탭 모두 닫기")) as HTMLElement | undefined)?.click();
     const closed = await until(() => workspace.tabs.length === 1 && workspace.tabs[0] === s && !!s.path, 3000);
     return [shown && closed && before >= 3, `before=${before} after=${workspace.tabs.length} menu=${labels}`];
+  });
+
+  // 테마: 다크·라이트로 바꾸면 화면 색과 창 제목 표시줄 테마가 따라오는지, 시스템으로 되돌리기
+  await step("테마(시스템·라이트·다크)", async () => {
+    const bg = () => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+    const win = getCurrentWindow();
+    theme.setMode("dark");
+    await sleep(300);
+    const dark = { attr: document.documentElement.dataset.theme, bg: bg(), win: await win.theme() };
+    theme.setMode("light");
+    await sleep(300);
+    const light = { attr: document.documentElement.dataset.theme, bg: bg(), win: await win.theme() };
+    let setErr = "";
+    await win.setTheme("dark").catch((e) => (setErr = String(e)));
+    theme.setMode("system");
+    await sleep(200);
+    const ok = dark.attr === "dark" && dark.bg === "#1e1e21" && light.attr === "light" && light.bg === "#f3f3f4" && !setErr && (dark.win === "dark" || env.os !== "windows");
+    return [ok, `dark=${JSON.stringify(dark)} light=${JSON.stringify(light)} setTheme=${setErr || "ok"} system=${document.documentElement.dataset.theme}`];
   });
 
   await step("설정 화면", async () => {

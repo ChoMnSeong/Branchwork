@@ -3,6 +3,7 @@ import { Terminal, type ITheme } from "@xterm/xterm";
 import { basename, env, isMac, isWindows, toWslPath } from "./env";
 import { ipc } from "./ipc";
 import { Observable } from "./observable";
+import { theme as appTheme } from "./theme";
 import { tools } from "./tools";
 
 export interface TerminalSpec {
@@ -17,10 +18,10 @@ export interface TerminalSpec {
   cwd?: string;
 }
 
-function theme(): ITheme {
+function termTheme(): ITheme {
   const css = getComputedStyle(document.documentElement);
   const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
-  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const dark = appTheme.isDark;
   return {
     background: v("--term-bg", dark ? "#1c1c1f" : "#fcfcfc"),
     foreground: v("--text", dark ? "#e6e6e6" : "#1d1d1f"),
@@ -56,8 +57,8 @@ export class TerminalSession extends Observable {
   private ptyId: string | null = null;
   private opened = false;
   private shellTitle: string | null = null;
-  private media = matchMedia("(prefers-color-scheme: dark)");
-  private themeListener = () => (this.term.options.theme = theme());
+  /** 설정 > 화면의 테마가 바뀌면 터미널 색도 */
+  private unsubscribeTheme: () => void = () => undefined;
 
   constructor(readonly spec: TerminalSpec) {
     super();
@@ -74,7 +75,7 @@ export class TerminalSession extends Observable {
       scrollback: 10000,
       macOptionIsMeta: false,
       windowsPty: isWindows() ? { backend: "conpty" } : undefined,
-      theme: theme(),
+      theme: termTheme(),
     });
     this.term.loadAddon(this.fit);
     this.term.onData((d) => {
@@ -88,7 +89,7 @@ export class TerminalSession extends Observable {
       this.updateTitle();
     });
     this.term.attachCustomKeyEventHandler((e) => this.keyFilter(e));
-    this.media.addEventListener("change", this.themeListener);
+    this.unsubscribeTheme = appTheme.subscribe(() => (this.term.options.theme = termTheme()));
   }
 
   /** 앱 단축키는 터미널이 먹지 않게 넘기고, Windows 터미널처럼 Ctrl+C(선택 있을 때)·Ctrl+V 로 복사·붙여넣기 */
@@ -135,7 +136,7 @@ export class TerminalSession extends Observable {
     }
     this.visible = true;
     this.unseenOutput = false;
-    this.term.options.theme = theme();
+    this.term.options.theme = termTheme();
     this.refit();
     if (!this.started) void this.start();
     this.emit();
@@ -223,7 +224,7 @@ export class TerminalSession extends Observable {
 
   dispose() {
     this.terminate();
-    this.media.removeEventListener("change", this.themeListener);
+    this.unsubscribeTheme();
     this.detach();
     this.term.dispose();
   }

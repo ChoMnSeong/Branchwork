@@ -9,6 +9,7 @@ import { tools } from "./lib/tools";
 import { updater } from "./lib/updater";
 import { ipc } from "./lib/ipc";
 import { settings } from "./lib/settings";
+import { theme } from "./lib/theme";
 import { workspace } from "./lib/workspace";
 import { runSelfTest } from "./selftest";
 import "./styles.css";
@@ -22,6 +23,7 @@ window.addEventListener("contextmenu", (e) => {
 async function boot() {
   await initEnv();
   await settings.load();
+  theme.init();
   await tools.detectAll();
   await Promise.all([accounts.load(), ai.load(), agents.init()]);
   const git = gitAvailable();

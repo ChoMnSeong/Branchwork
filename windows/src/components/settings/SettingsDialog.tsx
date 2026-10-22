@@ -3,10 +3,11 @@ import { Button, Modal, Segmented } from "../shared/ui";
 import { AISettings } from "./AISettings";
 import { AboutSettings } from "./AboutSettings";
 import { AccountsSettings } from "./AccountsSettings";
+import { AppearanceSettings } from "./AppearanceSettings";
 import { RulesSettings } from "./RulesSettings";
 import { ToolsSettings } from "./ToolsSettings";
 
-/** Ctrl+, 설정: 계정(GitHub·GitLab), AI, 도구(실행 파일 위치) */
+/** Ctrl+, 설정: 계정(GitHub·GitLab), AI, 규칙, 도구(실행 파일 위치), 화면(테마), 업데이트 */
 export function SettingsDialog({ onClose, initialTab = "accounts" }: { onClose: () => void; initialTab?: SettingsTab }) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   return (
@@ -19,6 +20,7 @@ export function SettingsDialog({ onClose, initialTab = "accounts" }: { onClose: 
           { value: "ai", label: "AI" },
           { value: "rules", label: "규칙" },
           { value: "tools", label: "도구" },
+          { value: "appearance", label: "화면" },
           { value: "about", label: "업데이트" },
         ]}
       />
@@ -31,6 +33,8 @@ export function SettingsDialog({ onClose, initialTab = "accounts" }: { onClose: 
           <RulesSettings />
         ) : tab === "tools" ? (
           <ToolsSettings />
+        ) : tab === "appearance" ? (
+          <AppearanceSettings />
         ) : (
           <AboutSettings />
         )}
@@ -39,4 +43,4 @@ export function SettingsDialog({ onClose, initialTab = "accounts" }: { onClose: 
   );
 }
 
-export type SettingsTab = "accounts" | "ai" | "rules" | "tools" | "about";
+export type SettingsTab = "accounts" | "ai" | "rules" | "tools" | "appearance" | "about";

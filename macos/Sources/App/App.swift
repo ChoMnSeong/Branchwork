@@ -8,6 +8,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated { !RestoreState.shared.active }
     }
 
+    /// 첫 창이 그려지기 전에 테마를 정해 둔다(잠깐 다른 테마로 번쩍이지 않게)
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        MainActor.assumeIsolated { AppTheme.apply() }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 보통은 첫 창이 붙을 때 그 자리에 뜬다. 혹시 늦으면 화면 가운데에라도 띄운다.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
