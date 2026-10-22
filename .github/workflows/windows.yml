@@ -156,9 +156,29 @@ jobs:
           using System.Runtime.InteropServices;
           public static class Win {
             [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
-            [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int hh, bool repaint);
+            delegate bool EnumProc(IntPtr h, IntPtr p);
+            [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr p);
+            [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+            [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+            [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+            [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+            [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hh, uint flags);
             [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
             [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int attr, out RECT r, int size);
+            // 그 프로세스의 보이는 최상위 창 중 가장 큰 것(Process.MainWindowHandle 은 숨은 도우미 창을 주기도 한다)
+            public static IntPtr Find(uint pid) {
+              IntPtr best = IntPtr.Zero; long area = 0;
+              EnumWindows((h, p) => {
+                uint owner; GetWindowThreadProcessId(h, out owner);
+                RECT r;
+                if (owner == pid && IsWindowVisible(h) && GetWindowRect(h, out r)) {
+                  long a = (long)(r.R - r.L) * (r.B - r.T);
+                  if (a > area) { area = a; best = h; }
+                }
+                return true;
+              }, IntPtr.Zero);
+              return best;
+            }
           }
           "@
           foreach ($theme in @("light", "dark")) {
@@ -166,10 +186,13 @@ jobs:
             [IO.File]::WriteAllText((Join-Path $data "settings.json"), $settings)
             $p = Start-Process -FilePath $exe -PassThru
             $deadline = (Get-Date).AddSeconds(60)
-            while ($p.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300; $p.Refresh() }
+            $h = [IntPtr]::Zero
+            while ($h -eq [IntPtr]::Zero -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300; $h = [Win]::Find([uint32]$p.Id) }
             Start-Sleep -Seconds 6
-            $h = $p.MainWindowHandle
-            [Win]::MoveWindow($h, 40, 40, 1440, 900, $true) | Out-Null
+            $h = [Win]::Find([uint32]$p.Id)
+            [Win]::ShowWindow($h, 9) | Out-Null   # SW_RESTORE(최대화 풀기)
+            # 맨 위(HWND_TOPMOST)에 1440x900 으로 — 다른 창(콘솔 등)이 가리지 않게
+            [Win]::SetWindowPos($h, [IntPtr](-1), 40, 40, 1440, 900, 0x40) | Out-Null
             [Win]::SetForegroundWindow($h) | Out-Null
             Start-Sleep -Seconds 2
             # 창 테두리 그림자를 빼고 보이는 창 영역만(DWMWA_EXTENDED_FRAME_BOUNDS)
@@ -179,6 +202,7 @@ jobs:
             $g = [System.Drawing.Graphics]::FromImage($bmp)
             $g.CopyFromScreen($r.L, $r.T, 0, 0, $bmp.Size)
             $bmp.Save("$env:ST_ROOT/shots/windows-$theme.png")
+            Write-Host "windows-$theme.png: $($r.L),$($r.T) $($r.R - $r.L)x$($r.B - $r.T)"
             Stop-Process -Id $p.Id -Force
             Start-Sleep -Seconds 2
           }
