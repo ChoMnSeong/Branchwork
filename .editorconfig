@@ -1,0 +1,19 @@
+# 코드 모양 맞추기(대부분의 편집기가 자동으로 읽습니다). 자세한 규칙은 CONTRIBUTING.md
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{swift,rs}]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab

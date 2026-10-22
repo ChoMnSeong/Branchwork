@@ -212,6 +212,12 @@ npx vitest run       # 파서·그래프·CI 단위 테스트
 
 </details>
 
+## 기여
+
+- 🐞 [버그 제보](https://github.com/ChoMnSeong/Branchwork/issues/new?template=bug_report.yml) · ✨ [기능 요청](https://github.com/ChoMnSeong/Branchwork/issues/new?template=feature_request.yml) · 💬 [질문](https://github.com/ChoMnSeong/Branchwork/issues/new?template=question.yml)
+- 코드 규칙 · 빌드 · 테스트 · 커밋 메시지: [CONTRIBUTING.md](CONTRIBUTING.md)
+- 보안 문제는 이슈 대신 [비공개로](SECURITY.md)
+
 ## 라이선스
 
 [MIT](LICENSE) © 2026 조문성 (ChoMnSeong)
