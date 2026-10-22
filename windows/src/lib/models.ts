@@ -168,13 +168,17 @@ export type Selection = { kind: "wip" } | { kind: "commit"; sha: string } | { ki
 
 export type DiffSource =
   | { kind: "working"; change: FileChange }
-  | { kind: "commit"; sha: string; change: FileChange; parent: string | null };
+  | { kind: "commit"; sha: string; change: FileChange; parent: string | null }
+  /** PR·MR 에서 바뀐 파일(서버가 준 패치) */
+  | { kind: "review"; number: number; change: FileChange; patch: string };
 
 export function sameDiffSource(a: DiffSource | null, b: DiffSource | null) {
   if (!a || !b) return a === b;
   if (a.kind !== b.kind) return false;
   if (changeId(a.change) !== changeId(b.change)) return false;
-  return a.kind === "working" || (b.kind === "commit" && a.sha === b.sha);
+  if (a.kind === "commit") return b.kind === "commit" && a.sha === b.sha;
+  if (a.kind === "review") return b.kind === "review" && a.number === b.number;
+  return true;
 }
 
 export type DiffKind = "context" | "added" | "removed" | "hunk" | "meta";

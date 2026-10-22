@@ -191,11 +191,14 @@ enum Selection: Hashable {
 enum DiffSource: Hashable {
     case working(FileChange)
     case commit(sha: String, change: FileChange, parent: String?)
+    /// PR·MR 에서 바뀐 파일(서버가 준 패치)
+    case review(number: Int, change: FileChange, patch: String)
 
     var change: FileChange {
         switch self {
         case .working(let c): return c
         case .commit(_, let c, _): return c
+        case .review(_, let c, _): return c
         }
     }
 }

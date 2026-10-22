@@ -63,13 +63,15 @@ struct DiffView: View {
             return "\(c.path) · \(where_)"
         case .commit(let sha, let c, _):
             return "\(c.oldPath.map { "\($0) → " } ?? "")\(c.path) · 커밋 \(sha.prefix(7))"
+        case .review(let n, let c, _):
+            return "\(c.oldPath.map { "\($0) → " } ?? "")\(c.path) · \(store.target?.provider.requestShort ?? "PR") #\(n)"
         }
     }
 
     /// 이 파일의 히스토리·blame 열기
     @ViewBuilder
     private func fileButtons(_ c: FileChange) -> some View {
-        if c.kind != .untracked {
+        if c.kind != .untracked, !isReview {
             Button { store.openFileHistory(c.path) } label: { Image(systemName: "clock.arrow.circlepath") }
                 .buttonStyle(.borderless)
                 .help("파일 히스토리 — 이 파일을 바꾼 커밋들")
@@ -84,6 +86,8 @@ struct DiffView: View {
             }
         }
     }
+
+    private var isReview: Bool { if case .review = source { return true } else { return false } }
 
     /// 보기: 한 줄로 / 나란히, 공백 무시
     private var viewOptions: some View {

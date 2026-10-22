@@ -104,6 +104,8 @@ extension RepoStore {
         case .commit(let sha, let c, let parent):
             if c.kind != .added, let parent { images.old = await show("\(parent):\(c.oldPath ?? c.path)") }
             if c.kind != .deleted { images.new = await show("\(sha):\(c.path)") }
+        case .review:
+            return nil
         }
         return images.old == nil && images.new == nil ? nil : images
     }

@@ -116,6 +116,16 @@ extension RepoStore {
                 }
             case .commit(let sha, let c, let parent):
                 args = ["diff", "--no-ext-diff", "-M"] + ws + [parent ?? empty, sha, "--"] + c.paths
+            case .review(_, let c, let patch):
+                // 서버가 준 덩어리만 있는 패치에 머리를 붙여 그대로 읽는다(git 실행 없음)
+                let old = c.oldPath ?? c.path
+                let text = "diff --git a/\(old) b/\(c.path)\n--- a/\(old)\n+++ b/\(c.path)\n" + patch
+                let doc = patch.isEmpty ? DiffDocument(isBinary: true) : await Task.detached { Parsers.diff(text) }.value
+                guard !Task.isCancelled, self.diffSource == source else { return }
+                self.diff = doc
+                self.diffImages = nil
+                self.diffLoading = false
+                return
             }
             do {
                 async let images = loadDiffImages(source)

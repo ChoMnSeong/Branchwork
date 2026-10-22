@@ -104,6 +104,11 @@ final class RepoStore: Identifiable {
     var hiddenRefs: Set<String> = []
     var pinnedBranches: Set<String> = []
     var graphCurrentOnly = false
+    /// 고른 PR·MR 의 대화·바뀐 파일·승인
+    var review: PullRequestReview?
+    var reviewLoading = false
+    var reviewError: String?
+    var reviewBusy = false
     /// 가운데에 띄운 파일 히스토리·blame
     var fileInspect: FileInspect?
     var fileHistory: [FileHistoryEntry] = []

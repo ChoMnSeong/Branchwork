@@ -1443,3 +1443,15 @@ select {
 .blame-line.block-start {
   border-top: 1px solid var(--border);
 }
+/* PR·MR 리뷰 */
+.review-file {
+  cursor: default;
+}
+.review-comment {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}

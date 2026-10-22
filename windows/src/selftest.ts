@@ -10,6 +10,7 @@ import { agents } from "./lib/agents";
 import { workspace } from "./lib/workspace";
 import { branchPayload } from "./lib/repo";
 import { CIAPI } from "./lib/ci/api";
+import { ReviewAPI, reviewFileChange } from "./lib/review";
 import { canPlay } from "./lib/ci/models";
 import { settings } from "./lib/settings";
 import { theme } from "./lib/theme";
@@ -440,6 +441,38 @@ export async function runSelfTest(): Promise<boolean> {
     await s.reload();
     const ok = editable && staged.join(",") === "+sixteen" && split && images && shown;
     return [ok, `editable=${editable} staged=${staged} split=${split} images=${images} shown=${shown} error=${s.errorMessage}`];
+  });
+
+  // PR·MR 리뷰: 가짜 GitHub·GitLab 으로 대화·승인 상태·바뀐 파일 읽기, 승인·댓글·승인 취소 보내기, 바뀐 파일 diff
+  await step("PR·MR 리뷰(가짜 서버)", async () => {
+    const root = "http://127.0.0.1:18080";
+    try {
+      if ((await ipc.http("GET", root + "/ci/calls", {}, undefined, 3000)).status !== 200) return [true, "가짜 서버 없음 — 건너뜀"];
+    } catch {
+      return [true, "가짜 서버 없음 — 건너뜀"];
+    }
+    const gh = { target: { provider: "github" as const, remote: "origin", host: "github.com", path: "o/r" }, token: "t", apiBase: root + "/gh", me: "lee" };
+    const r = await ReviewAPI.load(gh, 5);
+    await ReviewAPI.approve(gh, 5, "좋습니다");
+    await ReviewAPI.comment(gh, 5, "고맙습니다");
+    const gl = { target: { provider: "gitlab" as const, remote: "origin", host: "127.0.0.1", path: "g/p" }, token: "t", apiBase: root + "/api/v4", me: "lee" };
+    const m = await ReviewAPI.load(gl, 5);
+    await ReviewAPI.unapprove(gl, 5);
+    const calls = (await ipc.http("GET", root + "/ci/calls", {})).body;
+    s.openDiff({ kind: "review", number: 5, change: reviewFileChange(r.files[0]), patch: r.files[0].patch ?? "" });
+    const diff = await until(() => !!s.diff && s.diff.lines.some((l) => l.kind === "added" && l.text === "B"), 3000);
+    s.closeDiff();
+    const ok =
+      r.comments.map((c) => c.author).join(",") === "kim,kim,lee,park" &&
+      r.state.approvedByMe &&
+      r.state.changesRequestedBy.join() === "park" &&
+      m.comments.some((c) => c.kind === "system") &&
+      m.state.approvalsLeft === 1 &&
+      calls.includes('"event":"APPROVE"') &&
+      calls.includes("고맙습니다") &&
+      calls.includes("/merge_requests/5/unapprove") &&
+      diff;
+    return [ok, `gh=${r.comments.map((c) => c.author + ":" + c.kind)} gl=${m.comments.length}/${m.state.approvalsLeft} diff=${diff}`];
   });
 
   // 파일 히스토리·blame: app.txt 를 바꾼 커밋들과 줄마다 마지막 커밋

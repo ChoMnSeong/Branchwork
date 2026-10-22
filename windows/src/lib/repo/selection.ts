@@ -276,7 +276,7 @@ export abstract class RepoSelection extends RepoCore {
           now = b ? `data:${mime};base64,${b}` : null;
         }
       }
-    } else {
+    } else if (source.kind === "commit") {
       if (c.kind !== "added" && source.parent) old = await show(`${source.parent}:${c.oldPath ?? c.path}`);
       if (c.kind !== "deleted") now = await show(`${source.sha}:${c.path}`);
     }
@@ -301,7 +301,14 @@ export abstract class RepoSelection extends RepoCore {
     void (async () => {
       let doc: DiffDocument;
       try {
-        if (source.kind === "working" && source.change.kind === "untracked") {
+        if (source.kind === "review") {
+          // 서버가 준 덩어리만 있는 패치에 머리를 붙여 그대로 읽는다(git 실행 없음)
+          const c = source.change;
+          const old = c.oldPath ?? c.path;
+          doc = source.patch
+            ? P.parseDiff(`diff --git a/${old} b/${c.path}\n--- a/${old}\n+++ b/${c.path}\n${source.patch}`)
+            : { lines: [], isBinary: true, truncated: false, header: [], hunks: [] };
+        } else if (source.kind === "working" && source.change.kind === "untracked") {
           const head = await ipc.readHead(joinPath(path, source.change.path), 2_000_000);
           doc = head.binary ? { lines: [], isBinary: true, truncated: false, header: [], hunks: [] } : P.newFileDiff(head.text, head.truncated);
         } else {

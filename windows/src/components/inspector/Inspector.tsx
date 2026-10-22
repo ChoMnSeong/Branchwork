@@ -1,5 +1,5 @@
-import { ArrowLeft, CircleCheck, CircleMinus, CirclePlus, Clock, ExternalLink, GitBranch, GitMerge, GitPullRequest, Hash, CircleDot, Layers, Sparkles, TriangleAlert, Waypoints, ArrowDownToLine } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { ArrowLeft, CircleCheck, CircleMinus, CirclePlus, Clock, ExternalLink, GitBranch, GitMerge, GitPullRequest, Hash, CircleDot, Layers, RefreshCw, Sparkles, TriangleAlert, Waypoints, ArrowDownToLine } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ai } from "../../lib/ai";
 import { keyLabel } from "../../lib/env";
 import { laneColor, longDate, shortDate } from "../../lib/format";
@@ -7,7 +7,9 @@ import { providerInfo, sameDiffSource, short, statusCount, statusIsEmpty, type F
 import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { ChangeList, FileViewToggle } from "./FileList";
-import { Avatar, Button, Card, ChangeBar, Checkbox, Empty, LineStatText, RefBadge, Spinner, tip, type MenuItem } from "../shared/ui";
+import { Avatar, Button, Card, ChangeBar, Checkbox, Empty, IconButton, LineStatText, RefBadge, Spinner, StatusBadge, tip, type MenuItem } from "../shared/ui";
+import { CIStatusIcon } from "../sidebar/CIPanel";
+import { statusInfo } from "../../lib/ci/models";
 
 /** 오른쪽 열: 작업 영역 또는 커밋 상세 */
 export function Inspector({ store }: { store: RepoStore }) {
@@ -362,9 +364,20 @@ function CommitDetailView({ store, sha }: { store: RepoStore; sha: string }) {
 // MARK: - PR 상세
 
 function PullRequestDetail({ store, number }: { store: RepoStore; number: number }) {
+  useObserve(store.ci);
+  const [draft, setDraft] = useState("");
+  useEffect(() => {
+    setDraft("");
+    void store.loadReview(number);
+  }, [store, number]);
   const pr = store.pullRequests.find((p) => p.number === number);
   const t = store.target;
   if (!pr || !t) return <Empty icon={<GitPullRequest size={30} />} title={`목록에 없는 ${t ? providerInfo[t.provider].requestShort : "PR"}`} detail="닫혔거나 아직 불러오지 않았습니다." />;
+  const r = store.review?.number === number ? store.review : null;
+  const s = r?.state;
+  const ci = pr.headSHA ? store.ci.bySha.get(pr.headSHA) : undefined;
+  const text = draft.trim();
+  const after = (ok: boolean) => ok && setDraft("");
   return (
     <div className="col grow" style={{ height: "100%" }}>
       <div className="panel-head">
@@ -373,6 +386,9 @@ function PullRequestDetail({ store, number }: { store: RepoStore; number: number
           {providerInfo[t.provider].requestShort} #{pr.number}
         </span>
         {pr.isDraft && <span className="chip-warn">Draft</span>}
+        <span className="spacer" />
+        {store.reviewLoading && <Spinner size={12} />}
+        <IconButton small icon={<RefreshCw size={12} />} tip="대화·승인 새로 고침" onClick={() => void store.loadReview(number)} />
       </div>
       <div className="panel-scroll" key={number}>
         <div className="selectable" style={{ fontSize: 16, fontWeight: 600 }}>
@@ -392,6 +408,18 @@ function PullRequestDetail({ store, number }: { store: RepoStore; number: number
               <span>{longDate(pr.updated)}</span>
             </>
           )}
+          {ci && (
+            <>
+              <span className="muted">CI</span>
+              <span className="row" style={{ gap: 4 }}>
+                <CIStatusIcon status={ci.status} size={12} />
+                {statusInfo[ci.status].title} · #{ci.number}
+                <button className="link" onClick={() => store.openUrl(ci.url)}>
+                  열기
+                </button>
+              </span>
+            </>
+          )}
         </div>
         <div className="row" style={{ flexWrap: "wrap" }}>
           <Button kind="primary" onClick={() => void store.checkoutPullRequest(pr)}>
@@ -404,6 +432,102 @@ function PullRequestDetail({ store, number }: { store: RepoStore; number: number
         </div>
         <div style={{ height: 1, background: "var(--border)" }} />
         {pr.body.trim() ? <div className="selectable markdown">{pr.body}</div> : <span className="muted">설명 없음</span>}
+        {store.reviewError && (
+          <span className="error-text" style={{ fontSize: 11.5, whiteSpace: "pre-wrap" }}>
+            {store.reviewError}
+          </span>
+        )}
+        {r && s && (
+          <>
+            <div className="col" style={{ gap: 4 }}>
+              <span style={{ fontWeight: 600 }}>리뷰</span>
+              {!s.approvedBy.length && !s.changesRequestedBy.length && <span className="muted">아직 승인한 사람이 없습니다.</span>}
+              {s.approvedBy.length > 0 && <span style={{ color: "var(--green)" }}>✓ 승인: {s.approvedBy.map((x) => "@" + x).join(", ")}</span>}
+              {s.changesRequestedBy.length > 0 && <span style={{ color: "var(--orange)" }}>변경 요청: {s.changesRequestedBy.map((x) => "@" + x).join(", ")}</span>}
+              {s.approvalsLeft != null && s.approvalsLeft > 0 && <span className="muted" style={{ fontSize: 11.5 }}>승인 {s.approvalsLeft}명이 더 필요합니다.</span>}
+            </div>
+            <div className="col" style={{ gap: 2 }}>
+              <span style={{ fontWeight: 600 }}>바뀐 파일 {r.files.length}</span>
+              {r.files.map((f) => {
+                const open = store.diffSource?.kind === "review" && store.diffSource.number === number && store.diffSource.change.path === f.path;
+                return (
+                  <div
+                    key={f.path}
+                    className="side-row review-file"
+                    style={{ background: open ? "var(--select)" : undefined }}
+                    data-tip={f.patch ? "눌러서 가운데에 diff 보기" : "바이너리이거나 너무 커서 브라우저에서 보세요"}
+                    onClick={() => store.openReviewFile(number, f)}
+                  >
+                    <StatusBadge kind={f.kind} />
+                    <span className="ellipsis">{f.path.split("/").pop()}</span>
+                    <span className="side-sub ellipsis grow">{f.path.split("/").slice(0, -1).join("/")}</span>
+                    <LineStatText added={f.additions} deleted={f.deletions} />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="col" style={{ gap: 8 }}>
+              <span style={{ fontWeight: 600 }}>대화 {r.comments.filter((c) => c.kind !== "system").length}</span>
+              {r.comments.map((c) =>
+                c.kind === "system" ? (
+                  <span key={c.id} className="muted" style={{ fontSize: 11.5 }}>
+                    @{c.author} {c.body}
+                  </span>
+                ) : (
+                  <div key={c.id} className="review-comment">
+                    <div className="row" style={{ gap: 6 }}>
+                      <span style={{ fontWeight: 600 }}>@{c.author}</span>
+                      {c.kind === "approved" && <span style={{ color: "var(--green)", fontSize: 11.5 }}>✓ 승인</span>}
+                      {c.kind === "changesRequested" && <span style={{ color: "var(--orange)", fontSize: 11.5 }}>변경 요청</span>}
+                      <span className="spacer" />
+                      {c.date != null && <span className="muted" style={{ fontSize: 11.5 }}>{shortDate(c.date)}</span>}
+                    </div>
+                    {c.path && (
+                      <span className="mono muted" style={{ fontSize: 11 }}>
+                        {c.path}
+                        {c.line != null ? `:${c.line}` : ""}
+                      </span>
+                    )}
+                    {c.body && <div className="selectable markdown">{c.body}</div>}
+                  </div>
+                ),
+              )}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="col" style={{ gap: 6, padding: 10, borderTop: "1px solid var(--border)" }}>
+        <textarea
+          className="textarea"
+          style={{ height: 58 }}
+          placeholder="댓글 · 리뷰 의견"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && text) void store.postReviewComment(number, text).then(after);
+          }}
+        />
+        <div className="row" style={{ gap: 6 }}>
+          {store.reviewBusy && <Spinner size={12} />}
+          <span className="spacer" />
+          {t.provider === "github" && (
+            <Button size="small" disabled={!text || store.reviewBusy} tip="의견을 남기며 변경을 요청합니다(의견 필수)" onClick={() => void store.requestChanges(number, text).then(after)}>
+              변경 요청
+            </Button>
+          )}
+          {t.provider === "gitlab" && s?.approvedByMe ? (
+            <Button size="small" disabled={store.reviewBusy} onClick={() => void store.unapprovePullRequest(number)}>
+              승인 취소
+            </Button>
+          ) : (
+            <Button size="small" disabled={store.reviewBusy || !!s?.approvedByMe} tip={text ? "의견과 함께 승인합니다" : "승인합니다"} onClick={() => void store.approvePullRequest(number, text).then(after)}>
+              ✓ 승인
+            </Button>
+          )}
+          <Button size="small" kind="primary" disabled={!text || store.reviewBusy} tip={keyLabel("댓글 달기 (Ctrl+Enter)")} onClick={() => void store.postReviewComment(number, text).then(after)}>
+            댓글
+          </Button>
+        </div>
       </div>
     </div>
   );

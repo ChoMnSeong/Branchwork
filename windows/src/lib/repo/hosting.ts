@@ -2,6 +2,7 @@ import { accounts } from "../accounts";
 import { describe } from "../git";
 import * as Hosting from "../hosting";
 import { accountApiBase, branchRemote, branchShort, providerInfo, sameTarget, type HostAccount, type PullRequest } from "../models";
+import { ReviewAPI, reviewFileChange, type ReviewAccess, type ReviewFile } from "../review";
 import { RepoWorktrees } from "./worktrees";
 
 /** GitHub·GitLab: PR·MR 목록·만들기·체크아웃 */
@@ -137,5 +138,81 @@ export abstract class RepoHosting extends RepoWorktrees {
       this.busy = null;
       this.emit();
     }
+  }
+
+  // MARK: 리뷰(대화·바뀐 파일·승인) — 맥 버전 RepoStore+Review
+
+  protected async reviewAccess(): Promise<ReviewAccess | null> {
+    const t = this.target,
+      a = this.hostingAccount;
+    const token = a ? await accounts.token(a) : null;
+    return t && a && token ? { target: t, token, apiBase: accountApiBase(a), me: a.username } : null;
+  }
+
+  async loadReview(n: number) {
+    const c = await this.reviewAccess();
+    if (!c) {
+      this.reviewError = "계정을 연결하면 대화·승인을 볼 수 있습니다.";
+      this.emit();
+      return;
+    }
+    if (this.review?.number !== n) this.review = null;
+    this.reviewLoading = true;
+    this.reviewError = null;
+    this.emit();
+    try {
+      const r = await ReviewAPI.load(c, n);
+      if (this.selection?.kind === "pullRequest" && this.selection.number === n) this.review = r;
+    } catch (e) {
+      if (this.selection?.kind === "pullRequest" && this.selection.number === n) this.reviewError = describe(e);
+    }
+    this.reviewLoading = false;
+    this.emit();
+  }
+
+  /** 버튼 동작 공통: 실패하면 권한 안내를 덧붙이고, 성공하면 다시 읽는다 */
+  private async reviewAction(n: number, work: (c: ReviewAccess) => Promise<unknown>): Promise<boolean> {
+    const c = await this.reviewAccess();
+    if (!c || this.reviewBusy) return false;
+    this.reviewBusy = true;
+    this.emit();
+    try {
+      await work(c);
+    } catch (e) {
+      let msg = describe(e);
+      if (e instanceof Hosting.HostingError && [403, 404, 422].includes(e.status)) {
+        msg +=
+          c.target.provider === "gitlab"
+            ? "\n\n토큰에 api 권한이 있어야 하고, 승인은 그 MR 을 승인할 수 있는 사람만 할 수 있습니다."
+            : "\n\n토큰에 pull request 쓰기 권한(클래식 토큰은 repo)이 있어야 합니다. 내가 만든 PR 은 스스로 승인할 수 없습니다.";
+      }
+      this.reviewBusy = false;
+      this.showError(msg);
+      return false;
+    }
+    this.reviewBusy = false;
+    await this.loadReview(n);
+    return true;
+  }
+
+  postReviewComment(n: number, body: string) {
+    return this.reviewAction(n, (c) => ReviewAPI.comment(c, n, body));
+  }
+
+  approvePullRequest(n: number, body: string) {
+    return this.reviewAction(n, (c) => ReviewAPI.approve(c, n, body));
+  }
+
+  unapprovePullRequest(n: number) {
+    return this.reviewAction(n, (c) => ReviewAPI.unapprove(c, n));
+  }
+
+  requestChanges(n: number, body: string) {
+    return this.reviewAction(n, (c) => ReviewAPI.requestChanges(c, n, body));
+  }
+
+  /** 바뀐 파일을 누르면 가운데에 그 파일의 diff(PR 의 패치로) */
+  openReviewFile(n: number, f: ReviewFile) {
+    this.openDiff({ kind: "review", number: n, change: reviewFileChange(f), patch: f.patch ?? "" });
   }
 }

@@ -46,6 +46,7 @@ import {
 } from "../models";
 import { Observable } from "../observable";
 import type { UndoPoint } from "./undo-model";
+import type { PullRequestReview } from "../review";
 import * as P from "../parsers";
 import { addRecent, settings } from "../settings";
 import type { SplitGroup } from "../split";
@@ -172,6 +173,11 @@ export abstract class RepoCore extends Observable implements AgentHost {
   /** 되돌릴 수 있는 작업(마지막이 맨 뒤) */
   undoStack: UndoPoint[] = [];
   /** 그래프에서 숨긴 브랜치(refs/heads/x · refs/remotes/o/x), 사이드바 맨 위에 고정한 로컬 브랜치, 현재 브랜치만 보기 */
+  /** 고른 PR·MR 의 대화·바뀐 파일·승인 */
+  review: PullRequestReview | null = null;
+  reviewLoading = false;
+  reviewError: string | null = null;
+  reviewBusy = false;
   /** 가운데에 띄운 파일 히스토리·blame */
   fileInspect: FileInspect | null = null;
   fileHistory: FileHistoryEntry[] = [];

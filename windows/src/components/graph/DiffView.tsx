@@ -28,7 +28,9 @@ export function DiffView({ store }: { store: RepoStore }) {
   const subtitle =
     source.kind === "working"
       ? `${c.path} · ${c.kind === "conflicted" ? "충돌" : c.staged ? "스테이지됨" : "작업 트리"}`
-      : `${c.oldPath ? c.oldPath + " → " : ""}${c.path} · 커밋 ${short(source.sha)}`;
+      : source.kind === "commit"
+        ? `${c.oldPath ? c.oldPath + " → " : ""}${c.path} · 커밋 ${short(source.sha)}`
+        : `${c.oldPath ? c.oldPath + " → " : ""}${c.path} · ${store.target?.provider === "gitlab" ? "MR" : "PR"} #${source.number}`;
   const doc = store.diff;
 
   return (
@@ -46,7 +48,7 @@ export function DiffView({ store }: { store: RepoStore }) {
             {subtitle}
           </span>
         </div>
-        {c.kind !== "untracked" && (
+        {c.kind !== "untracked" && source.kind !== "review" && (
           <>
             <IconButton icon={<History size={15} />} aria-label="파일 히스토리" tip="파일 히스토리|이 파일을 바꾼 커밋들" onClick={() => store.openFileHistory(c.path)} />
             {c.kind !== "deleted" && (

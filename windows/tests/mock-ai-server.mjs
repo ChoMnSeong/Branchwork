@@ -68,6 +68,29 @@ http
           return res.end(JSON.stringify({ content: Buffer.from(yml).toString("base64").replace(/(.{60})/g, "$1\n") }));
         }
         if (u.endsWith("/contents/.github/workflows/ci.yml")) return res.end(JSON.stringify({ content: Buffer.from("on: [push]\n").toString("base64") }));
+        // PR·MR 리뷰(번호 5)
+        const at = "2026-10-20T01:00:00Z";
+        if (u.endsWith("/issues/5/comments") && req.method === "GET") return res.end(JSON.stringify([{ id: 1, user: { login: "kim" }, body: "좋아요", created_at: at }]));
+        if (u.endsWith("/pulls/5/comments")) return res.end(JSON.stringify([{ id: 2, user: { login: "kim" }, body: "여기 오타", created_at: "2026-10-20T02:00:00Z", path: "src/a.ts", line: 3 }]));
+        if (u.endsWith("/pulls/5/reviews") && req.method === "GET")
+          return res.end(
+            JSON.stringify([
+              { id: 3, user: { login: "lee" }, state: "APPROVED", body: "", submitted_at: "2026-10-20T03:00:00Z" },
+              { id: 4, user: { login: "park" }, state: "CHANGES_REQUESTED", body: "테스트 추가", submitted_at: "2026-10-20T04:00:00Z" },
+            ]),
+          );
+        if (u.endsWith("/pulls/5/files"))
+          return res.end(JSON.stringify([{ filename: "src/a.ts", status: "modified", additions: 1, deletions: 1, patch: "@@ -1,3 +1,3 @@\n a\n-b\n+B\n c" }]));
+        if (u.endsWith("/merge_requests/5/discussions"))
+          return res.end(
+            JSON.stringify([
+              { notes: [{ id: 10, author: { username: "kim" }, body: "LGTM", created_at: at, system: false }, { id: 11, author: { username: "kim" }, body: "added 1 commit", created_at: at, system: true }] },
+              { notes: [{ id: 12, author: { username: "lee" }, body: "여기 확인", created_at: "2026-10-20T02:00:00Z", system: false, position: { new_path: "src/a.ts", new_line: 3 } }] },
+            ]),
+          );
+        if (u.endsWith("/merge_requests/5/approvals")) return res.end(JSON.stringify({ approved_by: [{ user: { username: "lee" } }], approvals_left: 1 }));
+        if (u.endsWith("/merge_requests/5/changes")) return res.end(JSON.stringify({ changes: [{ old_path: "src/a.ts", new_path: "src/a.ts", diff: "@@ -1 +1 @@\n-a\n+b\n" }] }));
+        if (req.method === "POST" && /\/(issues\/5\/comments|pulls\/5\/reviews|merge_requests\/5\/(notes|approve|unapprove))$/.test(u)) return res.end("{}");
         if (u.endsWith("/actions/workflows/7/dispatches")) {
           res.statusCode = 204;
           return res.end();
