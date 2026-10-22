@@ -36,7 +36,23 @@ extension RepoStore {
         return names
     }
 
-    func loadCI(silent: Bool = false) async {
+    /// 그래프·PR 목록의 CI 표시: 최근 파이프라인만(작업 목록은 읽지 않음). 실행 중인 게 있으면 20초마다 다시.
+    func refreshCIBadges() async {
+        guard target != nil, hostingAccount != nil else { return }
+        await loadCI(silent: true, withJobs: false)
+        guard ciPipelines.contains(where: { $0.status.isActive }), ciBadgeTask == nil else { return }
+        ciBadgeTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(20))
+                guard let self, !Task.isCancelled else { return }
+                if self.isActive { await self.loadCI(silent: true, withJobs: false) }
+                if !self.ciPipelines.contains(where: { $0.status.isActive }) { break }
+            }
+            self?.ciBadgeTask = nil
+        }
+    }
+
+    func loadCI(silent: Bool = false, withJobs: Bool = true) async {
         guard let t = target else { resetCI(); return }
         let accounts = AccountStore.shared
         if hostingAccount == nil, !accounts.accounts(for: t.provider).isEmpty {
@@ -59,7 +75,7 @@ extension RepoStore {
             ciJobs = ciJobs.filter { ids.contains($0.key) }
             ciDeployments = ciDeployments.filter { ids.contains($0.key) }
             // 최근 파이프라인은 작업까지 읽어 둔다(수동 실행 대기 ▶ 표시·승인 대기)
-            let recent = t.provider == .gitlab ? Array(list.prefix(5)) : list.filter { $0.status == .waiting }
+            let recent = !withJobs ? [] : t.provider == .gitlab ? Array(list.prefix(5)) : list.filter { $0.status == .waiting }
             for p in recent where ciJobs[p.id] == nil || before[p.id] != p.status || p.status.isActive {
                 await loadJobs(p, silent: true)
             }

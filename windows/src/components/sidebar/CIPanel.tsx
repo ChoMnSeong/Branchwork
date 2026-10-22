@@ -122,7 +122,8 @@ export function CIPanel({ store, openSettings }: { store: RepoStore; openSetting
   );
 }
 
-function StatusIcon({ status, size = 14 }: { status: CIStatus; size?: number }) {
+/** 파이프라인·작업 상태 아이콘(실행 중이면 도는 표시) — 그래프·PR 목록에서도 쓴다 */
+export function CIStatusIcon({ status, size = 14 }: { status: CIStatus; size?: number }) {
   const info = statusInfo[status];
   let icon: ReactNode;
   switch (status) {
@@ -197,7 +198,7 @@ function PipelineRow({ store, pipeline: p, provider, open, toggle }: { store: Re
       }
     >
       <ChevronRight size={12} style={{ flex: "none", opacity: 0.6, transform: open ? "rotate(90deg)" : undefined, transition: "transform .12s" }} />
-      <StatusIcon status={p.status} />
+      <CIStatusIcon status={p.status} />
       <div className="col grow" style={{ minWidth: 0, gap: 0 }}>
         <span className="ellipsis">{title}</span>
         <span className="side-sub row" style={{ gap: 4, minWidth: 0 }}>
@@ -349,7 +350,7 @@ function JobRow({ store, job, pipeline }: { store: RepoStore; job: CIJob; pipeli
         ])
       }
     >
-      <StatusIcon status={job.status} size={12} />
+      <CIStatusIcon status={job.status} size={12} />
       <span className="ellipsis grow">{job.name}</span>
       {job.allowFailure && job.status === "failed" && (
         <span data-tip="실패해도 되는 작업" style={{ color: "#e8912d", display: "inline-flex" }}>

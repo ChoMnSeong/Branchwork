@@ -109,7 +109,17 @@ final class RepoStore: Identifiable {
     var diffSettingsVersion = 0
 
     // CI/CD (GitLab 파이프라인 · GitHub Actions)
-    var ciPipelines: [CIPipeline] = []
+    var ciPipelines: [CIPipeline] = [] {
+        didSet {
+            // 커밋마다 가장 최근 파이프라인(그래프·PR 목록의 CI 표시)
+            var map: [String: CIPipeline] = [:]
+            for p in ciPipelines where map[p.sha] == nil { map[p.sha] = p }
+            if map.mapValues({ "\($0.id) \($0.status)" }) != ciBySha.mapValues({ "\($0.id) \($0.status)" }) { ciBySha = map }
+        }
+    }
+    /// 커밋 SHA → 그 커밋의 가장 최근 파이프라인
+    var ciBySha: [String: CIPipeline] = [:]
+    var ciBadgeTask: Task<Void, Never>?
     var ciState: LoadState = .idle
     var ciJobs: [Int: [CIJob]] = [:]
     var ciDeployments: [Int: [CIDeployment]] = [:]
@@ -319,6 +329,7 @@ final class RepoStore: Identifiable {
         summary = ""; message = ""; amend = false; mergeMessageFilled = false
         worktrees = []; remoteURLs = [:]; target = nil; pullRequests = []; prState = .idle
         aiWorking = nil; aiNotice = nil; explanations = [:]; explaining = []; undoStack = []
+        ciBadgeTask?.cancel(); ciBadgeTask = nil
         detailTask?.cancel(); diffTask?.cancel(); watchTask?.cancel()
     }
 
@@ -407,7 +418,10 @@ final class RepoStore: Identifiable {
             if newTarget != target {
                 target = newTarget
                 resetCI()
-                Task { await loadPullRequests() }
+                Task {
+                    await loadPullRequests()
+                    await refreshCIBadges()
+                }
             }
             if let graph {
                 update(\.hasMore, graph.more)

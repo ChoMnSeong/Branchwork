@@ -554,7 +554,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
       if (!sameTarget(newTarget, this.target)) {
         this.target = newTarget;
         this.ci.reset();
-        void this.loadPullRequests();
+        void this.loadPullRequests().then(() => this.ci.refreshBadges());
       }
       if (refsChanged || this.headBranch == null) this.refsByCommit = this.buildRefMap(head);
       this.repoState = await this.detectState();

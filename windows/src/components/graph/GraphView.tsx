@@ -9,6 +9,7 @@ import { REF_W, ROW_H, graphWidth } from "./metrics";
 
 export function GraphView({ store }: { store: RepoStore }) {
   useObserve(store);
+  useObserve(store.ci);
   const gw = graphWidth(store.maxLanes);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ top: 0, height: 800 });
@@ -91,6 +92,7 @@ export function GraphView({ store }: { store: RepoStore }) {
                   isHead={e.commit.id === store.headHash}
                   wipCount={isWIP(e.commit) ? wipCount : 0}
                   match={!searching ? 0 : store.searchMatchSet.has(e.commit.id) ? 1 : 2}
+                  ci={store.ci.bySha.get(e.commit.id)}
                 />
               );
             })}

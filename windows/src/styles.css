@@ -1398,3 +1398,11 @@ select {
 .icon-btn.on {
   color: var(--accent);
 }
+/* 커밋·PR 줄의 CI 상태 */
+.ci-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin-left: 6px;
+  cursor: pointer;
+}

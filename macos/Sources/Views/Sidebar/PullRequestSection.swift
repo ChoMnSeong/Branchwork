@@ -32,6 +32,10 @@ struct PullRequestSection: View {
                     HStack(spacing: 4) {
                         Text("#\(pr.number)").foregroundStyle(.secondary).monospacedDigit()
                         Text(pr.title).lineLimit(1)
+                        if let sha = pr.headSHA, let ci = store.ciBySha[sha] {
+                            CIStatusIcon(status: ci.status, size: 10)
+                                .help("CI: \(ci.status.title) · #\(ci.number)")
+                        }
                     }
                     HStack(spacing: 4) {
                         if pr.isDraft { Text("Draft").font(.caption2.weight(.semibold)).foregroundStyle(.orange) }

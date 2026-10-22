@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// 그래프의 한 행: 브랜치·태그 칸, 그래프 조각, 메시지·작성자·날짜·SHA
 struct CommitRow: View {
@@ -14,6 +15,8 @@ struct CommitRow: View {
     let isHead: Bool
     let wipCount: Int
     var match: Match = .none
+    /// 이 커밋의 가장 최근 CI 파이프라인
+    var ci: CIPipeline?
 
     var body: some View {
         let c = entry.commit
@@ -40,6 +43,11 @@ struct CommitRow: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .foregroundStyle(c.isMerge ? .secondary : .primary)
+                    if let ci {
+                        CIStatusIcon(status: ci.status, size: 11)
+                            .help("CI: \(ci.status.title) · \(ci.name.isEmpty ? "" : ci.name + " ")#\(ci.number) — 눌러서 브라우저로")
+                            .onTapGesture { if let u = URL(string: ci.url) { NSWorkspace.shared.open(u) } }
+                    }
                 }
             }
             .padding(.leading, 8)

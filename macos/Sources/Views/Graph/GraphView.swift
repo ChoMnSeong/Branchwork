@@ -36,7 +36,8 @@ struct GraphView: View {
                                       selected: isSelected(entry),
                                       isHead: entry.id == store.headHash,
                                       wipCount: entry.commit.isWIP ? store.status.count : 0,
-                                      match: matchState(entry))
+                                      match: matchState(entry),
+                                      ci: store.ciBySha[entry.id])
                                 .id(entry.id)
                                 .onTapGesture {
                                     focused = true

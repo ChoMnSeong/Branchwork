@@ -5,9 +5,12 @@ import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { IconButton, showContextMenu, showMenuBelow, Spinner, type MenuItem } from "../shared/ui";
 import { Section } from "./Section";
+import { CIStatusIcon } from "./CIPanel";
+import { statusInfo } from "../../lib/ci/models";
 
 export function PullRequestSection({ store, target, openSettings }: { store: RepoStore; target: RepoTarget; openSettings: () => void }) {
   useObserve(accounts);
+  useObserve(store.ci);
   const info = providerInfo[target.provider];
   const current = store.hostingAccount;
   const candidates = accounts.candidates(target);
@@ -90,6 +93,11 @@ export function PullRequestSection({ store, target, openSettings }: { store: Rep
                 #{pr.number}
               </span>
               <span className="ellipsis">{pr.title}</span>
+              {pr.headSHA && store.ci.bySha.get(pr.headSHA) && (
+                <span className="ci-badge" data-tip={`CI: ${statusInfo[store.ci.bySha.get(pr.headSHA)!.status].title} · #${store.ci.bySha.get(pr.headSHA)!.number}`}>
+                  <CIStatusIcon status={store.ci.bySha.get(pr.headSHA)!.status} size={11} />
+                </span>
+              )}
             </span>
             <span className="row side-sub">
               {pr.isDraft && <span style={{ color: "var(--orange)", fontWeight: 600 }}>Draft</span>}

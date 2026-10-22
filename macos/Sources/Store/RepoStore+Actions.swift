@@ -31,7 +31,10 @@ extension RepoStore {
     }
 
     func fetch() async {
-        if await run("Fetch 중…", ["fetch", "--all", "--prune"], network: true) { await loadPullRequests() }
+        if await run("Fetch 중…", ["fetch", "--all", "--prune"], network: true) {
+            await loadPullRequests()
+            await refreshCIBadges()
+        }
     }
 
     func pull(_ mode: PullMode = .standard) async {
@@ -59,7 +62,12 @@ extension RepoStore {
             }
             args += ["-u", remote, branch]
         }
-        if await run("Push 중…", args, network: true) { await loadPullRequests() }
+        if await run("Push 중…", args, network: true) {
+            await loadPullRequests()
+            // 올리자마자 파이프라인이 생기므로 조금 뒤에 읽는다
+            try? await Task.sleep(for: .seconds(3))
+            await refreshCIBadges()
+        }
     }
 
     func pushBranch(_ b: Branch) async {

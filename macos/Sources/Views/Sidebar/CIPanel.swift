@@ -130,7 +130,7 @@ private struct PipelineRow: View {
         let p = pipeline
         let manual = (store.ciJobs[p.id] ?? []).filter(\.canPlay).count
         HStack(alignment: .center, spacing: 6) {
-            StatusIcon(status: p.status)
+            CIStatusIcon(status: p.status)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).lineLimit(1)
                 HStack(spacing: 4) {
@@ -232,7 +232,7 @@ private struct JobRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            StatusIcon(status: job.status, size: 11)
+            CIStatusIcon(status: job.status, size: 11)
             Text(job.name).lineLimit(1).truncationMode(.middle)
             if job.allowFailure, job.status == .failed {
                 Image(systemName: "exclamationmark.triangle").font(.caption2).foregroundStyle(.orange).help("실패해도 되는 작업")
@@ -318,7 +318,8 @@ private struct DeploymentApproval: View {
     }
 }
 
-private struct StatusIcon: View {
+/// 파이프라인·작업 상태 아이콘(실행 중이면 도는 표시) — 그래프·PR 목록에서도 쓴다
+struct CIStatusIcon: View {
     let status: CIStatus
     var size: CGFloat = 13
 

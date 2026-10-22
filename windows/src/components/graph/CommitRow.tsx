@@ -9,6 +9,8 @@ import { branchPayload, commitPayload, type RepoStore } from "../../lib/repo";
 import { commitMenu, refMenu } from "../shared/menus";
 import { Avatar, showContextMenu, tip } from "../shared/ui";
 import { AVATAR, LANE_W, LEFT_PAD, REF_W, ROW_H } from "./metrics";
+import { CIStatusIcon } from "../sidebar/CIPanel";
+import { statusInfo, type CIPipeline } from "../../lib/ci/models";
 
 export const CommitRow = memo(function CommitRow({
   store,
@@ -20,6 +22,7 @@ export const CommitRow = memo(function CommitRow({
   isHead,
   wipCount,
   match,
+  ci,
 }: {
   store: RepoStore;
   entry: GraphEntry;
@@ -30,6 +33,8 @@ export const CommitRow = memo(function CommitRow({
   isHead: boolean;
   wipCount: number;
   match: 0 | 1 | 2;
+  /** 이 커밋의 가장 최근 CI 파이프라인 */
+  ci?: CIPipeline;
 }) {
   const [dropOn, setDropOn] = useState(false);
   const c = entry.commit;
@@ -100,9 +105,21 @@ export const CommitRow = memo(function CommitRow({
             </span>
           </>
         ) : (
-          <span className="ellipsis" style={{ color: isMerge(c) ? "var(--text-2)" : undefined }}>
-            {c.subject}
-          </span>
+          <>
+            <span className="ellipsis" style={{ color: isMerge(c) ? "var(--text-2)" : undefined }}>
+              {c.subject}
+            </span>
+            {ci && (
+              <span
+                className="ci-badge"
+                data-tip={`CI: ${statusInfo[ci.status].title} · ${ci.name ? ci.name + " " : ""}#${ci.number} — 눌러서 브라우저로`}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => store.openUrl(ci.url)}
+              >
+                <CIStatusIcon status={ci.status} size={12} />
+              </span>
+            )}
+          </>
         )}
       </div>
       <span className="c-author ellipsis muted" style={{ paddingLeft: 8 }}>

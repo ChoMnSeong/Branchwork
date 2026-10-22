@@ -60,7 +60,10 @@ export abstract class RepoActions extends RepoSearch {
   }
 
   async fetch() {
-    if (await this.run("Fetch 중…", ["fetch", "--all", "--prune"], { network: true })) await this.loadPullRequests();
+    if (await this.run("Fetch 중…", ["fetch", "--all", "--prune"], { network: true })) {
+      await this.loadPullRequests();
+      await this.ci.refreshBadges();
+    }
   }
 
   async pull(mode: PullMode = "standard") {
@@ -89,7 +92,12 @@ export abstract class RepoActions extends RepoSearch {
       }
       args.push("-u", remote, branch);
     }
-    if (await this.run("Push 중…", args, { network: true })) await this.loadPullRequests();
+    if (await this.run("Push 중…", args, { network: true })) {
+      await this.loadPullRequests();
+      // 올리자마자 파이프라인이 생기므로 조금 뒤에 읽는다
+      await new Promise((r) => setTimeout(r, 3000));
+      await this.ci.refreshBadges();
+    }
   }
 
   async pushBranch(b: Branch) {

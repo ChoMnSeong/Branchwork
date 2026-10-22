@@ -353,6 +353,11 @@ export async function runSelfTest(): Promise<boolean> {
     await CIAPI.dispatch(gh, flows[0].id, "main", { target: "production" });
     const calls = JSON.parse((await ipc.http("GET", root + "/ci/calls", {})).body) as { url: string; body: unknown; token: string }[];
     const urls = calls.map((c) => c.url);
+    // 그래프: 커밋에 파이프라인이 있으면 줄에 CI 상태 표시
+    const head = s.headHash!;
+    s.ci.showPipelines([{ id: 1, number: 7, name: "CI", title: "", ref: "main", sha: head, status: "failed", url: "http://127.0.0.1/p/1", created: null, event: "push", actor: null }]);
+    const badge = await until(() => !!document.querySelector(".commit-row .ci-badge"), 3000);
+    s.ci.reset();
     // 화면: CI/CD 탭이 그려지는지(이 저장소는 원격이 없어 안내 문구)
     settings.set("sidebarMode", "ci");
     const panel = await until(() => document.body.innerText.includes("원격이 있는 저장소에서 파이프라인"), 3000);
@@ -367,8 +372,9 @@ export async function runSelfTest(): Promise<boolean> {
       flows.length === 1 &&
       flows[0].inputs[0]?.options.join(",") === "staging,production" &&
       calls.some((c) => c.url === "/gh/repos/o/r/actions/workflows/7/dispatches" && JSON.stringify(c.body) === '{"ref":"main","inputs":{"target":"production"}}' && c.token === "Bearer gh-token") &&
-      panel;
-    return [ok, `pipes=${pipes.length} jobs=${jobs.map((j) => `${j.stage}/${j.name}:${j.status}`)} flows=${flows.map((f) => f.name + ":" + f.inputs.map((i) => i.name))} calls=${urls} panel=${panel}`];
+      panel &&
+      badge;
+    return [ok, `badge=${badge} pipes=${pipes.length} jobs=${jobs.map((j) => `${j.stage}/${j.name}:${j.status}`)} flows=${flows.map((f) => f.name + ":" + f.inputs.map((i) => i.name))} calls=${urls} panel=${panel}`];
   });
 
   // 다른 브랜치에 머지: 방금 만든 브랜치(같은 커밋)를 그 줄에 놓으면 '이미 들어 있음', 커밋 후 놓으면 '…에 머지 — 체크아웃'

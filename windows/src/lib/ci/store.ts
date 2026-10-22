@@ -17,6 +17,9 @@ export class CIStore extends Observable {
   state: { kind: "idle" } | { kind: "loading" } | { kind: "loaded" } | { kind: "needsAccount" } | { kind: "failed"; message: string } = { kind: "idle" };
   jobs = new Map<number, CIJob[]>();
   deployments = new Map<number, CIDeployment[]>();
+  /** 커밋 SHA → 그 커밋의 가장 최근 파이프라인(그래프·PR 목록의 CI 표시) */
+  bySha = new Map<string, CIPipeline>();
+  private badgeTimer: ReturnType<typeof setTimeout> | null = null;
   /** 진행 중인 버튼 동작(같은 버튼을 두 번 누르지 않게) */
   busy = new Set<string>();
 
@@ -34,6 +37,9 @@ export class CIStore extends Observable {
   }
 
   reset() {
+    if (this.badgeTimer) clearTimeout(this.badgeTimer);
+    this.badgeTimer = null;
+    this.bySha = new Map();
     this.pipelines = [];
     this.jobs = new Map();
     this.deployments = new Map();
@@ -85,7 +91,30 @@ export class CIStore extends Observable {
     return !!cur && cur.host === t.host && cur.path === t.path && cur.provider === t.provider;
   }
 
-  async load(silent = false) {
+  /** 받은 파이프라인 목록을 보여 준다(커밋마다 가장 최근 것도 정리) */
+  showPipelines(list: CIPipeline[]) {
+    this.pipelines = list;
+    const map = new Map<string, CIPipeline>();
+    for (const p of list) if (!map.has(p.sha)) map.set(p.sha, p);
+    this.bySha = map;
+    this.state = { kind: "loaded" };
+    this.emit();
+  }
+
+  /** 그래프·PR 목록의 CI 표시: 최근 파이프라인만(작업 목록은 읽지 않음). 실행 중인 게 있으면 20초마다 다시. */
+  async refreshBadges() {
+    if (!this.repo.target || !this.repo.hostingAccount) return;
+    await this.load(true, false);
+    if (this.badgeTimer || !this.pipelines.some((p) => isActiveCI(p.status))) return;
+    const tick = async () => {
+      this.badgeTimer = null;
+      if (this.repo.isActive) await this.load(true, false);
+      if (this.pipelines.some((p) => isActiveCI(p.status))) this.badgeTimer = setTimeout(() => void tick(), 20_000);
+    };
+    this.badgeTimer = setTimeout(() => void tick(), 20_000);
+  }
+
+  async load(silent = false, withJobs = true) {
     const t = this.repo.target;
     if (!t) return this.reset();
     if (!this.repo.hostingAccount && accounts.accountsFor(t.provider).length) await accounts.discoverAlias(t, true);
@@ -105,14 +134,13 @@ export class CIStore extends Observable {
       const list = await CIAPI.pipelines(c, this.currentBranchOnly ? this.currentRef : null);
       if (!this.same(t)) return;
       const before = new Map(this.pipelines.map((p) => [p.id, p.status]));
-      this.pipelines = list;
-      this.state = { kind: "loaded" };
+      this.showPipelines(list);
       const ids = new Set(list.map((p) => p.id));
       for (const k of [...this.jobs.keys()]) if (!ids.has(k)) this.jobs.delete(k);
       for (const k of [...this.deployments.keys()]) if (!ids.has(k)) this.deployments.delete(k);
       this.emit();
       // 최근 파이프라인은 작업까지 읽어 둔다(수동 실행 대기 ▶ 표시·승인 대기)
-      const recent = t.provider === "gitlab" ? list.slice(0, 5) : list.filter((p) => p.status === "waiting");
+      const recent = !withJobs ? [] : t.provider === "gitlab" ? list.slice(0, 5) : list.filter((p) => p.status === "waiting");
       for (const p of recent) {
         if (!this.jobs.has(p.id) || before.get(p.id) !== p.status || isActiveCI(p.status)) await this.loadJobs(p, true);
       }
