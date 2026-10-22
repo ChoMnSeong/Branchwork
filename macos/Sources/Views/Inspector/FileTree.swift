@@ -110,6 +110,12 @@ struct ChangeList<MenuContent: View>: View {
         FileRow(change: c, selected: isSelected(c), showDirectory: showDirectory, stat: stats[c.path],
                 actionIcon: actionIcon, actionHelp: actionHelp, action: { onAction([c]) })
             .onTapGesture { onOpen(c) }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { onOpen(c) }
+            .accessibilityActions {
+                if actionIcon != nil, !actionHelp.isEmpty { Button(actionHelp) { onAction([c]) } }
+            }
             .contextMenu { menu(c) }
     }
 

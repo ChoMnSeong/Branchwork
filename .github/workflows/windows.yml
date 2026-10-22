@@ -2,9 +2,9 @@ name: Windows
 
 on:
   push:
-    paths: ["windows/**", ".github/workflows/windows.yml"]
+    paths: ["windows/**", "docs/make-demo-repo.sh", ".github/workflows/windows.yml"]
   pull_request:
-    paths: ["windows/**", ".github/workflows/windows.yml"]
+    paths: ["windows/**", "docs/make-demo-repo.sh", ".github/workflows/windows.yml"]
   workflow_dispatch:
 
 jobs:
@@ -137,6 +137,58 @@ jobs:
           $r = Get-Content $result -Raw -Encoding utf8 | ConvertFrom-Json
           foreach ($c in $r.checks) { $mark = if ($c.ok) { "OK  " } else { "FAIL" }; Write-Host "$mark $($c.name) $(if (-not $c.ok) { $c.detail })" }
           if (-not $r.ok) { Write-Error "자동 점검 실패"; exit 1 }
+
+      - name: README 스크린샷용 데모 저장소
+        shell: bash
+        run: bash ../docs/make-demo-repo.sh "$ST_ROOT/demo"
+
+      - name: README 스크린샷 (라이트·다크)
+        shell: pwsh
+        run: |
+          # 점검이 끝난 실제 앱을 데모 저장소로 다시 열어 창만 찍는다(docs/images/windows-*.png 로 쓰려고)
+          $repo = (Resolve-Path "$env:ST_ROOT/demo/shop-web").Path -replace '\\', '/'
+          $exe = Resolve-Path "src-tauri/target/release/branchwork.exe"
+          $data = Join-Path $env:APPDATA "Branchwork"
+          New-Item -ItemType Directory -Force $data, "$env:ST_ROOT/shots" | Out-Null
+          Add-Type -AssemblyName System.Drawing
+          Add-Type @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class Win {
+            [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
+            [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int hh, bool repaint);
+            [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+            [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int attr, out RECT r, int size);
+          }
+          "@
+          foreach ($theme in @("light", "dark")) {
+            $settings = @{ openTabs = @($repo); selectedTab = $repo; theme = $theme; autoUpdate = $false; sidebarMode = "list" } | ConvertTo-Json
+            [IO.File]::WriteAllText((Join-Path $data "settings.json"), $settings)
+            $p = Start-Process -FilePath $exe -PassThru
+            $deadline = (Get-Date).AddSeconds(60)
+            while ($p.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300; $p.Refresh() }
+            Start-Sleep -Seconds 6
+            $h = $p.MainWindowHandle
+            [Win]::MoveWindow($h, 40, 40, 1440, 900, $true) | Out-Null
+            [Win]::SetForegroundWindow($h) | Out-Null
+            Start-Sleep -Seconds 2
+            # 창 테두리 그림자를 빼고 보이는 창 영역만(DWMWA_EXTENDED_FRAME_BOUNDS)
+            $r = New-Object Win+RECT
+            [Win]::DwmGetWindowAttribute($h, 9, [ref]$r, 16) | Out-Null
+            $bmp = New-Object System.Drawing.Bitmap ($r.R - $r.L), ($r.B - $r.T)
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($r.L, $r.T, 0, 0, $bmp.Size)
+            $bmp.Save("$env:ST_ROOT/shots/windows-$theme.png")
+            Stop-Process -Id $p.Id -Force
+            Start-Sleep -Seconds 2
+          }
+
+      - name: README 스크린샷 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: readme-shots
+          path: ${{ env.ST_ROOT }}/shots/*.png
+          if-no-files-found: ignore
 
       - name: 점검 결과 올리기
         if: always()

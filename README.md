@@ -1,77 +1,179 @@
-# Branchwork
+<p align="center">
+  <img src="docs/images/icon.png" width="112" alt="Branchwork 아이콘">
+</p>
 
-> A native Git client for macOS and Windows with a commit graph, worktrees, GitHub/GitLab pull requests, Claude Code agents and a built-in terminal. (macOS: SwiftUI · Windows: Tauri)
+<h1 align="center">Branchwork</h1>
 
-Git 저장소를 커밋 그래프로 보고 다루는 macOS 앱(SwiftUI, macOS 15+).
-Git 동작은 시스템 `git` 을 그대로 호출하고, 화면·그래프 배치·파싱은 처음부터 새로 만들었다.
+<p align="center">
+  <b>커밋 그래프로 보고, 클릭으로 다루는 Git 클라이언트</b><br>
+  macOS · Windows &nbsp;|&nbsp; 브랜치 · 머지 · PR/MR · CI/CD · AI 커밋 메시지 · 코딩 에이전트 · 내장 터미널
+</p>
+
+<p align="center">
+  <a href="https://github.com/ChoMnSeong/Branchwork/releases/latest"><img src="https://img.shields.io/github/v/release/ChoMnSeong/Branchwork?label=%EC%B5%9C%EC%8B%A0%20%EB%B2%84%EC%A0%84&color=2f6fec" alt="최신 버전"></a>
+  <a href="https://github.com/ChoMnSeong/Branchwork/releases"><img src="https://img.shields.io/github/downloads/ChoMnSeong/Branchwork/total?label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C&color=2a9a55" alt="다운로드"></a>
+  <img src="https://img.shields.io/badge/macOS-15%2B-111?logo=apple&logoColor=white" alt="macOS 15+">
+  <img src="https://img.shields.io/badge/Windows-10%20%C2%B7%2011-0078d4?logo=windows&logoColor=white" alt="Windows 10 · 11">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ChoMnSeong/Branchwork?color=6b6b72" alt="MIT"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ChoMnSeong/Branchwork/releases/latest"><b>⬇&nbsp; 내려받기</b></a>
+  &nbsp;·&nbsp; <a href="#설치">설치</a>
+  &nbsp;·&nbsp; <a href="#사용법">사용법</a>
+  &nbsp;·&nbsp; <a href="#기능-자세히">기능 자세히</a>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png">
+    <img src="docs/images/hero-light.png" alt="Branchwork 메인 화면 — 왼쪽 브랜치·태그, 가운데 커밋 그래프, 오른쪽 작업 중인 변경과 커밋 입력">
+  </picture>
+</p>
+
+> **English** — A native Git client for macOS and Windows: a readable commit graph, staging and commits, GitHub / GitLab pull requests, CI/CD pipelines you can trigger, AI-written commit messages, Claude Code · Codex · Gemini agents in worktrees, and a built-in terminal. Git itself does the work — Branchwork calls your system `git`.
+
+## 한눈에
+
+|  |  |
+|---|---|
+| 🌳 **읽기 쉬운 커밋 그래프**<br>모든 브랜치를 레인 색으로 그리고, 브랜치·태그는 왼쪽 칸에 모아 커밋 메시지와 겹치지 않게. 로컬 💻 · 원격 ☁ 을 한 라벨로 보여 주고 작성자 프로필 사진까지. | ✍️ **스테이지 · 커밋 · diff**<br>파일별·전체 스테이지, 줄 번호와 색이 있는 diff, Amend, 변경 버리기. 끌어다 놓기로 머지·리베이스·cherry-pick. |
+| ✨ **AI 커밋 메시지**<br>Claude Code · Codex · Gemini CLI 또는 API 키로 커밋 메시지·PR 글을 쓰고, 팀 **규칙**(예: `Feat:` · `Fix:` 접두어)을 지키게. 바뀐 파일을 주제별로 **나눠서 커밋**. | 🔀 **GitHub · GitLab**<br>열린 PR/MR 목록과 상세, 체크아웃, 현재 브랜치로 PR/MR 만들기. 사내(자체 호스팅) GitLab 지원. |
+| 🚀 **CI/CD 실행**<br>GitLab 파이프라인 · GitHub Actions 를 보고, 손으로 눌러야 도는 작업(`when: manual`)을 ▶ 로 실행. 다시 실행 · 취소 · 배포 승인, `workflow_dispatch` 실행. | 🤖 **코딩 에이전트**<br>Claude Code · Codex · Gemini CLI 세션을 워크트리마다 띄우고 상태(작업 중 · 권한 요청 · 입력 대기)를 사이드바에서. |
+| 🖥️ **내장 터미널**<br>그래프 아래에서 저장소 폴더의 셸을 탭으로 여러 개. git 명령을 치면 그래프가 바로 갱신. | 🌗 **라이트 · 다크**<br>시스템을 따르거나 고정. 그래프 · 터미널 · 창 제목 표시줄까지 함께. |
+
+## 화면
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/commit-diff-light.png" alt="커밋을 고르면 오른쪽에 상세, 파일을 누르면 가운데에 diff"></td>
+    <td width="50%"><img src="docs/images/changes-light.png" alt="작업 중인 변경: 파일별 diff 와 스테이지·커밋"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>커밋 상세와 diff</b><br><sub>커밋을 고르면 작성자·부모·바뀐 파일, 파일을 누르면 diff</sub></td>
+    <td align="center"><b>작업 중인 변경</b><br><sub>스테이지 전 diff 를 보고 파일별로 스테이지 → 커밋</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/commit-diff-dark.png" alt="다크 테마"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><b>다크 테마</b><br><sub>설정 &gt; 화면에서 시스템 · 라이트 · 다크</sub></td>
+  </tr>
+</table>
+
+<sub>스크린샷의 저장소·작성자는 모두 지어낸 데모입니다(<a href="docs/make-demo-repo.sh"><code>docs/make-demo-repo.sh</code></a>로 똑같이 만들 수 있습니다).</sub>
 
 ## 설치
 
-1. [Releases](https://github.com/ChoMnSeong/Branchwork/releases) 에서 `Branchwork-<버전>-macOS.dmg`(또는 `.zip`)를 받아 `Branchwork.app` 을 응용 프로그램 폴더로 옮긴다. Apple Silicon·Intel 모두 지원(유니버설).
-2. 아직 Apple 공증(notarization)을 받지 않은 빌드라 처음 열 때 "확인되지 않은 개발자" 경고가 뜬다. 다음 중 하나로 연다.
-   - **시스템 설정 → 개인정보 보호 및 보안** 아래쪽의 **"그래도 열기"** 를 누른 뒤 다시 실행
+### macOS (15 이상, Apple Silicon · Intel)
+
+1. [최신 릴리스](https://github.com/ChoMnSeong/Branchwork/releases/latest)에서 `Branchwork-<버전>-macOS.dmg` 를 받아 `Branchwork.app` 을 응용 프로그램 폴더로 옮깁니다.
+2. 아직 Apple 공증을 받지 않은 빌드라 처음 열 때 "확인되지 않은 개발자" 경고가 뜹니다. 둘 중 하나로 여세요.
+   - **시스템 설정 → 개인정보 보호 및 보안** 아래쪽의 **그래도 열기**
    - 또는 터미널에서 `xattr -dr com.apple.quarantine /Applications/Branchwork.app`
 
-필요한 것: macOS 15 이상, `git`(Xcode 또는 Command Line Tools — `xcode-select --install`).
-선택: [Claude Code](https://claude.com/claude-code)(Claude 기능·에이전트), [GitHub CLI](https://cli.github.com)(`gh` 로그인 가져오기).
+필요: `git`(Xcode 또는 `xcode-select --install`). 선택: [Claude Code](https://claude.com/claude-code) · [GitHub CLI](https://cli.github.com).
 
-## 기능
+### Windows (10 1809 이상 · 11, x64)
 
-- **커밋 그래프**: 모든 브랜치를 레인 색으로 그리고 머지·분기를 곡선으로 연결. 브랜치·원격·태그 배지, 맨 위에 "작업 중인 변경" 행
-- **사이드바**: 로컬 브랜치(↑/↓ 표시), 원격 브랜치(리모트별), 태그, 스태시
-  - 클릭 = 그래프에서 해당 커밋으로 이동, 더블클릭 = 체크아웃
-  - 우클릭: 머지, 리베이스, 새 브랜치, Push, 삭제, 강제 삭제
-- **작업 영역**: 스테이지/언스테이지(파일별·전체), 변경 버리기, 커밋(⌘↩), Amend
-- **커밋 상세**: 메시지, 작성자, 부모 커밋 이동, 변경 파일 목록 → diff
-- **diff**: 줄 번호와 추가/삭제 색 표시, 바이너리·새 파일 처리
+1. [최신 릴리스](https://github.com/ChoMnSeong/Branchwork/releases/latest)에서 `Branchwork_<버전>_x64-setup.exe` 를 받아 실행합니다(설치 없이 쓰려면 `_portable.zip`).
+2. 코드 서명을 하지 않은 빌드라 SmartScreen 이 막으면 **추가 정보 → 실행**.
+
+필요: [Git for Windows](https://git-scm.com/download/win). WSL 에 설치한 Claude Code · Codex · Gemini CLI 도 쓸 수 있습니다.
+
+> 두 버전 모두 **자동 업데이트**: 켤 때와 하루에 한 번 새 버전을 확인하고, 누르면 받아서 설치한 뒤 다시 시작합니다(받은 파일은 서명·해시가 맞을 때만 설치).
+
+## 사용법
+
+1. **저장소 열기** — 폴더 버튼(⌘O / Ctrl+O)으로 열거나 복제(⇧⌘O), 여러 저장소는 탭으로(⌘T).
+2. **그래프 둘러보기** — 커밋을 누르면 오른쪽에 상세, 파일을 누르면 diff. 왼쪽 브랜치를 누르면 그 커밋으로, 두 번 누르면 체크아웃.
+3. **커밋** — 맨 위 **작업 중인 변경**을 골라 파일을 스테이지하고, 요약을 쓰거나 **AI 로 작성**을 누른 뒤 ⌘↩.
+4. **브랜치 다루기** — 브랜치 라벨을 다른 커밋·브랜치로 끌어다 놓으면 머지 · 리베이스 · 빨리 감기 메뉴. 커밋 우클릭으로 cherry-pick · revert · reset · 태그.
+5. **올리기와 PR** — 툴바의 Push 후 사이드바 Pull Requests 의 ＋ 로 PR/MR 만들기. 계정은 설정(⌘,) > 계정에서 GitHub · 사내 GitLab 토큰 연결.
+6. **CI/CD** — 사이드바 **CI/CD** 탭에서 파이프라인을 펼쳐 수동 작업 ▶, 또는 **실행…**으로 새 파이프라인·워크플로.
+
+| 동작 | macOS | Windows |
+|---|---|---|
+| 새 탭 · 탭 닫기 | ⌘T · ⌘W | Ctrl+T · Ctrl+W (탭 우클릭: 다른 탭 모두 닫기) |
+| 커밋 검색 · 다음 결과 | ⌘F · ⌘G | Ctrl+F · F3 |
+| 커밋 | ⌘↩ | Ctrl+Enter |
+| 새로 고침 | ⌘R | F5 |
+| 터미널 보이기 · 새 터미널 | ⌃\` · ⌃⇧\` | Ctrl+\` · Ctrl+Shift+\` |
+| 설정 | ⌘, | Ctrl+, |
+
+## 기능 자세히
+
+<details>
+<summary><b>그래프 · 브랜치 · 커밋</b></summary>
+
+- **커밋 그래프**: 모든 브랜치를 레인 색으로 그리고 머지·분기를 곡선으로 연결. 왼쪽 '브랜치 / 태그' 칸(같은 이름의 로컬·원격은 한 라벨, 현재 브랜치 ✓), 맨 위 "작업 중인 변경" 행, 커밋 동그라미에 작성자 프로필(GitHub · 사내 GitLab · Gravatar, 없으면 이니셜)
+- **사이드바**: 로컬 브랜치(↑/↓), 원격 브랜치(리모트별), 태그, 스태시. 클릭 = 그 커밋으로 이동, 더블클릭 = 체크아웃, 우클릭 = 머지 · 리베이스 · 새 브랜치 · Push · 삭제
+- **작업 영역**: 스테이지/언스테이지(파일별·폴더별·전체), 변경 버리기, 커밋, Amend, 목록 / 폴더 트리 보기
+- **커밋 상세 · diff**: 메시지, 작성자, 부모 커밋 이동, 바뀐 파일 → 줄 번호·추가/삭제 색 diff(바이너리·새 파일 처리)
 - **커밋 우클릭**: 브랜치·태그 만들기, 체크아웃(분리된 HEAD), Cherry-pick, Revert, Reset(soft/mixed/hard)
+- **끌어다 놓기**: 브랜치를 브랜치·커밋 위로 → 머지 · 리베이스 · 빨리 감기, 커밋을 브랜치로 → cherry-pick
 - **툴바**: Fetch, Pull(기본/ff-only/merge/rebase), Push(업스트림 자동 설정, force-with-lease), 새 브랜치, Stash/Pop
 - **진행 중 작업**: 머지·리베이스·cherry-pick 충돌 배너(중단/계속), 충돌 파일 "해결됨으로 표시"
-- **워크트리**: 목록(사이드바), 새 워크트리(새 브랜치/기존 브랜치, 기본 위치 `<저장소>-worktrees/<브랜치>`), 제거·강제 제거·정리, Branchwork·Finder·터미널에서 열기, 다른 워크트리가 쓰는 브랜치 표시
-- **AI** (설정 > AI) — 커밋 메시지·커밋 설명·PR/MR 제목·본문 작성
-  - 고를 수 있는 AI: Claude Code·Codex(ChatGPT 로그인)·Gemini CLI(이 PC 의 로그인 그대로, 도구는 끈 채 글만), Claude API·ChatGPT API·Gemini API(키), OpenAI 호환 서버(Ollama·LM Studio·OpenRouter 등). API 는 계정의 모델 목록을 받아 온다
-  - **규칙**(설정 > 규칙): 공통 규칙 + 커밋 메시지·커밋 설명·PR 설명 규칙(예: `prefix 는 Feature, Fix, Hotfix 중 하나`), 자주 쓰는 규칙 버튼, 기능마다 다른 AI 지정
-  - **나눠서 커밋**: AI 가 바뀐 파일을 주요 내용별로 묶은 계획을 보여 주고, 메시지·파일을 고친 뒤 차례로 커밋
-- **에이전트**: Claude Code·Codex·Gemini CLI 세션을 워크트리·저장소에서 실행(첫 작업 지시, 권한 모드). Claude Code 는 상태(작업 중·권한 요청·입력 대기)까지 보인다
-- **도구**(설정 > 도구): git·Claude Code·Codex·Gemini CLI·gh·터미널 셸을 자동으로 찾고, 못 찾으면 **불러오기**로 실행 파일을 직접 고른다
-- **자동 업데이트**: 켤 때와 하루에 한 번 새 버전을 확인해 알리고, 누르면 받아서 설치한 뒤 다시 시작한다(맥: SHA-256·번들 ID·코드 서명 확인, Windows: 업데이트 서명 확인). 메뉴 '업데이트 확인…'
-- **GitHub / GitLab**
-  - 계정 연결: 토큰(키체인 보관), GitHub 는 `gh` 로그인 가져오기 지원, GitLab 은 자체 호스팅 주소 지정
-  - 열린 PR/MR 목록·상세(사이드바), 브랜치 체크아웃(포크는 `pr/번호`·`mr/번호`), 브라우저로 열기
-  - 현재 브랜치로 PR/MR 만들기(필요하면 먼저 push, Draft 지원)
-  - 복제 창에서 내 저장소 목록·검색
-  - HTTPS push/pull/clone 인증: 연결한 토큰으로 GIT_ASKPASS 응답(기존 키체인·자격 증명 도우미가 우선)
-- **CI/CD 탭**(사이드바 목록/에이전트/CI/CD 전환): GitLab 파이프라인·GitHub Actions 실행 목록(상태·브랜치·시간, 현재 브랜치만 보기), 펼치면 단계별 작업
-  - **수동 작업 실행**: GitLab `when: manual`·`when: delayed` 작업의 ▶ 버튼(최근 파이프라인은 기다리는 수동 작업 수를 미리 표시)
-  - 작업·파이프라인 다시 실행(GitHub 은 실패한 작업만도), 실행 취소, 브라우저로 열기·커밋 보기
-  - **실행…**: GitLab — 브랜치와 변수로 새 파이프라인(`.gitlab-ci.yml` 의 설명 붙은 변수는 미리 채움) / GitHub — `workflow_dispatch` 워크플로를 브랜치·입력값(선택·참거짓·글)으로 실행
-  - GitHub 환경 보호 규칙의 배포 승인·거부
-  - 실행 중인 게 있으면 8초마다, 없으면 45초마다 새로 고침. 실행하려면 토큰에 GitLab 은 `api` 권한, GitHub 은 Actions 쓰기 권한(클래식 토큰은 `repo`)이 필요하다
-- **에이전트 탭**(사이드바 목록/에이전트 전환): 워크트리 카드(새 파일·수정·삭제 수, 원격 대비 ↑↓)와 그 안에서 도는 에이전트 세션 상태(작업 중·권한 요청·입력 대기·종료), 세션 시작(워크트리 선택 또는 새 워크트리, 맡길 작업, 권한 모드), 세션을 누르면 그 Terminal 탭으로 이동
-  - 상태는 Branchwork 가 띄운 세션에 `--settings` 로 더한 훅(`~/Library/Application Support/Branchwork/agents/hook.sh`)이 남기는 파일로 판단한다. 사용자 설정·훅은 그대로 유지된다.
-- **변경 파일 보기**: 목록 / 폴더 트리 전환(작업 영역·커밋 상세), 트리에서 폴더 단위 스테이지·언스테이지
-- **탭**: macOS 기본 창 탭으로 여러 저장소·워크트리를 열어 두고 오간다(⌘T 새 탭, ⌘W 닫기, ⌃Tab 이동, 탭을 끌어 새 창으로). 다른 저장소·워크트리를 열면 새 탭(이미 열려 있으면 그 탭). 다시 켜면 탭 복원
-- **터미널**(⌃` 보이기/숨기기, ⌃⇧` 새 터미널): 그래프 아래 패널에서 저장소 폴더의 로그인 셸(zsh)을 연다. 패널 안 탭으로 여러 개, 경계선을 끌어 높이 조절, 숨겨도 셸은 계속 실행, 탭 이름은 현재 폴더나 실행 중인 프로그램, 워크트리 우클릭 → '아래 터미널에서 열기'. git 명령을 치면 그래프가 자동으로 갱신된다. 터미널 에뮬레이터는 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm)(MIT, `macos/Vendor/SwiftTerm`)
-- **커밋 검색**(⌘F): 커밋(제목·작성자·SHA·브랜치 + 메시지 본문), 파일 경로, 코드 변경(-G). 결과 강조·나머지 흐리게, ⌘G/⇧⌘G·Enter 로 이동, 그래프 밖 결과는 더 불러와서 찾기
-- **화면 테마**(설정 > 화면): 시스템을 따르거나 라이트·다크로 고정(그래프·터미널·창 제목 표시줄까지)
-- **기타**: 저장소 열기·복제·새로 만들기, 최근 저장소, 파일 변경 자동 새로 고침(FSEvents), 설정(⌘,)
+- **커밋 검색**: 제목·작성자·SHA·브랜치 + 메시지 본문, 파일 경로, 코드 변경(-G). 결과 강조, 그래프 밖 결과는 더 불러와서 찾기
+- **워크트리**: 목록, 새 워크트리(새/기존 브랜치, 기본 위치 `<저장소>-worktrees/<브랜치>`), 제거·정리, 다른 워크트리가 쓰는 브랜치 표시
 
-## 저장소 구조
+</details>
+
+<details>
+<summary><b>AI · 규칙 · 나눠서 커밋</b></summary>
+
+- **작성**: 커밋 메시지 · 커밋 설명 · PR/MR 제목과 본문
+- **고를 수 있는 AI**: Claude Code · Codex(ChatGPT 로그인) · Gemini CLI(이 PC 의 로그인 그대로, 도구는 끈 채 글만), Claude API · ChatGPT API · Gemini API(키), OpenAI 호환 서버(Ollama · LM Studio · OpenRouter 등). API 는 계정의 모델 목록을 받아 온다
+- **규칙**(설정 > 규칙): 공통 규칙 + 커밋 메시지 · 커밋 설명 · PR 설명 규칙(예: `prefix 는 Feature, Fix, Hotfix 중 하나`), 자주 쓰는 규칙 버튼, 기능마다 다른 AI
+- **나눠서 커밋**: AI 가 바뀐 파일을 주요 내용별로 묶은 계획을 보여 주고, 메시지·파일을 고친 뒤 차례로 커밋
+
+</details>
+
+<details>
+<summary><b>GitHub · GitLab · CI/CD</b></summary>
+
+- **계정**: 토큰(맥 키체인 / Windows 자격 증명 관리자), GitHub 는 `gh` 로그인 가져오기, GitLab 은 자체 호스팅 주소
+- **PR/MR**: 열린 목록·상세, 체크아웃(포크는 `pr/번호` · `mr/번호`), 현재 브랜치로 만들기(필요하면 먼저 push, Draft), 복제 창에서 내 저장소 검색
+- **HTTPS 인증**: 연결한 토큰으로 push/pull/clone(기존 키체인·자격 증명 도우미가 우선). 자격 증명을 물으면 멈추지 않고 실패(`GIT_TERMINAL_PROMPT=0`)
+- **CI/CD 탭**: GitLab 파이프라인 · GitHub Actions 실행 목록(현재 브랜치만 보기), 펼치면 단계별 작업
+  - GitLab `when: manual` · `when: delayed` 작업 ▶ 실행(기다리는 수동 작업 수를 목록에 미리 표시)
+  - 작업·파이프라인 다시 실행(GitHub 은 실패한 작업만도), 취소, 브라우저로 열기, 커밋 보기
+  - **실행…**: GitLab 새 파이프라인(브랜치·변수, `.gitlab-ci.yml` 의 설명 붙은 변수 미리 채움) / GitHub `workflow_dispatch`(브랜치·입력값)
+  - GitHub 환경 보호 규칙의 배포 승인·거부
+  - 실행하려면 토큰에 GitLab 은 `api` 권한, GitHub 은 Actions 쓰기 권한(클래식 토큰은 `repo`)
+
+</details>
+
+<details>
+<summary><b>에이전트 · 터미널 · 도구 · 기타</b></summary>
+
+- **에이전트 탭**: 워크트리 카드(새 파일·수정·삭제 수, 원격 대비 ↑↓)와 그 안의 Claude Code · Codex · Gemini CLI 세션 상태(작업 중 · 권한 요청 · 입력 대기 · 종료). 세션 시작(워크트리 선택 또는 새 워크트리, 맡길 작업, 권한 모드). 상태는 Branchwork 가 띄운 세션에 `--settings` 로 더한 훅이 남기는 파일로 판단하며, 사용자 설정·훅은 그대로
+- **터미널**: 그래프 아래 패널에서 저장소 폴더의 셸(맥 zsh · Windows PowerShell/WSL). 탭 여러 개, 높이 조절, 숨겨도 계속 실행. 맥은 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm), Windows 는 [xterm.js](https://xtermjs.org)
+- **도구**(설정 > 도구): git · Claude Code · Codex · Gemini CLI · gh · 터미널 셸을 자동으로 찾고, 못 찾으면 **불러오기**로 직접 지정. Windows 는 WSL 안의 도구도
+- **탭**: 맥은 기본 창 탭(탭을 끌어 새 창으로), Windows 는 창 안의 탭. 다시 켜면 탭 복원
+- **화면 테마**: 시스템 · 라이트 · 다크
+- **자동 새로 고침**: 파일을 저장하면 상태만, 브랜치·커밋이 바뀌면 그래프까지(큰 저장소도 가볍게)
+
+</details>
+
+## 개발
+
+<details>
+<summary><b>저장소 구조 · 빌드 · 자동 점검</b></summary>
 
 ```
 macos/     맥 앱(SwiftUI)
-  Sources/App       앱·창·탭·업데이트
+  Sources/App       앱·창·탭·업데이트·테마
   Sources/Core      git 실행·출력 해석·그래프 배치·모델·파일 감시
   Sources/Store     저장소 화면 상태(RepoStore)와 기능별 확장
   Sources/Services  GitHub·GitLab·CI/CD·AI·계정·에이전트·도구·프로필 사진
   Sources/Views     화면
   Resources/ Tools/ Vendor/SwiftTerm/  build.sh
 windows/   Windows 앱(Tauri 2 + React): src-tauri(Rust), src/lib(상태·로직), src/components(화면), tests
+docs/      README 이미지와 데모 저장소 스크립트
 ```
 
-## 빌드(맥)
-
-Swift 6 이상(Xcode 또는 Command Line Tools)만 있으면 된다. 외부 패키지를 내려받지 않는다.
+**맥** — Swift 6 이상(Xcode 또는 Command Line Tools)만 있으면 됩니다. 외부 패키지를 내려받지 않습니다.
 
 ```sh
 macos/build.sh           # macos/build/Branchwork.app (이 맥의 아키텍처)
@@ -79,45 +181,28 @@ macos/build.sh install   # 빌드 후 /Applications 에 설치
 macos/build.sh release   # macos/dist/ 에 배포용 dmg·zip (arm64 + x86_64 유니버설, ad-hoc 서명)
 ```
 
-- SwiftPM 없이 `swiftc` 로 직접 컴파일한다(일부 Command Line Tools 에서 SwiftPM 이 동작하지 않아서).
-- 같은 이유로 SwiftUI `@State` 매크로 대신 `ViewState` 별칭을 쓴다(`Views/Theme.swift`).
-- 내장 터미널용 SwiftTerm 은 `macos/Vendor/SwiftTerm` 소스를 아키텍처별 정적 라이브러리(`macos/.build/swiftterm/<arch>/`)로 따로 컴파일한다(처음 한 번 1분쯤, 소스가 바뀔 때만 다시).
-- 키체인에 저장한 토큰을 빌드마다 다시 허용하지 않도록, 이 맥에 Apple Development 인증서가 있으면 그걸로 서명한다(`BRANCHWORK_SIGN_IDENTITY` 로 바꿀 수 있음).
-- 아이콘은 `macos/Tools/makeicon.sh` 가 처음 빌드할 때 만든다.
+- SwiftPM 없이 `swiftc` 로 직접 컴파일합니다(일부 Command Line Tools 에서 SwiftPM 이 동작하지 않아서). 같은 이유로 `@State` 매크로 대신 `ViewState` 별칭(`Views/Shared/Theme.swift`)
+- SwiftTerm 은 아키텍처별 정적 라이브러리(`macos/.build/swiftterm/<arch>/`)로 따로 컴파일(처음 한 번 1분쯤)
+- 이 맥에 Apple Development 인증서가 있으면 그걸로 서명(키체인 허용을 빌드마다 다시 묻지 않게, `BRANCHWORK_SIGN_IDENTITY` 로 변경)
+- `BRANCHWORK_TRACE=1` 로 실행하면 새로 고침 종류와 걸린 시간을 표준 오류로
 
-## 인증
+**Windows** — Node.js 22 와 Rust(stable).
 
-push/pull 이 자격 증명을 물으면 멈추지 않고 실패하도록 해 두었다(`GIT_TERMINAL_PROMPT=0`).
-설정(⌘,)에서 GitHub·GitLab 계정을 연결하면 HTTPS push/pull 에 그 토큰을 쓰고, 그 밖에는 키체인·SSH 키 등 기존 git 자격 증명을 그대로 쓴다.
+```sh
+cd windows
+npm ci
+npx tauri build      # src-tauri/target/release/bundle/nsis/*-setup.exe
+npx vitest run       # 파서·그래프·CI 단위 테스트
+```
 
-## Windows
+- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 열기 · 스테이지 · 커밋 · 브랜치 · 머지 · 검색 · stash · 터미널 · 자격 증명 · 도구 · AI · 나눠서 커밋 · 업데이트 서명 · CI/CD · WSL · 탭 메뉴 · 테마를 실제 앱에서 차례로 해 보고 결과를 남깁니다(가짜 서버 `tests/mock-ai-server.mjs`). GitHub Actions 의 Windows 서버에서 푸시마다 돌고, README 의 Windows 스크린샷도 거기서 찍습니다(`.github/workflows/windows.yml`)
+- **업데이트 서명**: 릴리스 빌드는 `TAURI_SIGNING_PRIVATE_KEY`(Actions 비밀 값)로 서명하고, 앱은 `tauri.conf.json` 의 공개 키로 확인한 뒤에만 설치. 릴리스에 `latest.json`(`windows/scripts/latest-json.mjs`)
 
-`windows/` 폴더에 같은 기능의 Windows 앱이 있다([Tauri](https://tauri.app) 2 — Rust 백엔드 + React 화면).
-
-- **설치**: [Releases](https://github.com/ChoMnSeong/Branchwork/releases) 의 `Branchwork_<버전>_x64-setup.exe`. Windows 10(1809 이상)·11, [Git for Windows](https://git-scm.com/download/win) 필요.
-  코드 서명을 하지 않은 빌드라 처음 실행할 때 SmartScreen 이 막으면 **추가 정보 → 실행** 을 누른다.
-- **맥 버전과 다른 점**
-  - 저장소 탭은 창 안의 탭(Ctrl+T 새 탭, Ctrl+W 닫기, Ctrl+Tab 이동, 가운데 클릭으로 닫기)
-  - 단축키는 ⌘ 대신 Ctrl(새로 고침은 F5, 다음 검색 결과는 F3)
-  - 터미널은 PowerShell(pwsh 가 있으면 pwsh). Ctrl+C 는 선택이 있으면 복사, Ctrl+V 붙여넣기
-  - 에이전트 세션(Claude Code·Codex·Gemini CLI)은 Terminal 앱 대신 아래 터미널 패널의 탭에서 돈다
-  - 토큰은 Windows 자격 증명 관리자에, 설정은 `%APPDATA%\Branchwork` 에 둔다
-- **빌드**: Node.js 22 와 Rust(stable) 가 있으면
-
-  ```sh
-  cd windows
-  npm ci
-  npx tauri build      # src-tauri/target/release/bundle/nsis/*-setup.exe
-  npx vitest run       # 파서·그래프 단위 테스트
-  ```
-
-- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 저장소 열기·스테이지·커밋·브랜치·머지·검색·stash·터미널·자격 증명·도우미 모드·도구 불러오기·AI 커밋 메시지·규칙·나눠서 커밋·업데이트 서명 확인·CI/CD(가짜 GitLab·GitHub 로 수동 작업 실행·워크플로 실행)를 실제 앱에서 차례로 해 보고 결과를 남긴다(가짜 AI·업데이트·GitLab·GitHub 서버 `tests/mock-ai-server.mjs`). GitHub Actions 의 Windows 서버에서 푸시마다 돈다(`.github/workflows/windows.yml`).
-- **업데이트 서명**: 릴리스 빌드는 `TAURI_SIGNING_PRIVATE_KEY`(GitHub Actions 비밀 값)로 설치 파일에 서명하고, 앱은 `tauri.conf.json` 의 공개 키로 확인한 뒤에만 설치한다. 릴리스에 `latest.json`(`windows/scripts/latest-json.mjs`)을 함께 올린다.
+</details>
 
 ## 라이선스
 
 [MIT](LICENSE) © 2026 조문성 (ChoMnSeong)
 
-포함된 서드파티 코드: [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) v1.20.0 — MIT ([macos/Vendor/SwiftTerm/LICENSE](macos/Vendor/SwiftTerm/LICENSE))
-
-Windows 앱이 쓰는 오픈소스: [Tauri](https://tauri.app)(MIT/Apache-2.0), [React](https://react.dev)(MIT), [xterm.js](https://xtermjs.org)(MIT), [portable-pty](https://github.com/wezterm/wezterm)(MIT), [Lucide](https://lucide.dev) 아이콘(ISC) 등 — 각 패키지의 라이선스를 따른다.
+포함된 서드파티 코드: [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) v1.20.0 — MIT ([macos/Vendor/SwiftTerm/LICENSE](macos/Vendor/SwiftTerm/LICENSE)).
+Windows 앱이 쓰는 오픈소스: [Tauri](https://tauri.app)(MIT/Apache-2.0), [React](https://react.dev)(MIT), [xterm.js](https://xtermjs.org)(MIT), [portable-pty](https://github.com/wezterm/wezterm)(MIT), [Lucide](https://lucide.dev) 아이콘(ISC) 등 — 각 패키지의 라이선스를 따릅니다.

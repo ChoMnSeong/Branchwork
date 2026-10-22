@@ -42,6 +42,10 @@ struct GraphView: View {
                                     focused = true
                                     store.select(entry.commit.isWIP ? .wip : .commit(entry.id))
                                 }
+                                // VoiceOver 등 접근성: 행 하나를 버튼처럼(메시지·작성자·날짜를 한 번에 읽고 눌러서 선택)
+                                .accessibilityElement(children: .combine)
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityAction { store.select(entry.commit.isWIP ? .wip : .commit(entry.id)) }
                                 .contextMenu { CommitMenu(commit: entry.commit) }
                         }
                         if store.hasMore {
