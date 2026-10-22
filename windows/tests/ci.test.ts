@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dispatchInputs, githubStatus, gitlabStatus, pipelineVariables } from "../src/lib/ci";
+import { dispatchInputs, pipelineVariables } from "../src/lib/ci/yaml";
+import { githubStatus, gitlabStatus } from "../src/lib/ci/models";
 
 describe("workflow_dispatch 입력값", () => {
   it("입력값(선택·참거짓·여러 줄 설명)을 읽는다", () => {

@@ -6,7 +6,7 @@ import { providerInfo, statusIsEmpty } from "../lib/models";
 import { useObserve } from "../lib/observable";
 import type { RepoStore } from "../lib/repo";
 import { workspace } from "../lib/workspace";
-import { showMenuBelow, Spinner, tip, type MenuItem } from "./ui";
+import { showMenuBelow, Spinner, tip, type MenuItem } from "./shared/ui";
 
 /** 툴바 버튼은 아이콘만. 무슨 버튼인지는 마우스를 올리면 설명 풍선으로 보여 준다. */
 export function Toolbar({ store }: { store: RepoStore }) {

@@ -2,15 +2,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useObserve } from "../lib/observable";
 import type { RepoStore } from "../lib/repo";
 import { settings } from "../lib/settings";
-import { DiffView } from "./DiffView";
-import { GraphView } from "./GraphView";
-import { Inspector } from "./Inspector";
-import { LoadingView } from "./LoadingView";
-import { SheetHost } from "./Sheets";
-import { Sidebar } from "./Sidebar";
+import { DiffView } from "./graph/DiffView";
+import { GraphView } from "./graph/GraphView";
+import { Inspector } from "./inspector/Inspector";
+import { LoadingView } from "./shared/LoadingView";
+import { SheetHost } from "./sheets";
+import { Sidebar } from "./sidebar/Sidebar";
 import { TerminalPanel } from "./TerminalPanel";
 import { Toolbar } from "./Toolbar";
-import { Button, Modal } from "./ui";
+import { Button, Modal } from "./shared/ui";
 import { WelcomeView } from "./WelcomeView";
 
 /** 탭 하나: 저장소 화면 또는 시작 화면, 그 위의 로딩 화면과 대화상자들 */

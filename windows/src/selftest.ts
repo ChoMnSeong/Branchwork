@@ -7,7 +7,8 @@ import { tools } from "./lib/tools";
 import { listDistros } from "./lib/wsl";
 import { agents } from "./lib/agents";
 import { workspace } from "./lib/workspace";
-import { CIAPI, canPlay } from "./lib/ci";
+import { CIAPI } from "./lib/ci/api";
+import { canPlay } from "./lib/ci/models";
 import { settings } from "./lib/settings";
 
 /**

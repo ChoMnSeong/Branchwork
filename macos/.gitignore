@@ -1,0 +1,5 @@
+.build/
+build/
+dist/
+Resources/icon_1024.png
+Resources/AppIcon.iconset/

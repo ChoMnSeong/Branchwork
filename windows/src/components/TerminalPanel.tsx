@@ -6,7 +6,7 @@ import { useObserve } from "../lib/observable";
 import type { RepoStore } from "../lib/repo";
 import { settings } from "../lib/settings";
 import type { TerminalSession } from "../lib/terminal";
-import { Button, IconButton, tip } from "./ui";
+import { Button, IconButton, tip } from "./shared/ui";
 
 /** 가운데 열 아래의 터미널 패널. 경계선을 끌어 높이를 바꾼다. */
 export function TerminalPanel({ store, columnHeight }: { store: RepoStore; columnHeight: number }) {

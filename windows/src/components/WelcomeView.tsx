@@ -5,7 +5,7 @@ import { useObserve } from "../lib/observable";
 import type { RepoStore } from "../lib/repo";
 import { recents, removeRecent, settings } from "../lib/settings";
 import { tools } from "../lib/tools";
-import { Button, showContextMenu } from "./ui";
+import { Button, showContextMenu } from "./shared/ui";
 import icon from "../assets/icon.png";
 
 /** 저장소를 열기 전 첫 화면: 열기·복제·새로 만들기 + 최근 저장소 */

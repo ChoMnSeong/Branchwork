@@ -51,25 +51,38 @@ Git 동작은 시스템 `git` 을 그대로 호출하고, 화면·그래프 배�
   - 상태는 Branchwork 가 띄운 세션에 `--settings` 로 더한 훅(`~/Library/Application Support/Branchwork/agents/hook.sh`)이 남기는 파일로 판단한다. 사용자 설정·훅은 그대로 유지된다.
 - **변경 파일 보기**: 목록 / 폴더 트리 전환(작업 영역·커밋 상세), 트리에서 폴더 단위 스테이지·언스테이지
 - **탭**: macOS 기본 창 탭으로 여러 저장소·워크트리를 열어 두고 오간다(⌘T 새 탭, ⌘W 닫기, ⌃Tab 이동, 탭을 끌어 새 창으로). 다른 저장소·워크트리를 열면 새 탭(이미 열려 있으면 그 탭). 다시 켜면 탭 복원
-- **터미널**(⌃` 보이기/숨기기, ⌃⇧` 새 터미널): 그래프 아래 패널에서 저장소 폴더의 로그인 셸(zsh)을 연다. 패널 안 탭으로 여러 개, 경계선을 끌어 높이 조절, 숨겨도 셸은 계속 실행, 탭 이름은 현재 폴더나 실행 중인 프로그램, 워크트리 우클릭 → '아래 터미널에서 열기'. git 명령을 치면 그래프가 자동으로 갱신된다. 터미널 에뮬레이터는 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm)(MIT, `Vendor/SwiftTerm`)
+- **터미널**(⌃` 보이기/숨기기, ⌃⇧` 새 터미널): 그래프 아래 패널에서 저장소 폴더의 로그인 셸(zsh)을 연다. 패널 안 탭으로 여러 개, 경계선을 끌어 높이 조절, 숨겨도 셸은 계속 실행, 탭 이름은 현재 폴더나 실행 중인 프로그램, 워크트리 우클릭 → '아래 터미널에서 열기'. git 명령을 치면 그래프가 자동으로 갱신된다. 터미널 에뮬레이터는 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm)(MIT, `macos/Vendor/SwiftTerm`)
 - **커밋 검색**(⌘F): 커밋(제목·작성자·SHA·브랜치 + 메시지 본문), 파일 경로, 코드 변경(-G). 결과 강조·나머지 흐리게, ⌘G/⇧⌘G·Enter 로 이동, 그래프 밖 결과는 더 불러와서 찾기
 - **기타**: 저장소 열기·복제·새로 만들기, 최근 저장소, 파일 변경 자동 새로 고침(FSEvents), 설정(⌘,)
 
-## 빌드
+## 저장소 구조
+
+```
+macos/     맥 앱(SwiftUI)
+  Sources/App       앱·창·탭·업데이트
+  Sources/Core      git 실행·출력 해석·그래프 배치·모델·파일 감시
+  Sources/Store     저장소 화면 상태(RepoStore)와 기능별 확장
+  Sources/Services  GitHub·GitLab·CI/CD·AI·계정·에이전트·도구·프로필 사진
+  Sources/Views     화면
+  Resources/ Tools/ Vendor/SwiftTerm/  build.sh
+windows/   Windows 앱(Tauri 2 + React): src-tauri(Rust), src/lib(상태·로직), src/components(화면), tests
+```
+
+## 빌드(맥)
 
 Swift 6 이상(Xcode 또는 Command Line Tools)만 있으면 된다. 외부 패키지를 내려받지 않는다.
 
 ```sh
-./build.sh           # build/Branchwork.app (이 맥의 아키텍처)
-./build.sh install   # 빌드 후 /Applications 에 설치
-./build.sh release   # dist/ 에 배포용 dmg·zip (arm64 + x86_64 유니버설, ad-hoc 서명)
+macos/build.sh           # macos/build/Branchwork.app (이 맥의 아키텍처)
+macos/build.sh install   # 빌드 후 /Applications 에 설치
+macos/build.sh release   # macos/dist/ 에 배포용 dmg·zip (arm64 + x86_64 유니버설, ad-hoc 서명)
 ```
 
 - SwiftPM 없이 `swiftc` 로 직접 컴파일한다(일부 Command Line Tools 에서 SwiftPM 이 동작하지 않아서).
-- 같은 이유로 SwiftUI `@State` 매크로 대신 `ViewState` 별칭을 쓴다(`Theme.swift`).
-- 내장 터미널용 SwiftTerm 은 `Vendor/SwiftTerm` 소스를 아키텍처별 정적 라이브러리(`.build/swiftterm/<arch>/`)로 따로 컴파일한다(처음 한 번 1분쯤, 소스가 바뀔 때만 다시).
+- 같은 이유로 SwiftUI `@State` 매크로 대신 `ViewState` 별칭을 쓴다(`Views/Theme.swift`).
+- 내장 터미널용 SwiftTerm 은 `macos/Vendor/SwiftTerm` 소스를 아키텍처별 정적 라이브러리(`macos/.build/swiftterm/<arch>/`)로 따로 컴파일한다(처음 한 번 1분쯤, 소스가 바뀔 때만 다시).
 - 키체인에 저장한 토큰을 빌드마다 다시 허용하지 않도록, 이 맥에 Apple Development 인증서가 있으면 그걸로 서명한다(`BRANCHWORK_SIGN_IDENTITY` 로 바꿀 수 있음).
-- 아이콘은 `Tools/makeicon.sh` 가 처음 빌드할 때 만든다.
+- 아이콘은 `macos/Tools/makeicon.sh` 가 처음 빌드할 때 만든다.
 
 ## 인증
 
@@ -104,6 +117,6 @@ push/pull 이 자격 증명을 물으면 멈추지 않고 실패하도록 해 �
 
 [MIT](LICENSE) © 2026 조문성 (ChoMnSeong)
 
-포함된 서드파티 코드: [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) v1.20.0 — MIT ([Vendor/SwiftTerm/LICENSE](Vendor/SwiftTerm/LICENSE))
+포함된 서드파티 코드: [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) v1.20.0 — MIT ([macos/Vendor/SwiftTerm/LICENSE](macos/Vendor/SwiftTerm/LICENSE))
 
 Windows 앱이 쓰는 오픈소스: [Tauri](https://tauri.app)(MIT/Apache-2.0), [React](https://react.dev)(MIT), [xterm.js](https://xtermjs.org)(MIT), [portable-pty](https://github.com/wezterm/wezterm)(MIT), [Lucide](https://lucide.dev) 아이콘(ISC) 등 — 각 패키지의 라이선스를 따른다.

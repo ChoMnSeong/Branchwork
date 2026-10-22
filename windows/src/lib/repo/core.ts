@@ -1,0 +1,643 @@
+import { accounts } from "../accounts";
+import type { AgentHost } from "../agents";
+import { avatars } from "../avatars";
+import { basename, env, joinPath, samePath, slash } from "../env";
+import { CIStore } from "../ci/store";
+import { describe, git, gitRaw, unsafeRepository, type GitOptions } from "../git";
+import { layoutGraph } from "../graph";
+import * as Hosting from "../hosting";
+import { ipc } from "../ipc";
+import {
+  emptyStatus,
+  refOrder,
+  sameTarget,
+  short,
+  statusCount,
+  statusIsEmpty,
+  WIP_ID,
+  wipCommit,
+  type Branch,
+  type CommitDetail,
+  type ConfirmRequest,
+  type DiffDocument,
+  type DiffSource,
+  type DropRequest,
+  type FileChange,
+  type GraphEntry,
+  type Identity,
+  type LineStat,
+  type LoadingInfo,
+  type LoadState,
+  type PullRequest,
+  type RefLabel,
+  type RepoState,
+  type RepoTarget,
+  type SearchScope,
+  type Selection,
+  type SheetKind,
+  type Stash,
+  type Tag,
+  type WorkingStatus,
+  type Worktree,
+  type WorktreeStats,
+} from "../models";
+import { Observable } from "../observable";
+import * as P from "../parsers";
+import { addRecent } from "../settings";
+import type { SplitGroup } from "../split";
+import { TerminalSession, type TerminalSpec } from "../terminal";
+
+export const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+
+/** 저장소 하나(=탭 하나)의 상태, 열기·닫기, 새로 고침 */
+export abstract class RepoCore extends Observable implements AgentHost {
+  // 뒤 단계(repo/*.ts)에서 채우는 것들
+  /** CI/CD 패널(파이프라인·Actions) — RepoStore 가 만든다 */
+  abstract readonly ci: CIStore;
+  abstract select(sel: Selection | null): void;
+  abstract closeDiff(): void;
+  protected abstract loadDiff(keepCurrent: boolean): void;
+  abstract get repoStateTitle(): string;
+  abstract loadPullRequests(): Promise<void>;
+  abstract newTerminal(path?: string, spec?: Partial<TerminalSpec>): TerminalSession;
+  abstract focusTerminal(s: TerminalSession): void;
+  abstract closeAllTerminals(): void;
+
+  readonly id = crypto.randomUUID();
+  /** 지금 보이는 탭인지 — 뒤에 있는 탭은 파일이 바뀌어도 바로 다시 읽지 않고 돌아왔을 때 읽는다 */
+  isActive = false;
+  protected pendingReload = false;
+
+  // 저장소
+  path: string | null = null;
+  gitDir: string | null = null;
+  get name() {
+    return this.path ? basename(this.path) : "Branchwork";
+  }
+
+  // 데이터
+  entries: GraphEntry[] = [];
+  maxLanes = 1;
+  commitIndex = new Map<string, number>();
+  refsByCommit = new Map<string, RefLabel[]>();
+  localBranches: Branch[] = [];
+  remoteBranches: Branch[] = [];
+  remotes: string[] = [];
+  tags: Tag[] = [];
+  stashes: Stash[] = [];
+  status: WorkingStatus = emptyStatus();
+  headHash: string | null = null;
+  headBranch: string | null = null;
+  repoState: RepoState = "clean";
+  hasMore = false;
+  protected limit = 2000;
+
+  // 선택·상세
+  selection: Selection | null = null;
+  detail: CommitDetail | null = null;
+  detailFiles: FileChange[] = [];
+  detailStats: Record<string, LineStat> = {};
+  diffSource: DiffSource | null = null;
+  diff: DiffDocument | null = null;
+  diffLoading = false;
+  scrollTarget: string | null = null;
+
+  // 커밋 입력
+  summary = "";
+  message = "";
+  amend = false;
+  protected mergeMessageFilled = false;
+
+  // UI
+  busy: string | null = null;
+  errorMessage: string | null = null;
+  sheet: SheetKind | null = null;
+  confirm: ConfirmRequest | null = null;
+  notRepoPrompt: string | null = null;
+  /** git 이 "소유자가 달라 믿을 수 없는 저장소"로 막았을 때(WSL·외장 디스크 등): 등록할 경로 */
+  unsafePrompt: { folder: string; safePath: string } | null = null;
+  dropRequest: DropRequest | null = null;
+  loading: LoadingInfo | null = null;
+  /** 탭이 처음 무엇을 보여 줄지 정했는지(그 전에는 로딩 화면) */
+  booted = false;
+
+  // 줄 수·나
+  stagedStats: Record<string, LineStat> = {};
+  unstagedStats: Record<string, LineStat> = {};
+  me: Identity | null = null;
+
+  // 검색
+  searchText = "";
+  searchScope: SearchScope = "commits";
+  searchMatches: string[] = [];
+  searchMatchSet = new Set<string>();
+  searchUnloaded = 0;
+  searching = false;
+  searchFocusRequest = 0;
+  protected searchGen = 0;
+  protected searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // 워크트리·호스팅·Claude
+  worktrees: Worktree[] = [];
+  worktreeStats: Record<string, WorktreeStats> = {};
+  remoteURLs: Record<string, string> = {};
+  target: RepoTarget | null = null;
+  pullRequests: PullRequest[] = [];
+  prState: LoadState = { kind: "idle" };
+  aiWorking: string | null = null;
+  splitPlan: SplitGroup[] | null = null;
+  aiNotice: string | null = null;
+  explanations: Record<string, string> = {};
+  explaining = new Set<string>();
+
+  // 터미널 패널
+  terminals: TerminalSession[] = [];
+  activeTerminalID: string | null = null;
+  showTerminal = false;
+
+  /** 다른 저장소·워크트리를 새 탭으로 여는 동작(작업 공간이 넣어 준다) */
+  openRepo: ((path: string) => void) | null = null;
+  /** 이 탭을 앞으로(에이전트 세션으로 이동할 때) */
+  activateTab: (() => void) | null = null;
+
+  protected reloadGeneration = 0;
+  protected watchIds: string[] = [];
+  protected unlisten: (() => void)[] = [];
+  protected watchTimer: ReturnType<typeof setTimeout> | null = null;
+  protected detailGen = 0;
+  protected diffGen = 0;
+
+  /** 화면이 바뀐 값을 다시 그리게 */
+  changed() {
+    this.emit();
+  }
+
+  get currentBranch() {
+    return this.localBranches.find((b) => b.isCurrent) ?? null;
+  }
+
+  get selectedID(): string | null {
+    if (!this.selection) return null;
+    if (this.selection.kind === "wip") return WIP_ID;
+    if (this.selection.kind === "commit") return this.selection.sha;
+    return null;
+  }
+
+  /** 연결된 워크트리(메인이 아닌)로 연 탭인지 */
+  get isLinkedWorktree() {
+    return !!this.gitDir && slash(this.gitDir).includes("/worktrees/");
+  }
+
+  protected g(args: string[], o: GitOptions = {}) {
+    return git(args, this.path!, o);
+  }
+
+  // MARK: - 열기·닫기
+
+  /** 폴더가 속한 저장소의 최상위 경로(저장소가 아니면 null) */
+  static async toplevel(folder: string): Promise<string | null> {
+    try {
+      const r = await gitRaw(["rev-parse", "--show-toplevel"], folder);
+      return r.status === 0 && r.stdout.trim() ? r.stdout.trim() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** 탭으로 돌아왔을 때: 뒤에 있는 동안 바뀐 게 있으면 다시 읽는다 */
+  async activated() {
+    if (!this.path) return;
+    if (this.pendingReload) {
+      this.pendingReload = false;
+      await this.reload(true);
+    }
+  }
+
+  async open(folder: string): Promise<{ kind: "opened" } | { kind: "notRepository"; path: string } | { kind: "failed"; message: string }> {
+    const started = Date.now();
+    this.loading = { title: `${basename(folder)} 여는 중`, step: "저장소 확인 중…" };
+    this.emit();
+    let r;
+    try {
+      r = await gitRaw(["rev-parse", "--show-toplevel", "--absolute-git-dir"], folder);
+    } catch (e) {
+      if (!this.path) this.loading = null;
+      this.emit();
+      return { kind: "failed", message: describe(e) };
+    }
+    if (r.status !== 0) {
+      if (!this.path) this.loading = null;
+      this.emit();
+      const unsafe = unsafeRepository(r.stderr);
+      if (unsafe) {
+        this.unsafePrompt = { folder, safePath: unsafe };
+        this.emit();
+        return { kind: "failed", message: "" };
+      }
+      if (r.stderr.includes("not a git repository")) return { kind: "notRepository", path: folder };
+      return { kind: "failed", message: r.stderr.trim() };
+    }
+    const lines = r.stdout.trim().split(/\r?\n/);
+    if (lines.length < 2) {
+      this.loading = null;
+      this.emit();
+      return { kind: "failed", message: "저장소 경로를 확인하지 못했습니다." };
+    }
+    this.stopWatching();
+    this.resetState();
+    const top = lines[0].trim();
+    this.loading = { title: `${basename(top)} 여는 중`, step: "커밋과 브랜치 읽는 중…" };
+    this.path = top;
+    this.gitDir = lines[1].trim();
+    addRecent(top);
+    this.emit();
+    try {
+      const n = await this.g(["config", "user.name"], { ok: [0, 1] });
+      const e = await this.g(["config", "user.email"], { ok: [0, 1] });
+      if (n.stdout.trim()) this.me = { name: n.stdout.trim(), email: e.stdout.trim() };
+    } catch {
+      /* 없음 */
+    }
+    await this.startWatching();
+    await this.reload();
+    this.selectDefault();
+    // 로딩 화면이 번쩍 지나가지 않게 애니메이션 한 호흡(약 0.9초)은 보여 준다
+    const shown = Date.now() - started;
+    if (shown < 900) await new Promise((res) => setTimeout(res, 900 - shown));
+    this.loading = null;
+    this.emit();
+    return { kind: "opened" };
+  }
+
+  async openInPlace(folder: string) {
+    const r = await this.open(folder);
+    if (r.kind === "notRepository") this.notRepoPrompt = r.path;
+    else if (r.kind === "failed" && r.message) this.errorMessage = r.message;
+    this.booted = true;
+    this.emit();
+  }
+
+  /** 다른 저장소·워크트리 열기: 빈 탭이면 이 자리에, 저장소가 열린 탭이면 새 탭으로 */
+  async openOrReport(folder: string) {
+    if (!this.path) {
+      await this.openInPlace(folder);
+      return;
+    }
+    const top = await RepoCore.toplevel(folder);
+    if (!top) {
+      const r = await gitRaw(["rev-parse", "--show-toplevel"], folder).catch(() => null);
+      const unsafe = r ? unsafeRepository(r.stderr) : null;
+      if (unsafe) this.unsafePrompt = { folder, safePath: unsafe };
+      else this.notRepoPrompt = folder;
+      this.emit();
+      return;
+    }
+    if (samePath(top, this.path)) return;
+    this.openRepo?.(top);
+  }
+
+  /** 막힌 저장소를 git 의 safe.directory 에 등록하고 다시 연다 */
+  async trustRepository() {
+    const p = this.unsafePrompt;
+    if (!p) return;
+    this.unsafePrompt = null;
+    this.emit();
+    try {
+      await git(["config", "--global", "--add", "safe.directory", p.safePath], env.home || env.temp);
+    } catch (e) {
+      this.fail(e);
+      return;
+    }
+    await this.openOrReport(p.folder);
+  }
+
+  close() {
+    this.closeAllTerminals();
+    this.stopWatching();
+    this.resetState();
+    this.path = null;
+    this.gitDir = null;
+    this.emit();
+  }
+
+  protected async startWatching() {
+    if (!this.path) return;
+    const dirs = [this.path];
+    // 연결된 워크트리는 HEAD·refs 가 저장소 밖(.git/worktrees, 공용 .git)에 있어 그쪽도 본다
+    try {
+      const common = (await this.g(["rev-parse", "--path-format=absolute", "--git-common-dir"])).stdout.trim();
+      for (const d of [this.gitDir, common]) {
+        if (d && !slash(d).toLowerCase().startsWith(slash(this.path).toLowerCase() + "/") && !dirs.some((x) => samePath(x, d))) dirs.push(d);
+      }
+    } catch {
+      /* 무시 */
+    }
+    for (const d of dirs) {
+      const id = `${this.id}-${this.watchIds.length}`;
+      try {
+        await ipc.watchStart(id, d);
+        this.watchIds.push(id);
+        this.unlisten.push(await ipc.onWatch(id, (paths) => this.fileSystemChanged(paths)));
+      } catch {
+        /* 감시를 못 해도 새로 고침(F5)으로 볼 수 있다 */
+      }
+    }
+  }
+
+  protected stopWatching() {
+    for (const id of this.watchIds) void ipc.watchStop(id);
+    for (const u of this.unlisten) u();
+    this.watchIds = [];
+    this.unlisten = [];
+  }
+
+  protected resetState() {
+    this.entries = [];
+    this.maxLanes = 1;
+    this.commitIndex = new Map();
+    this.refsByCommit = new Map();
+    this.localBranches = [];
+    this.remoteBranches = [];
+    this.remotes = [];
+    this.tags = [];
+    this.stashes = [];
+    this.status = emptyStatus();
+    this.headHash = null;
+    this.headBranch = null;
+    this.repoState = "clean";
+    this.hasMore = false;
+    this.limit = 2000;
+    this.selection = null;
+    this.detail = null;
+    this.detailFiles = [];
+    this.diffSource = null;
+    this.diff = null;
+    this.summary = "";
+    this.message = "";
+    this.amend = false;
+    this.mergeMessageFilled = false;
+    this.worktrees = [];
+    this.remoteURLs = {};
+    this.target = null;
+    this.pullRequests = [];
+    this.prState = { kind: "idle" };
+    this.ci.reset();
+    this.aiWorking = null;
+    this.aiNotice = null;
+    this.explanations = {};
+    this.explaining = new Set();
+    this.detailGen++;
+    this.diffGen++;
+  }
+
+  async pickAndOpen() {
+    const p = await ipc.pickFolder("Git 저장소 폴더를 선택하세요");
+    if (p) await this.openOrReport(p);
+  }
+
+  async pickAndInit() {
+    const p = await ipc.pickFolder("새 Git 저장소를 만들 폴더를 선택하세요");
+    if (p) await this.initRepository(p);
+  }
+
+  async initRepository(folder: string) {
+    try {
+      await git(["init"], folder);
+      await this.openOrReport(folder);
+    } catch (e) {
+      this.fail(e);
+    }
+  }
+
+  async clone(remote: string, parent: string, folder: string) {
+    this.busy = "복제 중…";
+    if (!this.path) this.loading = { title: `${folder} 복제 중`, step: "원격 저장소에서 받는 중…" };
+    this.emit();
+    try {
+      await git(["clone", "--", remote, folder], parent, { timeoutMs: 3_600_000, env: await accounts.gitEnvironment(null, null) });
+      this.busy = null;
+      await this.openOrReport(joinPath(parent, folder));
+    } catch (e) {
+      this.busy = null;
+      if (!this.path) this.loading = null;
+      this.fail(e);
+    }
+  }
+
+  fail(e: unknown) {
+    this.errorMessage = describe(e);
+    this.emit();
+  }
+
+  showError(message: string) {
+    this.errorMessage = message;
+    this.emit();
+  }
+
+  // MARK: - 새로 고침
+
+  protected latestReload: Promise<void> | null = null;
+
+  /** 저장소를 다시 읽는다. 도중에 더 새 읽기가 시작되면 그것까지 기다린다(부른 쪽이 늘 최신 상태를 보게). */
+  async reload(quiet = false) {
+    const p = this.readAll(quiet);
+    this.latestReload = p;
+    await p;
+    while (this.latestReload && this.latestReload !== p) {
+      const q: Promise<void> = this.latestReload;
+      await q;
+      if (this.latestReload === q) break;
+    }
+  }
+
+  protected async readAll(quiet: boolean) {
+    const path = this.path;
+    if (!path) return;
+    const gen = ++this.reloadGeneration;
+    try {
+      const [st, lg, rf, sh, hd, rm, wt, un, sn] = await Promise.all([
+        this.g(["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"]),
+        this.g(["log", "--exclude=refs/stash", "--all", "--date-order", "-n", String(this.limit + 1), "--format=" + P.logFormat], { ok: [0, 128] }),
+        this.g(["for-each-ref", "--format=" + P.refFormat, "refs/heads", "refs/remotes", "refs/tags"]),
+        this.g(["stash", "list", "--format=" + P.stashFormat], { ok: [0, 1, 128] }),
+        this.g(["rev-parse", "--verify", "-q", "HEAD"], { ok: [0, 1, 128] }),
+        this.g(["remote", "-v"]),
+        this.g(["worktree", "list", "--porcelain"], { ok: [0, 128] }),
+        this.g(["diff", "--no-ext-diff", "--numstat", "-z"], { ok: [0, 128] }),
+        this.g(["diff", "--cached", "--no-ext-diff", "-M", "--numstat", "-z"], { ok: [0, 128] }),
+      ]);
+      if (gen !== this.reloadGeneration || this.path !== path) return;
+
+      const newStatus = P.parseStatus(st.stdout);
+      const head = hd.status === 0 ? hd.stdout.trim() : null;
+      let commits = P.parseLog(lg.stdout);
+      const more = commits.length > this.limit;
+      if (more) commits = commits.slice(0, this.limit);
+      if (!statusIsEmpty(newStatus)) commits.unshift(wipCommit(head));
+      if (this.loading) {
+        this.loading = { ...this.loading, step: `커밋 ${commits.length}개로 그래프 그리는 중…` };
+        this.emit();
+      }
+      const layout = layoutGraph(commits);
+
+      const refs = P.parseRefs(rf.stdout);
+      this.status = newStatus;
+      this.headHash = head;
+      this.headBranch = newStatus.branch;
+      this.localBranches = refs.locals;
+      this.remoteBranches = refs.remotes;
+      this.tags = refs.tags;
+      this.stashes = P.parseStashes(sh.stdout);
+      const parsed = P.parseRemotes(rm.stdout);
+      this.remotes = parsed.names;
+      this.remoteURLs = parsed.urls;
+      this.worktrees = P.parseWorktrees(wt.stdout);
+      this.unstagedStats = P.parseNumstat(un.stdout);
+      this.stagedStats = P.parseNumstat(sn.stdout);
+      const newTarget = Hosting.findTarget(
+        this.remotes,
+        this.remoteURLs,
+        accounts.accountsFor("gitlab").map((a) => new URL(a.server).host.toLowerCase()),
+      );
+      if (newTarget?.provider === "github") avatars.noteGitHubRepo(newTarget.path);
+      if (!sameTarget(newTarget, this.target)) {
+        this.target = newTarget;
+        this.ci.reset();
+        void this.loadPullRequests();
+      }
+      this.hasMore = more;
+      this.maxLanes = layout.maxLanes;
+      this.entries = commits.map((c, i) => ({ commit: c, row: layout.rows[i] }));
+      this.commitIndex = new Map();
+      this.entries.forEach((e, i) => {
+        if (!this.commitIndex.has(e.commit.id)) this.commitIndex.set(e.commit.id, i);
+      });
+      this.refsByCommit = this.buildRefMap(head);
+      this.repoState = await this.detectState();
+      await this.prefillMergeMessage();
+      this.fixSelection();
+      if (this.searchMatchSet.size) this.searchMatches = this.entries.filter((e) => this.searchMatchSet.has(e.commit.id)).map((e) => e.commit.id);
+      this.emit();
+    } catch (e) {
+      if (gen !== this.reloadGeneration || quiet) return;
+      this.fail(e);
+    }
+  }
+
+  async loadMore() {
+    this.limit += 3000;
+    await this.reload();
+  }
+
+  protected fileSystemChanged(paths: string[]) {
+    if (!this.path || !paths.length) return;
+    if (!this.isActive) {
+      this.pendingReload = true;
+      return;
+    }
+    if (this.watchTimer) clearTimeout(this.watchTimer);
+    this.watchTimer = setTimeout(() => {
+      if (this.busy == null) void this.reload(true);
+    }, 500);
+  }
+
+  protected buildRefMap(head: string | null) {
+    const map = new Map<string, RefLabel[]>();
+    const add = (k: string, r: RefLabel) => {
+      const l = map.get(k);
+      if (l) l.push(r);
+      else map.set(k, [r]);
+    };
+    if (!this.headBranch && head) add(head, { name: "HEAD", kind: "head", isCurrent: true });
+    for (const b of this.localBranches) add(b.target, { name: b.name, kind: "local", isCurrent: b.isCurrent });
+    for (const b of this.remoteBranches) add(b.target, { name: b.name, kind: "remote", isCurrent: false });
+    for (const t of this.tags) add(t.target, { name: t.name, kind: "tag", isCurrent: false });
+    for (const l of map.values()) l.sort((a, b) => (a.isCurrent ? 0 : 1) - (b.isCurrent ? 0 : 1) || refOrder[a.kind] - refOrder[b.kind]);
+    return map;
+  }
+
+  protected async detectState(): Promise<RepoState> {
+    const g = this.gitDir;
+    if (!g) return "clean";
+    const has = (p: string) => ipc.exists(joinPath(g, p));
+    const [rm, ra, mh, ch, rh] = await Promise.all([has("rebase-merge"), has("rebase-apply"), has("MERGE_HEAD"), has("CHERRY_PICK_HEAD"), has("REVERT_HEAD")]);
+    if (rm || ra) return "rebasing";
+    if (mh) return "merging";
+    if (ch) return "cherryPicking";
+    if (rh) return "reverting";
+    return "clean";
+  }
+
+  /** 머지·cherry-pick 충돌 중이면 git 이 준비한 MERGE_MSG 로 커밋 메시지를 한 번 채운다 */
+  protected async prefillMergeMessage() {
+    if (this.repoState === "clean") {
+      this.mergeMessageFilled = false;
+      return;
+    }
+    if (this.mergeMessageFilled || this.summary || this.message || !this.gitDir) return;
+    const text = await ipc.readText(joinPath(this.gitDir, "MERGE_MSG"));
+    if (!text) return;
+    this.mergeMessageFilled = true;
+    const lines = text.replace(/\r/g, "").split("\n").filter((l) => !l.startsWith("#"));
+    this.summary = (lines[0] ?? "").trim();
+    this.message = lines.slice(1).join("\n").trim();
+  }
+
+  protected fixSelection() {
+    const sel = this.selection;
+    if (!sel) this.selectDefault();
+    else if (sel.kind === "commit" && !this.commitIndex.has(sel.sha) && !this.stashes.some((s) => s.hash === sel.sha)) this.selectDefault();
+    const ds = this.diffSource;
+    if (ds?.kind === "working") {
+      const all = [...this.status.staged, ...this.status.unstaged, ...this.status.conflicted];
+      const match = all.find((c) => c.path === ds.change.path && c.staged === ds.change.staged);
+      if (match) {
+        this.diffSource = { kind: "working", change: match };
+        this.loadDiff(true);
+      } else this.closeDiff();
+    }
+  }
+
+  selectDefault() {
+    if (!statusIsEmpty(this.status) || !this.headHash) {
+      this.select({ kind: "wip" });
+      this.scrollTarget = this.entries[0]?.commit.id ?? null;
+    } else {
+      this.select({ kind: "commit", sha: this.headHash });
+      this.scrollTarget = this.headHash;
+    }
+  }
+
+  // MARK: - 기타
+
+  revealFile(c: FileChange) {
+    if (this.path) void ipc.reveal(joinPath(this.path, c.path)).catch((e) => this.fail(e));
+  }
+
+  copy(text: string) {
+    void navigator.clipboard.writeText(text);
+  }
+
+  openUrl(url: string) {
+    void ipc.openUrl(url).catch((e) => this.fail(e));
+  }
+
+  // 요약 문자열
+
+  get subtitle() {
+    if (!this.headBranch) return this.headHash ? `분리된 HEAD · ${short(this.headHash)}` : "";
+    let s = this.headBranch;
+    if (this.status.upstream) {
+      s += `  →  ${this.status.upstream}`;
+      if (this.status.ahead) s += `  ↑${this.status.ahead}`;
+      if (this.status.behind) s += `  ↓${this.status.behind}`;
+    }
+    if (this.repoState !== "clean") s += `  ·  ${this.repoStateTitle}`;
+    return s;
+  }
+
+  get wipCount() {
+    return statusCount(this.status);
+  }
+}
+

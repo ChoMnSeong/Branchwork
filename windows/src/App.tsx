@@ -1,11 +1,11 @@
 import { Menu, Plus, Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { LoadingView } from "./components/LoadingView";
+import { LoadingView } from "./components/shared/LoadingView";
 import { RepoContainer } from "./components/RepoContainer";
-import { SettingsDialog, type SettingsTab } from "./components/SettingsDialog";
+import { SettingsDialog, type SettingsTab } from "./components/settings/SettingsDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { updater } from "./lib/updater";
-import { IconButton, MenuHost, showMenuBelow, Spinner, tip, TooltipHost } from "./components/ui";
+import { IconButton, MenuHost, showMenuBelow, Spinner, tip, TooltipHost } from "./components/shared/ui";
 import { env, isMac, keyLabel } from "./lib/env";
 import { ipc } from "./lib/ipc";
 import { useObserve } from "./lib/observable";

@@ -2,7 +2,7 @@ import { Download } from "lucide-react";
 import { env } from "../lib/env";
 import { useObserve } from "../lib/observable";
 import { updater } from "../lib/updater";
-import { Button, Modal, Spinner } from "./ui";
+import { Button, Modal, Spinner } from "./shared/ui";
 
 const mb = (n: number) => (n / 1024 / 1024).toFixed(1);
 
