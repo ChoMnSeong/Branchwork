@@ -128,6 +128,9 @@ export function commitMenu(store: RepoStore, c: Commit): MenuItem[] {
       "divider",
     );
   }
+  if (current) {
+    items.push({ label: "여기부터 커밋 정리(합치기·순서·메시지)…", disabled: store.repoState !== "clean", onClick: () => void store.startInteractiveRebase(c.id) }, "divider");
+  }
   items.push(
     { label: "여기서 새 브랜치…", onClick: () => store.requestNewBranch(c.id, short(c.id)) },
     { label: "여기에 태그…", onClick: () => sheet({ kind: "tag", sha: c.id }) },

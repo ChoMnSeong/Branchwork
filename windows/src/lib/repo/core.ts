@@ -49,6 +49,7 @@ import { Observable } from "../observable";
 import type { UndoPoint } from "./undo-model";
 import type { PullRequestReview } from "../review";
 import * as P from "../parsers";
+import type { RebasePlan } from "../rebase";
 import { addRecent, settings } from "../settings";
 import type { SplitGroup } from "../split";
 import { TerminalSession, type TerminalSpec } from "../terminal";
@@ -194,6 +195,8 @@ export abstract class RepoCore extends Observable implements AgentHost {
   conflictDoc: ConflictDocument | null = null;
   conflictChoices = new Map<number, ConflictChoice>();
   conflictPath: string | null = null;
+  /** 커밋 정리(인터랙티브 리베이스) 창에 넘길 계획 */
+  rebasePlan: RebasePlan | null = null;
 
   // 터미널 패널
   terminals: TerminalSession[] = [];

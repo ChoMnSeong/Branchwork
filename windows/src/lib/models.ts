@@ -393,7 +393,9 @@ export type SheetKind =
   | { kind: "addWorktree"; branch: string | null; start: string | null }
   | { kind: "splitCommits" }
   /** 새 파이프라인(GitLab) / 워크플로 실행(GitHub) */
-  | { kind: "runPipeline" };
+  | { kind: "runPipeline" }
+  /** 커밋 정리(인터랙티브 리베이스) */
+  | { kind: "interactiveRebase" };
 
 export interface ConfirmRequest {
   title: string;

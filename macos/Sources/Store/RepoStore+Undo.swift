@@ -78,6 +78,8 @@ extension RepoStore {
     }
 
     static func undoTitle(_ args: [String], input: String?, after: RefSnapshot) -> String {
+        var args = args
+        while args.first == "-c" { args.removeFirst(min(2, args.count)) }   // git -c 설정 이름=값 …
         let last = args.last ?? ""
         switch args.first {
         case "commit":
@@ -87,7 +89,7 @@ extension RepoStore {
             if args.contains("-c") || args.contains("-b") { return "브랜치 '\(UndoPoint.short(after.headRef) ?? last)' 만들고 체크아웃" }
             return "'\(UndoPoint.short(after.headRef) ?? String(last.prefix(7)))' 체크아웃"
         case "merge": return args.contains("--ff-only") ? "'\(last)' 까지 빨리 감기" : "'\(last)' 머지"
-        case "rebase": return "'\(last)' 위로 리베이스"
+        case "rebase": return args.contains("-i") ? "커밋 정리" : "'\(last)' 위로 리베이스"
         case "reset": return "Reset(\(args.dropFirst().first?.replacingOccurrences(of: "--", with: "") ?? ""))"
         case "cherry-pick": return "Cherry-pick"
         case "revert": return "Revert"

@@ -52,6 +52,7 @@ export function undoSummary(p: UndoPoint): string {
 }
 
 export function undoTitle(args: string[], input: string | undefined, after: RefSnapshot): string {
+  while (args[0] === "-c") args = args.slice(2); // git -c 설정 이름=값 …
   const last = args[args.length - 1] ?? "";
   switch (args[0]) {
     case "commit": {
@@ -65,7 +66,7 @@ export function undoTitle(args: string[], input: string | undefined, after: RefS
     case "merge":
       return args.includes("--ff-only") ? `'${last}' 까지 빨리 감기` : `'${last}' 머지`;
     case "rebase":
-      return `'${last}' 위로 리베이스`;
+      return args.includes("-i") ? "커밋 정리" : `'${last}' 위로 리베이스`;
     case "reset":
       return `Reset(${(args[1] ?? "").replace(/^--/, "")})`;
     case "cherry-pick":

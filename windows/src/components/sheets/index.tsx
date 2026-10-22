@@ -5,6 +5,7 @@ import { AddWorktreeSheet } from "./AddWorktreeSheet";
 import { NewBranchSheet, StashSheet, TagSheet } from "./BasicSheets";
 import { CloneSheet } from "./CloneSheet";
 import { CreatePullRequestSheet } from "./CreatePullRequestSheet";
+import { InteractiveRebaseSheet } from "./InteractiveRebaseSheet";
 import { SplitCommitsSheet } from "./SplitCommitsSheet";
 import { StartAgentSheet } from "./StartAgentSheet";
 
@@ -38,5 +39,7 @@ function SheetSwitch({ store, sheet, close }: { store: RepoStore; sheet: SheetKi
       return <SplitCommitsSheet store={store} close={close} />;
     case "runPipeline":
       return <RunPipelineSheet store={store} close={close} />;
+    case "interactiveRebase":
+      return <InteractiveRebaseSheet store={store} close={close} />;
   }
 }

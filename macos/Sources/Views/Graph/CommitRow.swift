@@ -334,6 +334,11 @@ struct CommitMenu: View {
                 Button("'\(current)'을(를) 이 커밋 위로 리베이스") { Task { await store.rebase(onto: commit.id) } }
                 Divider()
             }
+            if store.headBranch != nil {
+                Button("여기부터 커밋 정리(합치기·순서·메시지)…") { Task { await store.startInteractiveRebase(from: commit.id) } }
+                    .disabled(store.repoState != .clean)
+                Divider()
+            }
             Button("여기서 새 브랜치…") { store.requestNewBranch(from: commit.id, label: commit.short) }
             Button("여기에 태그…") { store.sheet = .tag(sha: commit.id) }
             Button("여기서 워크트리 만들기…") { store.sheet = .addWorktree(branch: nil, start: commit.id) }

@@ -108,6 +108,8 @@ final class RepoStore: Identifiable {
     var conflictDoc: ConflictDocument?
     var conflictChoices: [Int: ConflictDocument.Choice] = [:]
     var conflictPath: String?
+    /// 커밋 정리(인터랙티브 리베이스) 창에 넘길 계획
+    var rebasePlan: RebasePlan?
     /// 고른 PR·MR 의 대화·바뀐 파일·승인
     var review: PullRequestReview?
     var reviewLoading = false

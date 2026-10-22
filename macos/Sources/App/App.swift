@@ -240,6 +240,7 @@ struct RepoContainer: View {
             case .addWorktree(let branch, let start): AddWorktreeSheet(presetBranch: branch, start: start)
             case .splitCommits: SplitCommitsSheet()
             case .runPipeline: RunPipelineSheet()
+            case .interactiveRebase: InteractiveRebaseSheet()
             }
         }
         .alert("작업을 완료하지 못했습니다",

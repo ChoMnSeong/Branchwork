@@ -482,6 +482,8 @@ enum SheetKind: Identifiable {
     case splitCommits
     /// 새 파이프라인(GitLab) / 워크플로 실행(GitHub)
     case runPipeline
+    /// 커밋 정리(인터랙티브 리베이스)
+    case interactiveRebase
 
     var id: String {
         switch self {
@@ -494,6 +496,7 @@ enum SheetKind: Identifiable {
         case .addWorktree(let b, let s): return "wt:" + (b ?? "") + ":" + (s ?? "")
         case .splitCommits: return "split"
         case .runPipeline: return "runPipeline"
+        case .interactiveRebase: return "interactiveRebase"
         }
     }
 }

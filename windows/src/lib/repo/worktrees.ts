@@ -3,10 +3,10 @@ import { basename, dirname, joinPath } from "../env";
 import { git } from "../git";
 import { worktreeStats, type Worktree, type WorktreeStats } from "../models";
 import * as P from "../parsers";
-import { RepoDrop } from "./drop";
+import { RepoRebase } from "./rebase";
 
 /** 워크트리·에이전트 세션 */
-export abstract class RepoWorktrees extends RepoDrop {
+export abstract class RepoWorktrees extends RepoRebase {
   /** 기본 위치: <저장소 상위>/<저장소 이름>-worktrees/<브랜치> */
   defaultWorktreePath(branch: string) {
     if (!this.path) return "";

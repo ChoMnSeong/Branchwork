@@ -565,6 +565,33 @@ export async function runSelfTest(): Promise<boolean> {
     return [commitOk && checkoutOk, `title=${title} commit=${commitOk} checkout=${checkoutOk} head=${s.headBranch} error=${s.errorMessage}`];
   });
 
+  // 커밋 정리: 커밋 세 개를 만들고 가운데를 아래 커밋에 합치고 맨 위 메시지를 고친 뒤(실제 git rebase -i), 되돌리기
+  await step("커밋 정리(인터랙티브 리베이스)", async () => {
+    for (const n of [1, 2, 3]) {
+      await ipc.writeText(joinPath(repo, `tidy-${n}.txt`), `${n}\n`);
+      await until(() => s.status.unstaged.some((c) => c.path === `tidy-${n}.txt`), 8000);
+      await s.stageAll();
+      s.setSummary(`정리 ${n}`);
+      await s.commit();
+    }
+    const first = s.entries.find((e) => e.commit.subject === "정리 1")?.commit.id ?? "";
+    await s.startInteractiveRebase(first);
+    const opened = await until(() => document.querySelectorAll(".rebase-item").length === 3, 3000);
+    const plan = s.rebasePlan!;
+    plan.items[0] = { ...plan.items[0], action: "reword", newMessage: "정리 3 고침 '따옴표'" };
+    plan.items[1] = { ...plan.items[1], action: "squash" };
+    s.sheet = null;
+    s.changed();
+    await s.runInteractiveRebase(plan);
+    const log = (await gitRaw(["log", "-2", "--format=%s"], repo)).stdout.trim().split(/\r?\n/);
+    const files = (await gitRaw(["show", "--name-only", "--format=", "HEAD~1"], repo)).stdout.trim().split(/\r?\n/);
+    const tidied = log[0] === "정리 3 고침 '따옴표'" && log[1] === "정리 1" && files.join(",") === "tidy-1.txt,tidy-2.txt" && s.repoState === "clean";
+    const title = s.undoStack[s.undoStack.length - 1]?.title;
+    await s.undo();
+    const back = (await gitRaw(["log", "-3", "--format=%s"], repo)).stdout.trim().split(/\r?\n/).join(",") === "정리 3,정리 2,정리 1";
+    return [opened && tidied && title === "커밋 정리" && back, `opened=${opened} log=${log} files=${files} title=${title} back=${back} error=${s.errorMessage}`];
+  });
+
   // 탭 우클릭 → '다른 탭 모두 닫기': 실제 화면의 탭에서 메뉴를 띄워 눌러 본다
   await step("탭 우클릭 메뉴(다른 탭 모두 닫기)", async () => {
     workspace.newTab();
