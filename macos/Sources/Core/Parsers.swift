@@ -231,20 +231,21 @@ enum Parsers {
 
     static func diff(_ text: String, maxLines: Int = 20_000) -> DiffDocument {
         var doc = DiffDocument()
-        var body = Substring(text)
-        if body.hasSuffix("\n") { body = body.dropLast() }
-        guard !body.isEmpty else { return doc }
+        var lines = text.lfLines()
+        if lines.last?.isEmpty == true { lines.removeLast() }   // 끝의 줄바꿈
+        guard !lines.isEmpty else { return doc }
 
         var oldNo = 0, newNo = 0, inHunk = false, cols = 1, id = 0, files = 0
         func push(_ kind: DiffLine.Kind, _ s: String, _ o: Int?, _ n: Int?, raw: String = "") {
             doc.lines.append(DiffLine(id: id, kind: kind, text: s, oldNo: o, newNo: n, raw: raw,
-                                      hunk: doc.hunks.isEmpty || kind == .meta && !inHunk ? nil : doc.hunks.count - 1))
+                                      hunk: doc.hunks.isEmpty ? nil : doc.hunks.count - 1))
             id += 1
         }
 
-        for raw in body.split(separator: "\n", omittingEmptySubsequences: false) {
+        // 줄 끝의 \r(CRLF 파일)은 화면에서는 빼고, 줄 단위 스테이지 패치용 원문(raw)에는 남긴다
+        for line in lines {
             if doc.lines.count >= maxLines { doc.truncated = true; break }
-            let s = String(raw)
+            let s = line.hasSuffix("\r") ? String(line.dropLast()) : line
             if s.hasPrefix("@@") {
                 inHunk = true
                 cols = max(1, s.prefix(while: { $0 == "@" }).count - 1)   // "@@" 1열, 결합 diff "@@@" 2열
@@ -258,18 +259,17 @@ enum Parsers {
             }
             if s.hasPrefix("diff ") { inHunk = false; files += 1 }
             if !inHunk {
-                if files <= 1 { doc.header.append(s) }
-                if s.hasPrefix("Binary files") || s.hasPrefix("GIT binary patch") { doc.isBinary = true }
-                if s.hasPrefix("new file mode") || s.hasPrefix("deleted file mode") || s.hasPrefix("similarity")
-                    || s.hasPrefix("rename ") || s.hasPrefix("old mode") || s.hasPrefix("new mode") {
-                    push(.meta, s, nil, nil)
+                if files <= 1 {
+                    doc.header.append(s)
+                    readInfo(s, into: &doc.info)
                 }
+                if s.hasPrefix("Binary files") || s.hasPrefix("GIT binary patch") { doc.isBinary = true }
                 continue
             }
-            if s.hasPrefix("\\") { push(.meta, s, nil, nil, raw: s); continue }
+            if s.hasPrefix("\\") { push(.meta, "파일 끝에 줄바꿈 없음", nil, nil, raw: s); continue }
             let marker = s.prefix(cols)
-            let raw = String(s.dropFirst(cols))
-            let content = raw.replacingOccurrences(of: "\t", with: "    ")
+            let raw = String(line.dropFirst(cols))
+            let content = s.dropFirst(cols).replacingOccurrences(of: "\t", with: "    ")
             if marker.contains("+") && !marker.contains("-") {
                 push(.added, content, nil, newNo, raw: raw); newNo += 1
             } else if marker.contains("-") {
@@ -278,9 +278,23 @@ enum Parsers {
                 push(.context, content, oldNo, newNo, raw: raw); oldNo += 1; newNo += 1
             }
         }
+        doc.hasOldSide = doc.lines.contains { $0.oldNo != nil }
+        doc.hasNewSide = doc.lines.contains { $0.newNo != nil }
         WordDiff.mark(&doc)
         doc.splitRows = DiffSplit.rows(doc.lines)
         return doc
+    }
+
+    /// diff 머리 한 줄에서 새 파일·지운 파일·권한·이름 바꿈을 읽는다
+    private static func readInfo(_ s: String, into info: inout DiffFileInfo) {
+        func rest(_ prefix: String) -> String? { s.hasPrefix(prefix) ? String(s.dropFirst(prefix.count)) : nil }
+        if let m = rest("new file mode ") { info.newFile = true; info.newMode = m }
+        else if let m = rest("deleted file mode ") { info.deletedFile = true; info.oldMode = m }
+        else if let m = rest("old mode ") { info.oldMode = m }
+        else if let m = rest("new mode ") { info.newMode = m }
+        else if let p = rest("rename from ") { info.renameFrom = p }
+        else if let p = rest("rename to ") { info.renameTo = p }
+        else if let v = rest("similarity index ") { info.similarity = Int(v.trimmingCharacters(in: CharacterSet(charactersIn: "%"))) }
     }
 
     // MARK: 파일 히스토리 · blame
@@ -307,10 +321,11 @@ enum Parsers {
         var infos: [String: Info] = [:]
         var out: [BlameLine] = []
         var sha = "", lineNo = 0, prevSha = ""
-        for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        for raw in text.lfLines() {
             if raw.hasPrefix("\t") {
                 let info = infos[sha] ?? Info()
-                out.append(BlameLine(id: lineNo, sha: sha, text: String(raw.dropFirst()).replacingOccurrences(of: "\t", with: "    "),
+                let code = raw.hasSuffix("\r") ? raw.dropFirst().dropLast() : raw.dropFirst()
+                out.append(BlameLine(id: lineNo, sha: sha, text: code.replacingOccurrences(of: "\t", with: "    "),
                                      author: info.author, email: info.email, date: Date(timeIntervalSince1970: info.time),
                                      summary: info.summary, startsBlock: sha != prevSha))
                 prevSha = sha
@@ -347,5 +362,12 @@ enum Parsers {
     private static func hunkStart(_ s: String, _ sign: Character) -> Int {
         guard let r = s.range(of: " \(sign)") else { return 0 }
         return Int(s[r.upperBound...].prefix(while: { $0.isNumber })) ?? 0
+    }
+}
+
+extension String {
+    /// \n 으로만 나눈 줄들(끝의 \r 은 남는다). Swift 는 \r\n 을 한 글자로 보아 split(separator: "\n") 으로는 CRLF 줄이 나뉘지 않는다.
+    func lfLines() -> [String] {
+        utf8.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false).map { String(Substring($0)) }
     }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildPatch, canEditLines, splitRows, wordRanges } from "../src/lib/diff";
-import { parseDiff } from "../src/lib/parsers";
+import { buildPatch, canEditLines, diffSides, modeSummary, splitRows, wordRanges } from "../src/lib/diff";
+import { newFileDiff, parseDiff } from "../src/lib/parsers";
 
 const DIFF = [
   "diff --git a/f.txt b/f.txt",
@@ -77,3 +77,30 @@ describe("나란히 보기 · 단어 단위", () => {
     expect(wordRanges("완전히 다른 줄", "something else entirely")).toEqual([[], []]);
   });
 });
+
+describe("파일 종류별", () => {
+  it("새 파일: 이전 줄 번호가 없어 한 칸으로, 줄바꿈 없음 표시는 원문 유지", () => {
+    const d = parseDiff(["diff --git a/n b/n", "new file mode 100644", "index 0000000..1111111", "--- /dev/null", "+++ b/n", "@@ -0,0 +1,2 @@", "+a", "+b", "\\ No newline at end of file", ""].join("\n"));
+    expect(d.info?.newFile).toBe(true);
+    expect(diffSides(d.lines)).toEqual({ old: false, new: true });
+    expect(d.lines.map((l) => l.kind)).toEqual(["hunk", "added", "added", "meta"]);
+    expect(d.lines[3].raw).toBe("\\ No newline at end of file");
+  });
+  it("권한만 바뀜: 내용 줄 없이 설명만", () => {
+    const d = parseDiff("diff --git a/r b/r\nold mode 100644\nnew mode 100755\n");
+    expect(d.lines).toEqual([]);
+    expect(modeSummary(d.info)).toBe("100644 → 100755 — 실행 권한이 생겼습니다");
+  });
+  it("이름 바뀜: 정보만 읽고 줄 목록엔 넣지 않음", () => {
+    const d = parseDiff("diff --git a/a b/b\nsimilarity index 95%\nrename from a\nrename to b\nindex 1..2 100644\n--- a/a\n+++ b/b\n@@ -1 +1 @@\n-x\n+y\n");
+    expect(d.info).toMatchObject({ renameFrom: "a", renameTo: "b", similarity: 95 });
+    expect(d.lines.map((l) => l.kind)).toEqual(["hunk", "removed", "added"]);
+    expect(diffSides(d.lines)).toEqual({ old: true, new: true });
+  });
+  it("추적하지 않는 빈 새 파일", () => {
+    const d = newFileDiff("", false);
+    expect(d.lines).toEqual([]);
+    expect(d.info?.newFile).toBe(true);
+  });
+});
+

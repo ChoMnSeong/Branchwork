@@ -248,6 +248,20 @@ export interface DiffDocument {
   hunks: DiffHunk[];
   /** 머지 커밋의 결합 diff(@@@) */
   combined?: boolean;
+  /** 새 파일·지운 파일·이름·권한(diff 머리에서 읽은 것) */
+  info?: DiffFileInfo;
+}
+
+/** diff 머리의 파일 정보 */
+export interface DiffFileInfo {
+  newFile?: boolean;
+  deletedFile?: boolean;
+  oldMode?: string;
+  newMode?: string;
+  renameFrom?: string;
+  renameTo?: string;
+  /** 이름 바꾼 파일이 얼마나 같은지(%) */
+  similarity?: number;
 }
 
 export interface GraphSegment {

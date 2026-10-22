@@ -241,9 +241,40 @@ struct DiffDocument {
     var combined = false
     /// 나란히 보기의 줄들(왼쪽 이전 · 오른쪽 이후)
     var splitRows: [DiffSplitRow] = []
+    /// 새 파일·지운 파일·이름·권한(diff 머리에서 읽은 것)
+    var info = DiffFileInfo()
+    /// 이전·이후 줄 번호가 하나라도 있는지(새 파일은 이전 칸, 지운 파일은 이후 칸이 없다)
+    var hasOldSide = false
+    var hasNewSide = false
+
+    /// 한쪽만 있는 diff(새 파일·지운 파일·내용을 통째로 비운 파일): 나란히 봐도 한 칸으로 보인다
+    var oneSided: Bool { !(hasOldSide && hasNewSide) }
 }
 
-/// 나란히 보기 한 줄: @@·메타 줄은 가로 전체(full), 그 밖에는 왼쪽(지운 줄·문맥)과 오른쪽(더한 줄·문맥). 값은 lines 의 위치.
+/// diff 머리의 파일 정보
+struct DiffFileInfo {
+    var newFile = false
+    var deletedFile = false
+    var oldMode: String?
+    var newMode: String?
+    var renameFrom: String?
+    var renameTo: String?
+    /// 이름 바꾼 파일이 얼마나 같은지(%)
+    var similarity: Int?
+
+    var modeChanged: Bool { !newFile && !deletedFile && oldMode != nil && newMode != nil && oldMode != newMode }
+    var renamed: Bool { renameFrom != nil && renameTo != nil }
+
+    /// 권한 바뀜 설명(실행 권한이 생기거나 없어졌을 때)
+    var modeSummary: String? {
+        guard modeChanged, let o = oldMode, let n = newMode else { return nil }
+        let exec = (o.hasSuffix("755"), n.hasSuffix("755"))
+        let note = exec == (false, true) ? " — 실행 권한이 생겼습니다" : exec == (true, false) ? " — 실행 권한이 없어졌습니다" : ""
+        return "\(o) → \(n)\(note)"
+    }
+}
+
+/// 나란히 보기 한 줄: @@·"줄바꿈 없음" 줄은 가로 전체(full), 그 밖에는 왼쪽(지운 줄·문맥)과 오른쪽(더한 줄·문맥). 값은 lines 의 위치.
 struct DiffSplitRow: Identifiable {
     let id: Int
     var full: Int?

@@ -1,4 +1,4 @@
-import type { DiffDocument, DiffLine } from "./models";
+import type { DiffDocument, DiffFileInfo, DiffLine } from "./models";
 
 /** 단어 단위 diff · 나란히 보기 · 줄 단위 스테이지 패치 (맥 버전 Core/DiffTools.swift 와 같은 규칙) */
 
@@ -93,7 +93,21 @@ export function markWords(lines: DiffLine[]) {
 
 // MARK: - 나란히 보기
 
-/** 나란히 보기 한 줄: @@·메타 줄은 가로 전체(full), 그 밖에는 왼쪽(지운 줄·문맥)과 오른쪽(더한 줄·문맥). 값은 lines 의 위치. */
+/** 이전·이후 줄 번호가 하나라도 있는지(새 파일은 이전 칸, 지운 파일은 이후 칸이 없다). 한쪽만 있으면 나란히 봐도 한 칸으로. */
+export function diffSides(lines: DiffLine[]): { old: boolean; new: boolean } {
+  return { old: lines.some((l) => l.oldNo !== null), new: lines.some((l) => l.newNo !== null) };
+}
+
+/** 권한 바뀜 설명(실행 권한이 생기거나 없어졌을 때) */
+export function modeSummary(info: DiffFileInfo | undefined): string | null {
+  if (!info || info.newFile || info.deletedFile || !info.oldMode || !info.newMode || info.oldMode === info.newMode) return null;
+  const was = info.oldMode.endsWith("755"),
+    now = info.newMode.endsWith("755");
+  const note = !was && now ? " — 실행 권한이 생겼습니다" : was && !now ? " — 실행 권한이 없어졌습니다" : "";
+  return `${info.oldMode} → ${info.newMode}${note}`;
+}
+
+/** 나란히 보기 한 줄: @@·"줄바꿈 없음" 줄은 가로 전체(full), 그 밖에는 왼쪽(지운 줄·문맥)과 오른쪽(더한 줄·문맥). 값은 lines 의 위치. */
 export interface SplitRow {
   full?: number;
   left?: number;

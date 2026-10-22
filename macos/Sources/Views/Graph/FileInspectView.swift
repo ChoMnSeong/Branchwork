@@ -93,7 +93,7 @@ private struct HistoryPane: View {
                     } else if doc.isBinary {
                         ContentUnavailableView("바이너리 파일", systemImage: "doc.zipper")
                     } else if doc.lines.isEmpty {
-                        ContentUnavailableView("내용 변경 없음", systemImage: "equal.circle", description: Text("이름·권한만 바뀌었을 수 있습니다."))
+                        DiffEmptyState(doc: doc)
                     } else {
                         DiffLinesView(doc: doc, split: store.diffSplit, editable: false, staged: false)
                     }
@@ -103,7 +103,7 @@ private struct HistoryPane: View {
                     ContentUnavailableView("히스토리 없음", systemImage: "clock", description: Text("아직 커밋되지 않은 파일입니다."))
                 }
             }
-            .frame(minHeight: 160, idealHeight: 600)
+            .frame(maxWidth: .infinity, minHeight: 160, idealHeight: 600, maxHeight: .infinity)
         }
     }
 }

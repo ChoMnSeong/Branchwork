@@ -377,7 +377,7 @@ export function Empty({ title, detail, icon }: { title: string; detail?: string;
     <div className="empty">
       {icon}
       <div className="big">{title}</div>
-      {detail && <div>{detail}</div>}
+      {detail && <div style={{ whiteSpace: "pre-line" }}>{detail}</div>}
     </div>
   );
 }

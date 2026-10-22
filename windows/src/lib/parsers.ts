@@ -7,6 +7,7 @@ import {
   type Commit,
   type CommitDetail,
   type DiffDocument,
+  type DiffFileInfo,
   type DiffKind,
   type FileChange,
   type FileHistoryEntry,
@@ -293,8 +294,10 @@ export function parseDiff(text: string, maxLines = 20000): DiffDocument {
     inHunk = false,
     cols = 1,
     files = 0;
+  const info: DiffFileInfo = {};
+  doc.info = info;
   const push = (kind: DiffKind, t: string, o: number | null, n: number | null, raw = "") =>
-    doc.lines.push({ kind, text: t, oldNo: o, newNo: n, raw, hunk: !doc.hunks.length || (kind === "meta" && !inHunk) ? undefined : doc.hunks.length - 1 });
+    doc.lines.push({ kind, text: t, oldNo: o, newNo: n, raw, hunk: doc.hunks.length ? doc.hunks.length - 1 : undefined });
 
   for (const line of body.split("\n")) {
     if (doc.lines.length >= maxLines) {
@@ -318,21 +321,15 @@ export function parseDiff(text: string, maxLines = 20000): DiffDocument {
       files++;
     }
     if (!inHunk) {
-      if (files <= 1) doc.header.push(s);
+      if (files <= 1) {
+        doc.header.push(s);
+        readInfo(s, info);
+      }
       if (s.startsWith("Binary files") || s.startsWith("GIT binary patch")) doc.isBinary = true;
-      if (
-        s.startsWith("new file mode") ||
-        s.startsWith("deleted file mode") ||
-        s.startsWith("similarity") ||
-        s.startsWith("rename ") ||
-        s.startsWith("old mode") ||
-        s.startsWith("new mode")
-      )
-        push("meta", s, null, null);
       continue;
     }
     if (s.startsWith("\\")) {
-      push("meta", s, null, null, s);
+      push("meta", "파일 끝에 줄바꿈 없음", null, null, s);
       continue;
     }
     const marker = s.slice(0, cols);
@@ -350,12 +347,29 @@ export function parseDiff(text: string, maxLines = 20000): DiffDocument {
   return doc;
 }
 
+/** diff 머리 한 줄에서 새 파일·지운 파일·권한·이름 바꿈을 읽는다 */
+function readInfo(s: string, info: DiffFileInfo) {
+  const rest = (prefix: string) => (s.startsWith(prefix) ? s.slice(prefix.length) : null);
+  let v: string | null;
+  if ((v = rest("new file mode ")) !== null) {
+    info.newFile = true;
+    info.newMode = v;
+  } else if ((v = rest("deleted file mode ")) !== null) {
+    info.deletedFile = true;
+    info.oldMode = v;
+  } else if ((v = rest("old mode ")) !== null) info.oldMode = v;
+  else if ((v = rest("new mode ")) !== null) info.newMode = v;
+  else if ((v = rest("rename from ")) !== null) info.renameFrom = v;
+  else if ((v = rest("rename to ")) !== null) info.renameTo = v;
+  else if ((v = rest("similarity index ")) !== null) info.similarity = parseInt(v, 10);
+}
+
 /** 추적하지 않는 새 파일: 내용 전체를 추가된 줄로 */
 export function newFileDiff(text: string, truncated: boolean, maxLines = 20000): DiffDocument {
-  const doc: DiffDocument = { lines: [{ kind: "meta", text: "new file", oldNo: null, newNo: null }], isBinary: false, truncated, header: [], hunks: [] };
+  const doc: DiffDocument = { lines: [], isBinary: false, truncated, header: [], hunks: [], info: { newFile: true } };
   let body = text.replace(/\r\n/g, "\n");
   if (body.endsWith("\n")) body = body.slice(0, -1);
-  if (!body) return { ...doc, lines: [] };
+  if (!body) return doc;
   const all = body.split("\n");
   doc.lines.push({ kind: "hunk", text: `@@ -0,0 +1,${all.length} @@`, oldNo: null, newNo: null });
   all.slice(0, maxLines).forEach((l, i) => doc.lines.push({ kind: "added", text: l.replace(/\t/g, "    "), oldNo: null, newNo: i + 1 }));

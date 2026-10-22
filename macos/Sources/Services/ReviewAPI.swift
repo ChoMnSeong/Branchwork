@@ -123,7 +123,7 @@ enum ReviewAPI {
             review.state.approvedByMe = review.state.approvedBy.contains(me)
             review.files = changes.changes.map { c in
                 let kind: ChangeKind = c.newFile == true ? .added : c.deletedFile == true ? .deleted : c.renamedFile == true ? .renamed : .modified
-                let lines = (c.diff ?? "").split(separator: "\n", omittingEmptySubsequences: false)
+                let lines = (c.diff ?? "").lfLines()
                 return ReviewFile(path: c.newPath, oldPath: c.renamedFile == true ? c.oldPath : nil, kind: kind,
                                   additions: lines.filter { $0.hasPrefix("+") }.count, deletions: lines.filter { $0.hasPrefix("-") }.count,
                                   patch: (c.diff ?? "").isEmpty ? nil : c.diff)

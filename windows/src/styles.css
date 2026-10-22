@@ -1000,14 +1000,22 @@ select {
   background: var(--surface);
   user-select: text;
 }
+/* 긴 줄은 칸 안에서 줄바꿈(가로 스크롤 없이 모두 보이게) */
 .diff-line {
   display: flex;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   line-height: 18px;
-  min-width: max-content;
+  min-height: 18px;
+  min-width: 0;
+}
+.diff-line .txt {
+  flex: 1;
+  min-width: 0;
+  padding-right: 6px;
 }
 .diff-line .no {
-  width: 48px;
+  width: var(--no-w, 48px);
   text-align: right;
   color: var(--text-3);
   flex: none;
@@ -1037,8 +1045,31 @@ select {
   color: var(--accent);
   padding: 3px 0;
 }
-.diff-line.meta {
+/* "파일 끝에 줄바꿈 없음" */
+.diff-note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  font-family: var(--font);
+  font-size: 11px;
   color: var(--text-2);
+}
+/* 이름·권한이 바뀌었으면 줄 목록 위에 */
+.diff-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: none;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+.diff-info svg {
+  vertical-align: -1px;
+  margin-right: 4px;
 }
 .diff-line.selectable {
   cursor: pointer;
@@ -1063,14 +1094,10 @@ select {
   padding: 0 8px 0 0;
   min-width: 0;
 }
-/* 나란히 보기: 반씩 나누고, 넘치는 줄은 자른다 */
+/* 나란히 보기: 정확히 반씩 나누고, 높이는 더 긴(줄바꿈된) 쪽에 맞춘다 */
 .diff-split-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-.diff-split-row > .diff-line {
-  min-width: 0;
-  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 .diff-split-row > .diff-line:first-child {
   border-right: 1px solid var(--border);
@@ -1096,23 +1123,23 @@ select {
 .image-pane + .image-pane {
   border-left: 1px solid var(--border);
 }
+/* 작은 이미지는 키우지 않고 원래 크기로, 체크 무늬는 이미지 뒤에만 */
 .image-frame {
   flex: 1;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--green) 50%, transparent);
-  background: repeating-conic-gradient(color-mix(in srgb, var(--text) 8%, transparent) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
-}
-.image-frame.red {
-  border-color: color-mix(in srgb, var(--red) 50%, transparent);
 }
 .image-frame img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  border: 1px solid color-mix(in srgb, var(--green) 50%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--text) 8%, transparent) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+.image-frame.red img {
+  border-color: color-mix(in srgb, var(--red) 50%, transparent);
 }
 
 /* MARK: 오른쪽 패널 */
@@ -1397,6 +1424,7 @@ select {
 }
 .icon-btn.on {
   color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 /* 커밋·PR 줄의 CI 상태 */
 .ci-badge {
@@ -1439,6 +1467,12 @@ select {
   font-family: var(--font);
   font-size: 11px;
   overflow: hidden;
+}
+/* blame 은 한 줄씩(줄바꿈 없이 가로 스크롤) */
+.diff-line.blame-line {
+  white-space: pre;
+  overflow-wrap: normal;
+  min-width: max-content;
 }
 .blame-line.block-start {
   border-top: 1px solid var(--border);

@@ -1,4 +1,4 @@
-import { ChevronLeft, Clock, Equal, FileArchive, History, ScanText, TriangleAlert } from "lucide-react";
+import { ChevronLeft, Clock, FileArchive, History, ScanText, TriangleAlert } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { avatars } from "../../lib/avatars";
 import { longDate, shortDate } from "../../lib/format";
@@ -6,7 +6,7 @@ import { isUncommittedLine, short, type BlameLine } from "../../lib/models";
 import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { Avatar, Button, Empty, Segmented, Spinner, tip } from "../shared/ui";
-import { DiffBody } from "./DiffView";
+import { DiffBody, DiffEmptyState } from "./DiffView";
 
 const BLAME_H = 18;
 
@@ -108,7 +108,7 @@ function HistoryPane({ store }: { store: RepoStore }) {
       ) : doc.isBinary ? (
         <Empty icon={<FileArchive size={30} />} title="바이너리 파일" />
       ) : !doc.lines.length ? (
-        <Empty icon={<Equal size={30} />} title="내용 변경 없음" detail="이름·권한만 바뀌었을 수 있습니다." />
+        <DiffEmptyState doc={doc} />
       ) : (
         <DiffBody store={store} doc={doc} split={store.diffSplit} editable={false} staged={false} />
       )}
