@@ -127,6 +127,26 @@ class Workspace extends Observable {
     this.emit();
   }
 
+  /** 이 탭만 남기고 나머지를 닫는다 */
+  closeOthers(id: string) {
+    const keep = this.tabs.find((t) => t.id === id);
+    if (!keep) return;
+    for (const t of this.tabs) if (t !== keep) t.close();
+    this.tabs = [keep];
+    this.select(id);
+    this.persist();
+    this.emit();
+  }
+
+  /** 모든 탭을 닫고 빈 탭 하나만 둔다 */
+  closeAll() {
+    for (const t of this.tabs) t.close();
+    this.tabs = [];
+    this.newTab();
+    this.persist();
+    this.emit();
+  }
+
   persist() {
     if (this.restoring) return;
     const paths: string[] = [];

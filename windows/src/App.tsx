@@ -5,7 +5,7 @@ import { RepoContainer } from "./components/RepoContainer";
 import { SettingsDialog, type SettingsTab } from "./components/settings/SettingsDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { updater } from "./lib/updater";
-import { IconButton, MenuHost, showMenuBelow, Spinner, tip, TooltipHost } from "./components/shared/ui";
+import { IconButton, MenuHost, showContextMenu, showMenuBelow, Spinner, tip, TooltipHost, type MenuItem } from "./components/shared/ui";
 import { env, isMac, keyLabel } from "./lib/env";
 import { ipc } from "./lib/ipc";
 import { useObserve } from "./lib/observable";
@@ -108,8 +108,9 @@ function Tab({ store, on }: { store: RepoStore; on: boolean }) {
         if (e.button === 1) {
           e.preventDefault();
           workspace.closeTab(store.id);
-        } else workspace.select(store.id);
+        } else if (e.button === 0) workspace.select(store.id);
       }}
+      onContextMenu={(e) => showContextMenu(e, tabMenu(store))}
       data-tip={store.path ? store.path : "새 탭"}
     >
       {(store.loading || store.busy) && <Spinner size={11} />}
@@ -126,6 +127,27 @@ function Tab({ store, on }: { store: RepoStore; on: boolean }) {
       />
     </div>
   );
+}
+
+/** 탭 우클릭 메뉴. 닫히는 탭에서 터미널·에이전트 세션이 돌고 있으면 한 번 묻는다(닫으면 함께 끝난다). */
+function tabMenu(store: RepoStore): MenuItem[] {
+  const others = workspace.tabs.filter((t) => t !== store);
+  const closing = (tabs: RepoStore[], action: () => void, what: string) => () => {
+    const running = tabs.reduce((n, t) => n + t.terminals.filter((x) => x.running).length, 0);
+    if (!running) return action();
+    workspace.select(store.id);
+    store.ask({
+      title: `${what}을(를) 닫을까요?`,
+      message: `실행 중인 터미널·에이전트 세션 ${running}개가 함께 끝납니다.`,
+      actionTitle: "닫기",
+      action,
+    });
+  };
+  return [
+    { label: "이 탭 닫기", shortcut: store === workspace.active ? "Ctrl+W" : undefined, onClick: closing([store], () => workspace.closeTab(store.id), "이 탭") },
+    { label: "다른 탭 모두 닫기", disabled: !others.length, onClick: closing(others, () => workspace.closeOthers(store.id), `다른 탭 ${others.length}개`) },
+    { label: "모든 탭 닫기", onClick: closing(workspace.tabs, () => workspace.closeAll(), `탭 ${workspace.tabs.length}개 모두`) },
+  ];
 }
 
 function openSheet(s: RepoStore, sheet: RepoStore["sheet"]) {

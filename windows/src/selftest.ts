@@ -367,6 +367,22 @@ export async function runSelfTest(): Promise<boolean> {
     return [ok, `pipes=${pipes.length} jobs=${jobs.map((j) => `${j.stage}/${j.name}:${j.status}`)} flows=${flows.map((f) => f.name + ":" + f.inputs.map((i) => i.name))} calls=${urls} panel=${panel}`];
   });
 
+  // 탭 우클릭 → '다른 탭 모두 닫기': 실제 화면의 탭에서 메뉴를 띄워 눌러 본다
+  await step("탭 우클릭 메뉴(다른 탭 모두 닫기)", async () => {
+    workspace.newTab();
+    workspace.newTab();
+    workspace.select(s.id);
+    await until(() => document.querySelectorAll(".tabbar .tab").length === workspace.tabs.length, 3000);
+    const before = workspace.tabs.length;
+    const el = document.querySelectorAll(".tabbar .tab")[workspace.tabs.indexOf(s)] as HTMLElement | undefined;
+    el?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 20 }));
+    const shown = await until(() => [...document.querySelectorAll(".menu-item")].some((m) => m.textContent?.includes("다른 탭 모두 닫기")), 3000);
+    const labels = [...document.querySelectorAll(".menu-item .label")].map((m) => m.textContent);
+    ([...document.querySelectorAll(".menu-item")].find((m) => m.textContent?.includes("다른 탭 모두 닫기")) as HTMLElement | undefined)?.click();
+    const closed = await until(() => workspace.tabs.length === 1 && workspace.tabs[0] === s && !!s.path, 3000);
+    return [shown && closed && before >= 3, `before=${before} after=${workspace.tabs.length} menu=${labels}`];
+  });
+
   await step("설정 화면", async () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", ctrlKey: !isMacLike(), metaKey: isMacLike(), bubbles: true }));
     const ok = await until(() => !!document.querySelector(".modal") && document.body.innerText.includes("사내 GitLab"), 3000);
