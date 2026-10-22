@@ -507,6 +507,41 @@ export async function runSelfTest(): Promise<boolean> {
     return [before && hidden && back && current && pinned, `before=${before} hidden=${hidden} back=${back} current=${current} pinned=${pinned}`];
   });
 
+  // 충돌 해결: 두 브랜치에서 같은 줄을 고쳐 머지 → 화면의 충돌 블록에서 '상대 것'을 눌러 고르고 저장 → 머지 마침
+  await step("충돌 해결 화면", async () => {
+    const base = s.headBranch!;
+    const file = "conflict.txt";
+    const commitFile = async (text: string, summary: string) => {
+      await ipc.writeText(joinPath(repo, file), text);
+      await until(() => s.status.unstaged.some((c) => c.path === file), 8000);
+      await s.stageAll();
+      s.setSummary(summary);
+      await s.commit();
+    };
+    await commitFile("1\n2\n3\n", "충돌 바탕");
+    const branch = "selftest/conflict";
+    await s.createBranch(branch, s.headHash!, true);
+    await commitFile("1\ntwo-other\n3\n", "상대 쪽");
+    await s.checkout(s.localBranches.find((x) => x.name === base)!);
+    await commitFile("1\ntwo-main\n3\n", "내 쪽");
+    await s.merge(branch);
+    s.errorMessage = null;
+    const conflicted = await until(() => s.status.conflicted.some((c) => c.path === file), 8000);
+    s.openDiff({ kind: "working", change: s.status.conflicted.find((c) => c.path === file)! });
+    const shown = await until(() => !!document.querySelector(".conflict-block"), 5000);
+    const click = (text: string) => [...document.querySelectorAll<HTMLButtonElement>(".conflict-bar button, .conflict-block button")].find((b) => b.textContent?.trim() === text)?.click();
+    click("상대 것");
+    const chosen = await until(() => !!document.querySelector(".conflict-block.done"), 3000);
+    click("저장하고 해결됨으로 표시");
+    const resolved = await until(() => !s.status.conflicted.length && s.status.staged.some((c) => c.path === file), 8000);
+    const text = ((await ipc.readText(joinPath(repo, file))) ?? "").replace(/\r\n/g, "\n");
+    await s.continueOperation();
+    const merged = s.repoState === "clean" && (s.entries.find((e) => !isWIP(e.commit))?.commit.parents.length ?? 0) === 2;
+    s.closeDiff();
+    const ok = conflicted && shown && chosen && resolved && text === "1\ntwo-other\n3\n" && merged;
+    return [ok, `conflicted=${conflicted} shown=${shown} chosen=${chosen} resolved=${resolved} text=${JSON.stringify(text)} merged=${merged} error=${s.errorMessage}`];
+  });
+
   // 되돌리기: 커밋 → 되돌리면 변경이 스테이지된 채로 돌아오고 메시지도 입력 칸에, 체크아웃 → 되돌리면 원래 브랜치
   await step("되돌리기(커밋·체크아웃)", async () => {
     const head = s.headHash;

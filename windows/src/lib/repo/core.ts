@@ -3,6 +3,7 @@ import type { AgentHost } from "../agents";
 import { avatars } from "../avatars";
 import { basename, env, joinPath, samePath, slash } from "../env";
 import { CIStore } from "../ci/store";
+import type { ConflictChoice, ConflictDocument } from "../conflict";
 import { describe, git, gitRaw, unsafeRepository, type GitOptions } from "../git";
 import { layoutGraph } from "../graph";
 import * as Hosting from "../hosting";
@@ -189,6 +190,10 @@ export abstract class RepoCore extends Observable implements AgentHost {
   hiddenRefs = new Set<string>();
   pinnedBranches = new Set<string>();
   graphCurrentOnly = false;
+  /** 충돌 해결 중인 파일과 블록마다 고른 것 */
+  conflictDoc: ConflictDocument | null = null;
+  conflictChoices = new Map<number, ConflictChoice>();
+  conflictPath: string | null = null;
 
   // 터미널 패널
   terminals: TerminalSession[] = [];

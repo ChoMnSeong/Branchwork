@@ -1105,6 +1105,83 @@ select {
 .diff-line.empty-cell {
   background: color-mix(in srgb, var(--text) 4%, transparent);
 }
+/* 충돌 해결 */
+.conflict-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--orange) 8%, transparent);
+}
+.conflict-scroll {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface);
+}
+.conflict-text,
+.conflict-code {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 17px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.conflict-text {
+  color: var(--text-2);
+}
+.conflict-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--orange) 40%, transparent);
+  background: color-mix(in srgb, var(--orange) 7%, transparent);
+}
+.conflict-block.done {
+  border-color: color-mix(in srgb, var(--green) 40%, transparent);
+  background: color-mix(in srgb, var(--orange) 3%, transparent);
+}
+.conflict-sides {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.conflict-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  --tone: var(--accent);
+}
+.conflict-side.theirs {
+  --tone: #8a5cd6;
+}
+.conflict-side-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--tone);
+}
+.conflict-code {
+  padding: 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--tone, var(--green)) 8%, transparent);
+}
+.conflict-code.chosen {
+  --tone: var(--green);
+}
+.conflict-edit {
+  min-height: 120px;
+  resize: vertical;
+  font-family: var(--mono);
+  font-size: 12px;
+}
 /* 이미지 비교 */
 .image-diff {
   flex: 1;

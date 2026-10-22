@@ -5,6 +5,7 @@ import { short, type DiffDocument, type DiffLine } from "../../lib/models";
 import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { Button, Empty, IconButton, Spinner, StatusBadge } from "../shared/ui";
+import { ConflictView } from "./ConflictView";
 
 const LINE_H = 18;
 const HUNK_H = 26;
@@ -92,7 +93,9 @@ export function DiffView({ store }: { store: RepoStore }) {
             </>
           ))}
       </div>
-      {!doc ? (
+      {source.kind === "working" && c.kind === "conflicted" ? (
+        <ConflictView store={store} change={c} />
+      ) : !doc ? (
         <div className="empty">
           <Spinner size={20} />
         </div>

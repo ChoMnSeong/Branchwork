@@ -1,8 +1,9 @@
+import { parseConflict, resolveConflict, type ConflictChoice } from "../conflict";
 import { canEditLines, buildPatch } from "../diff";
 import { joinPath } from "../env";
 import { describe, gitBytes } from "../git";
 import { ipc } from "../ipc";
-import { changePaths, isWIP, sameDiffSource, type DiffDocument, type DiffLine, type DiffSource, type FileHistoryEntry, type Selection } from "../models";
+import { changePaths, isWIP, sameDiffSource, type DiffDocument, type DiffLine, type DiffSource, type FileChange, type FileHistoryEntry, type Selection } from "../models";
 import { settings } from "../settings";
 
 const IMAGE_EXT: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", bmp: "image/bmp", ico: "image/x-icon", tif: "image/tiff", tiff: "image/tiff" };
@@ -100,6 +101,71 @@ export abstract class RepoSelection extends RepoCore {
     this.diffImages = null;
     this.diffSelection = new Set();
     this.diffLoading = false;
+    this.emit();
+  }
+
+  // MARK: 충돌 해결(블록마다 고르고 저장한 뒤 해결됨으로 표시)
+
+  /** 지금 진행 중인 작업에 맞는 양쪽 이름(머지·리베이스에서 '내 것'의 뜻이 다르다) */
+  get conflictSides(): { ours: string; theirs: string } {
+    switch (this.repoState) {
+      case "rebasing":
+        return { ours: "기준(위로 올리는 곳)", theirs: "내 커밋" };
+      case "cherryPicking":
+        return { ours: "현재 브랜치", theirs: "가져오는 커밋" };
+      case "reverting":
+        return { ours: "현재 브랜치", theirs: "되돌리는 변경" };
+      default:
+        return { ours: "현재 브랜치", theirs: "머지하는 브랜치" };
+    }
+  }
+
+  async loadConflict(path: string) {
+    if (!this.path) return;
+    const text = (await ipc.readText(joinPath(this.path, path)).catch(() => null)) ?? "";
+    this.conflictPath = path;
+    this.conflictDoc = parseConflict(text);
+    this.conflictChoices = new Map();
+    this.emit();
+  }
+
+  chooseConflict(block: number, choice: ConflictChoice | null) {
+    const m = new Map(this.conflictChoices);
+    if (choice) m.set(block, choice);
+    else m.delete(block);
+    this.conflictChoices = m;
+    this.emit();
+  }
+
+  /** 고른 대로 파일을 쓰고 해결됨으로 표시(스테이지) */
+  async saveConflictResolution(c: FileChange) {
+    const text = this.conflictDoc && resolveConflict(this.conflictDoc, this.conflictChoices);
+    if (!this.path || text === null || text === undefined) return;
+    try {
+      await ipc.writeText(joinPath(this.path, c.path), text);
+    } catch (e) {
+      this.errorMessage = "파일을 저장하지 못했습니다.\n\n" + describe(e);
+      this.emit();
+      return;
+    }
+    if (await this.run("해결됨으로 표시 중…", ["add", "--", c.path])) this.closeConflict();
+  }
+
+  /** 파일 전체를 한쪽으로(git checkout --ours/--theirs) */
+  async resolveWholeFile(c: FileChange, ours: boolean) {
+    if (!(await this.run("충돌 해결 중…", ["checkout", ours ? "--ours" : "--theirs", "--", c.path]))) return;
+    if (await this.run("해결됨으로 표시 중…", ["add", "--", c.path])) this.closeConflict();
+  }
+
+  /** 한쪽이 지운 파일: 남기기(스테이지) 또는 지우기 */
+  async resolveDeleted(c: FileChange, keep: boolean) {
+    if (await this.run("충돌 해결 중…", keep ? ["add", "--", c.path] : ["rm", "-q", "--", c.path])) this.closeConflict();
+  }
+
+  closeConflict() {
+    this.conflictDoc = null;
+    this.conflictChoices = new Map();
+    this.conflictPath = null;
     this.emit();
   }
 

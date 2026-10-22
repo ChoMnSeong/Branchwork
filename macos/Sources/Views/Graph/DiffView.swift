@@ -40,7 +40,9 @@ struct DiffView: View {
 
     @ViewBuilder
     private var content: some View {
-        if let doc = store.diff {
+        if case .working(let c) = source, c.kind == .conflicted {
+            ConflictView(change: c)
+        } else if let doc = store.diff {
             if let error = doc.error {
                 ContentUnavailableView("변경 내용을 불러오지 못했습니다", systemImage: "exclamationmark.triangle",
                                        description: Text(error))

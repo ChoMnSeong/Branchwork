@@ -104,6 +104,10 @@ final class RepoStore: Identifiable {
     var hiddenRefs: Set<String> = []
     var pinnedBranches: Set<String> = []
     var graphCurrentOnly = false
+    /// 충돌 해결 중인 파일과 블록마다 고른 것
+    var conflictDoc: ConflictDocument?
+    var conflictChoices: [Int: ConflictDocument.Choice] = [:]
+    var conflictPath: String?
     /// 고른 PR·MR 의 대화·바뀐 파일·승인
     var review: PullRequestReview?
     var reviewLoading = false
