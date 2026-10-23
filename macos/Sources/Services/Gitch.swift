@@ -18,6 +18,23 @@ enum Gitch {
         let accountSource: String?
         let pushAccount: String?
         let ignored: Bool?
+
+        private enum CodingKeys: String, CodingKey { case inRepo, lockedAccount, account, accountSource, pushAccount, ignored }
+
+        /// gitch 는 값이 없으면 빈 글자("")를 내므로 nil 로 바꿔 읽는다(잠기지 않은 저장소를 잠긴 것으로 보지 않게)
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            func text(_ key: CodingKeys) throws -> String? {
+                let v = try c.decodeIfPresent(String.self, forKey: key)
+                return v?.isEmpty == false ? v : nil
+            }
+            inRepo = try c.decode(Bool.self, forKey: .inRepo)
+            lockedAccount = try text(.lockedAccount)
+            account = try text(.account)
+            accountSource = try text(.accountSource)
+            pushAccount = try text(.pushAccount)
+            ignored = try c.decodeIfPresent(Bool.self, forKey: .ignored)
+        }
     }
 
     /// gitch preflight --json (result: OK · WARN · STOP)
@@ -38,6 +55,20 @@ enum Gitch {
         let hosts: String
         let rules: String?
         let sshKey: Bool?
+    }
+
+    /// gitch 가 pl · up · sync · fix · undo · amend · rescue 전에 남긴 자동 백업(refs/gitsw/backup/<날짜-시각>-<이유>, 최근 30개)
+    struct Backup: Identifiable, Equatable {
+        let ref: String
+        /// "2026-10-23 16:36:54"
+        let date: String
+        /// pl · up · sync · fix …
+        let reason: String
+        let sha: String
+        let subject: String
+        /// 그때 수정 중이던 파일도 함께 남겼는지
+        let hasChanges: Bool
+        var id: String { ref }
     }
 
     /// 앱에 든 gitch
@@ -114,6 +145,29 @@ enum Gitch {
         let out = plain(r.output + (r.stderr.isEmpty ? "" : "\n" + r.stderr))
         guard r.status == 0 else { throw Failure(message: out.isEmpty ? "exit \(r.status)" : out) }
         return out
+    }
+
+    /// 종료 코드와 출력을 그대로(확인이 필요하면 gitch 는 2 로 끝나며 무엇을 할지 목록을 낸다)
+    static func runRaw(_ args: [String], in repo: URL, timeout: TimeInterval = 120) async throws -> (status: Int32, output: String) {
+        guard let exe = executable else { throw Failure(message: String(localized: "Couldn't find gitch inside Gitrochi.")) }
+        let r = try await Shell.run("/bin/bash", [exe] + args, cwd: repo, env: environment, timeout: timeout)
+        return (r.status, plain(r.output + (r.stderr.isEmpty ? "" : "\n" + r.stderr)))
+    }
+
+    /// 자동 백업 목록(gitch rescue 와 같은 순서 — 최근 것이 1번)
+    static func backups(in repo: URL) async -> [Backup] {
+        let prefix = "refs/gitsw/backup/"
+        guard let r = try? await Git.run(["for-each-ref", "--sort=-refname", "--format=%(refname)%09%(objectname:short)%09%(subject)", prefix], in: repo) else { return [] }
+        let rows = r.output.split(separator: "\n").map { $0.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false).map(String.init) }
+        let refs = Set(rows.compactMap(\.first))
+        return rows.compactMap { row in
+            guard row.count == 3, !row[0].hasSuffix("-wip") else { return nil }
+            let name = String(row[0].dropFirst(prefix.count))
+            guard name.count > 16 else { return nil }
+            let ts = Array(name)
+            let date = "\(String(ts[0..<4]))-\(String(ts[4..<6]))-\(String(ts[6..<8])) \(String(ts[9..<11])):\(String(ts[11..<13])):\(String(ts[13..<15]))"
+            return Backup(ref: row[0], date: date, reason: String(name.dropFirst(16)), sha: row[1], subject: row[2], hasChanges: refs.contains(row[0] + "-wip"))
+        }
     }
 
     /// gitch use <계정>: 이 저장소의 커밋 작성자와 원격 주소(그 계정의 SSH 별칭)를 바꾸고 그 계정으로 잠근다

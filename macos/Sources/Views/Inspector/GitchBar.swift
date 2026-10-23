@@ -1,12 +1,19 @@
 import SwiftUI
 
 /// 커밋 칸 위: gitch 가 보는 이 저장소의 계정과 커밋·push 전 점검(gitch 계정을 만들어 두었을 때만).
-/// 계정 이름을 눌러 이 저장소에 쓸 계정을 바꾼다(gitch use).
+/// 계정 이름을 눌러 이 저장소에 쓸 계정을 바꾸고(gitch use · unlock), ⋯ 메뉴로 저장소 단위 gitch 명령을 쓴다.
 struct GitchBar: View {
     @Environment(RepoStore.self) private var store
     @ViewState private var showChecks = false
     /// 바꾸기 전에 확인받을 계정
     @ViewState private var switching: Gitch.Account?
+    @ViewState private var confirmUnlock = false
+    @ViewState private var confirmIgnore = false
+    /// gitch fix 가 고칠 커밋 목록(확인받기 전)
+    @ViewState private var fixPreview: String?
+    /// 고칠 것이 없을 때 gitch 가 낸 안내
+    @ViewState private var fixNothing: String?
+    @ViewState private var showBackups = false
 
     var body: some View {
         if let s = store.gitchStatus {
@@ -25,6 +32,10 @@ struct GitchBar: View {
                             }
                         }
                         .disabled(a.id == s.lockedAccount)
+                    }
+                    if s.lockedAccount != nil {
+                        Divider()
+                        Button("Unlock this repository…") { confirmUnlock = true }
                     }
                 } label: {
                     Text(s.account ?? String(localized: "No account"))
@@ -46,6 +57,7 @@ struct GitchBar: View {
                         .help("gitch checks before commit and push")
                         .popover(isPresented: $showChecks, arrowEdge: .bottom) { GitchChecks() }
                 }
+                actions(s)
             }
             .alert(Text("Use \(switching?.id ?? "") for this repository?"),
                    isPresented: Binding(get: { switching != nil }, set: { if !$0 { switching = nil } }),
@@ -55,7 +67,65 @@ struct GitchBar: View {
             } message: { a in
                 Text("gitch sets the commit author to \(a.email) and points origin (and upstream) at \(a.id)'s SSH alias, then locks the repository to it.")
             }
+            .alert("Unlock this repository?", isPresented: $confirmUnlock) {
+                Button("Cancel", role: .cancel) {}
+                Button("Unlock") { Task { await store.unlockGitch() } }
+            } message: {
+                Text("gitch stops requiring \(s.lockedAccount ?? "") for commits and pushes here. The commit author stays as it is.")
+            }
+            .alert("Exclude this repository from gitch checks?", isPresented: $confirmIgnore) {
+                Button("Cancel", role: .cancel) {}
+                Button("Exclude", role: .destructive) { Task { await store.setGitchIgnored(true) } }
+            } message: {
+                Text("gitch won't check authors, secrets or pushes in this repository until you turn it back on.")
+            }
+            .alert("Fix commit authors?", isPresented: Binding(get: { fixPreview != nil }, set: { if !$0 { fixPreview = nil } })) {
+                Button("Cancel", role: .cancel) {}
+                Button("Fix") { Task { await store.gitchFix() } }
+            } message: {
+                Text(fixPreview ?? "")
+            }
+            .alert("Commit authors are fine", isPresented: Binding(get: { fixNothing != nil }, set: { if !$0 { fixNothing = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(fixNothing ?? "")
+            }
+            .sheet(isPresented: $showBackups) { GitchBackupsSheet() }
         }
+    }
+
+    /// ⋯ 메뉴: 저장소 단위 gitch 명령(터미널의 gitch up · sync · fix · rescue · ignore · doctor 와 같다)
+    private func actions(_ s: Gitch.Status) -> some View {
+        Menu {
+            Button("Follow the default branch") { Task { await store.gitchUp() } }
+                .help("gitch up: moves this branch onto the latest default branch, or merges it if the branch is already pushed. A backup is saved first.")
+            if store.remotes.contains("upstream") {
+                Button("Update the fork from upstream") { Task { await store.gitchSync() } }
+                    .help("gitch sync: brings this branch up to date with the original repository (upstream).")
+            }
+            Divider()
+            Button("Fix authors of unpushed commits…") {
+                Task {
+                    guard let r = await store.gitchFixPreview() else { return }
+                    if r.needsFix { fixPreview = r.text } else { fixNothing = r.text }
+                }
+            }
+            Button("Backups…") { showBackups = true }
+            Divider()
+            if s.ignored == true {
+                Button("Check this repository with gitch again") { Task { await store.setGitchIgnored(false) } }
+            } else {
+                Button("Exclude this repository from gitch checks…") { confirmIgnore = true }
+            }
+            Button("Run doctor in Terminal") { try? Gitch.openInTerminal(["doctor"], in: store.url?.path) }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .disabled(store.busy != nil)
+        .help("gitch commands for this repository")
     }
 
     private func summary(_ s: Gitch.Status) -> String {
@@ -143,5 +213,80 @@ private struct GitchChecks: View {
         }
         .padding(14)
         .frame(width: 380)
+    }
+}
+
+/// gitch 자동 백업(gitch rescue): 되돌리기 · 새 브랜치로 꺼내기
+private struct GitchBackupsSheet: View {
+    @Environment(RepoStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @ViewState private var backups: [Gitch.Backup] = []
+    @ViewState private var loaded = false
+    @ViewState private var restoring: Gitch.Backup?
+    @ViewState private var branchFor: Gitch.Backup?
+    @ViewState private var branchName = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("gitch backups").font(.title3.weight(.semibold))
+            Text("gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent.")
+                .font(.callout).foregroundStyle(.secondary)
+            if loaded && backups.isEmpty {
+                ContentUnavailableView("No backups yet", systemImage: "clock.arrow.circlepath")
+                    .frame(maxWidth: .infinity, minHeight: 140)
+            } else {
+                List(backups) { b in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(verbatim: b.date).font(.callout.monospacedDigit())
+                                Text(verbatim: b.reason).font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 5).padding(.vertical, 1)
+                                    .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                                if b.hasChanges { Text("+ uncommitted changes").font(.caption).foregroundStyle(.secondary) }
+                            }
+                            Text(verbatim: "\(b.sha)  \(b.subject)").font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer()
+                        Button("Restore to a new branch…") { branchName = ""; branchFor = b }.controlSize(.small)
+                        Button("Restore here…") { restoring = b }.controlSize(.small)
+                    }
+                }
+                .frame(minHeight: 220)
+            }
+            HStack {
+                Spacer()
+                Button("Close") { dismiss() }.keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(18)
+        .frame(width: 620, height: 420)
+        .task {
+            backups = await store.gitchBackups()
+            loaded = true
+        }
+        .alert("Restore this backup?", isPresented: Binding(get: { restoring != nil }, set: { if !$0 { restoring = nil } }), presenting: restoring) { b in
+            Button("Cancel", role: .cancel) {}
+            Button("Restore", role: .destructive) {
+                Task {
+                    if await store.gitchRestore(b, toBranch: nil) { dismiss() }
+                }
+            }
+        } message: { b in
+            Text("The current branch moves back to \(b.date) (\(b.reason)). gitch backs up the current state first.")
+        }
+        .alert("Restore to a new branch", isPresented: Binding(get: { branchFor != nil }, set: { if !$0 { branchFor = nil } }), presenting: branchFor) { b in
+            TextField("New branch name", text: $branchName)
+            Button("Cancel", role: .cancel) {}
+            Button("Create") {
+                let name = branchName.trimmingCharacters(in: .whitespaces)
+                guard !name.isEmpty else { return }
+                Task {
+                    if await store.gitchRestore(b, toBranch: name) { dismiss() }
+                }
+            }
+        } message: { b in
+            Text("Creates a branch at \(b.sha) without changing the current branch.")
+        }
     }
 }

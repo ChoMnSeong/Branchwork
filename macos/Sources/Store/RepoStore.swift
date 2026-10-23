@@ -81,6 +81,8 @@ final class RepoStore: Identifiable {
     var gitchPreflight: Gitch.Preflight?
     /// 커밋 칸에서 고를 수 있는 gitch 계정
     var gitchAccounts: [Gitch.Account] = []
+    /// gitch 가 직접 push 를 막는 브랜치(gitch protect)
+    var gitchProtected: Set<String> = []
     var gitchChecking = false
     /// 브랜치·참조가 바뀔 때만 다시 점검하려고(파일 저장마다 돌지 않게)
     var gitchKey = ""
