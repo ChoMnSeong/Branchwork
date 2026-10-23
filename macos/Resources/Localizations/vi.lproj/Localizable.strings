@@ -1,5 +1,12 @@
 /* Branchwork — vi. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork được mở trực tiếp từ nơi tải về nên đang chạy từ một vị trí tạm thời và không thể tự thay thế. Hãy chuyển nó vào thư mục Ứng dụng, mở lại rồi cập nhật.";
+"Couldn't replace the app: %@" = "Không thể thay thế ứng dụng: %1$@";
+"Downloaded and verified — ready to install." = "Đã tải về và xác minh — sẵn sàng cài đặt.";
+"Enter an administrator password to update Branchwork in %@." = "Nhập mật khẩu quản trị viên để cập nhật Branchwork trong %1$@.";
+"The release has no SHA-256 file. It wasn't installed." = "Bản phát hành không có tệp SHA-256. Đã không cài đặt.";
+"The release has no update signature. It wasn't installed." = "Bản phát hành không có chữ ký cập nhật. Đã không cài đặt.";
+"The update signature doesn't match. It wasn't installed." = "Chữ ký cập nhật không khớp. Đã không cài đặt.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff quá dài nên chỉ phần đầu được giải thích.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nCần xác thực. Hãy chạy push/pull một lần trong terminal để lưu thông tin đăng nhập (Chuỗi khóa hoặc khóa SSH), rồi thử lại.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken cần có scope api, và chỉ những người có quyền phê duyệt MR này mới phê duyệt được.";
@@ -501,7 +508,6 @@
 "No one has approved yet." = "Chưa có ai phê duyệt.";
 "No open %@" = "Không có %1$@ đang mở";
 "No permission (403): %@" = "Không có quyền (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "Không có quyền ghi vào %1$@. Hãy tải xuống và cài đặt từ trang phát hành.";
 "No remote repository." = "Không có kho lưu trữ từ xa.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Không có kho lưu trữ từ xa. Hãy thêm trước trong terminal bằng `git remote add origin <URL>`.";
 "No repositories opened yet" = "Chưa mở kho lưu trữ nào";

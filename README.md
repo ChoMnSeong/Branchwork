@@ -195,13 +195,15 @@ docs/      README 이미지와 데모 저장소 스크립트
 ```sh
 macos/build.sh           # macos/build/Branchwork.app (이 맥의 아키텍처)
 macos/build.sh install   # 빌드 후 /Applications 에 설치
-macos/build.sh release   # macos/dist/ 에 배포용 dmg·zip (arm64 + x86_64 유니버설, ad-hoc 서명)
+macos/build.sh release   # macos/dist/ 에 배포용 dmg·zip·sha256 (arm64 + x86_64 유니버설, ad-hoc 서명, 업데이트 서명)
 ```
 
 - SwiftPM 없이 `swiftc` 로 직접 컴파일합니다(일부 Command Line Tools 에서 SwiftPM 이 동작하지 않아서). 같은 이유로 `@State` 매크로 대신 `ViewState` 별칭(`Views/Shared/Theme.swift`)
 - SwiftTerm 은 아키텍처별 정적 라이브러리(`macos/.build/swiftterm/<arch>/`)로 따로 컴파일(처음 한 번 1분쯤)
 - 이 맥에 Apple Development 인증서가 있으면 그걸로 서명(키체인 허용을 빌드마다 다시 묻지 않게, `BRANCHWORK_SIGN_IDENTITY` 로 변경)
 - `BRANCHWORK_TRACE=1` 로 실행하면 새로 고침 종류와 걸린 시간을 표준 오류로
+- **업데이트 서명**: `macos/Tools/updatekey.sh new` 로 Ed25519 열쇠를 만들면 비밀키는 로그인 키체인에, 공개키는 `Info.plist`(`BWUpdatePublicKey`)에 들어갑니다. 그 뒤 `build.sh release` 는 zip 을 서명(`<zip>.sig`, 비밀키는 `BRANCHWORK_UPDATE_KEY` 또는 키체인)하고, 앱은 SHA-256 과 이 서명이 맞을 때만 설치
+- **배포**: `v*` 태그를 push 하면 Actions(`.github/workflows/macos.yml`)가 태그와 `Info.plist` 버전이 같은지 보고 유니버설로 빌드·서명해 그 태그의 릴리스(없으면 초안)에 올립니다. 앱은 초안을 보지 않으니 노트를 쓰고 게시하면 사용자에게 갑니다
 
 **Windows** — Node.js 22 와 Rust(stable).
 

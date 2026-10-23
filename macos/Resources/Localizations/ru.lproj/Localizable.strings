@@ -1,5 +1,12 @@
 /* Branchwork — ru. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork открыт прямо из загрузок и работает из временного расположения, поэтому не может заменить сам себя. Переместите его в папку «Программы», откройте снова и затем обновите.";
+"Couldn't replace the app: %@" = "Не удалось заменить приложение: %1$@";
+"Downloaded and verified — ready to install." = "Загружено и проверено — можно устанавливать.";
+"Enter an administrator password to update Branchwork in %@." = "Введите пароль администратора, чтобы обновить Branchwork в %1$@.";
+"The release has no SHA-256 file. It wasn't installed." = "В релизе нет файла SHA-256. Обновление не установлено.";
+"The release has no update signature. It wasn't installed." = "В релизе нет подписи обновления. Обновление не установлено.";
+"The update signature doesn't match. It wasn't installed." = "Подпись обновления не совпадает. Обновление не установлено.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff слишком длинный, поэтому объяснено только его начало.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nТребуется аутентификация. Один раз выполните push/pull в терминале, чтобы сохранить учётные данные (Связка ключей или SSH-ключ), затем повторите попытку.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nТокену нужна область доступа api, а одобрить этот MR могут только пользователи с правом его одобрения.";
@@ -524,7 +531,6 @@
 "No one has approved yet." = "Пока никто не одобрил.";
 "No open %@" = "Нет открытых %1$@";
 "No permission (403): %@" = "Нет доступа (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "Нет прав на запись в %1$@. Скачайте и установите обновление со страницы релизов.";
 "No remote repository." = "Нет удалённого репозитория.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Нет удалённого репозитория. Сначала добавьте его в терминале командой `git remote add origin <URL>`.";
 "No repositories opened yet" = "Репозитории ещё не открывались";

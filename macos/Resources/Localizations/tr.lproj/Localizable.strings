@@ -1,5 +1,12 @@
 /* Branchwork — tr. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork doğrudan indirilenler konumundan açıldığı için geçici bir konumdan çalışıyor ve kendini değiştiremiyor. Uygulamalar klasörüne taşıyın, yeniden açın ve ardından güncelleyin.";
+"Couldn't replace the app: %@" = "Uygulama değiştirilemedi: %1$@";
+"Downloaded and verified — ready to install." = "İndirildi ve doğrulandı — yüklemeye hazır.";
+"Enter an administrator password to update Branchwork in %@." = "%1$@ konumundaki Branchwork'ü güncellemek için bir yönetici parolası girin.";
+"The release has no SHA-256 file. It wasn't installed." = "Sürümde SHA-256 dosyası yok. Güncelleme yüklenmedi.";
+"The release has no update signature. It wasn't installed." = "Sürümde güncelleme imzası yok. Güncelleme yüklenmedi.";
+"The update signature doesn't match. It wasn't installed." = "Güncelleme imzası eşleşmiyor. Güncelleme yüklenmedi.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff uzun olduğu için yalnızca baş kısmı açıklandı.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nKimlik doğrulaması gerekiyor. Terminalde bir kez push/pull yaparak kimlik bilgilerinizi kaydedin (Anahtar Zinciri veya SSH anahtarı), sonra tekrar deneyin.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken'ın api kapsamına sahip olması gerekir. Bu MR'ı yalnızca onaylama yetkisi olan kişiler onaylayabilir.";
@@ -513,7 +520,6 @@
 "No one has approved yet." = "Henüz kimse onaylamadı.";
 "No open %@" = "Açık %1$@ yok";
 "No permission (403): %@" = "İzin yok (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "%1$@ konumuna yazma izni yok. Sürümler sayfasından indirip yükleyin.";
 "No remote repository." = "Uzak depo yok.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Uzak depo yok. Önce terminalde `git remote add origin <URL>` ile bir tane ekleyin.";
 "No repositories opened yet" = "Henüz açılmış depo yok";

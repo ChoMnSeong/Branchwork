@@ -1,5 +1,12 @@
 /* Branchwork — pt-BR. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "O Branchwork foi aberto direto do download e está sendo executado de um local temporário, por isso não consegue se substituir. Mova-o para a pasta Aplicativos, abra-o de novo e depois atualize.";
+"Couldn't replace the app: %@" = "Não foi possível substituir o app: %1$@";
+"Downloaded and verified — ready to install." = "Baixada e verificada — pronta para instalar.";
+"Enter an administrator password to update Branchwork in %@." = "Digite uma senha de administrador para atualizar o Branchwork em %1$@.";
+"The release has no SHA-256 file. It wasn't installed." = "A release não tem arquivo SHA-256. A atualização não foi instalada.";
+"The release has no update signature. It wasn't installed." = "A release não tem assinatura de atualização. A atualização não foi instalada.";
+"The update signature doesn't match. It wasn't installed." = "A assinatura da atualização não confere. Ela não foi instalada.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(O diff era longo, então só o início foi explicado.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nÉ necessário autenticar. Faça push/pull uma vez em um terminal para salvar suas credenciais (Chaves do macOS ou chave SSH) e tente novamente.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nO token precisa do escopo api, e só quem pode aprovar este MR consegue aprová-lo.";
@@ -506,7 +513,6 @@
 "No one has approved yet." = "Ninguém aprovou ainda.";
 "No open %@" = "Nenhum %1$@ aberto";
 "No permission (403): %@" = "Sem permissão (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "Sem permissão para gravar em %1$@. Baixe e instale pela página de releases.";
 "No remote repository." = "Nenhum repositório remoto.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Nenhum repositório remoto. Adicione um primeiro em um terminal com `git remote add origin <URL>`.";
 "No repositories opened yet" = "Nenhum repositório aberto ainda";

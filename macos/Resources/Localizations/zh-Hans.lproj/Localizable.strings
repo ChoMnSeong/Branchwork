@@ -1,5 +1,12 @@
 /* Branchwork — zh-Hans. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork 是直接从下载位置打开的，正在临时位置运行，无法替换自身。请将它移到“应用程序”文件夹，重新打开后再更新。";
+"Couldn't replace the app: %@" = "无法替换应用：%1$@";
+"Downloaded and verified — ready to install." = "已下载并验证 — 可以立即安装。";
+"Enter an administrator password to update Branchwork in %@." = "输入管理员密码以更新 %1$@ 中的 Branchwork。";
+"The release has no SHA-256 file. It wasn't installed." = "发布中没有 SHA-256 文件，未安装。";
+"The release has no update signature. It wasn't installed." = "发布中没有更新签名，未安装。";
+"The update signature doesn't match. It wasn't installed." = "更新签名不匹配，未安装。";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n（差异较长，因此只解释了开头部分。）";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n需要身份验证。请在终端中执行一次 push/pull 以保存凭据（钥匙串或 SSH 密钥），然后重试。";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\n令牌需要 api 权限范围，并且只有有权批准此 MR 的人才能批准。";
@@ -526,7 +533,6 @@
 "No one has approved yet." = "尚无人批准。";
 "No open %@" = "没有打开的 %1$@";
 "No permission (403): %@" = "没有权限 (403)：%1$@";
-"No permission to write to %@. Download and install it from the releases page." = "没有写入 %1$@ 的权限。请从发布页面下载并安装。";
 "No remote repository." = "没有远程仓库。";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "没有远程仓库。请先在终端中使用 `git remote add origin <URL>` 添加。";
 "No repositories opened yet" = "尚未打开任何仓库";

@@ -1,5 +1,12 @@
 /* Branchwork — cs. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork byl otevřen přímo ze stažených souborů a běží z dočasného umístění, takže se nemůže sám nahradit. Přesuňte ho do složky Aplikace, znovu ho otevřete a pak aktualizujte.";
+"Couldn't replace the app: %@" = "Aplikaci se nepodařilo nahradit: %1$@";
+"Downloaded and verified — ready to install." = "Staženo a ověřeno — připraveno k instalaci.";
+"Enter an administrator password to update Branchwork in %@." = "Zadejte heslo správce, abyste mohli aktualizovat Branchwork v %1$@.";
+"The release has no SHA-256 file. It wasn't installed." = "Vydání neobsahuje soubor SHA-256. Aktualizace nebyla nainstalována.";
+"The release has no update signature. It wasn't installed." = "Vydání neobsahuje podpis aktualizace. Aktualizace nebyla nainstalována.";
+"The update signature doesn't match. It wasn't installed." = "Podpis aktualizace neodpovídá. Aktualizace nebyla nainstalována.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Změny byly dlouhé, proto byl vysvětlen jen jejich začátek.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nJe vyžadováno ověření. Jednou proveďte push/pull v terminálu, aby se uložily přihlašovací údaje (Klíčenka nebo klíč SSH), a pak to zkuste znovu.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken potřebuje rozsah api a tento MR mohou schválit jen lidé, kteří k tomu mají oprávnění.";
@@ -510,7 +517,6 @@
 "No one has approved yet." = "Zatím nikdo neschválil.";
 "No open %@" = "Žádné otevřené %1$@";
 "No permission (403): %@" = "Chybí oprávnění (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "Chybí oprávnění k zápisu do %1$@. Stáhněte a nainstalujte aktualizaci ze stránky vydání.";
 "No remote repository." = "Žádný vzdálený repozitář.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Žádný vzdálený repozitář. Nejprve ho přidejte v terminálu příkazem `git remote add origin <URL>`.";
 "No repositories opened yet" = "Zatím nebyly otevřeny žádné repozitáře";

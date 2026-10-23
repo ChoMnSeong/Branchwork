@@ -1,5 +1,12 @@
 /* Branchwork — id. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork dibuka langsung dari unduhan dan berjalan dari lokasi sementara, sehingga tidak dapat menggantikan dirinya sendiri. Pindahkan ke folder Aplikasi, buka lagi, lalu perbarui.";
+"Couldn't replace the app: %@" = "Tidak dapat mengganti aplikasi: %1$@";
+"Downloaded and verified — ready to install." = "Sudah diunduh dan diverifikasi — siap diinstal.";
+"Enter an administrator password to update Branchwork in %@." = "Masukkan kata sandi administrator untuk memperbarui Branchwork di %1$@.";
+"The release has no SHA-256 file. It wasn't installed." = "Rilis tidak memiliki file SHA-256. Pembaruan tidak diinstal.";
+"The release has no update signature. It wasn't installed." = "Rilis tidak memiliki tanda tangan pembaruan. Pembaruan tidak diinstal.";
+"The update signature doesn't match. It wasn't installed." = "Tanda tangan pembaruan tidak cocok. Pembaruan tidak diinstal.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff terlalu panjang, jadi hanya bagian awal yang dijelaskan.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nAutentikasi diperlukan. Lakukan push/pull sekali di terminal untuk menyimpan kredensial Anda (Rantai Kunci atau kunci SSH), lalu coba lagi.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken memerlukan scope api, dan hanya orang yang berhak menyetujui MR ini yang dapat menyetujuinya.";
@@ -495,7 +502,6 @@
 "No one has approved yet." = "Belum ada yang menyetujui.";
 "No open %@" = "Tidak ada %1$@ yang terbuka";
 "No permission (403): %@" = "Tidak ada izin (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "Tidak ada izin untuk menulis ke %1$@. Unduh dan instal dari halaman rilis.";
 "No remote repository." = "Tidak ada repositori remote.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Tidak ada repositori remote. Tambahkan dulu di terminal dengan `git remote add origin <URL>`.";
 "No repositories opened yet" = "Belum ada repositori yang dibuka";

@@ -1,5 +1,12 @@
 /* Branchwork — ja. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "ダウンロードした場所から直接開いたため、Branchwork は一時的な場所で実行されており、自分自身を置き換えられません。アプリケーションフォルダに移動して開き直してから、アップデートしてください。";
+"Couldn't replace the app: %@" = "アプリを置き換えられませんでした: %1$@";
+"Downloaded and verified — ready to install." = "ダウンロードと確認が完了しました — すぐにインストールできます。";
+"Enter an administrator password to update Branchwork in %@." = "%1$@ の Branchwork をアップデートするには、管理者パスワードを入力してください。";
+"The release has no SHA-256 file. It wasn't installed." = "リリースに SHA-256 ファイルがありません。インストールしませんでした。";
+"The release has no update signature. It wasn't installed." = "リリースにアップデート署名がありません。インストールしませんでした。";
+"The update signature doesn't match. It wasn't installed." = "アップデート署名が一致しません。インストールしませんでした。";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(差分が長いため、先頭部分だけを見て説明しました。)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n認証が必要です。ターミナルで一度 push/pull を実行して資格情報 (キーチェーンまたは SSH キー) を保存してから、もう一度お試しください。";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nトークンに api スコープが必要です。また、この MR を承認できるのは、承認権限を持つユーザーだけです。";
@@ -525,7 +532,6 @@
 "No one has approved yet." = "まだ誰も承認していません。";
 "No open %@" = "開いている %1$@ はありません";
 "No permission (403): %@" = "権限がありません (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "%1$@ への書き込み権限がありません。リリースページからダウンロードしてインストールしてください。";
 "No remote repository." = "リモートリポジトリがありません。";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "リモートリポジトリがありません。先にターミナルで `git remote add origin <URL>` を実行して追加してください。";
 "No repositories opened yet" = "まだリポジトリを開いていません";

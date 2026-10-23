@@ -1,0 +1,71 @@
+name: macOS
+
+on:
+  push:
+    branches: ["**"]
+    # 태그 push 에는 paths 가 적용되지 않아 v* 태그는 늘 돈다
+    tags: ["v*"]
+    paths: ["macos/**", ".github/workflows/macos.yml"]
+  pull_request:
+    paths: ["macos/**", ".github/workflows/macos.yml"]
+  workflow_dispatch:
+
+# 같은 브랜치·PR 에 새로 푸시하면 이전 실행은 취소
+concurrency:
+  group: macos-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 빌드 · 배포 파일
+    runs-on: macos-26
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 빌드
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: macos/build.sh
+
+      # 이 아래는 v* 태그에서만: 유니버설 빌드 → 업데이트 서명 → 그 태그의 릴리스(없으면 초안)에 올리기.
+      # 앱의 업데이트 확인은 초안을 보지 않으므로, 관리자가 노트를 쓰고 '게시'해야 사용자에게 간다.
+      - name: 태그와 앱 버전 맞추기
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          app="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' macos/Resources/Info.plist)"
+          if [ "v$app" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::태그 $GITHUB_REF_NAME 와 Info.plist 버전 $app 이 다릅니다. 버전을 올린 커밋에 태그를 다세요."
+            exit 1
+          fi
+
+      - name: 배포 파일 (유니버설 · 업데이트 서명)
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          BRANCHWORK_UPDATE_KEY: ${{ secrets.BRANCHWORK_UPDATE_KEY }}
+        run: macos/build.sh release
+
+      - name: 릴리스에 올리기
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --draft --verify-tag --title "Branchwork ${tag#v}" --notes ""
+          gh release upload "$tag" macos/dist/* --clobber
+          {
+            echo "### 맥 배포 파일 → $tag"
+            echo '```'
+            cat macos/dist/*.sha256
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 앱 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: branchwork-macos
+          path: |
+            macos/build/Branchwork.app
+            macos/dist/*
+          if-no-files-found: ignore

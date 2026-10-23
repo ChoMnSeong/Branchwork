@@ -1,5 +1,12 @@
 /* Branchwork — fr. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork a été ouvert directement depuis le téléchargement et s’exécute depuis un emplacement temporaire : il ne peut pas se remplacer lui-même. Déplacez-le dans le dossier Applications, rouvrez-le, puis mettez-le à jour.";
+"Couldn't replace the app: %@" = "Impossible de remplacer l’app : %1$@";
+"Downloaded and verified — ready to install." = "Téléchargée et vérifiée — prête à être installée.";
+"Enter an administrator password to update Branchwork in %@." = "Saisissez un mot de passe administrateur pour mettre à jour Branchwork dans %1$@.";
+"The release has no SHA-256 file. It wasn't installed." = "La version publiée n’a pas de fichier SHA-256. La mise à jour n’a pas été installée.";
+"The release has no update signature. It wasn't installed." = "La version publiée n’a pas de signature de mise à jour. La mise à jour n’a pas été installée.";
+"The update signature doesn't match. It wasn't installed." = "La signature de la mise à jour ne correspond pas. Elle n’a pas été installée.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Le diff étant long, seul le début a été expliqué.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nAuthentification requise. Faites une fois un push/pull dans un terminal pour enregistrer vos identifiants (trousseau ou clé SSH), puis réessayez.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nLe jeton doit avoir la portée api, et seules les personnes autorisées à approuver cette MR peuvent l’approuver.";
@@ -509,7 +516,6 @@
 "No one has approved yet." = "Personne n’a encore approuvé.";
 "No open %@" = "Aucune %1$@ ouverte";
 "No permission (403): %@" = "Autorisation refusée (403) : %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "Pas d’autorisation d’écriture dans %1$@. Téléchargez et installez la mise à jour depuis la page des versions.";
 "No remote repository." = "Aucun dépôt distant.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Aucun dépôt distant. Ajoutez-en d’abord un dans un terminal avec `git remote add origin <URL>`.";
 "No repositories opened yet" = "Aucun dépôt ouvert pour l’instant";

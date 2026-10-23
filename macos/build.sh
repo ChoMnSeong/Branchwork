@@ -4,7 +4,7 @@ set -euo pipefail
 # Branchwork 맥 앱 빌드 (swiftc, 비샌드박스)
 #   macos/build.sh           → macos/build/Branchwork.app (이 맥의 아키텍처, 개발 인증서가 있으면 그걸로 서명)
 #   macos/build.sh install   → 빌드 후 /Applications 로 설치
-#   macos/build.sh release   → macos/dist/ 에 배포용 zip·dmg (Apple Silicon + Intel 유니버설, ad-hoc 서명)
+#   macos/build.sh release   → macos/dist/ 에 배포용 zip·dmg·sha256 (Apple Silicon + Intel 유니버설, ad-hoc 서명, 공개키가 있으면 zip 업데이트 서명)
 
 BIN="Branchwork"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -16,6 +16,19 @@ MODE="${1:-}"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$ROOT/Resources/Info.plist")"
 
 if [[ "$MODE" == "release" ]]; then ARCHS=(arm64 x86_64); else ARCHS=("$(uname -m)"); fi
+
+# 업데이트 서명(Ed25519): 앱에 공개키가 들어 있으면 그 앱은 <zip>.sig 가 맞아야만 설치하므로, 비밀키가 없으면 빌드 전에 멈춘다.
+# 비밀키는 BRANCHWORK_UPDATE_KEY(Actions 비밀 값) 또는 로그인 키체인(Tools/updatekey.sh new)
+if [[ "$MODE" == "release" ]]; then
+    PUBKEY="$(/usr/libexec/PlistBuddy -c 'Print BWUpdatePublicKey' "$ROOT/Resources/Info.plist" 2>/dev/null || true)"
+    if [[ -n "$PUBKEY" ]]; then
+        SECRET="${BRANCHWORK_UPDATE_KEY:-$(security find-generic-password -s "Branchwork update signing key" -w 2>/dev/null || true)}"
+        if [[ -z "$SECRET" ]]; then
+            echo "❌ 업데이트 서명 비밀키가 없습니다(BRANCHWORK_UPDATE_KEY 또는 키체인). 서명 없는 zip 은 앱이 설치하지 않습니다." >&2
+            exit 1
+        fi
+    fi
+fi
 
 [ -f "$ROOT/Resources/AppIcon.icns" ] || "$ROOT/Tools/makeicon.sh"
 
@@ -101,6 +114,15 @@ release)
     hdiutil create -quiet -volname "$BIN $VERSION" -srcfolder "$STAGE" -ov -format UDZO "$DIST/$NAME.dmg"
     rm -rf "$STAGE"
     (cd "$DIST" && shasum -a 256 "$NAME.zip" "$NAME.dmg" > "$NAME.sha256")
+    if [[ -n "$PUBKEY" ]]; then
+        mkdir -p "$ROOT/.build"
+        swiftc -O "$ROOT/Tools/updatesign.swift" -o "$ROOT/.build/updatesign"
+        BRANCHWORK_UPDATE_KEY="$SECRET" "$ROOT/.build/updatesign" sign "$DIST/$NAME.zip"
+        "$ROOT/.build/updatesign" verify "$DIST/$NAME.zip" "$PUBKEY" || { rm -f "$DIST/$NAME".*; echo "❌ 비밀키가 Info.plist 의 공개키와 짝이 아닙니다." >&2; exit 1; }
+        echo "▶ 업데이트 서명: $NAME.zip.sig"
+    else
+        echo "⚠️  Info.plist 에 BWUpdatePublicKey 가 없어 업데이트 서명을 건너뜁니다(앱은 SHA-256 만 확인)."
+    fi
     echo "✅ 배포 파일:"
     ls -lh "$DIST/$NAME".*
     ;;

@@ -4,12 +4,20 @@ import CryptoKit
 import Observation
 
 /// 자동 업데이트(맥): GitHub Releases 의 최신 릴리스를 보고 새 버전이면 알린다.
-/// 받은 zip 은 릴리스의 SHA-256 과 맞고, 같은 앱(번들 ID)이며 서명이 온전할 때만 설치한다.
+/// 받은 zip 은 릴리스의 SHA-256 과 맞고(앱에 공개키가 있으면 Ed25519 서명까지), 같은 앱(번들 ID)이며 서명이 온전할 때만 설치한다.
+/// 자동 확인에서 새 버전을 찾으면 미리 받아 확인해 두고 알려서, '지금 업데이트'는 바꿔 넣고 다시 시작하기만 한다.
 @MainActor @Observable
 final class UpdateCenter {
     static let shared = UpdateCenter()
 
     static let repo = "ChoMnSeong/Branchwork"
+
+    /// 릴리스 zip 서명을 확인할 Ed25519 공개키(Info.plist BWUpdatePublicKey, base64). 없으면 SHA-256 만 본다 — 만들기: macos/Tools/updatekey.sh new
+    static let publicKey: String? = {
+        let key = (Bundle.main.object(forInfoDictionaryKey: "BWUpdatePublicKey") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return key.isEmpty ? nil : key
+    }()
 
     struct Release: Equatable {
         let version: String
@@ -18,6 +26,7 @@ final class UpdateCenter {
         let zipURL: URL
         let zipName: String
         let checksumURL: URL?
+        let signatureURL: URL?
         let pageURL: URL?
     }
 
@@ -29,7 +38,12 @@ final class UpdateCenter {
     private(set) var phase: Phase = .idle
     private(set) var latest: Release?
     private(set) var progress: Double?
-    private(set) var lastChecked: Date?
+    /// 미리 받아 확인까지 끝낸 버전
+    private(set) var readyVersion: String?
+    /// 마지막으로 확인에 성공한 때(다시 켜도 하루 한 번 셈이 이어지게 저장)
+    private(set) var lastChecked: Date? = UserDefaults.standard.object(forKey: "updateLastChecked") as? Date {
+        didSet { UserDefaults.standard.set(lastChecked, forKey: "updateLastChecked") }
+    }
 
     var autoCheck: Bool = UserDefaults.standard.object(forKey: "autoUpdate") as? Bool ?? true {
         didSet { UserDefaults.standard.set(autoCheck, forKey: "autoUpdate") }
@@ -41,8 +55,11 @@ final class UpdateCenter {
 
     private var window: NSWindow?
     private var timer: Timer?
+    /// 받기·확인 작업(버전마다 한 번). 자동 확인의 미리 받기와 '지금 업데이트'가 같은 작업을 기다린다.
+    private var preparing: (version: String, task: Task<URL, Error>)?
 
-    /// 앱을 켤 때: 자동 확인이 켜져 있으면 조용히 확인하고, 하루에 한 번 다시
+    /// 앱을 켤 때: 자동 확인이 켜져 있으면 조용히 확인하고, 그 뒤로는 마지막 확인이 하루 지났으면 다시.
+    /// 한 시간마다 보므로 잠자기에서 깨어난 뒤나 확인에 실패한 뒤에도 곧 다시 확인한다.
     func start() {
         guard timer == nil else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
@@ -51,9 +68,10 @@ final class UpdateCenter {
                 Task { await self.check(manual: false) }
             }
         }
-        timer = Timer.scheduledTimer(withTimeInterval: 24 * 3600, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.autoCheck else { return }
+                guard let self, self.autoCheck,
+                      Date().timeIntervalSince(self.lastChecked ?? .distantPast) >= 24 * 3600 else { return }
                 await self.check(manual: false)
             }
         }
@@ -99,6 +117,7 @@ final class UpdateCenter {
             let assets = obj["assets"] as? [[String: Any]] ?? []
             let zip = assets.first { ($0["name"] as? String ?? "").hasSuffix("-macOS.zip") }
             let sum = assets.first { ($0["name"] as? String ?? "").hasSuffix("macOS.sha256") }
+            let sig = assets.first { ($0["name"] as? String) == (zip?["name"] as? String).map { $0 + ".sig" } }
             guard Self.isNewer(tag, than: Self.currentVersion),
                   let zip, let zipURL = (zip["browser_download_url"] as? String).flatMap(URL.init(string:)) else {
                 latest = nil
@@ -106,12 +125,21 @@ final class UpdateCenter {
                 if manual { showWindow() }
                 return
             }
-            latest = Release(version: tag, notes: obj["body"] as? String ?? "", date: (obj["published_at"] as? String).map { String($0.prefix(10)) },
-                             zipURL: zipURL, zipName: zip["name"] as? String ?? "",
-                             checksumURL: (sum?["browser_download_url"] as? String).flatMap(URL.init(string:)),
-                             pageURL: (obj["html_url"] as? String).flatMap(URL.init(string:)))
+            let release = Release(version: tag, notes: obj["body"] as? String ?? "", date: (obj["published_at"] as? String).map { String($0.prefix(10)) },
+                                  zipURL: zipURL, zipName: zip["name"] as? String ?? "",
+                                  checksumURL: (sum?["browser_download_url"] as? String).flatMap(URL.init(string:)),
+                                  signatureURL: (sig?["browser_download_url"] as? String).flatMap(URL.init(string:)),
+                                  pageURL: (obj["html_url"] as? String).flatMap(URL.init(string:)))
+            latest = release
             phase = .available
-            if manual || UserDefaults.standard.string(forKey: "skippedUpdate") != tag { showWindow() }
+            if manual {
+                showWindow()
+                if !Self.isTranslocated(Bundle.main.bundleURL) { _ = preparation(for: release) }
+            } else if UserDefaults.standard.string(forKey: "skippedUpdate") != tag {
+                // 미리 받아 확인한 뒤 알린다. 실패해도 알리고, '지금 업데이트'에서 다시 받는다.
+                if !Self.isTranslocated(Bundle.main.bundleURL), (try? await preparation(for: release).value) == nil { preparing = nil }
+                showWindow()
+            }
         } catch {
             phase = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
             if manual { showWindow() }
@@ -123,19 +151,28 @@ final class UpdateCenter {
         closeWindow()
     }
 
-    /// 받기 → 확인 → 바꿔 넣고 다시 시작
+    /// 받기(미리 받았으면 그대로) → 확인 → 바꿔 넣고 다시 시작
     func install() async {
         guard let r = latest else { return }
+        let dest = Bundle.main.bundleURL
+        // 다운로드 폴더에서 바로 연 앱은 macOS 가 읽기 전용 임시 위치에서 띄워서 바꿔 넣을 수 없다
+        guard !Self.isTranslocated(dest) else {
+            phase = .failed(String(localized: "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update."))
+            return
+        }
         phase = .downloading
-        progress = 0
         do {
-            let dest = Bundle.main.bundleURL
-            guard FileManager.default.isWritableFile(atPath: dest.deletingLastPathComponent().path) else {
-                throw AIError.failed(String(localized: "Update"), String(localized: "No permission to write to \(dest.deletingLastPathComponent().path). Download and install it from the releases page."))
-            }
-            let newApp = try await prepare(r, bundleID: Bundle.main.bundleIdentifier)
+            let newApp: URL
+            do { newApp = try await preparation(for: r).value } catch { preparing = nil; throw error }
             phase = .installing
-            try Self.replace(with: newApp, at: dest, afterPID: ProcessInfo.processInfo.processIdentifier, relaunch: true)
+            let pid = ProcessInfo.processInfo.processIdentifier
+            if FileManager.default.isWritableFile(atPath: dest.deletingLastPathComponent().path) {
+                try Self.replace(with: newApp, at: dest, afterPID: pid, relaunch: true)
+            } else {
+                // 쓸 권한이 없는 폴더(일반 사용자의 /Applications 등)면 관리자 암호를 받아 지금 바꿔 넣고, 끝난 뒤 다시 열기만 기다린다
+                guard try await Self.replaceAsAdmin(with: newApp, at: dest) else { phase = .available; return }
+                try Self.replace(with: nil, at: dest, afterPID: pid, relaunch: true)
+            }
             NSApp.terminate(nil)
         } catch {
             phase = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
@@ -143,19 +180,48 @@ final class UpdateCenter {
         }
     }
 
-    /// 받아서 확인까지: SHA-256 이 릴리스와 같고, 같은 앱(번들 ID)이며, 서명이 온전한 새 앱의 위치
+    /// 이 버전의 받기·확인 작업. 이미 시작했으면(미리 받기) 같은 작업을 돌려준다.
+    private func preparation(for r: Release) -> Task<URL, Error> {
+        if let p = preparing, p.version == r.version { return p.task }
+        progress = 0
+        readyVersion = nil
+        let task = Task {
+            let app = try await self.prepare(r, bundleID: Bundle.main.bundleIdentifier)
+            self.readyVersion = r.version
+            return app
+        }
+        preparing = (r.version, task)
+        return task
+    }
+
+    nonisolated static func isTranslocated(_ app: URL) -> Bool { app.path.contains("/AppTranslocation/") }
+
+    /// 받아서 확인까지: SHA-256(공개키가 있으면 Ed25519 서명도)이 릴리스와 맞고, 같은 앱(번들 ID)이며, 서명이 온전한 새 앱의 위치
     func prepare(_ r: Release, bundleID: String?) async throws -> URL {
         let work = FileManager.default.temporaryDirectory.appendingPathComponent("branchwork-update-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
         let zipFile = work.appendingPathComponent(r.zipName.isEmpty ? "update.zip" : r.zipName)
-        try await download(r.zipURL, to: zipFile)
-        if let cu = r.checksumURL {
-            let (sumData, _) = try await URLSession.shared.data(from: cu)
-            let expected = String(decoding: sumData, as: UTF8.self).split(separator: "\n")
-                .first { $0.hasSuffix(r.zipName) }?.split(separator: " ").first.map(String.init)
-            let actual = SHA256.hash(data: try Data(contentsOf: zipFile)).map { String(format: "%02x", $0) }.joined()
-            guard let expected, expected.lowercased() == actual else {
-                throw AIError.failed(String(localized: "Update"), String(localized: "The downloaded file's SHA-256 doesn't match the release. It wasn't installed."))
+        try await Self.download(r.zipURL, to: zipFile) { [weak self] p in Task { @MainActor in self?.progress = p } }
+        let zipData = try Data(contentsOf: zipFile)
+        // SHA-256 은 꼭 맞춰 본다(전에는 릴리스에 .sha256 이 없으면 확인 없이 설치했다)
+        guard let cu = r.checksumURL else {
+            throw AIError.failed(String(localized: "Update"), String(localized: "The release has no SHA-256 file. It wasn't installed."))
+        }
+        let (sumData, _) = try await URLSession.shared.data(from: cu)
+        let expected = String(decoding: sumData, as: UTF8.self).split(separator: "\n")
+            .first { $0.hasSuffix(r.zipName) }?.split(separator: " ").first.map(String.init)
+        let actual = SHA256.hash(data: zipData).map { String(format: "%02x", $0) }.joined()
+        guard let expected, expected.lowercased() == actual else {
+            throw AIError.failed(String(localized: "Update"), String(localized: "The downloaded file's SHA-256 doesn't match the release. It wasn't installed."))
+        }
+        // SHA-256 은 같은 릴리스에서 오니 릴리스 파일이 바뀌면 함께 바뀔 수 있다. 서명은 비밀키 없이 만들 수 없다.
+        if let key = Self.publicKey {
+            guard let su = r.signatureURL else {
+                throw AIError.failed(String(localized: "Update"), String(localized: "The release has no update signature. It wasn't installed."))
+            }
+            let (sigData, _) = try await URLSession.shared.data(from: su)
+            guard UpdateSignature.isValid(sigData, for: zipData, publicKey: key) else {
+                throw AIError.failed(String(localized: "Update"), String(localized: "The update signature doesn't match. It wasn't installed."))
             }
         }
         let unzip = try await Shell.run("/usr/bin/ditto", ["-x", "-k", zipFile.path, work.path], cwd: work, timeout: 120)
@@ -169,28 +235,72 @@ final class UpdateCenter {
         return newApp
     }
 
-    /// pid 가 끝나면 dest 를 newApp 으로 바꿔 넣는다(실패하면 원래 앱을 되돌림). relaunch 면 다시 연다.
-    nonisolated static func replace(with newApp: URL, at dest: URL, afterPID pid: Int32, relaunch: Bool) throws {
-        let script = newApp.deletingLastPathComponent().appendingPathComponent("install.sh")
-        try """
-        #!/bin/sh
-        pid="$1"; new="$2"; dest="$3"; relaunch="$4"
-        while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
-        rm -rf "$dest.old"
-        if mv "$dest" "$dest.old" && /usr/bin/ditto "$new" "$dest"; then rm -rf "$dest.old"; else rm -rf "$dest"; mv "$dest.old" "$dest"; fi
-        /usr/bin/xattr -dr com.apple.quarantine "$dest" 2>/dev/null
-        [ "$relaunch" = "1" ] && /usr/bin/open "$dest"
-        exit 0
-        """.write(to: script, atomically: true, encoding: .utf8)
+    /// pid 가 끝나면 dest 를 newApp 으로 바꿔 넣는다(실패하면 원래 앱을 되돌림). newApp 이 nil 이면 바꿔 넣지 않는다. relaunch 면 다시 연다.
+    nonisolated static func replace(with newApp: URL?, at dest: URL, afterPID pid: Int32, relaunch: Bool) throws {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sh")
-        p.arguments = [script.path, String(pid), newApp.path, dest.path, relaunch ? "1" : "0"]
+        p.arguments = [try installScript().path, String(pid), newApp?.path ?? "-", dest.path, relaunch ? "1" : "0"]
         p.standardOutput = FileHandle.nullDevice
         p.standardError = FileHandle.nullDevice
         try p.run()
     }
 
-    private func download(_ url: URL, to file: URL) async throws {
+    /// 관리자 권한으로 지금 바로 dest 를 newApp 으로 바꿔 넣는다. 암호 창을 취소하면 false.
+    nonisolated static func replaceAsAdmin(with newApp: URL, at dest: URL) async throws -> Bool {
+        let prompt = String(localized: "Enter an administrator password to update Branchwork in \(dest.deletingLastPathComponent().path).")
+        let r = try await Shell.run("/usr/bin/osascript", adminSwapArguments(newApp: newApp, dest: dest, prompt: prompt), cwd: URL(fileURLWithPath: "/"), timeout: 600)
+        if r.status == 0 { return true }
+        if r.stderr.contains("-128") { return false }   // 사용자가 취소
+        throw AIError.failed(String(localized: "Update"), String(localized: "Couldn't replace the app: \(r.stderr.trimmingCharacters(in: .whitespacesAndNewlines))"))
+    }
+
+    /// osascript 인자. root 로 돌릴 스크립트는 파일로 두지 않는다 — 암호 창이 떠 있는 동안 같은 사용자의 다른 프로세스가 그 파일을 바꿀 수 있다.
+    /// 본문은 AppleScript 글자 안에, 경로는 인자로 넘겨 quoted form 으로 감싼다.
+    nonisolated static func adminSwapArguments(newApp: URL, dest: URL, prompt: String) -> [String] {
+        let body = appleScriptString(swapFunction + "\nswap \"$1\" \"$2\"")
+        return [
+            "-e", "on run argv",
+            "-e", "do shell script \"/bin/sh -c \" & quoted form of \"\(body)\" & \" sh \" & quoted form of (item 1 of argv) & \" \" & quoted form of (item 2 of argv) with prompt (item 3 of argv) with administrator privileges",
+            "-e", "end run",
+            newApp.path, dest.path, prompt,
+        ]
+    }
+
+    /// sh 함수 swap <새 앱> <설치 위치>: 바꿔 넣고, 넣다가 실패하면 원래 앱을 되돌린다. 옮기기(mv)부터 실패하면 원래 앱에 손대지 않는다.
+    nonisolated static let swapFunction = """
+    swap() {
+        rm -rf "$2.old"
+        mv "$2" "$2.old" || return 1
+        if /usr/bin/ditto "$1" "$2"; then rm -rf "$2.old"; else rm -rf "$2"; mv "$2.old" "$2"; return 1; fi
+        /usr/bin/xattr -dr com.apple.quarantine "$2" 2>/dev/null
+        return 0
+    }
+    """
+
+    /// AppleScript 글자 안에 넣을 수 있게 \ " 줄바꿈을 이스케이프한다
+    nonisolated static func appleScriptString(_ text: String) -> String {
+        text.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+    }
+
+    /// 앱이 끝난 뒤(사용자 권한으로) 돌 스크립트: $1 기다릴 pid $2 새 앱(- 이면 바꿔 넣지 않음) $3 설치 위치 $4 1 이면 다시 열기
+    nonisolated private static func installScript() throws -> URL {
+        let script = FileManager.default.temporaryDirectory.appendingPathComponent("branchwork-install-\(UUID().uuidString.prefix(8)).sh")
+        try """
+        #!/bin/sh
+        \(swapFunction)
+        pid="$1"; new="$2"; dest="$3"; relaunch="$4"; status=0
+        while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
+        if [ "$new" != "-" ]; then swap "$new" "$dest" || status=1; fi
+        [ "$relaunch" = "1" ] && /usr/bin/open "$dest"
+        exit $status
+        """.write(to: script, atomically: true, encoding: .utf8)
+        return script
+    }
+
+    /// 바이트마다 도는 반복이 화면을 붙잡지 않게 메인 밖에서 받고, 1MB 마다 진행률만 알린다(미리 받기는 사용자가 일하는 중에 돈다)
+    nonisolated private static func download(_ url: URL, to file: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
         let (bytes, resp) = try await URLSession.shared.bytes(from: url)
         guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw AIError.failed(String(localized: "Update"), String(localized: "Couldn't download the file.")) }
         let total = resp.expectedContentLength > 0 ? Double(resp.expectedContentLength) : nil
@@ -206,11 +316,11 @@ final class UpdateCenter {
                 try handle.write(contentsOf: buffer)
                 received += Double(buffer.count)
                 buffer.removeAll(keepingCapacity: true)
-                if let total { progress = received / total }
+                if let total { progress(received / total) }
             }
         }
         try handle.write(contentsOf: buffer)
-        progress = 1
+        progress(1)
     }
 
     // MARK: 창
@@ -265,7 +375,7 @@ struct UpdateView: View {
                         .font(.callout).foregroundStyle(.secondary)
                     if !r.notes.isEmpty {
                         ScrollView {
-                            Text(r.notes).font(.callout).textSelection(.enabled)
+                            ReleaseNotes(text: r.notes)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .frame(maxHeight: 160)
@@ -273,6 +383,10 @@ struct UpdateView: View {
                         .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
                     }
                     if center.phase == .available {
+                        if center.readyVersion == r.version {
+                            Label("Downloaded and verified — ready to install.", systemImage: "checkmark.seal")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                         HStack {
                             Button("Skip this version") { center.skip() }
                             Spacer()
@@ -293,5 +407,58 @@ struct UpdateView: View {
         }
         .padding(20)
         .frame(width: 520)
+    }
+}
+
+/// 릴리스 노트(GitHub 마크다운)를 읽기 좋게: 제목·목록·구분선·코드 블록, 줄 안의 굵게·링크·코드
+private struct ReleaseNotes: View {
+    let text: String
+
+    private enum Block { case heading(String), bullet(String), code(String), rule, text(String) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .heading(let s): Text(inline(s)).fontWeight(.semibold).padding(.top, 4)
+                case .bullet(let s):
+                    HStack(alignment: .firstTextBaseline, spacing: 6) { Text(verbatim: "•"); Text(inline(s)) }
+                case .code(let s): Text(s).font(.caption.monospaced()).foregroundStyle(.secondary)
+                case .rule: Divider().padding(.vertical, 2)
+                case .text(let s): Text(inline(s))
+                }
+            }
+        }
+        .font(.callout)
+        .textSelection(.enabled)
+    }
+
+    private var blocks: [Block] {
+        var out: [Block] = []
+        var code: [String]? = nil
+        for line in text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("```") {
+                if let c = code { out.append(.code(c.joined(separator: "\n"))); code = nil } else { code = [] }
+            } else if code != nil {
+                code?.append(line)
+            } else if t.isEmpty {
+                continue
+            } else if t.hasPrefix("#") {
+                out.append(.heading(t.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)))
+            } else if t.hasPrefix("- ") || t.hasPrefix("* ") {
+                out.append(.bullet(String(t.dropFirst(2))))
+            } else if t.count >= 3, t.allSatisfy({ $0 == "-" }) {
+                out.append(.rule)
+            } else {
+                out.append(.text(t))
+            }
+        }
+        if let c = code { out.append(.code(c.joined(separator: "\n"))) }
+        return out
+    }
+
+    private func inline(_ s: String) -> AttributedString {
+        (try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
     }
 }
