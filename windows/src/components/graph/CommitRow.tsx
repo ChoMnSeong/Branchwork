@@ -8,7 +8,7 @@ import { avatars } from "../../lib/avatars";
 import { branchPayload, commitPayload, type RepoStore } from "../../lib/repo";
 import { commitMenu, refMenu } from "../shared/menus";
 import { Avatar, showContextMenu, tip } from "../shared/ui";
-import { AVATAR, LANE_W, LEFT_PAD, REF_W, ROW_H } from "./metrics";
+import { AVATAR, LANE_W, LEFT_PAD, ROW_H, type GraphColumns } from "./metrics";
 import { CIStatusIcon } from "../sidebar/CIPanel";
 import { statusInfo, type CIPipeline } from "../../lib/ci/models";
 
@@ -23,11 +23,14 @@ export const CommitRow = memo(function CommitRow({
   wipCount,
   match,
   ci,
+  cols,
 }: {
   store: RepoStore;
   entry: GraphEntry;
   top: number;
   gw: number;
+  /** 화면 너비에 맞춘 칸(좁으면 일부 칸을 숨기고 줄인다) */
+  cols: GraphColumns;
   refs: RefLabel[] | undefined;
   selected: boolean;
   isHead: boolean;
@@ -70,7 +73,7 @@ export const CommitRow = memo(function CommitRow({
       }}
     >
       {/* 왼쪽: 브랜치·태그(첫 번째 + 나머지 개수)와 그래프까지 이어지는 선 */}
-      <div className="ref-col" style={{ width: REF_W, background: groups.length ? `color-mix(in srgb, ${tint} 10%, transparent)` : undefined }}>
+      <div className="ref-col" style={{ width: cols.ref, background: groups.length ? `color-mix(in srgb, ${tint} 10%, transparent)` : undefined }}>
         {groups.length > 0 && (
           <>
             <RefPill store={store} group={groups[0]} tint={tint} />
@@ -93,7 +96,10 @@ export const CommitRow = memo(function CommitRow({
           </>
         )}
       </div>
-      <div style={{ background: `color-mix(in srgb, ${tint} ${groups.length ? 10 : 4}%, transparent)`, display: "flex" }}>
+      <div
+        className={cols.graph < gw ? "graph-clipped" : undefined}
+        style={{ background: `color-mix(in srgb, ${tint} ${groups.length ? 10 : 4}%, transparent)`, display: "flex", width: cols.graph, flex: "none", overflow: "hidden" }}
+      >
         <GraphCell row={entry.row} width={gw} isWIP={wip} isHead={isHead} isMerge={isMerge(c)} hasRefs={groups.length > 0} author={c.author} email={c.email} />
       </div>
       <div className="msg" style={{ paddingLeft: 8 }}>
@@ -122,11 +128,13 @@ export const CommitRow = memo(function CommitRow({
           </>
         )}
       </div>
-      <span className="c-author ellipsis muted" style={{ paddingLeft: 8 }}>
-        {c.author}
-      </span>
-      <span className="c-date ellipsis muted">{wip ? "" : shortDate(c.date)}</span>
-      <span className="c-sha muted">{wip ? "" : short(c.id)}</span>
+      {cols.author && (
+        <span className="c-author ellipsis muted" style={{ paddingLeft: 8 }}>
+          {c.author}
+        </span>
+      )}
+      {cols.date && <span className="c-date ellipsis muted">{wip ? "" : shortDate(c.date)}</span>}
+      {cols.sha && <span className="c-sha muted">{wip ? "" : short(c.id)}</span>}
     </div>
   );
 });

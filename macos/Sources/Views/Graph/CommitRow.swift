@@ -10,6 +10,8 @@ struct CommitRow: View {
 
     let entry: GraphEntry
     let graphWidth: CGFloat
+    /// 화면 너비에 맞춘 칸(좁으면 일부 칸을 숨기고 줄인다)
+    let columns: GraphMetrics.Columns
     let refs: [RefLabel]
     let selected: Bool
     let isHead: Bool
@@ -25,11 +27,20 @@ struct CommitRow: View {
         HStack(spacing: 0) {
             // 왼쪽: 브랜치·태그(첫 번째 + 나머지 개수), 그래프 동그라미까지 이어지는 선
             RefColumn(groups: groups, tint: tint, store: store)
-                .frame(width: GraphMetrics.refWidth, height: GraphMetrics.rowHeight)
+                .frame(width: columns.ref, height: GraphMetrics.rowHeight)
                 .background(groups.isEmpty ? Color.clear : tint.opacity(0.10))
             GraphCell(row: entry.row, isWIP: c.isWIP, isHead: isHead, isMerge: c.isMerge,
                       hasRefs: !groups.isEmpty, author: c.author, email: c.email)
                 .frame(width: graphWidth, height: GraphMetrics.rowHeight)
+                // 좁아서 그래프 칸이 잘리면 오른쪽 끝을 흐리게
+                .frame(width: columns.graph, alignment: .leading)
+                .clipped()
+                .mask {
+                    LinearGradient(stops: [.init(color: .black, location: 0),
+                                           .init(color: .black, location: columns.graph < graphWidth ? max(0, 1 - 16 / columns.graph) : 1),
+                                           .init(color: columns.graph < graphWidth ? .clear : .black, location: 1)],
+                                   startPoint: .leading, endPoint: .trailing)
+                }
                 .background(tint.opacity(groups.isEmpty ? 0.04 : 0.10))
             HStack(spacing: 6) {
                 if c.isWIP {
@@ -54,15 +65,17 @@ struct CommitRow: View {
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             .clipped()
             Group {
-                Text(c.author).frame(width: 120, alignment: .leading)
-                Text(c.isWIP ? "" : Fmt.short(c.date)).frame(width: 90, alignment: .leading)
-                Text(c.isWIP ? "" : c.short)
-                    .font(.system(.caption, design: .monospaced))
-                    .frame(width: 60, alignment: .leading)
+                if columns.author { Text(c.author).frame(width: 120, alignment: .leading).padding(.leading, 8) }
+                if columns.date { Text(c.isWIP ? "" : Fmt.short(c.date)).frame(width: 90, alignment: .leading).padding(.leading, 8) }
+                if columns.sha {
+                    Text(c.isWIP ? "" : c.short)
+                        .font(.system(.caption, design: .monospaced))
+                        .frame(width: 60, alignment: .leading)
+                        .padding(.leading, 8)
+                }
             }
             .lineLimit(1)
             .foregroundStyle(.secondary)
-            .padding(.leading, 8)
         }
         .font(.system(size: 12.5))
         .padding(.trailing, 12)

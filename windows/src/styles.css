@@ -720,13 +720,14 @@ select {
   min-height: 0;
   display: flex;
 }
+/* 창이 좁으면 양옆 패널도 함께 줄어든다(가운데는 최소 너비를 지키고, 정보 패널이 창 밖으로 밀리지 않게) */
 .sidebar {
   background: var(--sidebar);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  flex: none;
+  min-width: 180px;
+  flex: 0 1 auto;
 }
 .center {
   flex: 1;
@@ -740,8 +741,8 @@ select {
   background: var(--bg);
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  flex: none;
+  min-width: 280px;
+  flex: 0 1 auto;
 }
 .splitter {
   width: 6px;
@@ -848,7 +849,6 @@ select {
 .graph-header {
   display: flex;
   align-items: center;
-  gap: 8px;
   height: 26px;
   padding-right: 12px;
   font-size: 11.5px;
@@ -857,6 +857,17 @@ select {
   background: var(--bar);
   border-bottom: 1px solid var(--border);
   flex: none;
+}
+/* 좁아져도 머리줄 글자가 세로로 쌓이지 않게 */
+.graph-header > span {
+  flex: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 좁아서 그래프 칸이 잘렸으면 오른쪽 끝을 흐리게 */
+.graph-clipped {
+  mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
 }
 .graph-scroll {
   flex: 1;

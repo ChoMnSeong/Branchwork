@@ -1,23 +1,23 @@
 import { ChevronDown, ChevronUp, CircleDashed, ListFilter, Search, X } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { isWIP, searchScopes, type SearchScope } from "../../lib/models";
 import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { Button, Empty, showMenuBelow, Spinner } from "../shared/ui";
 import { CommitRow } from "./CommitRow";
-import { REF_W, ROW_H, graphWidth } from "./metrics";
+import { ROW_H, graphColumns, graphWidth } from "./metrics";
 
 export function GraphView({ store }: { store: RepoStore }) {
   useObserve(store);
   useObserve(store.ci);
   const gw = graphWidth(store.maxLanes);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [viewport, setViewport] = useState({ top: 0, height: 800 });
+  const [viewport, setViewport] = useState({ top: 0, height: 800, width: 1000 });
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const update = () => setViewport({ top: el.scrollTop, height: el.clientHeight });
+    const update = () => setViewport({ top: el.scrollTop, height: el.clientHeight, width: el.clientWidth });
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -42,6 +42,8 @@ export function GraphView({ store }: { store: RepoStore }) {
     }
   });
 
+  // 좁은 화면에서는 SHA·날짜·작성자 칸을 숨기고 브랜치·그래프 칸을 줄여 커밋 메시지 칸을 지킨다
+  const cols = useMemo(() => graphColumns(viewport.width, gw), [viewport.width, gw]);
   const entries = store.entries;
   const first = Math.max(0, Math.floor(viewport.top / ROW_H) - 10);
   const last = Math.min(entries.length, Math.ceil((viewport.top + viewport.height) / ROW_H) + 10);
@@ -53,12 +55,14 @@ export function GraphView({ store }: { store: RepoStore }) {
     <div className="col grow" style={{ background: "var(--surface)" }}>
       <SearchBar store={store} />
       <div className="graph-header">
-        <span style={{ width: REF_W, paddingLeft: 10, flex: "none" }}>브랜치 / 태그</span>
-        <span style={{ width: gw, paddingLeft: 6, flex: "none" }}>그래프</span>
-        <span className="grow" style={{ paddingLeft: 8 }}>커밋 메시지</span>
-        <span style={{ width: 120, flex: "none" }}>작성자</span>
-        <span style={{ width: 90, flex: "none" }}>날짜</span>
-        <span style={{ width: 64, flex: "none" }}>SHA</span>
+        <span style={{ width: cols.ref, paddingLeft: 10 }}>브랜치 / 태그</span>
+        <span style={{ width: cols.graph, paddingLeft: 6 }}>그래프</span>
+        <span className="grow" style={{ paddingLeft: 8, flex: 1, minWidth: 0 }}>
+          커밋 메시지
+        </span>
+        {cols.author && <span style={{ width: 120, paddingLeft: 8 }}>작성자</span>}
+        {cols.date && <span style={{ width: 90 }}>날짜</span>}
+        {cols.sha && <span style={{ width: 64 }}>SHA</span>}
       </div>
       <div
         ref={scrollRef}
@@ -87,6 +91,7 @@ export function GraphView({ store }: { store: RepoStore }) {
                   entry={e}
                   top={i * ROW_H}
                   gw={gw}
+                  cols={cols}
                   refs={store.refsByCommit.get(e.commit.id)}
                   selected={selected === e.commit.id}
                   isHead={e.commit.id === store.headHash}
@@ -154,7 +159,7 @@ function SearchBar({ store }: { store: RepoStore }) {
       </div>
       <select
         className="select"
-        style={{ width: 110, height: 28, padding: "0 6px" }}
+        style={{ width: 110, height: 28, padding: "0 6px", flex: "none" }}
         value={store.searchScope}
         data-tip="검색 대상"
         onChange={(e) => store.setSearch(store.searchText, e.target.value as SearchScope)}

@@ -13,18 +13,50 @@ enum GraphMetrics {
     static func width(lanes: Int) -> CGFloat {
         max(44, CGFloat(min(lanes, maxVisibleLanes)) * laneWidth + leftPad * 2)
     }
+
+    /// 그래프 행의 칸 너비. 좁은 화면에서는 커밋 메시지 칸을 지키려고 다른 칸을 숨기거나 줄인다.
+    struct Columns: Equatable {
+        var ref = GraphMetrics.refWidth
+        var graph: CGFloat
+        var author = true
+        var date = true
+        var sha = true
+    }
+
+    private static let messageMin: CGFloat = 180
+
+    /// SHA → 날짜 칸을 숨기고, 브랜치 칸을 조금 줄이고, 작성자 칸을 숨기고, 브랜치 칸을 더 줄이고,
+    /// 그래도 모자라면 그래프 칸(오른쪽 레인은 잘림)을 줄인다
+    static func columns(width: CGFloat, graph: CGFloat) -> Columns {
+        var c = Columns(graph: graph)
+        // 메시지 왼쪽 여백 8, 행 오른쪽 여백 12, 작성자·날짜·SHA 는 왼쪽 여백 8 씩
+        func short() -> CGFloat {
+            messageMin - (width - (c.ref + c.graph + 20 + (c.author ? 128 : 0) + (c.date ? 98 : 0) + (c.sha ? 68 : 0)))
+        }
+        func shrinkRef(_ min: CGFloat) { if short() > 0 { c.ref = max(min, c.ref - short()) } }
+        if short() > 0 { c.sha = false }
+        if short() > 0 { c.date = false }
+        shrinkRef(150)
+        if short() > 0 { c.author = false }
+        shrinkRef(110)
+        if short() > 0 { c.graph = max(min(graph, 66), c.graph - short()) }
+        return c
+    }
 }
 
 struct GraphView: View {
     @Environment(RepoStore.self) private var store
     @FocusState private var focused: Bool
+    @ViewState private var width: CGFloat = 1000
 
     var body: some View {
         let graphWidth = GraphMetrics.width(lanes: store.maxLanes)
+        // 좁은 화면에서는 SHA·날짜·작성자 칸을 숨기고 브랜치·그래프 칸을 줄여 커밋 메시지 칸을 지킨다
+        let columns = GraphMetrics.columns(width: width, graph: graphWidth)
         VStack(spacing: 0) {
             SearchBar()
             Divider()
-            GraphHeader(graphWidth: graphWidth)
+            GraphHeader(columns: columns)
             Divider()
             ScrollViewReader { proxy in
                 ScrollView {
@@ -32,6 +64,7 @@ struct GraphView: View {
                         ForEach(store.entries) { entry in
                             CommitRow(entry: entry,
                                       graphWidth: graphWidth,
+                                      columns: columns,
                                       refs: store.refsByCommit[entry.id] ?? [],
                                       selected: isSelected(entry),
                                       isHead: entry.id == store.headHash,
@@ -70,6 +103,7 @@ struct GraphView: View {
                 }
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .overlay {
             if store.entries.isEmpty {
                 ContentUnavailableView("아직 커밋이 없습니다", systemImage: "circle.dotted",
@@ -195,18 +229,20 @@ private struct SearchBar: View {
 }
 
 private struct GraphHeader: View {
-    let graphWidth: CGFloat
+    let columns: GraphMetrics.Columns
 
     var body: some View {
         HStack(spacing: 0) {
-            Text("브랜치 / 태그").frame(width: GraphMetrics.refWidth, alignment: .leading).padding(.leading, 10)
-            Text("그래프").frame(width: graphWidth, alignment: .leading).padding(.leading, 6)
-            Text("커밋 메시지").frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 8)
-            Spacer().frame(width: 8)
-            Text("작성자").frame(width: 120, alignment: .leading)
-            Text("날짜").frame(width: 90, alignment: .leading)
-            Text("SHA").frame(width: 60, alignment: .leading)
+            Text("브랜치 / 태그").padding(.leading, 10).frame(width: columns.ref, alignment: .leading)
+            Text("그래프").padding(.leading, 6).frame(width: columns.graph, alignment: .leading)
+            Text("커밋 메시지").padding(.leading, 8).frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            Group {
+                if columns.author { Text("작성자").frame(width: 120, alignment: .leading).padding(.leading, 8) }
+                if columns.date { Text("날짜").frame(width: 90, alignment: .leading).padding(.leading, 8) }
+                if columns.sha { Text("SHA").frame(width: 60, alignment: .leading).padding(.leading, 8) }
+            }
         }
+        .lineLimit(1)
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
         .padding(.trailing, 12)
