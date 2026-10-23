@@ -1,17 +1,16 @@
 name: Windows
 
-# 푸시·PR: 타입 검사·단위 테스트 → 점검용 빌드 한 번 → 실제 앱 자동 점검.
+# PR: 타입 검사·단위 테스트 → 점검용 빌드 한 번 → 실제 앱 자동 점검.
 # 배포(v* 태그)·수동 실행: 위에 더해 서명한 설치 파일 빌드, 자동 업데이트 서명 점검, README 스크린샷.
+# main 은 PR 로만 바뀌므로(이미 PR 에서 점검함) 합친 뒤 main 에서 다시 돌리지 않는다.
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-    paths: ["windows/**", "docs/make-demo-repo.sh", ".github/workflows/windows.yml"]
   pull_request:
     paths: ["windows/**", "docs/make-demo-repo.sh", ".github/workflows/windows.yml"]
   workflow_dispatch:
 
-# 같은 브랜치·PR 에 새로 푸시하면 돌던 실행은 취소한다(겹쳐 돌며 줄 서지 않게)
+# 같은 PR 에 새로 푸시하면 돌던 실행은 취소한다(겹쳐 돌며 줄 서지 않게)
 concurrency:
   group: windows-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -19,8 +18,6 @@ concurrency:
 jobs:
   build:
     name: 빌드 · 자동 점검
-    # 버전 커밋(Release …, release/… 브랜치를 합친 커밋)은 뒤따르는 v* 태그 실행이 전부 한다
-    if: github.ref_type == 'tag' || !(startsWith(github.event.head_commit.message, 'Release ') || contains(github.event.head_commit.message, '/release/'))
     runs-on: windows-latest
     timeout-minutes: 30
     env:

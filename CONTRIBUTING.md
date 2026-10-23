@@ -156,7 +156,7 @@ git push --force-with-lease
 1. `main` 에서 브랜치를 만들어 작업합니다(위 「브랜치」).
 2. 위의 확인(빌드·`tsc`·`vitest`·`cargo check`)을 통과시키고, 화면이 바뀌었으면 라이트·다크 스크린샷을 붙입니다.
 3. PR 설명의 체크리스트를 채워 주세요. CI(Windows 자동 점검 · Git 규칙)가 통과해야 합칩니다.
-   - Windows CI 는 푸시·PR 마다 점검용 빌드 한 번 + 실제 앱 자동 점검을 합니다(7분 안팎, 새로 푸시하면 이전 실행은 취소).
+   - Windows CI 는 `windows/` 를 바꾼 PR 마다 점검용 빌드 한 번 + 실제 앱 자동 점검을 합니다(9분 안팎, 새로 푸시하면 이전 실행은 취소). 필수 검사는 아니라 auto-merge 는 기다리지 않으니, 결과를 PR 에서 확인하세요.
    - 서명한 설치 파일·자동 업데이트 서명 점검·README 스크린샷은 `v*` 태그와 수동 실행(Actions › Windows › Run workflow)에서만.
 4. 합칠 때는 merge commit 으로(PR 단위 기록이 남게). `gh pr merge --auto --merge` 를 걸어 두면 검사가 통과하는 대로 합쳐지고, 합친 브랜치는 자동으로 지워집니다.
 
