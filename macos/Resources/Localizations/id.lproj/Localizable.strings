@@ -133,7 +133,9 @@
 "Click to use another gitch account for this repository." = "Klik untuk memakai akun gitch lain di repositori ini.";
 "Commit authors are fine" = "Penulis commit sudah benar";
 "Couldn't find gitch inside Gitrochi." = "gitch tidak ditemukan di dalam Gitrochi.";
+"Couldn't move Gitrochi to the Applications folder" = "Tidak dapat memindahkan Gitrochi ke folder Aplikasi";
 "Creates a branch at %@ without changing the current branch." = "Membuat branch di %1$@ tanpa mengubah branch saat ini.";
+"Enter an administrator password to move Gitrochi to %@." = "Masukkan kata sandi administrator untuk memindahkan Gitrochi ke %1$@.";
 "Exclude" = "Keluarkan";
 "Exclude this repository from gitch checks?" = "Keluarkan repositori ini dari pemeriksaan gitch?";
 "Exclude this repository from gitch checks…" = "Keluarkan repositori ini dari pemeriksaan gitch…";
@@ -141,9 +143,12 @@
 "Fix authors of unpushed commits…" = "Perbaiki penulis commit yang belum di-push…";
 "Fix commit authors?" = "Perbaiki penulis commit?";
 "Follow the default branch" = "Ikuti branch bawaan";
+"Gitrochi %@ in the Applications folder will be replaced." = "Gitrochi %1$@ di folder Aplikasi akan diganti.";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ adalah versi terbaru.";
+"Gitrochi is already in the Applications folder" = "Gitrochi sudah ada di folder Aplikasi";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi dibuka langsung dari unduhan dan berjalan dari lokasi sementara, sehingga tidak dapat menggantikan dirinya sendiri. Pindahkan ke folder Aplikasi, buka lagi, lalu perbarui.";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi berjalan dari lokasi sementara. Pindahkan ke folder Aplikasi, buka lagi, lalu instal gitch.";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi berjalan dari image disk. Di folder Aplikasi, Gitrochi dapat memperbarui dirinya sendiri, dan image disk akan dikeluarkan.";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi dimulai ulang untuk menerapkan perubahan. Jika tidak ada riwayat commit yang bisa diikuti, AI juga menulis dalam bahasa ini.";
 "Gitrochi update" = "Pembaruan Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Mengambil %1$lld commit baru dari remote ke branch saat ini.";
@@ -486,6 +491,8 @@
 "Modified" = "Diubah";
 "Modified files" = "File yang diubah";
 "Modified files appear here." = "File yang diubah akan muncul di sini.";
+"Move Gitrochi to the Applications folder?" = "Pindahkan Gitrochi ke folder Aplikasi?";
+"Move to Applications" = "Pindahkan ke Aplikasi";
 "Moves %@ '%@' back to %@." = "Memindahkan %1$@ '%2$@' kembali ke %3$@.";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "Memindahkan '%1$@' kembali ke commit sebelumnya (%2$@). Perubahan yang belum di-commit tetap dipertahankan.";
 "My commit" = "Commit saya";
@@ -568,6 +575,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "Buka atau klon repositori lain, repositori terbaru, tutup tab";
 "Open releases page" = "Buka halaman rilis";
 "Open repository…" = "Buka repositori…";
+"Open that one instead? The disk image will be ejected." = "Buka yang itu saja? Image disk akan dikeluarkan.";
 "Open this branch's worktree" = "Buka worktree branch ini";
 "Open worktree" = "Buka worktree";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "Kompatibel OpenAI (Ollama, LM Studio, OpenRouter, dll.)";
@@ -609,6 +617,7 @@
 "Pushing tag…" = "Melakukan push tag…";
 "Pushing…" = "Melakukan push…";
 "Queued" = "Dalam antrean";
+"Quit the Gitrochi that's already open, then try again." = "Tutup Gitrochi yang sudah terbuka, lalu coba lagi.";
 "Read-only" = "Baca-saja";
 "Reading commits and branches…" = "Membaca commit dan branch…";
 "Reading the workflow…" = "Membaca workflow…";
@@ -779,6 +788,7 @@
 "That backup no longer exists." = "Cadangan itu sudah tidak ada.";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "Bagian working tree tersebut kembali ke keadaan yang sudah di-commit (di-stage). Tindakan ini tidak dapat diurungkan.";
 "The API key is invalid or lacks permission (%lld). %@" = "Kunci API tidak valid atau tidak memiliki izin (%1$lld). %2$@";
+"The Gitrochi that's already open will quit." = "Gitrochi yang sudah terbuka akan ditutup.";
 "The address is invalid: %@" = "Alamat tidak valid: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "Commit paling bawah (terlama) tidak memiliki commit untuk digabungkan.";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "Branch akan dihapus di server %1$@. Berhati-hatilah jika orang lain juga memakainya.";

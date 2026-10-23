@@ -141,7 +141,9 @@
 "Click to use another gitch account for this repository." = "คลิกเพื่อเปลี่ยนบัญชี gitch ที่ใช้กับรีโพซิทอรีนี้";
 "Commit authors are fine" = "ผู้เขียนคอมมิตถูกต้องแล้ว";
 "Couldn't find gitch inside Gitrochi." = "ไม่พบ gitch ใน Gitrochi";
+"Couldn't move Gitrochi to the Applications folder" = "ไม่สามารถย้าย Gitrochi ไปยังโฟลเดอร์แอปพลิเคชันได้";
 "Creates a branch at %@ without changing the current branch." = "สร้างบรานช์ที่ %1$@ โดยไม่เปลี่ยนบรานช์ปัจจุบัน";
+"Enter an administrator password to move Gitrochi to %@." = "ป้อนรหัสผ่านผู้ดูแลระบบเพื่อย้าย Gitrochi ไปยัง %1$@";
 "Exclude" = "เอาออก";
 "Exclude this repository from gitch checks?" = "เอารีโพซิทอรีนี้ออกจากการตรวจของ gitch หรือไม่";
 "Exclude this repository from gitch checks…" = "เอารีโพซิทอรีนี้ออกจากการตรวจของ gitch…";
@@ -149,9 +151,12 @@
 "Fix authors of unpushed commits…" = "แก้ผู้เขียนของคอมมิตที่ยังไม่ได้ push…";
 "Fix commit authors?" = "แก้ผู้เขียนคอมมิตหรือไม่";
 "Follow the default branch" = "ตามบรานช์เริ่มต้น";
+"Gitrochi %@ in the Applications folder will be replaced." = "Gitrochi %1$@ ในโฟลเดอร์แอปพลิเคชันจะถูกแทนที่";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ เป็นเวอร์ชันล่าสุดแล้ว";
+"Gitrochi is already in the Applications folder" = "Gitrochi อยู่ในโฟลเดอร์แอปพลิเคชันแล้ว";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi ถูกเปิดจากไฟล์ที่ดาวน์โหลดโดยตรงและกำลังทำงานจากตำแหน่งชั่วคราว จึงแทนที่ตัวเองไม่ได้ ให้ย้ายไปไว้ในโฟลเดอร์แอปพลิเคชัน เปิดใหม่ แล้วจึงอัปเดต";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi กำลังทำงานจากตำแหน่งชั่วคราว ให้ย้ายไปไว้ในโฟลเดอร์แอปพลิเคชัน เปิดใหม่ แล้วจึงติดตั้ง gitch";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi กำลังทำงานจากดิสก์อิมเมจ เมื่ออยู่ในโฟลเดอร์แอปพลิเคชันจะอัปเดตตัวเองได้ และดิสก์อิมเมจจะถูกดีดออก";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi จะรีสตาร์ทเพื่อใช้การเปลี่ยนแปลง เมื่อไม่มีประวัติคอมมิตให้อ้างอิง AI จะเขียนเป็นภาษานี้ด้วย";
 "Gitrochi update" = "อัปเดต Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "ดึงคอมมิตใหม่ %1$lld รายการจากรีโมตเข้ามาในแบรนช์ปัจจุบัน";
@@ -510,6 +515,8 @@
 "Modified" = "แก้ไข";
 "Modified files" = "ไฟล์ที่แก้ไข";
 "Modified files appear here." = "ไฟล์ที่แก้ไขจะแสดงที่นี่";
+"Move Gitrochi to the Applications folder?" = "ย้าย Gitrochi ไปยังโฟลเดอร์แอปพลิเคชันหรือไม่";
+"Move to Applications" = "ย้ายไปยังแอปพลิเคชัน";
 "Moves %@ '%@' back to %@." = "ย้าย %1$@ '%2$@' กลับไปที่ %3$@";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "ย้าย '%1$@' กลับไปยังคอมมิตก่อนหน้า (%2$@) การเปลี่ยนแปลงที่ยังไม่ได้คอมมิตจะยังคงอยู่";
 "My commit" = "คอมมิตของฉัน";
@@ -593,6 +600,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "เปิดหรือโคลนรีโพสิทอรีอื่น, รีโพสิทอรีล่าสุด, ปิดแท็บ";
 "Open releases page" = "เปิดหน้ารีลีส";
 "Open repository…" = "เปิดรีโพสิทอรี…";
+"Open that one instead? The disk image will be ejected." = "เปิดตัวนั้นแทนหรือไม่ ดิสก์อิมเมจจะถูกดีดออก";
 "Open this branch's worktree" = "เปิดเวิร์กทรีของแบรนช์นี้";
 "Open worktree" = "เปิดเวิร์กทรี";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "เข้ากันได้กับ OpenAI (Ollama, LM Studio, OpenRouter ฯลฯ)";
@@ -642,6 +650,7 @@
 "Pushing tag…" = "กำลังพุชแท็ก…";
 "Pushing…" = "กำลังพุช…";
 "Queued" = "อยู่ในคิว";
+"Quit the Gitrochi that's already open, then try again." = "ปิด Gitrochi ที่เปิดอยู่แล้ว แล้วลองอีกครั้ง";
 "Read-only" = "อ่านอย่างเดียว";
 "Reading commits and branches…" = "กำลังอ่านคอมมิตและแบรนช์…";
 "Reading the workflow…" = "กำลังอ่านเวิร์กโฟลว์…";
@@ -821,6 +830,7 @@
 "That backup no longer exists." = "ข้อมูลสำรองนั้นไม่มีอยู่แล้ว";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "ส่วนนั้นของเวิร์กกิงทรีจะกลับไปเป็นสถานะที่คอมมิต (สเตจ) ไว้ ไม่สามารถเลิกทำได้";
 "The API key is invalid or lacks permission (%lld). %@" = "คีย์ API ไม่ถูกต้องหรือไม่มีสิทธิ์ (%1$lld) %2$@";
+"The Gitrochi that's already open will quit." = "Gitrochi ที่เปิดอยู่แล้วจะถูกปิด";
 "The address is invalid: %@" = "ที่อยู่ไม่ถูกต้อง: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "คอมมิตล่างสุด (เก่าที่สุด) ไม่มีคอมมิตให้รวมเข้าไป";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "แบรนช์จะถูกลบบนเซิร์ฟเวอร์ %1$@ โปรดระวังหากมีผู้อื่นใช้งานอยู่ด้วย";

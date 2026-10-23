@@ -137,7 +137,9 @@
 "Click to use another gitch account for this repository." = "Haz clic para usar otra cuenta de gitch en este repositorio.";
 "Commit authors are fine" = "Los autores de los commits son correctos";
 "Couldn't find gitch inside Gitrochi." = "No se encontró gitch dentro de Gitrochi.";
+"Couldn't move Gitrochi to the Applications folder" = "No se pudo mover Gitrochi a la carpeta Aplicaciones";
 "Creates a branch at %@ without changing the current branch." = "Crea una rama en %1$@ sin cambiar la rama actual.";
+"Enter an administrator password to move Gitrochi to %@." = "Introduce una contraseña de administrador para mover Gitrochi a %1$@.";
 "Exclude" = "Excluir";
 "Exclude this repository from gitch checks?" = "¿Excluir este repositorio de las comprobaciones de gitch?";
 "Exclude this repository from gitch checks…" = "Excluir este repositorio de las comprobaciones de gitch…";
@@ -145,9 +147,12 @@
 "Fix authors of unpushed commits…" = "Corregir autores de commits sin push…";
 "Fix commit authors?" = "¿Corregir los autores de los commits?";
 "Follow the default branch" = "Seguir la rama predeterminada";
+"Gitrochi %@ in the Applications folder will be replaced." = "Se reemplazará Gitrochi %1$@ de la carpeta Aplicaciones.";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ es la versión más reciente.";
+"Gitrochi is already in the Applications folder" = "Gitrochi ya está en la carpeta Aplicaciones";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi se abrió directamente desde la descarga y se está ejecutando desde una ubicación temporal, así que no puede reemplazarse a sí mismo. Muévelo a la carpeta Aplicaciones, vuelve a abrirlo y luego actualízalo.";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi se está ejecutando desde una ubicación temporal. Muévelo a la carpeta Aplicaciones, vuelve a abrirlo y después instala gitch.";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi se está ejecutando desde la imagen de disco. En la carpeta Aplicaciones puede actualizarse solo, y la imagen de disco se expulsará.";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi se reinicia para aplicar el cambio. Si no hay historial de commits que seguir, la IA también redacta en este idioma.";
 "Gitrochi update" = "Actualización de Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Trae a la rama actual los commits nuevos del remoto (%1$lld).";
@@ -500,6 +505,8 @@
 "Modified" = "Modificado";
 "Modified files" = "Archivos modificados";
 "Modified files appear here." = "Aquí aparecen los archivos modificados.";
+"Move Gitrochi to the Applications folder?" = "¿Mover Gitrochi a la carpeta Aplicaciones?";
+"Move to Applications" = "Mover a Aplicaciones";
 "Moves %@ '%@' back to %@." = "Devuelve la %1$@ '%2$@' a %3$@.";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "Devuelve '%1$@' al commit anterior (%2$@). Los cambios sin commit se conservan.";
 "My commit" = "Mi commit";
@@ -583,6 +590,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "Abrir o clonar otro repositorio, repositorios recientes, cerrar pestañas";
 "Open releases page" = "Abrir la página de versiones";
 "Open repository…" = "Abrir repositorio…";
+"Open that one instead? The disk image will be ejected." = "¿Abrir esa copia en su lugar? La imagen de disco se expulsará.";
 "Open this branch's worktree" = "Abrir el worktree de esta rama";
 "Open worktree" = "Abrir worktree";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "Compatible con OpenAI (Ollama, LM Studio, OpenRouter, etc.)";
@@ -627,6 +635,7 @@
 "Pushing tag…" = "Haciendo push de la etiqueta…";
 "Pushing…" = "Haciendo push…";
 "Queued" = "En cola";
+"Quit the Gitrochi that's already open, then try again." = "Cierra el Gitrochi que ya está abierto e inténtalo de nuevo.";
 "Read-only" = "Solo lectura";
 "Reading commits and branches…" = "Leyendo commits y ramas…";
 "Reading the workflow…" = "Leyendo el flujo de trabajo…";
@@ -802,6 +811,7 @@
 "That backup no longer exists." = "Esa copia de seguridad ya no existe.";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "Esa parte del árbol de trabajo vuelve a su estado guardado (en el commit o en el stage). No se puede deshacer.";
 "The API key is invalid or lacks permission (%lld). %@" = "La clave de API no es válida o no tiene permisos (%1$lld). %2$@";
+"The Gitrochi that's already open will quit." = "Se cerrará el Gitrochi que ya está abierto.";
 "The address is invalid: %@" = "La dirección no es válida: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "El commit de más abajo (el más antiguo) no tiene ningún commit con el que combinarse.";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "La rama se eliminará en el servidor de %1$@. Ten cuidado si otras personas también la usan.";

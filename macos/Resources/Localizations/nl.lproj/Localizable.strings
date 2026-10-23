@@ -132,7 +132,9 @@
 "Click to use another gitch account for this repository." = "Klik om een ander gitch-account voor deze repository te gebruiken.";
 "Commit authors are fine" = "De commit-auteurs kloppen";
 "Couldn't find gitch inside Gitrochi." = "gitch niet gevonden in Gitrochi.";
+"Couldn't move Gitrochi to the Applications folder" = "Kan Gitrochi niet naar de map Apps verplaatsen";
 "Creates a branch at %@ without changing the current branch." = "Maakt een branch op %1$@ zonder de huidige branch te wijzigen.";
+"Enter an administrator password to move Gitrochi to %@." = "Voer een beheerderswachtwoord in om Gitrochi naar %1$@ te verplaatsen.";
 "Exclude" = "Uitsluiten";
 "Exclude this repository from gitch checks?" = "Deze repository uitsluiten van gitch-controles?";
 "Exclude this repository from gitch checks…" = "Deze repository uitsluiten van gitch-controles…";
@@ -140,9 +142,12 @@
 "Fix authors of unpushed commits…" = "Auteurs van niet-gepushte commits corrigeren…";
 "Fix commit authors?" = "Commit-auteurs corrigeren?";
 "Follow the default branch" = "De standaardbranch volgen";
+"Gitrochi %@ in the Applications folder will be replaced." = "Gitrochi %1$@ in de map Apps wordt vervangen.";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ is de nieuwste versie.";
+"Gitrochi is already in the Applications folder" = "Gitrochi staat al in de map Apps";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi is rechtstreeks vanuit de download geopend en draait vanaf een tijdelijke locatie, dus het kan zichzelf niet vervangen. Verplaats het naar de map Apps, open het opnieuw en werk het daarna bij.";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi draait vanaf een tijdelijke locatie. Verplaats het naar de map Apps, open het opnieuw en installeer daarna gitch.";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi draait vanaf de schijfkopie. In de map Apps kan het zichzelf bijwerken, en de schijfkopie wordt uitgeworpen.";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi start opnieuw om de wijziging toe te passen. Als er geen commitgeschiedenis is om te volgen, schrijft de AI ook in deze taal.";
 "Gitrochi update" = "Gitrochi-update";
 "Brings %lld new commits from the remote into the current branch." = "Haalt nieuwe commits (%1$lld) van de remote binnen in de huidige branch.";
@@ -488,6 +493,8 @@
 "Modified" = "Gewijzigd";
 "Modified files" = "Gewijzigde bestanden";
 "Modified files appear here." = "Gewijzigde bestanden verschijnen hier.";
+"Move Gitrochi to the Applications folder?" = "Gitrochi naar de map Apps verplaatsen?";
+"Move to Applications" = "Verplaats naar Apps";
 "Moves %@ '%@' back to %@." = "Zet %1$@ '%2$@' terug naar %3$@.";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "Zet '%1$@' terug naar de vorige commit (%2$@). Niet-gecommitte wijzigingen blijven behouden.";
 "My commit" = "Mijn commit";
@@ -570,6 +577,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "Andere repository openen of klonen, recente repository's, tabbladen sluiten";
 "Open releases page" = "Releasepagina openen";
 "Open repository…" = "Repository openen…";
+"Open that one instead? The disk image will be ejected." = "Die in plaats daarvan openen? De schijfkopie wordt uitgeworpen.";
 "Open this branch's worktree" = "Worktree van deze branch openen";
 "Open worktree" = "Worktree openen";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "OpenAI-compatibel (Ollama, LM Studio, OpenRouter, enz.)";
@@ -613,6 +621,7 @@
 "Pushing tag…" = "Tag wordt gepusht…";
 "Pushing…" = "Bezig met pushen…";
 "Queued" = "In wachtrij";
+"Quit the Gitrochi that's already open, then try again." = "Stop de Gitrochi die al open is en probeer het opnieuw.";
 "Read-only" = "Alleen-lezen";
 "Reading commits and branches…" = "Commits en branches worden gelezen…";
 "Reading the workflow…" = "Workflow wordt gelezen…";
@@ -779,6 +788,7 @@
 "That backup no longer exists." = "Die back-up bestaat niet meer.";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "Dat deel van de werkmap gaat terug naar de gecommitte (gestagede) toestand. Dit kan niet ongedaan worden gemaakt.";
 "The API key is invalid or lacks permission (%lld). %@" = "De API-sleutel is ongeldig of heeft onvoldoende rechten (%1$lld). %2$@";
+"The Gitrochi that's already open will quit." = "De Gitrochi die al open is, wordt gestopt.";
 "The address is invalid: %@" = "Het adres is ongeldig: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "De onderste (oudste) commit heeft niets om mee samen te voegen.";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "De branch wordt verwijderd op de server van %1$@. Wees voorzichtig als anderen hem ook gebruiken.";

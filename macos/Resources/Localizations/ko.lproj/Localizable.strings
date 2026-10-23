@@ -142,7 +142,9 @@
 "Click to use another gitch account for this repository." = "눌러서 이 저장소에 쓸 gitch 계정을 바꿉니다.";
 "Commit authors are fine" = "커밋 작성자가 모두 맞습니다";
 "Couldn't find gitch inside Gitrochi." = "Gitrochi 안에서 gitch 를 찾지 못했습니다.";
+"Couldn't move Gitrochi to the Applications folder" = "Gitrochi 를 응용 프로그램 폴더로 옮기지 못했습니다";
 "Creates a branch at %@ without changing the current branch." = "지금 브랜치는 그대로 두고 %1$@ 에서 새 브랜치를 만듭니다.";
+"Enter an administrator password to move Gitrochi to %@." = "Gitrochi 를 %1$@ 로 옮기려면 관리자 암호를 입력하세요.";
 "Exclude" = "빼기";
 "Exclude this repository from gitch checks?" = "이 저장소를 gitch 검사에서 뺄까요?";
 "Exclude this repository from gitch checks…" = "이 저장소를 gitch 검사에서 빼기…";
@@ -150,9 +152,12 @@
 "Fix authors of unpushed commits…" = "push 안 한 커밋의 작성자 고치기…";
 "Fix commit authors?" = "커밋 작성자를 고칠까요?";
 "Follow the default branch" = "기본 브랜치 따라가기";
+"Gitrochi %@ in the Applications folder will be replaced." = "응용 프로그램 폴더에 있던 Gitrochi %1$@ 는 이 버전으로 바뀝니다.";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ 이(가) 가장 새 버전입니다.";
+"Gitrochi is already in the Applications folder" = "Gitrochi 가 이미 응용 프로그램 폴더에 있습니다";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "다운로드한 곳에서 바로 열어서 macOS 가 임시 위치에서 실행하고 있어, 스스로 바꿔 넣을 수 없습니다. 응용 프로그램 폴더로 옮겨 다시 연 뒤 업데이트하세요.";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi 가 임시 위치에서 실행 중입니다. 응용 프로그램 폴더로 옮겨 다시 연 뒤 gitch 를 설치하세요.";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "디스크 이미지에서 실행 중입니다. 응용 프로그램 폴더로 옮기면 스스로 업데이트할 수 있고, 디스크 이미지는 꺼냅니다.";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "바꾸면 앱을 다시 시작해 적용합니다. AI 가 쓰는 글도 커밋 기록이 없으면 이 언어로 씁니다.";
 "Gitrochi update" = "Gitrochi 업데이트";
 "Brings %lld new commits from the remote into the current branch." = "원격의 새 커밋 %1$lld개를 현재 브랜치로 가져옵니다.";
@@ -512,6 +517,8 @@
 "Modified" = "수정됨";
 "Modified files" = "수정한 파일";
 "Modified files appear here." = "수정한 파일이 생기면 여기에 나타납니다.";
+"Move Gitrochi to the Applications folder?" = "Gitrochi 를 응용 프로그램 폴더로 옮길까요?";
+"Move to Applications" = "응용 프로그램 폴더로 옮기기";
 "Moves %@ '%@' back to %@." = "%1$@ '%2$@' 을(를) %3$@ 로 되돌립니다.";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "'%1$@' 를 이전 커밋(%2$@)으로 되돌립니다. 커밋하지 않은 변경은 그대로 둡니다.";
 "My commit" = "내 커밋";
@@ -595,6 +602,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "다른 저장소 열기·복제, 최근에 연 저장소, 탭 닫기";
 "Open releases page" = "릴리스 페이지 열기";
 "Open repository…" = "저장소 열기…";
+"Open that one instead? The disk image will be ejected." = "그쪽을 열까요? 디스크 이미지는 꺼냅니다.";
 "Open this branch's worktree" = "이 브랜치의 워크트리 열기";
 "Open worktree" = "워크트리 열기";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "OpenAI 호환 (Ollama·LM Studio·OpenRouter 등)";
@@ -639,6 +647,7 @@
 "Pushing tag…" = "태그 Push 중…";
 "Pushing…" = "Push 중…";
 "Queued" = "대기열";
+"Quit the Gitrochi that's already open, then try again." = "이미 열려 있는 Gitrochi 를 종료한 뒤 다시 시도하세요.";
 "Read-only" = "읽기 전용";
 "Reading commits and branches…" = "커밋과 브랜치 읽는 중…";
 "Reading the workflow…" = "워크플로를 읽는 중…";
@@ -816,6 +825,7 @@
 "That backup no longer exists." = "그 백업이 더 이상 없습니다.";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "작업 트리에서 그 부분이 커밋된(스테이지된) 상태로 돌아갑니다. 되돌릴 수 없습니다.";
 "The API key is invalid or lacks permission (%lld). %@" = "API 키가 올바르지 않거나 권한이 없습니다(%1$lld). %2$@";
+"The Gitrochi that's already open will quit." = "이미 열려 있는 Gitrochi 는 종료됩니다.";
 "The address is invalid: %@" = "주소가 올바르지 않습니다: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "가장 아래(오래된) 커밋은 합칠 대상이 없습니다.";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "%1$@ 서버에서 브랜치가 삭제됩니다. 다른 사람도 쓰는 브랜치라면 주의하세요.";

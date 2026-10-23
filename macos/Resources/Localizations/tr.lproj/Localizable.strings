@@ -137,7 +137,9 @@
 "Click to use another gitch account for this repository." = "Bu depo için başka bir gitch hesabı kullanmak üzere tıklayın.";
 "Commit authors are fine" = "Commit yazarları doğru";
 "Couldn't find gitch inside Gitrochi." = "Gitrochi içinde gitch bulunamadı.";
+"Couldn't move Gitrochi to the Applications folder" = "Gitrochi, Uygulamalar klasörüne taşınamadı";
 "Creates a branch at %@ without changing the current branch." = "Geçerli dalı değiştirmeden %1$@ üzerinde bir dal oluşturur.";
+"Enter an administrator password to move Gitrochi to %@." = "Gitrochi'yi %1$@ konumuna taşımak için bir yönetici parolası girin.";
 "Exclude" = "Çıkar";
 "Exclude this repository from gitch checks?" = "Bu depo gitch denetimlerinden çıkarılsın mı?";
 "Exclude this repository from gitch checks…" = "Bu depoyu gitch denetimlerinden çıkar…";
@@ -145,9 +147,12 @@
 "Fix authors of unpushed commits…" = "Push edilmemiş commit'lerin yazarlarını düzelt…";
 "Fix commit authors?" = "Commit yazarları düzeltilsin mi?";
 "Follow the default branch" = "Varsayılan dalı izle";
+"Gitrochi %@ in the Applications folder will be replaced." = "Uygulamalar klasöründeki Gitrochi %1$@ değiştirilecek.";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ en son sürüm.";
+"Gitrochi is already in the Applications folder" = "Gitrochi zaten Uygulamalar klasöründe";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi doğrudan indirilenler konumundan açıldığı için geçici bir konumdan çalışıyor ve kendini değiştiremiyor. Uygulamalar klasörüne taşıyın, yeniden açın ve ardından güncelleyin.";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi geçici bir konumdan çalışıyor. Uygulamalar klasörüne taşıyın, yeniden açın ve sonra gitch'i yükleyin.";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi disk görüntüsünden çalışıyor. Uygulamalar klasöründe kendini güncelleyebilir ve disk görüntüsü çıkarılacak.";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Değişikliği uygulamak için Gitrochi yeniden başlar. Örnek alınacak commit geçmişi olmadığında yapay zeka da bu dilde yazar.";
 "Gitrochi update" = "Gitrochi güncellemesi";
 "Brings %lld new commits from the remote into the current branch." = "Uzak depodaki %1$lld yeni commit'i geçerli dala çeker.";
@@ -504,6 +509,8 @@
 "Modified" = "Değiştirildi";
 "Modified files" = "Değiştirilen dosyalar";
 "Modified files appear here." = "Değiştirilen dosyalar burada görünür.";
+"Move Gitrochi to the Applications folder?" = "Gitrochi Uygulamalar klasörüne taşınsın mı?";
+"Move to Applications" = "Uygulamalar'a taşı";
 "Moves %@ '%@' back to %@." = "'%2$@' (%1$@), %3$@ konumuna geri taşınır.";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "'%1$@' dalını önceki commit'e (%2$@) geri taşır. Commit edilmemiş değişiklikler korunur.";
 "My commit" = "Benim commit'im";
@@ -587,6 +594,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "Başka bir depo aç veya klonla, son depolar, sekmeleri kapat";
 "Open releases page" = "Sürümler sayfasını aç";
 "Open repository…" = "Depo aç…";
+"Open that one instead? The disk image will be ejected." = "Onun yerine oradakini açmak ister misiniz? Disk görüntüsü çıkarılacak.";
 "Open this branch's worktree" = "Bu dalın worktree'sini aç";
 "Open worktree" = "Worktree'yi aç";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "OpenAI uyumlu (Ollama, LM Studio, OpenRouter vb.)";
@@ -635,6 +643,7 @@
 "Pushing tag…" = "Etiket gönderiliyor…";
 "Pushing…" = "Gönderiliyor…";
 "Queued" = "Sırada";
+"Quit the Gitrochi that's already open, then try again." = "Zaten açık olan Gitrochi'den çıkın, sonra yeniden deneyin.";
 "Read-only" = "Salt okunur";
 "Reading commits and branches…" = "Commit'ler ve dallar okunuyor…";
 "Reading the workflow…" = "İş akışı okunuyor…";
@@ -811,6 +820,7 @@
 "That backup no longer exists." = "Bu yedek artık yok.";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "Çalışma ağacının o kısmı commit edilmiş (hazırlanmış) durumuna döner. Bu işlem geri alınamaz.";
 "The API key is invalid or lacks permission (%lld). %@" = "API anahtarı geçersiz ya da yetkisi yok (%1$lld). %2$@";
+"The Gitrochi that's already open will quit." = "Zaten açık olan Gitrochi kapanacak.";
 "The address is invalid: %@" = "Adres geçersiz: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "En alttaki (en eski) commit'in katılabileceği bir commit yok.";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "Dal %1$@ sunucusunda silinecek. Başkaları da kullanıyorsa dikkatli olun.";

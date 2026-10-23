@@ -139,7 +139,9 @@
 "Click to use another gitch account for this repository." = "Kattintson, ha másik gitch-fiókot használna ehhez a tárolóhoz.";
 "Commit authors are fine" = "A commitok szerzője rendben van";
 "Couldn't find gitch inside Gitrochi." = "A gitch nem található a Gitrochiben.";
+"Couldn't move Gitrochi to the Applications folder" = "Nem sikerült áthelyezni a Gitrochit az Alkalmazások mappába";
 "Creates a branch at %@ without changing the current branch." = "Új ágat hoz létre itt: %1$@, a jelenlegi ág módosítása nélkül.";
+"Enter an administrator password to move Gitrochi to %@." = "Adjon meg egy rendszergazdai jelszót a Gitrochi áthelyezéséhez ide: %1$@.";
 "Exclude" = "Kivonás";
 "Exclude this repository from gitch checks?" = "Kivonja ezt a tárolót a gitch-ellenőrzések alól?";
 "Exclude this repository from gitch checks…" = "A tároló kivonása a gitch-ellenőrzések alól…";
@@ -147,9 +149,12 @@
 "Fix authors of unpushed commits…" = "A nem pusholt commitok szerzőjének javítása…";
 "Fix commit authors?" = "Kijavítja a commitok szerzőjét?";
 "Follow the default branch" = "Az alapértelmezett ág követése";
+"Gitrochi %@ in the Applications folder will be replaced." = "Az Alkalmazások mappában lévő Gitrochi %1$@ le lesz cserélve.";
 "Gitrochi %@ is the latest version." = "A Gitrochi %1$@ a legújabb verzió.";
+"Gitrochi is already in the Applications folder" = "A Gitrochi már az Alkalmazások mappában van";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "A Gitrochi közvetlenül a letöltésből lett megnyitva, és ideiglenes helyről fut, ezért nem tudja lecserélni önmagát. Helyezze át az Alkalmazások mappába, nyissa meg újra, majd frissítsen.";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "A Gitrochi ideiglenes helyről fut. Helyezze át az Alkalmazások mappába, nyissa meg újra, majd telepítse a gitch-t.";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "A Gitrochi a lemezképről fut. Az Alkalmazások mappában frissíteni tudja magát, a lemezkép pedig ki lesz adva.";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "A módosítás alkalmazásához a Gitrochi újraindul. Ha nincs követendő commitelőzmény, az AI is ezen a nyelven ír.";
 "Gitrochi update" = "Gitrochi-frissítés";
 "Brings %lld new commits from the remote into the current branch." = "Lehúzza a távoli tároló új commitjait (%1$lld) az aktuális ágba.";
@@ -506,6 +511,8 @@
 "Modified" = "Módosítva";
 "Modified files" = "Módosított fájlok";
 "Modified files appear here." = "A módosított fájlok itt jelennek meg.";
+"Move Gitrochi to the Applications folder?" = "Áthelyezi a Gitrochit az Alkalmazások mappába?";
+"Move to Applications" = "Áthelyezés az Alkalmazásokba";
 "Moves %@ '%@' back to %@." = "Visszaállítja az elemet (%1$@: '%2$@') erre: %3$@.";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "'%1$@' visszakerül az előző commitra (%2$@). A nem commitolt módosítások megmaradnak.";
 "My commit" = "Saját commit";
@@ -588,6 +595,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "Másik tároló megnyitása vagy klónozása, legutóbbi tárolók, lapok bezárása";
 "Open releases page" = "Kiadások oldalának megnyitása";
 "Open repository…" = "Tároló megnyitása…";
+"Open that one instead? The disk image will be ejected." = "Inkább azt nyitja meg? A lemezkép ki lesz adva.";
 "Open this branch's worktree" = "Az ág worktree-jének megnyitása";
 "Open worktree" = "Worktree megnyitása";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "OpenAI-kompatibilis (Ollama, LM Studio, OpenRouter stb.)";
@@ -633,6 +641,7 @@
 "Pushing tag…" = "Címke feltöltése…";
 "Pushing…" = "Push folyamatban…";
 "Queued" = "Várólistán";
+"Quit the Gitrochi that's already open, then try again." = "Lépjen ki a már megnyitott Gitrochiból, majd próbálja újra.";
 "Read-only" = "Csak olvasható";
 "Reading commits and branches…" = "Commitok és ágak beolvasása…";
 "Reading the workflow…" = "Workflow beolvasása…";
@@ -810,6 +819,7 @@
 "That backup no longer exists." = "Ez a mentés már nem létezik.";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "A munkakönyvtár adott része visszaáll a commitolt (előkészített) állapotra. Ez nem vonható vissza.";
 "The API key is invalid or lacks permission (%lld). %@" = "Az API-kulcs érvénytelen, vagy nincs megfelelő jogosultsága (%1$lld). %2$@";
+"The Gitrochi that's already open will quit." = "A már megnyitott Gitrochi kilép.";
 "The address is invalid: %@" = "A cím érvénytelen: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "A legalsó (legrégebbi) commitot nincs mibe összevonni.";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "Az ág törlődik a szerverről (%1$@). Legyen óvatos, ha mások is használják.";

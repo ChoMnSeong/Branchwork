@@ -111,11 +111,7 @@ release)
     mkdir -p "$DIST"
     rm -f "$DIST/$NAME".*
     ditto -c -k --keepParent "$BUNDLE" "$DIST/$NAME.zip"
-    STAGE="$(mktemp -d)"
-    cp -R "$BUNDLE" "$STAGE/"
-    ln -s /Applications "$STAGE/Applications"
-    hdiutil create -quiet -volname "$BIN $VERSION" -srcfolder "$STAGE" -ov -format UDZO "$DIST/$NAME.dmg"
-    rm -rf "$STAGE"
+    "$ROOT/Tools/makedmg.sh" "$BUNDLE" "$BIN $VERSION" "$DIST/$NAME.dmg"
     (cd "$DIST" && shasum -a 256 "$NAME.zip" "$NAME.dmg" > "$NAME.sha256")
     if [[ -n "$PUBKEY" ]]; then
         mkdir -p "$ROOT/.build"

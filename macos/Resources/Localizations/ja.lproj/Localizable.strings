@@ -142,7 +142,9 @@
 "Click to use another gitch account for this repository." = "クリックすると、このリポジトリで使う gitch アカウントを変更できます。";
 "Commit authors are fine" = "コミット作成者はすべて正しいです";
 "Couldn't find gitch inside Gitrochi." = "Gitrochi 内に gitch が見つかりませんでした。";
+"Couldn't move Gitrochi to the Applications folder" = "Gitrochi をアプリケーションフォルダに移動できませんでした";
 "Creates a branch at %@ without changing the current branch." = "現在のブランチは変えずに、%1$@ に新しいブランチを作成します。";
+"Enter an administrator password to move Gitrochi to %@." = "Gitrochi を %1$@ に移動するには、管理者パスワードを入力してください。";
 "Exclude" = "外す";
 "Exclude this repository from gitch checks?" = "このリポジトリを gitch のチェックから外しますか？";
 "Exclude this repository from gitch checks…" = "このリポジトリを gitch のチェックから外す…";
@@ -150,9 +152,12 @@
 "Fix authors of unpushed commits…" = "未 push のコミットの作成者を修正…";
 "Fix commit authors?" = "コミット作成者を修正しますか？";
 "Follow the default branch" = "デフォルトブランチに追従";
+"Gitrochi %@ in the Applications folder will be replaced." = "アプリケーションフォルダの Gitrochi %1$@ は置き換えられます。";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ は最新バージョンです。";
+"Gitrochi is already in the Applications folder" = "Gitrochi はすでにアプリケーションフォルダにあります";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "ダウンロードした場所から直接開いたため、Gitrochi は一時的な場所で実行されており、自分自身を置き換えられません。アプリケーションフォルダに移動して開き直してから、アップデートしてください。";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi は一時的な場所で実行されています。アプリケーションフォルダに移動して開き直してから、gitch をインストールしてください。";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi はディスクイメージから実行されています。アプリケーションフォルダに移動すると自動でアップデートでき、ディスクイメージは取り出されます。";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "変更を適用するため Gitrochi を再起動します。参考にするコミット履歴がない場合は、AI もこの言語で書きます。";
 "Gitrochi update" = "Gitrochi のアップデート";
 "Brings %lld new commits from the remote into the current branch." = "リモートの新しいコミット %1$lld 件を現在のブランチに取り込みます。";
@@ -516,6 +521,8 @@
 "Modified" = "変更済み";
 "Modified files" = "変更したファイル";
 "Modified files appear here." = "変更したファイルがここに表示されます。";
+"Move Gitrochi to the Applications folder?" = "Gitrochi をアプリケーションフォルダに移動しますか？";
+"Move to Applications" = "アプリケーションフォルダに移動";
 "Moves %@ '%@' back to %@." = "%1$@ '%2$@' を %3$@ に戻します。";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "'%1$@' を直前のコミット (%2$@) に戻します。コミットしていない変更は保持されます。";
 "My commit" = "自分のコミット";
@@ -598,6 +605,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "別のリポジトリを開く・クローン、最近のリポジトリ、タブを閉じる";
 "Open releases page" = "リリースページを開く";
 "Open repository…" = "リポジトリを開く…";
+"Open that one instead? The disk image will be ejected." = "代わりにそちらを開きますか？ディスクイメージは取り出されます。";
 "Open this branch's worktree" = "このブランチのワークツリーを開く";
 "Open worktree" = "ワークツリーを開く";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "OpenAI 互換 (Ollama, LM Studio, OpenRouter など)";
@@ -647,6 +655,7 @@
 "Pushing tag…" = "タグをプッシュしています…";
 "Pushing…" = "プッシュしています…";
 "Queued" = "キュー待ち";
+"Quit the Gitrochi that's already open, then try again." = "すでに開いている Gitrochi を終了してから、もう一度お試しください。";
 "Read-only" = "読み取り専用";
 "Reading commits and branches…" = "コミットとブランチを読み込んでいます…";
 "Reading the workflow…" = "ワークフローを読み込んでいます…";
@@ -826,6 +835,7 @@
 "That backup no longer exists." = "そのバックアップはもうありません。";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "作業ツリーのその部分が、コミット済み (ステージ済み) の状態に戻ります。この操作は元に戻せません。";
 "The API key is invalid or lacks permission (%lld). %@" = "API キーが無効か、権限がありません (%1$lld)。%2$@";
+"The Gitrochi that's already open will quit." = "すでに開いている Gitrochi は終了します。";
 "The address is invalid: %@" = "アドレスが無効です: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "一番下 (最も古い) のコミットには、統合先のコミットがありません。";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "%1$@ サーバー上のブランチが削除されます。他の人も使っている場合は注意してください。";

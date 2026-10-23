@@ -142,7 +142,9 @@
 "Click to use another gitch account for this repository." = "Натисніть, щоб вибрати для цього репозиторію інший обліковий запис gitch.";
 "Commit authors are fine" = "Автори комітів правильні";
 "Couldn't find gitch inside Gitrochi." = "Не вдалося знайти gitch у Gitrochi.";
+"Couldn't move Gitrochi to the Applications folder" = "Не вдалося перемістити Gitrochi в папку «Програми»";
 "Creates a branch at %@ without changing the current branch." = "Створює гілку на %1$@, не змінюючи поточну гілку.";
+"Enter an administrator password to move Gitrochi to %@." = "Введіть пароль адміністратора, щоб перемістити Gitrochi у %1$@.";
 "Exclude" = "Виключити";
 "Exclude this repository from gitch checks?" = "Виключити цей репозиторій з перевірок gitch?";
 "Exclude this repository from gitch checks…" = "Виключити цей репозиторій з перевірок gitch…";
@@ -150,9 +152,12 @@
 "Fix authors of unpushed commits…" = "Виправити авторів ненадісланих комітів…";
 "Fix commit authors?" = "Виправити авторів комітів?";
 "Follow the default branch" = "Стежити за гілкою за замовчуванням";
+"Gitrochi %@ in the Applications folder will be replaced." = "Gitrochi %1$@ у папці «Програми» буде замінено.";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ — найновіша версія.";
+"Gitrochi is already in the Applications folder" = "Gitrochi вже в папці «Програми»";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi відкрито просто із завантажень, і він працює з тимчасового розташування, тому не може замінити сам себе. Перемістіть його в папку «Програми», відкрийте знову, а потім оновіть.";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi запущено з тимчасового розташування. Перемістіть його в папку «Програми», відкрийте знову, а потім установіть gitch.";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi запущено з образу диска. У папці «Програми» він зможе оновлюватися сам, а образ диска буде виштовхнуто.";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Щоб застосувати зміну, Gitrochi перезапуститься. Якщо немає історії комітів, на яку можна орієнтуватися, AI також писатиме цією мовою.";
 "Gitrochi update" = "Оновлення Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Підтягує нові коміти з віддаленого репозиторію в поточну гілку (нових комітів: %1$lld).";
@@ -515,6 +520,8 @@
 "Modified" = "Змінено";
 "Modified files" = "Змінені файли";
 "Modified files appear here." = "Тут з’являться змінені файли.";
+"Move Gitrochi to the Applications folder?" = "Перемістити Gitrochi в папку «Програми»?";
+"Move to Applications" = "Перемістити в «Програми»";
 "Moves %@ '%@' back to %@." = "Повертає до %3$@: %1$@ '%2$@'.";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "Повертає '%1$@' до попереднього коміту (%2$@). Незакомічені зміни зберігаються.";
 "My commit" = "Мій коміт";
@@ -597,6 +604,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "Відкрити або клонувати інший репозиторій, недавні репозиторії, закриття вкладок";
 "Open releases page" = "Відкрити сторінку випусків";
 "Open repository…" = "Відкрити репозиторій…";
+"Open that one instead? The disk image will be ejected." = "Відкрити ту копію замість цієї? Образ диска буде виштовхнуто.";
 "Open this branch's worktree" = "Відкрити робоче дерево цієї гілки";
 "Open worktree" = "Відкрити робоче дерево";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "Сумісний з OpenAI (Ollama, LM Studio, OpenRouter тощо)";
@@ -646,6 +654,7 @@
 "Pushing tag…" = "Надсилання тегу…";
 "Pushing…" = "Надсилання…";
 "Queued" = "У черзі";
+"Quit the Gitrochi that's already open, then try again." = "Закрийте вже відкритий Gitrochi і спробуйте ще раз.";
 "Read-only" = "Тільки читання";
 "Reading commits and branches…" = "Читання комітів і гілок…";
 "Reading the workflow…" = "Читання робочого процесу…";
@@ -825,6 +834,7 @@
 "That backup no longer exists." = "Цієї резервної копії більше немає.";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "Ця частина робочої копії повернеться до закоміченого (індексованого) стану. Цю дію не можна відмінити.";
 "The API key is invalid or lacks permission (%lld). %@" = "Ключ API недійсний або не має дозволів (%1$lld). %2$@";
+"The Gitrochi that's already open will quit." = "Уже відкритий Gitrochi буде закрито.";
 "The address is invalid: %@" = "Недійсна адреса: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "Найнижчий (найстаріший) коміт не має з чим об’єднатися.";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "Гілку буде видалено на сервері %1$@. Будьте обережні, якщо нею користуються інші.";

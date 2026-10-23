@@ -246,9 +246,9 @@ final class UpdateCenter {
         try p.run()
     }
 
-    /// 관리자 권한으로 지금 바로 dest 를 newApp 으로 바꿔 넣는다. 암호 창을 취소하면 false.
-    nonisolated static func replaceAsAdmin(with newApp: URL, at dest: URL) async throws -> Bool {
-        let prompt = String(localized: "Enter an administrator password to update Gitrochi in \(dest.deletingLastPathComponent().path).")
+    /// 관리자 권한으로 지금 바로 dest 를 newApp 으로 바꿔 넣는다. 암호 창을 취소하면 false. prompt 는 암호 창에 보일 글(없으면 업데이트 안내)
+    nonisolated static func replaceAsAdmin(with newApp: URL, at dest: URL, prompt: String? = nil) async throws -> Bool {
+        let prompt = prompt ?? String(localized: "Enter an administrator password to update Gitrochi in \(dest.deletingLastPathComponent().path).")
         let r = try await Shell.run("/usr/bin/osascript", adminSwapArguments(newApp: newApp, dest: dest, prompt: prompt), cwd: URL(fileURLWithPath: "/"), timeout: 600)
         if r.status == 0 { return true }
         if r.stderr.contains("-128") { return false }   // 사용자가 취소
@@ -268,11 +268,12 @@ final class UpdateCenter {
     }
 
     /// sh 함수 swap <새 앱> <설치 위치>: 바꿔 넣고, 넣다가 실패하면 원래 앱을 되돌린다. 옮기기(mv)부터 실패하면 원래 앱에 손대지 않는다.
+    /// 설치 위치에 앱이 없으면(설치 디스크에서 처음 옮길 때) 그냥 넣는다.
     nonisolated static let swapFunction = """
     swap() {
         rm -rf "$2.old"
-        mv "$2" "$2.old" || return 1
-        if /usr/bin/ditto "$1" "$2"; then rm -rf "$2.old"; else rm -rf "$2"; mv "$2.old" "$2"; return 1; fi
+        if [ -e "$2" ]; then mv "$2" "$2.old" || return 1; fi
+        if /usr/bin/ditto "$1" "$2"; then rm -rf "$2.old"; else rm -rf "$2"; [ -e "$2.old" ] && mv "$2.old" "$2"; return 1; fi
         /usr/bin/xattr -dr com.apple.quarantine "$2" 2>/dev/null
         return 0
     }
