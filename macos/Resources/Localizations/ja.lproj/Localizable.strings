@@ -91,7 +91,6 @@
 "An empty file was deleted" = "空のファイルが削除されました";
 "Another account's token" = "別のアカウントのトークン";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "OpenAI 形式 (/chat/completions) に対応したサーバーなら何でも使えます。例: Ollama http://localhost:11434/v1";
-"App icon" = "アプリアイコン";
 "Appearance" = "外観";
 "Applies the most recently stashed changes (Pop)." = "直近にスタッシュした変更を適用します (Pop)。";
 "Applies to every AI feature, together with the rules written for each feature below." = "下の機能ごとのルールとあわせて、すべての AI 機能に適用されます。";
@@ -153,7 +152,6 @@
 "Changes" = "変更";
 "Changes %lld" = "変更 %1$lld";
 "Changes requested: " = "変更要求: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Dock、Finder、Launchpad のアイコンが変わります。新しいアイコンはアップデートで追加されます。";
 "Change…" = "変更…";
 "Check failed: %@" = "確認に失敗しました: %1$@";
 "Check for new versions at launch and once a day" = "起動時と 1 日 1 回、新しいバージョンを確認";
@@ -256,7 +254,6 @@
 "Copy message" = "メッセージをコピー";
 "Copy name" = "名前をコピー";
 "Copy path" = "パスをコピー";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Branchwork のフォルダに書き込めないため、Finder のアイコンは変更できませんでした。Dock のアイコンは Branchwork の実行中は変わります。";
 "Couldn't complete the operation" = "操作を完了できませんでした";
 "Couldn't download the file." = "ファイルをダウンロードできませんでした。";
 "Couldn't extract: %@" = "展開できませんでした: %1$@";
@@ -709,7 +706,6 @@
 "Server error %lld: %@" = "サーバーエラー %1$lld: %2$@";
 "Sessions in other folders" = "他のフォルダーのセッション";
 "Set manually" = "手動で指定";
-"Shadow" = "シャドウ";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "下のターミナルパネルで開くシェル (zsh, bash, fish など)";
 "Show all" = "すべて表示";
 "Show all %lld hidden branches" = "非表示のブランチ %1$lld 個をすべて表示";

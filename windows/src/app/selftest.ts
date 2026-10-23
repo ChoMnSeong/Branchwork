@@ -9,7 +9,7 @@ import { branchPayload } from "@/entities/repo";
 import { workspace } from "@/entities/workspace";
 import { ipc } from "@/shared/api";
 import { dirname, env, isWindows, joinPath, settings, toWslPath } from "@/shared/config";
-import { appIcon, gitRaw, listDistros, tools } from "@/shared/platform";
+import { gitRaw, listDistros, tools } from "@/shared/platform";
 import { theme } from "@/shared/ui";
 
 /**
@@ -620,32 +620,6 @@ export async function runSelfTest(): Promise<boolean> {
     await sleep(200);
     const ok = dark.attr === "dark" && dark.bg === "#1e1e21" && light.attr === "light" && light.bg === "#f3f3f4" && !setErr && (dark.win === "dark" || env.os !== "windows");
     return [ok, `dark=${JSON.stringify(dark)} light=${JSON.stringify(light)} setTheme=${setErr || "ok"} system=${document.documentElement.dataset.theme}`];
-  });
-
-  // 앱 아이콘: 이 exe 를 가리키는 바로 가기를 만들어 그림자 아이콘으로 바꿨다가 기본(exe)으로 되돌리고, 창 아이콘도 바꿔 본다
-  await step("앱 아이콘(창·바로 가기)", async () => {
-    if (!isWindows()) return [true, "windows only"];
-    const dir = joinPath(dirname(repo), "selftest-shortcuts");
-    await ipc.mkdirs(dir);
-    const lnk = joinPath(dir, "Branchwork.lnk");
-    const ps = (script: string) => ipc.run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { env: { BW_LNK: lnk, BW_EXE: env.exe } });
-    const made = await ps("$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:BW_LNK); $s.TargetPath = $env:BW_EXE; $s.Save()");
-    const iconOf = async () => (await ps("(New-Object -ComObject WScript.Shell).CreateShortcut($env:BW_LNK).IconLocation")).stdout.trim();
-    const changed = await appIcon.updateShortcuts("shadow", [dir]);
-    const custom = await iconOf();
-    const restored = await appIcon.updateShortcuts("default", [dir]);
-    const back = await iconOf();
-    let win = "ok";
-    await appIcon.setWindowIcon("shadow").catch((e) => (win = String(e)));
-    await appIcon.setWindowIcon("default").catch((e) => (win = String(e)));
-    const ok =
-      made.status === 0 &&
-      changed === 1 &&
-      custom.toLowerCase().endsWith("\\icons\\app\\shadow.ico,0") &&
-      restored === 1 &&
-      back.toLowerCase() === `${env.exe.toLowerCase()},0` &&
-      win === "ok";
-    return [ok, `made=${made.status} ${made.stderr.trim()} changed=${changed} custom=${custom} restored=${restored} back=${back} window=${win}`];
   });
 
   await step("설정 화면", async () => {

@@ -84,7 +84,6 @@
 "An empty file was deleted" = "Er is een leeg bestand verwijderd";
 "Another account's token" = "Token van een ander account";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Elke server die het OpenAI-formaat (/chat/completions) accepteert, werkt. Voorbeeld: Ollama http://localhost:11434/v1";
-"App icon" = "App-symbool";
 "Appearance" = "Weergave";
 "Applies the most recently stashed changes (Pop)." = "Past de laatst gestashte wijzigingen toe (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Geldt voor elke AI-functie, samen met de regels die hieronder per functie zijn ingesteld.";
@@ -142,7 +141,6 @@
 "Changes" = "Wijzigingen";
 "Changes %lld" = "Wijzigingen %1$lld";
 "Changes requested: " = "Wijzigingen gevraagd: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Wijzigt het symbool in het Dock, de Finder en Launchpad. Nieuwe symbolen komen met updates.";
 "Change…" = "Wijzigen…";
 "Check failed: %@" = "Controle mislukt: %1$@";
 "Check for new versions at launch and once a day" = "Bij het starten en eenmaal per dag op nieuwe versies controleren";
@@ -236,7 +234,6 @@
 "Copy message" = "Bericht kopiëren";
 "Copy name" = "Naam kopiëren";
 "Copy path" = "Pad kopiëren";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Kan het symbool in de Finder niet wijzigen omdat er niet naar de map van Branchwork kan worden geschreven. Het Dock-symbool verandert wel zolang Branchwork actief is.";
 "Couldn't complete the operation" = "Kan de bewerking niet voltooien";
 "Couldn't download the file." = "Kan het bestand niet downloaden.";
 "Couldn't extract: %@" = "Kan niet uitpakken: %1$@";
@@ -668,7 +665,6 @@
 "Server error %lld: %@" = "Serverfout %1$lld: %2$@";
 "Sessions in other folders" = "Sessies in andere mappen";
 "Set manually" = "Handmatig ingesteld";
-"Shadow" = "Schaduw";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell die in het terminalpaneel onderaan wordt geopend (zsh, bash, fish, enz.)";
 "Show all" = "Alles tonen";
 "Show all %lld hidden branches" = "Alle verborgen branches tonen (%1$lld)";

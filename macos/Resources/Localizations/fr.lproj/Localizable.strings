@@ -85,7 +85,6 @@
 "An empty file was deleted" = "Un fichier vide a été supprimé";
 "Another account's token" = "Jeton d’un autre compte";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Tout serveur compatible avec le format OpenAI (/chat/completions) fonctionne. Exemple : Ollama http://localhost:11434/v1";
-"App icon" = "Icône de l’app";
 "Appearance" = "Apparence";
 "Applies the most recently stashed changes (Pop)." = "Applique le stash le plus récent (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "S’applique à toutes les fonctions d’IA, en plus des règles propres à chaque fonction ci-dessous.";
@@ -146,7 +145,6 @@
 "Changes" = "Modifications";
 "Changes %lld" = "Modifications %1$lld";
 "Changes requested: " = "Modifications demandées par : ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Change l’icône dans le Dock, le Finder et le Launchpad. De nouvelles icônes arrivent avec les mises à jour.";
 "Change…" = "Modifier…";
 "Check failed: %@" = "Échec de la vérification : %1$@";
 "Check for new versions at launch and once a day" = "Rechercher les nouvelles versions au lancement et une fois par jour";
@@ -244,7 +242,6 @@
 "Copy message" = "Copier le message";
 "Copy name" = "Copier le nom";
 "Copy path" = "Copier le chemin";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Impossible de changer l’icône dans le Finder, car le dossier de Branchwork n’est pas modifiable. L’icône du Dock change tout de même tant que Branchwork est ouvert.";
 "Couldn't complete the operation" = "Impossible de terminer l’opération";
 "Couldn't download the file." = "Impossible de télécharger le fichier.";
 "Couldn't extract: %@" = "Impossible d’extraire : %1$@";
@@ -688,7 +685,6 @@
 "Server error %lld: %@" = "Erreur du serveur %1$lld : %2$@";
 "Sessions in other folders" = "Sessions dans d’autres dossiers";
 "Set manually" = "Défini manuellement";
-"Shadow" = "Ombre";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell ouvert dans le panneau du terminal ci-dessous (zsh, bash, fish, etc.)";
 "Show all" = "Tout afficher";
 "Show all %lld hidden branches" = "Afficher toutes les branches masquées (%1$lld)";

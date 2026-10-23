@@ -91,7 +91,6 @@
 "An empty file was deleted" = "Eine leere Datei wurde gelöscht";
 "Another account's token" = "Token eines anderen Kontos";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Jeder Server, der das OpenAI-Format (/chat/completions) akzeptiert, funktioniert. Beispiel: Ollama http://localhost:11434/v1";
-"App icon" = "App-Symbol";
 "Appearance" = "Darstellung";
 "Applies the most recently stashed changes (Pop)." = "Wendet die zuletzt gestashten Änderungen an (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Gilt für alle KI-Funktionen, zusätzlich zu den Regeln, die unten für die einzelnen Funktionen festgelegt sind.";
@@ -148,7 +147,6 @@
 "Changes" = "Änderungen";
 "Changes %lld" = "Änderungen %1$lld";
 "Changes requested: " = "Änderungen angefordert: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Ändert das Symbol im Dock, im Finder und im Launchpad. Neue Symbole kommen mit Updates.";
 "Change…" = "Ändern…";
 "Check failed: %@" = "Prüfung fehlgeschlagen: %1$@";
 "Check for new versions at launch and once a day" = "Beim Start und einmal täglich nach neuen Versionen suchen";
@@ -245,7 +243,6 @@
 "Copy message" = "Nachricht kopieren";
 "Copy name" = "Namen kopieren";
 "Copy path" = "Pfad kopieren";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Das Symbol im Finder konnte nicht geändert werden, weil der Ordner von Branchwork nicht beschreibbar ist. Das Dock-Symbol ändert sich trotzdem, solange Branchwork läuft.";
 "Couldn't complete the operation" = "Der Vorgang konnte nicht abgeschlossen werden";
 "Couldn't download the file." = "Die Datei konnte nicht heruntergeladen werden.";
 "Couldn't extract: %@" = "Entpacken fehlgeschlagen: %1$@";
@@ -685,7 +682,6 @@
 "Server error %lld: %@" = "Serverfehler %1$lld: %2$@";
 "Sessions in other folders" = "Sitzungen in anderen Ordnern";
 "Set manually" = "Manuell festgelegt";
-"Shadow" = "Schatten";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell, die im Terminal-Panel unten geöffnet wird (zsh, bash, fish usw.)";
 "Show all" = "Alle anzeigen";
 "Show all %lld hidden branches" = "Alle ausgeblendeten Branches anzeigen (%1$lld)";

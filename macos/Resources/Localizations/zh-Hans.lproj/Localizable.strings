@@ -91,7 +91,6 @@
 "An empty file was deleted" = "已删除一个空文件";
 "Another account's token" = "其他账户的令牌";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "任何兼容 OpenAI 格式 (/chat/completions) 的服务器均可使用。示例：Ollama http://localhost:11434/v1";
-"App icon" = "应用图标";
 "Appearance" = "外观";
 "Applies the most recently stashed changes (Pop)." = "应用最近一次贮藏的更改（弹出）。";
 "Applies to every AI feature, together with the rules written for each feature below." = "适用于所有 AI 功能，并与下方各功能单独编写的规则一同生效。";
@@ -154,7 +153,6 @@
 "Changes" = "更改";
 "Changes %lld" = "更改 %1$lld";
 "Changes requested: " = "请求更改： ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "更改程序坞、访达和启动台中的图标。新图标会随更新提供。";
 "Change…" = "更改…";
 "Check failed: %@" = "检查失败：%1$@";
 "Check for new versions at launch and once a day" = "启动时及每天检查一次新版本";
@@ -257,7 +255,6 @@
 "Copy message" = "复制信息";
 "Copy name" = "复制名称";
 "Copy path" = "复制路径";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "无法写入 Branchwork 所在的文件夹，因此未能更改访达中的图标。Branchwork 运行期间，程序坞图标仍会改变。";
 "Couldn't complete the operation" = "无法完成操作";
 "Couldn't download the file." = "无法下载文件。";
 "Couldn't extract: %@" = "无法解压：%1$@";
@@ -711,7 +708,6 @@
 "Server error %lld: %@" = "服务器错误 %1$lld：%2$@";
 "Sessions in other folders" = "其他文件夹中的会话";
 "Set manually" = "手动设置";
-"Shadow" = "暗影";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "在下方终端面板中打开的 Shell（zsh、bash、fish 等）";
 "Show all" = "全部显示";
 "Show all %lld hidden branches" = "显示全部 %1$lld 个已隐藏的分支";

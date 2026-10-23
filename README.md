@@ -169,7 +169,6 @@
 - **도구**(설정 > 도구): git · Claude Code · Codex · Gemini CLI · gh · 터미널 셸을 자동으로 찾고, 못 찾으면 **불러오기**로 직접 지정. Windows 는 WSL 안의 도구도
 - **탭**: 맥은 기본 창 탭(탭을 끌어 새 창으로), Windows 는 창 안의 탭. 다시 켜면 탭 복원
 - **화면 테마**: 시스템 · 라이트 · 다크
-- **앱 아이콘**(설정 > 화면): 기본 · 그림자 중에서 고르면 바로 바뀜(맥 Dock · Finder · Launchpad, Windows 창 · 작업 표시줄 · 바로 가기). 새 아이콘은 업데이트로 추가 — 더하는 법은 [assets/app-icons](assets/app-icons/README.md)
 - **자동 새로 고침**: 파일을 저장하면 상태만, 브랜치·커밋이 바뀌면 그래프까지(큰 저장소도 가볍게)
 
 </details>
@@ -181,7 +180,7 @@
 
 ```
 macos/     맥 앱(SwiftUI)
-  Sources/App       앱·창·탭·업데이트·테마·앱 아이콘
+  Sources/App       앱·창·탭·업데이트·테마
   Sources/Core      git 실행·출력 해석·그래프 배치·모델·파일 감시
   Sources/Store     저장소 화면 상태(RepoStore)와 기능별 확장
   Sources/Services  GitHub·GitLab·CI/CD·AI·계정·에이전트·도구·프로필 사진
@@ -215,7 +214,7 @@ npx tauri build      # src-tauri/target/release/bundle/nsis/*-setup.exe
 npx vitest run       # 파서·그래프·CI 단위 테스트
 ```
 
-- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 열기 · 스테이지 · 커밋 · 브랜치 · 머지 · 검색 · stash · 터미널 · 자격 증명 · 도구 · AI · 나눠서 커밋 · 업데이트 서명 · CI/CD · WSL · diff · 줄 단위 스테이지 · 충돌 해결 · 커밋 정리 · 되돌리기 · PR 리뷰 · 탭 메뉴 · 테마 · 앱 아이콘(창 · 바로 가기)을 실제 앱에서 차례로 해 보고 결과를 남깁니다(가짜 서버 `tests/mock-ai-server.mjs`). GitHub Actions 의 Windows 서버에서 푸시마다 돌고, README 의 Windows 스크린샷도 거기서 찍습니다(`.github/workflows/windows.yml`)
+- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 열기 · 스테이지 · 커밋 · 브랜치 · 머지 · 검색 · stash · 터미널 · 자격 증명 · 도구 · AI · 나눠서 커밋 · 업데이트 서명 · CI/CD · WSL · diff · 줄 단위 스테이지 · 충돌 해결 · 커밋 정리 · 되돌리기 · PR 리뷰 · 탭 메뉴 · 테마를 실제 앱에서 차례로 해 보고 결과를 남깁니다(가짜 서버 `tests/mock-ai-server.mjs`). GitHub Actions 의 Windows 서버에서 푸시마다 돌고, README 의 Windows 스크린샷도 거기서 찍습니다(`.github/workflows/windows.yml`)
 - **업데이트 서명**: 릴리스 빌드는 `TAURI_SIGNING_PRIVATE_KEY`(Actions 비밀 값)로 서명하고, 앱은 `tauri.conf.json` 의 공개 키로 확인한 뒤에만 설치. 릴리스에 `latest.json`(`windows/scripts/latest-json.mjs`)
 
 </details>

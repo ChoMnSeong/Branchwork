@@ -86,7 +86,6 @@
 "An empty file was deleted" = "File kosong telah dihapus";
 "Another account's token" = "Token akun lain";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Server apa pun yang menerima format OpenAI (/chat/completions) dapat digunakan. Contoh: Ollama http://localhost:11434/v1";
-"App icon" = "Ikon aplikasi";
 "Appearance" = "Tampilan";
 "Applies the most recently stashed changes (Pop)." = "Menerapkan perubahan yang terakhir di-stash (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Berlaku untuk semua fitur AI, bersama aturan yang ditulis untuk masing-masing fitur di bawah.";
@@ -143,7 +142,6 @@
 "Changes" = "Perubahan";
 "Changes %lld" = "Perubahan %1$lld";
 "Changes requested: " = "Perubahan diminta: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Mengubah ikon di Dock, Finder, dan Launchpad. Ikon baru hadir bersama pembaruan.";
 "Change…" = "Ubah…";
 "Check failed: %@" = "Pemeriksaan gagal: %1$@";
 "Check for new versions at launch and once a day" = "Periksa versi baru saat aplikasi dibuka dan sekali sehari";
@@ -239,7 +237,6 @@
 "Copy message" = "Salin pesan";
 "Copy name" = "Salin nama";
 "Copy path" = "Salin jalur";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Ikon di Finder tidak dapat diubah karena folder Branchwork tidak dapat ditulisi. Ikon Dock tetap berubah selama Branchwork berjalan.";
 "Couldn't complete the operation" = "Tidak dapat menyelesaikan operasi";
 "Couldn't download the file." = "Tidak dapat mengunduh file.";
 "Couldn't extract: %@" = "Tidak dapat mengekstrak: %1$@";
@@ -668,7 +665,6 @@
 "Server error %lld: %@" = "Kesalahan server %1$lld: %2$@";
 "Sessions in other folders" = "Sesi di folder lain";
 "Set manually" = "Atur manual";
-"Shadow" = "Bayangan";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell yang dibuka di panel terminal di bawah (zsh, bash, fish, dll.)";
 "Show all" = "Tampilkan semua";
 "Show all %lld hidden branches" = "Tampilkan semua %1$lld branch tersembunyi";

@@ -91,7 +91,6 @@
 "An empty file was deleted" = "Удалён пустой файл";
 "Another account's token" = "Токен другой учётной записи";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Подойдёт любой сервер, принимающий формат OpenAI (/chat/completions). Пример: Ollama http://localhost:11434/v1";
-"App icon" = "Значок приложения";
 "Appearance" = "Оформление";
 "Applies the most recently stashed changes (Pop)." = "Применяет последние спрятанные изменения («Достать»).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Применяется ко всем функциям ИИ вместе с правилами, заданными ниже для каждой функции.";
@@ -153,7 +152,6 @@
 "Changes" = "Изменения";
 "Changes %lld" = "Изменения %1$lld";
 "Changes requested: " = "Запросили изменения: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Меняет значок в Dock, Finder и Launchpad. Новые значки появляются с обновлениями.";
 "Change…" = "Изменить…";
 "Check failed: %@" = "Ошибка проверки: %1$@";
 "Check for new versions at launch and once a day" = "Проверять новые версии при запуске и раз в день";
@@ -255,7 +253,6 @@
 "Copy message" = "Копировать сообщение";
 "Copy name" = "Копировать имя";
 "Copy path" = "Копировать путь";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Не удалось изменить значок в Finder: нет прав на запись в папку Branchwork. Значок в Dock всё равно меняется, пока Branchwork запущен.";
 "Couldn't complete the operation" = "Не удалось выполнить операцию";
 "Couldn't download the file." = "Не удалось загрузить файл.";
 "Couldn't extract: %@" = "Не удалось распаковать: %1$@";
@@ -708,7 +705,6 @@
 "Server error %lld: %@" = "Ошибка сервера %1$lld: %2$@";
 "Sessions in other folders" = "Сеансы в других папках";
 "Set manually" = "Задан вручную";
-"Shadow" = "Тень";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Оболочка, открываемая в панели терминала внизу (zsh, bash, fish и др.)";
 "Show all" = "Показать все";
 "Show all %lld hidden branches" = "Показать все скрытые ветки (%1$lld)";

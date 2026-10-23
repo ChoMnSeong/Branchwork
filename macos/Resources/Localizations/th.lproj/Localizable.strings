@@ -91,7 +91,6 @@
 "An empty file was deleted" = "ลบไฟล์ว่างแล้ว";
 "Another account's token" = "โทเค็นของบัญชีอื่น";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "ใช้ได้กับทุกเซิร์ฟเวอร์ที่รองรับรูปแบบ OpenAI (/chat/completions) ตัวอย่าง: Ollama http://localhost:11434/v1";
-"App icon" = "ไอคอนแอป";
 "Appearance" = "ลักษณะที่ปรากฏ";
 "Applies the most recently stashed changes (Pop)." = "นำการเปลี่ยนแปลงที่สแตชไว้ล่าสุดกลับมาใช้ (ป๊อป)";
 "Applies to every AI feature, together with the rules written for each feature below." = "ใช้กับฟีเจอร์ AI ทั้งหมด ร่วมกับกฎที่เขียนไว้สำหรับแต่ละฟีเจอร์ด้านล่าง";
@@ -152,7 +151,6 @@
 "Changes" = "การเปลี่ยนแปลง";
 "Changes %lld" = "การเปลี่ยนแปลง %1$lld";
 "Changes requested: " = "ขอให้แก้ไข: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "เปลี่ยนไอคอนใน Dock, Finder และ Launchpad ไอคอนใหม่จะมาพร้อมการอัปเดต";
 "Change…" = "เปลี่ยน…";
 "Check failed: %@" = "ตรวจสอบไม่สำเร็จ: %1$@";
 "Check for new versions at launch and once a day" = "ตรวจหาเวอร์ชันใหม่เมื่อเปิดแอปและวันละครั้ง";
@@ -254,7 +252,6 @@
 "Copy message" = "คัดลอกข้อความ";
 "Copy name" = "คัดลอกชื่อ";
 "Copy path" = "คัดลอกพาธ";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "เปลี่ยนไอคอนใน Finder ไม่ได้เพราะเขียนลงโฟลเดอร์ของ Branchwork ไม่ได้ ไอคอนใน Dock ยังคงเปลี่ยนขณะที่ Branchwork ทำงานอยู่";
 "Couldn't complete the operation" = "ไม่สามารถดำเนินการให้เสร็จได้";
 "Couldn't download the file." = "ไม่สามารถดาวน์โหลดไฟล์ได้";
 "Couldn't extract: %@" = "ไม่สามารถแตกไฟล์ได้: %1$@";
@@ -704,7 +701,6 @@
 "Server error %lld: %@" = "ข้อผิดพลาดของเซิร์ฟเวอร์ %1$lld: %2$@";
 "Sessions in other folders" = "เซสชันในโฟลเดอร์อื่น";
 "Set manually" = "กำหนดเอง";
-"Shadow" = "เงา";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "เชลล์ที่เปิดในแผงเทอร์มินัลด้านล่าง (zsh, bash, fish ฯลฯ)";
 "Show all" = "แสดงทั้งหมด";
 "Show all %lld hidden branches" = "แสดงแบรนช์ที่ซ่อนไว้ทั้งหมด %1$lld รายการ";

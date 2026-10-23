@@ -86,7 +86,6 @@
 "An empty file was deleted" = "Đã xóa một tệp trống";
 "Another account's token" = "Token của tài khoản khác";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Dùng được với mọi máy chủ chấp nhận định dạng OpenAI (/chat/completions). Ví dụ: Ollama http://localhost:11434/v1";
-"App icon" = "Biểu tượng ứng dụng";
 "Appearance" = "Giao diện";
 "Applies the most recently stashed changes (Pop)." = "Áp dụng các thay đổi được stash gần nhất (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Áp dụng cho mọi tính năng AI, cùng với các quy tắc viết riêng cho từng tính năng bên dưới.";
@@ -147,7 +146,6 @@
 "Changes" = "Thay đổi";
 "Changes %lld" = "Thay đổi %1$lld";
 "Changes requested: " = "Yêu cầu thay đổi: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Thay đổi biểu tượng trong Dock, Finder và Launchpad. Biểu tượng mới sẽ có trong các bản cập nhật.";
 "Change…" = "Thay đổi…";
 "Check failed: %@" = "Kiểm tra thất bại: %1$@";
 "Check for new versions at launch and once a day" = "Kiểm tra phiên bản mới khi khởi động và mỗi ngày một lần";
@@ -242,7 +240,6 @@
 "Copy message" = "Sao chép thông điệp";
 "Copy name" = "Sao chép tên";
 "Copy path" = "Sao chép đường dẫn";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Không thể đổi biểu tượng trong Finder vì không có quyền ghi vào thư mục của Branchwork. Biểu tượng trong Dock vẫn thay đổi khi Branchwork đang chạy.";
 "Couldn't complete the operation" = "Không thể hoàn tất thao tác";
 "Couldn't download the file." = "Không thể tải tệp xuống.";
 "Couldn't extract: %@" = "Không thể giải nén: %1$@";
@@ -675,7 +672,6 @@
 "Server error %lld: %@" = "Lỗi máy chủ %1$lld: %2$@";
 "Sessions in other folders" = "Phiên ở thư mục khác";
 "Set manually" = "Đặt thủ công";
-"Shadow" = "Bóng tối";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell được mở trong bảng terminal bên dưới (zsh, bash, fish, v.v.)";
 "Show all" = "Hiện tất cả";
 "Show all %lld hidden branches" = "Hiện tất cả %1$lld nhánh đã ẩn";

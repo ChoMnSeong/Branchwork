@@ -87,7 +87,6 @@
 "An empty file was deleted" = "Boş bir dosya silindi";
 "Another account's token" = "Başka bir hesabın token'ı";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "OpenAI biçimini (/chat/completions) kabul eden her sunucu çalışır. Örnek: Ollama http://localhost:11434/v1";
-"App icon" = "Uygulama simgesi";
 "Appearance" = "Görünüm";
 "Applies the most recently stashed changes (Pop)." = "En son stash'e kaydedilen değişiklikleri uygular (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Aşağıda her özellik için yazılan kurallarla birlikte tüm yapay zeka özelliklerine uygulanır.";
@@ -148,7 +147,6 @@
 "Changes" = "Değişiklikler";
 "Changes %lld" = "Değişiklikler %1$lld";
 "Changes requested: " = "Değişiklik istendi: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Dock, Finder ve Launchpad'deki simgeyi değiştirir. Yeni simgeler güncellemelerle gelir.";
 "Change…" = "Değiştir…";
 "Check failed: %@" = "Denetim başarısız: %1$@";
 "Check for new versions at launch and once a day" = "Açılışta ve günde bir kez yeni sürüm olup olmadığını denetle";
@@ -245,7 +243,6 @@
 "Copy message" = "Mesajı kopyala";
 "Copy name" = "Adı kopyala";
 "Copy path" = "Yolu kopyala";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Branchwork klasörüne yazılamadığı için Finder'daki simge değiştirilemedi. Dock simgesi Branchwork çalıştığı sürece yine de değişir.";
 "Couldn't complete the operation" = "İşlem tamamlanamadı";
 "Couldn't download the file." = "Dosya indirilemedi.";
 "Couldn't extract: %@" = "Arşivden çıkarılamadı: %1$@";
@@ -697,7 +694,6 @@
 "Server error %lld: %@" = "Sunucu hatası %1$lld: %2$@";
 "Sessions in other folders" = "Diğer klasörlerdeki oturumlar";
 "Set manually" = "Elle belirlendi";
-"Shadow" = "Gölge";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Alttaki terminal panelinde açılan kabuk (zsh, bash, fish vb.)";
 "Show all" = "Tümünü göster";
 "Show all %lld hidden branches" = "Gizli dalların tümünü göster (%1$lld)";

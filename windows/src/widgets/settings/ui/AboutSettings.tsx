@@ -1,8 +1,9 @@
 import { ipc } from "@/shared/api";
+import icon from "@/shared/assets/icon.png";
 import { env, settings } from "@/shared/config";
 import { t } from "@/shared/i18n";
 import { useObserve } from "@/shared/lib";
-import { appIcon, updater } from "@/shared/platform";
+import { updater } from "@/shared/platform";
 import { Button, Checkbox, Spinner } from "@/shared/ui";
 
 /** 버전과 자동 업데이트 */
@@ -23,7 +24,7 @@ export function AboutSettings() {
     <div className="col" style={{ gap: 14 }}>
       <div className="form-section">
         <div className="row">
-          <img src={appIcon.current.image} width={48} height={48} alt="" />
+          <img src={icon} width={48} height={48} alt="" />
           <div className="col grow">
             <span style={{ fontSize: 16, fontWeight: 600 }}>Branchwork {env.version}</span>
             <span className="hint">{t("An app for viewing and working with Git repositories as a graph · MIT")}</span>

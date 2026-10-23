@@ -87,7 +87,6 @@
 "An empty file was deleted" = "Usunięto pusty plik";
 "Another account's token" = "Token innego konta";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Działa każdy serwer obsługujący format OpenAI (/chat/completions). Przykład: Ollama http://localhost:11434/v1";
-"App icon" = "Ikona aplikacji";
 "Appearance" = "Wygląd";
 "Applies the most recently stashed changes (Pop)." = "Stosuje zmiany ostatnio zapisane w stashu (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Dotyczy wszystkich funkcji AI, razem z regułami wpisanymi poniżej dla poszczególnych funkcji.";
@@ -148,7 +147,6 @@
 "Changes" = "Zmiany";
 "Changes %lld" = "Zmiany %1$lld";
 "Changes requested: " = "Prośby o zmiany: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Zmienia ikonę w Docku, Finderze i Launchpadzie. Nowe ikony pojawiają się wraz z aktualizacjami.";
 "Change…" = "Zmień…";
 "Check failed: %@" = "Sprawdzanie nie powiodło się: %1$@";
 "Check for new versions at launch and once a day" = "Sprawdzaj dostępność nowych wersji przy uruchomieniu i raz dziennie";
@@ -244,7 +242,6 @@
 "Copy message" = "Kopiuj komunikat";
 "Copy name" = "Kopiuj nazwę";
 "Copy path" = "Kopiuj ścieżkę";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Nie udało się zmienić ikony w Finderze, ponieważ folder Branchwork nie jest zapisywalny. Ikona w Docku zmienia się mimo to, dopóki Branchwork działa.";
 "Couldn't complete the operation" = "Nie udało się ukończyć operacji";
 "Couldn't download the file." = "Nie udało się pobrać pliku.";
 "Couldn't extract: %@" = "Nie udało się rozpakować: %1$@";
@@ -694,7 +691,6 @@
 "Server error %lld: %@" = "Błąd serwera %1$lld: %2$@";
 "Sessions in other folders" = "Sesje w innych folderach";
 "Set manually" = "Ustawiono ręcznie";
-"Shadow" = "Cień";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Powłoka otwierana w panelu terminala na dole (zsh, bash, fish itp.)";
 "Show all" = "Pokaż wszystko";
 "Show all %lld hidden branches" = "Pokaż wszystkie ukryte gałęzie (%1$lld)";
