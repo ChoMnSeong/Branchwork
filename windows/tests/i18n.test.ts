@@ -15,3 +15,18 @@ describe("화면 언어", () => {
     expect(systemLanguage(["ar-EG", "sv-SE"])).toBe("en");
   });
 });
+
+describe("번역표 읽기", () => {
+  it("한국어·일본어는 번역표에서, 영어는 원문 그대로", async () => {
+    const { loadLanguage, t: tr } = await import("../src/lib/i18n");
+    await loadLanguage("ko");
+    expect(tr("Close other tabs")).toBe("다른 탭 모두 닫기");
+    expect(tr("Commit {0} files  {1}", 3, "Ctrl+Enter")).toBe("3개 파일 커밋  Ctrl+Enter");
+    await loadLanguage("ja");
+    expect(tr("Close other tabs")).not.toBe("Close other tabs");
+    await loadLanguage("en");
+    expect(tr("Close other tabs")).toBe("Close other tabs");
+    await loadLanguage(undefined);
+    expect(tr("Close other tabs")).toBe("Close other tabs");
+  });
+});

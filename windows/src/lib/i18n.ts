@@ -69,7 +69,8 @@ export const defaultLanguage = "en";
 export async function loadLanguage(choice: string | null | undefined) {
   language = choice === "system" ? systemLanguage() : choice && languages.some((l) => l.code === choice) ? choice : defaultLanguage;
   const load = tables[`../locales/${language}.json`];
-  table = language === "ko" || !load ? {} : (await load()).default;
+  // 영어는 원문이라 번역표가 없다(한국어도 다른 언어처럼 번역표를 읽는다)
+  table = load ? (await load()).default : {};
   if (typeof document !== "undefined") document.documentElement.lang = language;
 }
 
