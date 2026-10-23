@@ -112,7 +112,7 @@ describe("폴더 구조(FSD)", () => {
       .filter(isIndex)
       .flatMap((p) =>
         sources[`/src/${p}`]
-          .split("\n")
+          .split(/\r?\n/)
           .filter((line) => line.trim() && !line.startsWith("//") && !/^export (type )?\{ [^}]+ \} from "\.\/[^"]+";$/.test(line))
           .map((line) => `${p}: ${line}`),
       );
