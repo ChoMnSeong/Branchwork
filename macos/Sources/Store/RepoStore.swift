@@ -76,6 +76,17 @@ final class RepoStore: Identifiable {
     var unstagedStats: [String: LineStat] = [:]
     var me: Identity?
 
+    // MARK: gitch(설정 > 도구에서 설치) — 이 저장소의 계정과 커밋·push 전 점검. gitch 계정이 없으면 nil
+    var gitchStatus: Gitch.Status?
+    var gitchPreflight: Gitch.Preflight?
+    /// 커밋 칸에서 고를 수 있는 gitch 계정
+    var gitchAccounts: [Gitch.Account] = []
+    /// gitch 가 직접 push 를 막는 브랜치(gitch protect)
+    var gitchProtected: Set<String> = []
+    var gitchChecking = false
+    /// 브랜치·참조가 바뀔 때만 다시 점검하려고(파일 저장마다 돌지 않게)
+    var gitchKey = ""
+
     // MARK: 검색
     var searchText = ""
     var searchScope: SearchScope = .commits
@@ -265,7 +276,7 @@ final class RepoStore: Identifiable {
     }
 
     /// 그래프를 읽는 동안 나란히: 내 이름·이메일, 저장소의 해시 방식(빈 트리 SHA 가 SHA-1 / SHA-256 에 따라 다르다)
-    private func loadRepoInfo(in top: URL) async {
+    func loadRepoInfo(in top: URL) async {
         async let configR = Git.raw(["config", "--get-regexp", "^user\\.(name|email)$"], in: top)
         async let formatR = Git.raw(["rev-parse", "--show-object-format"], in: top)
         let (config, format) = (try? await configR, try? await formatR)
@@ -455,6 +466,11 @@ final class RepoStore: Identifiable {
             }
             update(\.refsByCommit, buildRefMap(head: head))
             update(\.repoState, detectState())
+            let key = (newStatus.branch ?? "") + "\n" + rf.output
+            if key != gitchKey {
+                gitchKey = key
+                Task { await refreshGitch() }
+            }
             prefillMergeMessage()
             fixSelection()
             if !searchMatchSet.isEmpty {

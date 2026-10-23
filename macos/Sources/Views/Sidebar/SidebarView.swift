@@ -165,7 +165,7 @@ struct SidebarView: View {
 
     private func localRow(_ b: Branch, label: String) -> some View {
         BranchRow(branch: b, label: label, worktreePath: store.worktree(using: b.name)?.path,
-                  hidden: store.isHidden(b), pinned: store.isPinned(b))
+                  hidden: store.isHidden(b), pinned: store.isPinned(b), protected: store.gitchProtected.contains(b.name))
             .contentShape(Rectangle())
             .draggable(RepoStore.branchPayload + b.name) { Label(b.name, systemImage: "arrow.triangle.branch").padding(6) }
             .onTapGesture(count: 2) { Task { await store.checkout(b) } }
@@ -207,6 +207,12 @@ struct SidebarView: View {
         }
         Button("Push") { Task { await store.pushBranch(b) } }
         Button("Copy name") { store.copy(b.name) }
+        if store.gitchStatus != nil {
+            let protected = store.gitchProtected.contains(b.name)
+            Button(protected ? "Allow direct push (gitch)" : "Protect from direct push (gitch)") {
+                Task { await store.setGitchProtected(b.name, !protected) }
+            }
+        }
         Divider()
         Button(store.isPinned(b) ? "Unpin" : "Pin to top") { store.setPinned(b, !store.isPinned(b)) }
         Button(store.isHidden(b) ? "Show in graph again" : "Hide from graph") { Task { await store.setHidden(b, !store.isHidden(b)) } }
@@ -278,6 +284,8 @@ private struct BranchRow: View {
     var worktreePath: String? = nil
     var hidden = false
     var pinned = false
+    /// gitch 가 직접 push 를 막는 브랜치(gitch protect)
+    var protected = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -293,6 +301,10 @@ private struct BranchRow: View {
             Spacer(minLength: 4)
             if pinned {
                 Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.secondary).help("Branches pinned to the top")
+            }
+            if protected {
+                Image(systemName: "lock.shield").font(.caption2).foregroundStyle(.secondary)
+                    .help("Protected by gitch: no direct pushes, merge through a pull request")
             }
             if hidden {
                 Image(systemName: "eye.slash").foregroundStyle(.secondary).help("Branches hidden from the graph — right-click to show again")

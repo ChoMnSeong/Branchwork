@@ -167,6 +167,7 @@
 - **에이전트 탭**: 워크트리 카드(새 파일·수정·삭제 수, 원격 대비 ↑↓)와 그 안의 Claude Code · Codex · Gemini CLI 세션 상태(작업 중 · 권한 요청 · 입력 대기 · 종료). 세션 시작(워크트리 선택 또는 새 워크트리, 맡길 작업, 권한 모드). 상태는 Gitrochi 가 띄운 세션에 `--settings` 로 더한 훅이 남기는 파일로 판단하며, 사용자 설정·훅은 그대로
 - **터미널**: 그래프 아래 패널에서 저장소 폴더의 셸(맥 zsh · Windows PowerShell/WSL). 탭 여러 개, 높이 조절, 숨겨도 계속 실행. 맥은 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm), Windows 는 [xterm.js](https://xtermjs.org)
 - **도구**(설정 > 도구): git · Claude Code · Codex · Gemini CLI · gh · 터미널 셸을 자동으로 찾고, 못 찾으면 **불러오기**로 직접 지정. Windows 는 WSL 안의 도구도
+- **gitch**(맥, 설정 > 도구): 여러 Git 계정을 섞이지 않게 쓰는 셸 도구를 앱에 함께 넣었습니다(예전 이름 gitsw). 설치하면 저장소마다 계정을 잠그고, 폴더 · 조직 규칙으로 계정을 고르고, 잘못된 작성자 · 비밀값 · 강제 push 를 git 훅에서 막습니다(터미널 · AI 에이전트 · Gitrochi 모두). 커밋 칸 위에 이 저장소의 계정과 커밋 · push 전 점검이 보이고, 계정 이름을 눌러 계정을 바꿉니다 — [tools/gitch](tools/gitch/README.md)
 - **탭**: 맥은 기본 창 탭(탭을 끌어 새 창으로), Windows 는 창 안의 탭. 다시 켜면 탭 복원
 - **화면 테마**: 시스템 · 라이트 · 다크
 - **자동 새로 고침**: 파일을 저장하면 상태만, 브랜치·커밋이 바뀌면 그래프까지(큰 저장소도 가볍게)
@@ -188,6 +189,7 @@ macos/     맥 앱(SwiftUI)
   Resources/ Tools/ Vendor/SwiftTerm/  build.sh
 windows/   Windows 앱(Tauri 2 + React): src-tauri(Rust), src(Feature-Sliced Design: app·pages·widgets·features·entities·shared), tests
 docs/      README 이미지와 데모 저장소 스크립트
+tools/gitch  여러 Git 계정용 셸 도구(bash 3.2 + git) — 맥 앱에 함께 들어감, tests/run.sh
 ```
 
 **맥** — Swift 6 이상(Xcode 또는 Command Line Tools)만 있으면 됩니다. 외부 패키지를 내려받지 않습니다.
@@ -200,6 +202,7 @@ macos/build.sh release   # macos/dist/ 에 배포용 dmg·zip·sha256 (arm64 + x
 
 - SwiftPM 없이 `swiftc` 로 직접 컴파일합니다(일부 Command Line Tools 에서 SwiftPM 이 동작하지 않아서). 같은 이유로 `@State` 매크로 대신 `ViewState` 별칭(`Views/Shared/Theme.swift`)
 - SwiftTerm 은 아키텍처별 정적 라이브러리(`macos/.build/swiftterm/<arch>/`)로 따로 컴파일(처음 한 번 1분쯤)
+- `tools/gitch/gitch` 를 앱의 `Contents/Resources/gitch` 로 넣는다. gitch 를 고쳤으면 `tools/gitch/tests/run.sh`
 - 이 맥에 Apple Development 인증서가 있으면 그걸로 서명(키체인 허용을 빌드마다 다시 묻지 않게, `GITROCHI_SIGN_IDENTITY` 로 변경)
 - `GITROCHI_TRACE=1` 로 실행하면 새로 고침 종류와 걸린 시간을 표준 오류로
 - **업데이트 서명**: `macos/Tools/updatekey.sh new` 로 Ed25519 열쇠를 만들면 비밀키는 로그인 키체인에, 공개키는 `Info.plist`(`GitrochiUpdatePublicKey`)에 들어갑니다. 그 뒤 `build.sh release` 는 zip 을 서명(`<zip>.sig`, 비밀키는 `GITROCHI_UPDATE_KEY` 또는 키체인)하고, 앱은 SHA-256 과 이 서명이 맞을 때만 설치

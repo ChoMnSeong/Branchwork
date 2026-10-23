@@ -198,6 +198,7 @@ struct CommitComposer: View {
                 .disabled(store.status.staged.isEmpty || store.aiWorking != nil)
                 .help("\(AIStore.shared.provider.title) writes a commit message from the staged changes (⌥⌘M). Change the AI in Settings > AI.")
             }
+            GitchBar()
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     TextField("Summary (required)", text: $store.summary)
