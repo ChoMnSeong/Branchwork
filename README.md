@@ -206,7 +206,7 @@ macos/build.sh release   # macos/dist/ 에 배포용 dmg·zip·sha256 (arm64 + x
 - 이 맥에 Apple Development 인증서가 있으면 그걸로 서명(키체인 허용을 빌드마다 다시 묻지 않게, `GITROCHI_SIGN_IDENTITY` 로 변경)
 - `GITROCHI_TRACE=1` 로 실행하면 새로 고침 종류와 걸린 시간을 표준 오류로
 - **업데이트 서명**: `macos/Tools/updatekey.sh new` 로 Ed25519 열쇠를 만들면 비밀키는 로그인 키체인에, 공개키는 `Info.plist`(`GitrochiUpdatePublicKey`)에 들어갑니다. 그 뒤 `build.sh release` 는 zip 을 서명(`<zip>.sig`, 비밀키는 `GITROCHI_UPDATE_KEY` 또는 키체인)하고, 앱은 SHA-256 과 이 서명이 맞을 때만 설치
-- **배포**: `v*` 태그를 push 하면 Actions(`.github/workflows/macos.yml`)가 태그와 `Info.plist` 버전이 같은지 보고 유니버설로 빌드·서명해 그 태그의 릴리스(없으면 초안)에 올립니다. 앱은 초안을 보지 않으니 노트를 쓰고 게시하면 사용자에게 갑니다
+- **배포**: `v*` 태그를 push 하면 Actions(`.github/workflows/macos.yml`)가 태그와 `Info.plist` 버전이 같은지 보고 유니버설로 빌드·서명해 그 태그의 릴리스(없으면 초안)에 올립니다(앱 없이 쓰는 `gitch` · `gitch.sha256` 도). 앱은 초안을 보지 않으니 노트를 쓰고 게시하면 사용자에게 갑니다
 
 **Windows** — Node.js 22 와 Rust(stable).
 

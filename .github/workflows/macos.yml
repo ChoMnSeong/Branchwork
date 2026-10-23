@@ -84,6 +84,12 @@ jobs:
           GITROCHI_UPDATE_KEY: ${{ secrets.GITROCHI_UPDATE_KEY || secrets.BRANCHWORK_UPDATE_KEY }}
         run: macos/build.sh release
 
+      # 앱 없이 gitch 만 쓰는 사람용: tools/gitch/install.sh 와 gitch self-update 가 받는다(아래에서 다른 배포 파일과 함께 올림)
+      - name: gitch (CLI 만)
+        run: |
+          cp tools/gitch/gitch macos/dist/gitch
+          (cd macos/dist && shasum -a 256 gitch > gitch.sha256)
+
       - name: 릴리스에 올리기
         env:
           GH_TOKEN: ${{ github.token }}
