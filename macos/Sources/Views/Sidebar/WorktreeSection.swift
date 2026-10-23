@@ -3,9 +3,10 @@ import AppKit
 
 struct WorktreeSection: View {
     @Environment(RepoStore.self) private var store
+    @AppStorage(SidebarSections.key) private var collapsed = ""
 
     var body: some View {
-        Section {
+        Section(isExpanded: SidebarSections.binding($collapsed, "worktrees")) {
             ForEach(store.worktrees) { w in
                 let current = w.path == store.url?.path
                 HStack(spacing: 6) {

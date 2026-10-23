@@ -3,11 +3,12 @@ import AppKit
 
 struct PullRequestSection: View {
     @Environment(RepoStore.self) private var store
+    @AppStorage(SidebarSections.key) private var collapsed = ""
     @Environment(\.openSettings) private var openSettings
     let target: RepoTarget
 
     var body: some View {
-        Section {
+        Section(isExpanded: SidebarSections.binding($collapsed, "pullRequests")) {
             switch store.prState {
             case .needsAccount:
                 let others = AccountStore.shared.accounts(for: target.provider)

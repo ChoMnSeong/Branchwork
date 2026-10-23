@@ -5,6 +5,7 @@ struct SidebarView: View {
     @ViewState private var expanded: Set<String> = []
 
     @AppStorage("sidebarMode") private var mode = "list"
+    @AppStorage(SidebarSections.key) private var collapsed = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,7 +26,12 @@ struct SidebarView: View {
                 branchList
             }
         }
+        // 반투명 사이드바는 바탕화면 색이 비쳐 물들어 보인다 — 불투명한 중립 배경으로
+        .scrollContentBackground(.hidden)
+        .background(Color(nsColor: .windowBackgroundColor).ignoresSafeArea())
     }
+
+    private func open(_ id: String) -> Binding<Bool> { SidebarSections.binding($collapsed, id) }
 
     /// 지금 일하거나 허락을 기다리는 세션 수
     private var activeAgents: Int {
@@ -41,12 +47,14 @@ struct SidebarView: View {
 
             let pinned = store.localBranches.filter { store.isPinned($0) }
             if !pinned.isEmpty {
-                Section("Pinned") {
+                Section(isExpanded: open("pinned")) {
                     ForEach(pinned) { b in localRow(b, label: b.name) }
-                }
+                } header: {
+                Text("Pinned")
+            }
             }
 
-            Section("Local branches \(store.localBranches.count)") {
+            Section(isExpanded: open("local")) {
                 let groups = BranchFolders(store.localBranches) { $0.name }
                 ForEach(groups.loose) { b in localRow(b, label: b.name) }
                 ForEach(groups.folders) { f in
@@ -56,6 +64,8 @@ struct SidebarView: View {
                         folderLabel(f)
                     }
                 }
+            } header: {
+                Text("Local branches \(store.localBranches.count)")
             }
 
             if store.worktrees.count > 1 {
@@ -63,7 +73,7 @@ struct SidebarView: View {
             }
 
             if !store.remoteBranches.isEmpty {
-                Section("Remotes \(store.remoteBranches.count)") {
+                Section(isExpanded: open("remotes")) {
                     ForEach(remoteGroups, id: \.0) { remote, branches in
                         DisclosureGroup(isExpanded: expansion("r:" + remote)) {
                             let groups = BranchFolders(branches) { $0.shortName }
@@ -83,11 +93,13 @@ struct SidebarView: View {
                             }
                         }
                     }
-                }
+                } header: {
+                Text("Remotes \(store.remoteBranches.count)")
+            }
             }
 
             if !store.tags.isEmpty {
-                Section("Tags \(store.tags.count)") {
+                Section(isExpanded: open("tags")) {
                     ForEach(store.tags) { t in
                         Label(t.name, systemImage: "tag")
                             .lineLimit(1)
@@ -100,11 +112,13 @@ struct SidebarView: View {
                                 Button("Delete tag…", role: .destructive) { store.deleteTag(t) }
                             }
                     }
-                }
+                } header: {
+                Text("Tags \(store.tags.count)")
+            }
             }
 
             if !store.stashes.isEmpty {
-                Section("Stashes \(store.stashes.count)") {
+                Section(isExpanded: open("stashes")) {
                     ForEach(store.stashes) { s in
                         VStack(alignment: .leading, spacing: 1) {
                             Text(s.message).lineLimit(1)
@@ -119,7 +133,9 @@ struct SidebarView: View {
                             Button("Drop…", role: .destructive) { store.stashDrop(s) }
                         }
                     }
-                }
+                } header: {
+                Text("Stashes \(store.stashes.count)")
+            }
             }
         }
         .listStyle(.sidebar)
@@ -300,5 +316,20 @@ private struct BranchRow: View {
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
             .background(Capsule().fill(Color.secondary.opacity(0.18)))
+    }
+}
+
+/// 사이드바 구역(로컬 브랜치·워크트리·원격·태그·스태시 등)을 통째로 접고 펴기 — 접은 구역은 기억해 둔다
+enum SidebarSections {
+    static let key = "collapsedSections"
+
+    static func binding(_ raw: Binding<String>, _ id: String) -> Binding<Bool> {
+        Binding(
+            get: { !raw.wrappedValue.split(separator: ",").contains { $0 == id } },
+            set: { open in
+                var set = Set(raw.wrappedValue.split(separator: ",").map(String.init))
+                if open { set.remove(id) } else { set.insert(id) }
+                raw.wrappedValue = set.sorted().joined(separator: ",")
+            })
     }
 }
