@@ -176,7 +176,7 @@ struct CommitComposer: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 if let me = store.me {
-                    Avatar(name: me.name, email: me.email, size: 22)
+                    AuthorAvatar(name: me.name, email: me.email, size: 22)
                         .help("\(me.name) <\(me.email)>")
                 }
                 Text("Commit").font(.headline)
@@ -341,7 +341,7 @@ struct CommitDetailView: View {
     private func people(_ d: CommitDetail) -> some View {
         Card {
             HStack(spacing: 10) {
-                Avatar(name: d.author, email: d.email, size: 34)
+                AuthorAvatar(name: d.author, email: d.email, size: 34)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(d.author).fontWeight(.semibold)
                     Text(d.email).font(.caption).foregroundStyle(.secondary).lineLimit(1)

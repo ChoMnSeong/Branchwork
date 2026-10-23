@@ -4,6 +4,7 @@ import { ai } from "../../lib/ai";
 import { keyLabel } from "../../lib/env";
 import { laneColor, longDate, shortDate } from "../../lib/format";
 import { providerInfo, sameDiffSource, short, statusCount, statusIsEmpty, type FileChange } from "../../lib/models";
+import { avatars } from "../../lib/avatars";
 import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { ChangeList, FileViewToggle } from "./FileList";
@@ -145,6 +146,7 @@ function FileSection({ title, color, count, actionTitle, onAction, children }: {
 }
 
 function CommitComposer({ store }: { store: RepoStore }) {
+  useObserve(avatars);
   const n = store.status.staged.length;
   const title = store.amend ? t("Amend previous commit") : store.repoState === "merging" ? t("Merge commit") : n === 0 ? t("No staged files") : t("Commit {0} files  {1}", n, keyLabel("Ctrl+Enter"));
   const onKey = (e: React.KeyboardEvent) => {
@@ -158,7 +160,7 @@ function CommitComposer({ store }: { store: RepoStore }) {
       <div className="row" style={{ flexWrap: "wrap" }}>
         {store.me && (
           <span data-tip={`${store.me.name} <${store.me.email}>`}>
-            <Avatar name={store.me.name} email={store.me.email} size={22} />
+            <Avatar name={store.me.name} email={store.me.email} size={22} url={avatars.url(store.me.email, store.me.name)} />
           </span>
         )}
         <span style={{ fontWeight: 600 }}>{t("Commit")}</span>
@@ -215,6 +217,7 @@ function CommitComposer({ store }: { store: RepoStore }) {
 // MARK: - 커밋 상세
 
 function CommitDetailView({ store, sha }: { store: RepoStore; sha: string }) {
+  useObserve(avatars);
   const [expanded, setExpanded] = useState(false);
   const d = store.detail;
   if (!d || d.sha !== sha)
@@ -273,7 +276,7 @@ function CommitDetailView({ store, sha }: { store: RepoStore; sha: string }) {
         </Card>
         <Card>
           <div className="row" style={{ gap: 10 }}>
-            <Avatar name={d.author} email={d.email} size={34} />
+            <Avatar name={d.author} email={d.email} size={34} url={avatars.url(d.email, d.author)} />
             <div className="col grow">
               <span style={{ fontWeight: 600 }} className="ellipsis">
                 {d.author}
