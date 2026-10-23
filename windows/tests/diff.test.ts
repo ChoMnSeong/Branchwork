@@ -103,4 +103,3 @@ describe("파일 종류별", () => {
     expect(d.info?.newFile).toBe(true);
   });
 });
-

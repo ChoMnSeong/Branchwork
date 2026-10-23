@@ -1,2 +1,10 @@
-windows/tests/*.sh text eol=lf
-*.sh text eol=lf
+# 텍스트 파일은 어디서 받든 LF 로(Windows 도). 규칙은 CONTRIBUTING.md 「Git 규칙」
+* text=auto eol=lf
+# 마크다운은 줄 끝 공백 두 칸이 줄바꿈이라 공백 검사에서 뺀다
+*.md whitespace=-trailing-space
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.icns binary

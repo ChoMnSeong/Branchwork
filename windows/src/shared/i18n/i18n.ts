@@ -109,4 +109,3 @@ export function nativeError(e: unknown): unknown {
 export function nativeText(s: string) {
   return s.replace(/\n(.+) didn't finish within (\d+)s and was stopped\./, (_, name: string, secs: string) => "\n" + t("{0} didn't finish within {1}s and was stopped.", name, secs));
 }
-

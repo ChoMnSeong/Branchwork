@@ -1,0 +1,3 @@
+#!/bin/sh
+# 커밋 메시지 규칙(CONTRIBUTING.md 「Git 규칙」)
+exec sh "$(dirname "$0")/rules.sh" message "$1"

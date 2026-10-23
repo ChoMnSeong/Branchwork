@@ -178,4 +178,3 @@ struct CIBranchGroup: Identifiable {
         return order.map { CIBranchGroup(ref: $0, pipelines: groups[$0] ?? []) }
     }
 }
-

@@ -2,7 +2,7 @@
 
 Branchwork 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 요청은 [이슈](https://github.com/ChoMnSeong/Branchwork/issues/new/choose)로, 코드는 PR 로 보내 주세요.
 
-> **English** — Issues and PRs are welcome in English too. UI text in the code is English (translated into 20 languages); code comments are in Korean. Please follow the conventions below.
+> **English** — Issues and PRs are welcome in English too. UI text in the code is English (translated into 20 languages), **commit messages are English** (`Area: Imperative summary`), and code comments are in Korean. Run `git config core.hooksPath .githooks` once — the hooks check the Git rules below, and so does CI.
 
 ## 시작하기
 
@@ -13,6 +13,7 @@ Branchwork 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 �
 | 빌드 | `macos/build.sh` | `cd windows && npm ci && npx tauri build` |
 | 확인 | 빌드 오류·경고 없이 | `npx tsc --noEmit -p .` · `npx vitest run` · `cargo check` |
 
+- 받은 뒤 한 번 `git config core.hooksPath .githooks` — 커밋할 때 [Git 규칙](#git-규칙)을 검사합니다.
 - 맥은 SwiftPM 없이 `swiftc` 로 바로 빌드합니다. 새 파일은 `macos/Sources/` 아래 알맞은 폴더에 두면 자동으로 포함됩니다.
 - Windows 는 맥에서도 `npx tauri dev` 로 띄워 볼 수 있습니다(데이터 폴더는 `Branchwork (Tauri)` 로 분리).
 - 화면을 바꿨다면 [데모 저장소](docs/make-demo-repo.sh)(`docs/make-demo-repo.sh <폴더>`)로 확인하고 스크린샷을 PR 에 붙여 주세요.
@@ -94,25 +95,53 @@ Windows 폴더 규칙(어기면 `windows/tests/architecture.test.ts` 가 실패�
 - Windows 에 화면·동작을 더했다면 `windows/src/app/selftest.ts` 에 실제 앱으로 해 보는 항목을 하나 더합니다. 푸시하면 GitHub Actions 의 Windows 서버에서 돕니다.
 - 외부 서버가 필요한 기능은 `windows/tests/mock-ai-server.mjs` 에 가짜 응답을 더해 점검합니다.
 
-## 커밋 메시지
+## Git 규칙
 
-이 저장소는 한국어 한 줄 요약 + 필요하면 본문 목록을 씁니다.
+처음 한 번 `git config core.hooksPath .githooks` 를 해 두면 커밋할 때 아래 규칙을 검사합니다. 같은 검사([`.githooks/rules.sh`](.githooks/rules.sh))가 GitHub Actions 「Git 규칙」에서도 돌아, 어긋난 PR·푸시는 통과하지 못합니다.
+
+### 브랜치
+
+- `main` 은 언제나 빌드되고 배포할 수 있는 상태입니다. 작업은 `main` 에서 딴 브랜치에서 합니다.
+- 이름은 `종류/내용`, 영문 소문자·숫자·`-` 로: `feature/ci-branch-view`, `fix/narrow-graph`, `refactor/…`, `docs/…`, `ci/…`.
+- 한 브랜치에 한 주제. 오래 두지 말고 `git fetch && git rebase origin/main` 으로 최신을 따라갑니다(`main` 을 merge 해 들여오지 않습니다).
+- `main` 에는 force push 하지 않고, 이미 올라간 기록을 고쳐 쓰지 않습니다. 자기 PR 브랜치는 `git push --force-with-lease` 로 고쳐도 됩니다.
+
+### 커밋 메시지
+
+여러 나라 사람이 기록을 읽으므로 **커밋 메시지는 영어로** 씁니다(코드 주석은 지금처럼 한국어).
 
 ```
-영역: 무엇을 했는지(필요하면 왜)
+Area: Imperative summary of the change
 
-- 바뀐 점 하나
-- 바뀐 점 둘
+- Why, or one bullet per notable change
+- Another change
 ```
 
-- 영역 예: `그래프`, `CI/CD 탭`, `Windows`, `맥`, `성능`, `README`, `CI`. 두 플랫폼 모두면 영역 없이 기능 이름으로.
-- 한 커밋에는 한 가지 주제. 정리(파일 이동)와 동작 변경은 나눕니다.
-- 버전 커밋은 `버전 0.3.2 (요약)` 형식이며 관리자가 만듭니다.
+- 제목은 `영역: 요약`. 영역 예: `Graph`, `Sidebar`, `CI/CD`, `Windows`, `macOS`, `i18n`, `Perf`, `README`, `CI`. 두 플랫폼 모두면 영역 없이 요약만.
+- 요약은 **명령형**: `Add …`, `Fix …`, `Show …` (`Added`·`Fixes`·`Updating` 아님). 예: `Graph: Show avatars in the inspector`, `Windows: Fix the layout on narrow windows`.
+- 영어가 아닌 글(화면 번역문 등)을 적어야 하면 `` `탐색기에서 보기` `` 처럼 백틱으로 감쌉니다. `Co-Authored-By:` 같은 트레일러의 이름은 그대로 둬도 됩니다.
+- 검사하는 것: 영어(라틴 문자·문장 부호) · 제목 100자 이내 · 끝에 마침표 없음 · 콜론 뒤 한 칸 · 명령형 · 제목 다음 줄은 빈 줄 · `wip`·`fix`·`update` 처럼 내용 없는 제목 금지.
+- `fixup!`·`squash!` 커밋은 PR 을 올리기 전에 `git rebase -i --autosquash origin/main` 으로 합칩니다.
+- 한 커밋에는 한 가지 주제. 정리(파일 이동)와 동작 변경은 나누고, 커밋마다 빌드가 되게 합니다(`git bisect` 가 쓸 수 있게).
+- 버전 커밋 `Release 0.3.5 (summary)` 와 태그 `v0.3.5` 는 관리자가 만듭니다.
+- 이 규칙 전의 기록(한국어 메시지)은 그대로 둡니다.
+
+### 올리지 않는 것
+
+검사가 막는 것:
+
+- **비밀값**: 개인 키, 업데이트 서명 키, GitHub·GitLab·Anthropic·Slack·AWS 토큰. 실수로 올렸다면 커밋을 지우는 것으로 끝내지 말고 **그 키를 폐기**하세요.
+- **내 컴퓨터 경로**: `/Users/<이름>/`, `/home/<이름>/`, `C:\Users\<이름>\`. 예시는 `/Users/me` 처럼.
+- 빌드 결과·의존성(`dist/`, `target/`, `.build/`, `node_modules/`), `.DS_Store`, `.env`, 키 파일(`*.key`·`*.pem`), 2MB 넘는 파일.
+- 줄 끝 공백, 빈 줄로 끝나는 파일, 남은 충돌 표시(`<<<<<<<`). 텍스트는 모두 LF 로 저장됩니다([`.gitattributes`](.gitattributes)).
+
+검사가 못 잡는 것: 회사·사람 이름, 사내 주소, 개인 이메일 — 올리기 전에 `git diff --cached` 로 직접 봐 주세요.
 
 ## PR
 
-1. `main` 에서 브랜치를 만들어 작업합니다(`feature/…`, `fix/…`).
+1. `main` 에서 브랜치를 만들어 작업합니다(위 「브랜치」).
 2. 위의 확인(빌드·`tsc`·`vitest`·`cargo check`)을 통과시키고, 화면이 바뀌었으면 라이트·다크 스크린샷을 붙입니다.
-3. PR 설명의 체크리스트를 채워 주세요. CI(Windows 자동 점검)가 통과해야 합칩니다.
+3. PR 설명의 체크리스트를 채워 주세요. CI(Windows 자동 점검 · Git 규칙)가 통과해야 합칩니다.
+4. 합칠 때는 merge commit 으로(PR 단위 기록이 남게). 합친 브랜치는 지웁니다.
 
 릴리스(버전 올리기·서명·배포)는 관리자가 합니다.

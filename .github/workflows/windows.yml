@@ -223,4 +223,3 @@ jobs:
             ${{ env.ST_ROOT }}/selftest-result.json
             ${{ env.ST_ROOT }}/selftest.png
           if-no-files-found: ignore
-

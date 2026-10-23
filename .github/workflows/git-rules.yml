@@ -1,0 +1,33 @@
+name: Git 규칙
+
+# 커밋 메시지(영어)·올린 파일(비밀값·개인 경로·빌드 결과·큰 파일·줄 끝 공백)을 검사한다(1분 안쪽).
+# 같은 검사를 로컬 훅(.githooks)으로도 돌릴 수 있다 — CONTRIBUTING.md 「Git 규칙」
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 같은 브랜치·PR 에 새로 푸시하면 이전 실행은 취소
+concurrency:
+  group: git-rules-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: 커밋 메시지 · 파일
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 검사 스크립트가 리눅스(GNU 도구)에서도 맥과 같게 도는지 먼저
+      - name: 검사 스크립트 시험
+        run: sh .githooks/test-rules.sh
+
+      - name: 규칙 검사
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: sh .githooks/rules.sh range "$BASE" "$HEAD"

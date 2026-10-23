@@ -792,4 +792,3 @@ export abstract class RepoCore extends Observable implements AgentHost {
     return statusCount(this.status);
   }
 }
-

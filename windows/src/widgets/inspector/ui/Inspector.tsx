@@ -534,4 +534,3 @@ function folderMenu(store: RepoStore, path: string): MenuItem[] {
     { label: t("Copy path"), onClick: () => store.copy(path) },
   ];
 }
-

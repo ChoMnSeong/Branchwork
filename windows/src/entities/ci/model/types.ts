@@ -176,4 +176,3 @@ export function groupByBranch(pipelines: CIPipeline[]): CIBranchGroup[] {
   }
   return [...groups.values()];
 }
-

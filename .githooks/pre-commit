@@ -1,0 +1,3 @@
+#!/bin/sh
+# 올리는 파일 규칙: 비밀값·개인 경로·빌드 결과·큰 파일·줄 끝 공백(CONTRIBUTING.md 「Git 규칙」)
+exec sh "$(dirname "$0")/rules.sh" staged

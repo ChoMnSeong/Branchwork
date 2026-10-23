@@ -410,4 +410,3 @@ private struct SubjectAndBody: Layout {
         }
     }
 }
-
