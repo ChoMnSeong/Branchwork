@@ -1,0 +1,4357 @@
+#!/bin/bash
+# ==========================================================
+#  gitsw — 여러 Git 계정(GitHub + 회사 GitLab) 관리 도구
+#  전체 명령 보기: gitsw help
+#  설정 파일: ~/.config/gitsw/config  (위치 확인: gitsw config path)
+#  macOS 기본 bash 3.2 에서 동작하도록 작성 (연관 배열 등 bash 4 기능 사용 안 함)
+#  Branchwork 와 함께 배포(tools/gitsw, 앱 안 Contents/Resources/gitsw) · MIT 라이선스(저장소 LICENSE) · © 2026 jjunhaa0211
+# ==========================================================
+
+# shellcheck disable=SC2088,SC2016  # 화면 표시용 ~ 와 $HOME 문자열은 일부러 펼치지 않음
+GITSW_VERSION="2.2.0"
+
+# ----- 경로 -----
+CFG="${GITSW_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/gitsw/config}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/gitsw"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gitsw"
+HOOK_DISPATCHER="$DATA_DIR/hook"
+ACTION_LOG="$STATE_DIR/actions.jsonl"
+BACKUP_DIR="$STATE_DIR/backups"
+SSH_DIR="$HOME/.ssh"
+SSH_CONFIG="$SSH_DIR/config"
+ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
+BIN_LINK="$HOME/bin/gitsw"
+SSH_BIN="${GITSW_SSH:-ssh}"
+CLAUDE_DIR="$HOME/.claude"
+CODEX_DIR="$HOME/.codex"
+GEMINI_DIR="$HOME/.gemini"
+HOOK_EVENTS="pre-commit commit-msg pre-push post-commit"
+LOCKFILE_RE='(^|/)(package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|Podfile\.lock|Package\.resolved|Gemfile\.lock|Cargo\.lock|composer\.lock|poetry\.lock|uv\.lock|go\.sum|flake\.lock)$'
+AI_TRAILER_RE='^[[:space:]]*(co-authored-by:.*(claude|anthropic|codex|openai|chatgpt|copilot|gemini|cursor|devin|aider)|.*generated (with|by) .*(claude|codex|copilot|gemini|cursor|chatgpt))'
+
+# ----- 실행 주체 (사람/AI) -----
+detect_actor() {
+  if [ -n "${GITSW_ACTOR:-}" ]; then ACTOR="$GITSW_ACTOR"
+  elif [ -t 0 ] || [ -t 2 ]; then ACTOR=human
+  elif [ -n "${CLAUDECODE:-}" ]; then ACTOR=claude
+  elif [ -n "${CODEX_SANDBOX:-}${CODEX_SANDBOX_NETWORK_DISABLED:-}${CODEX_THREAD_ID:-}${CODEX_CI:-}" ]; then ACTOR=codex
+  elif [ -n "${CURSOR_AGENT:-}${CURSOR_TRACE_ID:-}" ]; then ACTOR=cursor
+  elif [ -n "${GEMINI_CLI:-}" ]; then ACTOR=gemini
+  elif [ -n "${AI_AGENT:-}" ]; then ACTOR=ai
+  else ACTOR=script; fi
+}
+can_prompt() { [ -t 0 ] && [ -t 2 ]; }
+
+# ----- 출력 -----
+setup_colors() {
+  local c="${GITSW_COLOR:-auto}"
+  if [ "$c" = always ] || { [ "$c" = auto ] && [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; }; then
+    GREEN=$'\033[32m'; RED=$'\033[31m'; YELLOW=$'\033[33m'; BOLD=$'\033[1m'; DIM=$'\033[2m'; RESET=$'\033[0m'
+  else
+    GREEN=""; RED=""; YELLOW=""; BOLD=""; DIM=""; RESET=""
+  fi
+}
+say()  { printf '%s\n' "$*"; }
+ok()   { printf '%s\n' "${GREEN}✔${RESET} $*"; }
+warn() { printf '%s\n' "${YELLOW}⚠ $*${RESET}"; }
+dim()  { printf '%s\n' "${DIM}$*${RESET}"; }
+err()  { printf '%s\n' "${RED}$*${RESET}" >&2; }
+die()  { err "$@"; exit 1; }
+
+# 확인: 터미널이면 y/N 질문, 아니면 --yes 가 있어야 진행 (없으면 종료코드 2)
+confirm() {   # $1 질문  $2 yes(1이면 통과)  $3 비대화형일 때 안내할 명령
+  [ "$2" = 1 ] && return 0
+  if can_prompt; then
+    local y; read -r -p "$1 (y/N) " y
+    case "$y" in y|Y|yes|YES) return 0 ;; esac
+    say "취소했습니다."; exit 0
+  fi
+  err "확인이 필요합니다. 사용자 동의를 받은 뒤 '$3' 로 실행하세요."
+  exit 2
+}
+
+# ----- 문자열/경로 도우미 -----
+lower() { case "$1" in *[A-Z]*) printf '%s' "$1" | tr '[:upper:]' '[:lower:]' ;; *) printf '%s' "$1" ;; esac; }
+expand_path() {
+  case "$1" in
+    "~") printf '%s' "$HOME" ;;
+    "~/"*) printf '%s' "$HOME/${1#"~/"}" ;;
+    '$HOME') printf '%s' "$HOME" ;;
+    '$HOME/'*) printf '%s' "$HOME/${1#'$HOME/'}" ;;
+    '${HOME}/'*) printf '%s' "$HOME/${1#'${HOME}/'}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+tilde() { case "$1" in "$HOME") printf '~' ;; "$HOME"/*) printf '%s' "~/${1#"$HOME"/}" ;; *) printf '%s' "$1" ;; esac; }
+real_dir() { (cd "$1" 2>/dev/null && pwd -P); }
+in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+is_number() { case "$1" in ''|*[!0-9]*) return 1 ;; esac; return 0; }
+ident_email() { local x="${1#*<}"; printf '%s' "${x%%>*}"; }
+file_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
+now_iso() { date '+%Y-%m-%dT%H:%M:%S%z'; }
+
+resolve_link() {   # 심볼릭 링크를 끝까지 따라간 실제 경로
+  local p="$1" t
+  while [ -L "$p" ]; do
+    t=$(readlink "$p")
+    case "$t" in /*) p="$t" ;; *) p="$(dirname "$p")/$t" ;; esac
+  done
+  printf '%s' "$(cd "$(dirname "$p")" 2>/dev/null && pwd -P)/$(basename "$p")"
+}
+self_path() { resolve_link "${BASH_SOURCE[0]}"; }
+gitsw_cmd_path() {   # 훅/설정에 적을 gitsw 경로 (~/bin/gitsw 가 이 파일을 가리키면 그 경로)
+  if [ -L "$BIN_LINK" ] && [ "$(resolve_link "$BIN_LINK")" = "$(self_path)" ]; then printf '%s' "$BIN_LINK"
+  else self_path; fi
+}
+
+json_esc() {   # 문자열 → JE (따옴표 포함 JSON 문자열) — 서브셸 없이
+  local s="$1"
+  s=${s//\\/\\\\}; s=${s//\"/\\\"}
+  s=${s//$'\n'/\\n}; s=${s//$'\r'/\\r}; s=${s//$'\t'/\\t}
+  case "$s" in *[$'\001'-$'\037']*) s=$(printf '%s' "$s" | tr -d '\001-\037') ;; esac
+  JE="\"$s\""
+}
+json_str() { json_esc "$1"; printf '%s' "$JE"; }
+json_bool() { if [ -n "$1" ] && [ "$1" != 0 ]; then printf true; else printf false; fi; }
+json_num() { if is_number "$1"; then printf '%s' "$1"; else printf 0; fi; }
+
+# ----- git 도우미 -----
+in_repo() { git rev-parse --is-inside-work-tree >/dev/null 2>&1; }
+require_repo() { in_repo || die "git 저장소 안에서 실행하세요."; }
+cur_branch() { git symbolic-ref --short HEAD 2>/dev/null; }
+has_upstream() { git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; }
+has_head() { git rev-parse -q --verify HEAD >/dev/null 2>&1; }
+head_pushed() { has_head && [ -n "$(git branch -r --contains HEAD 2>/dev/null)" ]; }
+is_zero_sha() { case "$1" in *[!0]*|"") return 1 ;; esac; return 0; }
+repo_top() { git rev-parse --show-toplevel 2>/dev/null; }
+
+git_version_ok() {   # includeIf hasconfig 때문에 2.36 이상 필요
+  local v maj min
+  v=$(git --version 2>/dev/null | sed -E 's/[^0-9]*([0-9]+)\.([0-9]+).*/\1 \2/')
+  read -r maj min <<< "$v"
+  GIT_VER="$maj.$min"
+  is_number "$maj" && is_number "$min" || return 1
+  [ "$maj" -gt 2 ] || { [ "$maj" -eq 2 ] && [ "$min" -ge 36 ]; }
+}
+
+_CH_SUP=""
+config_hooks_supported() {   # git 설정 기반 훅(hook.<이름>.command) 지원 여부
+  if [ -z "$_CH_SUP" ]; then
+    local t; t=$(mktemp -d "${TMPDIR:-/tmp}/gitsw-probe.XXXXXX" 2>/dev/null) || { _CH_SUP=0; return 1; }
+    if git -C "$t" init -q 2>/dev/null && \
+       git -C "$t" -c hook.gitswprobe.event=pre-commit -c hook.gitswprobe.command=true hook list pre-commit 2>/dev/null | grep -qx gitswprobe; then
+      _CH_SUP=1
+    else
+      _CH_SUP=0
+    fi
+    rm -rf "$t"
+  fi
+  [ "$_CH_SUP" = 1 ]
+}
+
+# 비대화형(AI 등)에서는 ssh 가 암호를 묻느라 멈추지 않게 BatchMode + 시간 제한
+net_env() {
+  if ! can_prompt && [ -z "${GIT_SSH_COMMAND:-}" ] && [ -z "$(git config --get core.sshCommand 2>/dev/null)" ]; then
+    export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10"
+  fi
+  export GIT_TERMINAL_PROMPT=0
+}
+
+# ================= 설정 파일 =================
+#  [gitsw]           scanRoot, aiPush(ask|branch|allow), maxFileMB, warnFileMB
+#  [account "<id>"]  email, name, host = 서버[:포트] [via 다른계정] (여러 개), aiTrailer(keep|strip)
+#  [folder "<경로>"] account
+#  [org "<서버>/<조직>"] account
+
+CFG_LOADED=""; CFG_EXISTS=""
+ACC_IDS=(); ACC_EMAIL=(); ACC_NAME=(); ACC_TRAILER=()
+B_ACC=(); B_HOST=(); B_PORT=(); B_LOGIN=(); B_ALIAS=()
+F_RAW=(); F_REAL=(); F_ACC=()
+O_RAW=(); O_HOST=(); O_PATH=(); O_ACC=()
+AR_RAW=(); AR_REAL=(); AR_PAT=()
+CFG_SCAN_ROOT="~/Develop"; CFG_AI_PUSH="ask"; CFG_MAX_MB=50; CFG_WARN_MB=10; CFG_SSH_STRICT=""
+CFG_ERRORS=()
+
+acc_idx() {   # 계정 → ACC_I
+  local i=0
+  while [ $i -lt ${#ACC_IDS[@]} ]; do
+    [ "${ACC_IDS[$i]}" = "$1" ] && { ACC_I=$i; return 0; }
+    i=$((i+1))
+  done
+  return 1
+}
+is_account() { [ -n "$1" ] && acc_idx "$1"; }
+acc_email() { acc_idx "$1" && printf '%s' "${ACC_EMAIL[$ACC_I]}"; }
+acc_name() { acc_idx "$1" && printf '%s' "${ACC_NAME[$ACC_I]}"; }
+account_names() { local IFS=,; local s="${ACC_IDS[*]}"; printf '%s' "${s//,/, }"; }
+host_label() { printf '%s' "${1%%.*}"; }
+
+add_binding() {   # $1 계정 $2 서버 $3 포트 $4 로그인 계정
+  local i=0
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    if [ "${B_ACC[$i]}" = "$1" ] && [ "${B_HOST[$i]}" = "$2" ]; then
+      CFG_ERRORS+=("account.$1: 서버 $2 가 두 번 있습니다"); return 1
+    fi
+    i=$((i+1))
+  done
+  B_ACC+=("$1"); B_HOST+=("$2"); B_PORT+=("$3"); B_LOGIN+=("$4"); B_ALIAS+=("$(host_label "$2")-$4")
+}
+
+find_binding() {   # $1 계정 $2 서버 → BI
+  local i=0
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    if [ "${B_ACC[$i]}" = "$1" ] && [ "${B_HOST[$i]}" = "$2" ]; then BI=$i; return 0; fi
+    i=$((i+1))
+  done
+  return 1
+}
+
+find_alias() {   # $1 별칭 → BI (자기 키를 쓰는 바인딩)
+  local a i=0; a=$(lower "$1")
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    if [ "${B_LOGIN[$i]}" = "${B_ACC[$i]}" ] && [ "$(lower "${B_ALIAS[$i]}")" = "$a" ]; then BI=$i; return 0; fi
+    i=$((i+1))
+  done
+  return 1
+}
+
+host_is_managed() { local h; for h in "${B_HOST[@]}"; do [ "$h" = "$1" ] && return 0; done; return 1; }
+
+host_single_account() {   # 그 서버에 계정이 하나뿐이면 HSA
+  local i=0 n=0; HSA=""
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    [ "${B_HOST[$i]}" = "$1" ] && { HSA=${B_ACC[$i]}; n=$((n+1)); }
+    i=$((i+1))
+  done
+  [ $n -eq 1 ]
+}
+
+email_is_mine() { local e; for e in "${ACC_EMAIL[@]}"; do [ "$e" = "$1" ] && return 0; done; return 1; }
+
+own_aliases() {   # 자기 키 별칭 목록 (공백 구분)
+  local i=0 out=""
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    [ "${B_LOGIN[$i]}" = "${B_ACC[$i]}" ] && out="$out ${B_ALIAS[$i]}"
+    i=$((i+1))
+  done
+  printf '%s' "${out# }"
+}
+
+acc_hosts_desc() {   # 계정의 서버 설명: "github.com, gitlab.x(포트 2222), github.com(로그인 y)"
+  local i=0 out="" d
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    if [ "${B_ACC[$i]}" = "$1" ]; then
+      d=${B_HOST[$i]}
+      [ "${B_PORT[$i]}" != 22 ] && d="$d(포트 ${B_PORT[$i]})"
+      [ "${B_LOGIN[$i]}" != "$1" ] && d="$d(로그인 ${B_LOGIN[$i]})"
+      out="$out${out:+, }$d"
+    fi
+    i=$((i+1))
+  done
+  printf '%s' "$out"
+}
+
+acc_folder() {   # 계정의 첫 기본 폴더 (펼친 경로)
+  local i=0
+  while [ $i -lt ${#F_ACC[@]} ]; do
+    [ "${F_ACC[$i]}" = "$1" ] && { expand_path "${F_RAW[$i]}"; return 0; }
+    i=$((i+1))
+  done
+  return 1
+}
+
+load_config() {
+  [ -n "$CFG_LOADED" ] && { [ -n "$CFG_EXISTS" ]; return; }
+  CFG_LOADED=1
+  [ -f "$CFG" ] || return 1
+  CFG_EXISTS=1
+  local entry key val rest id var hl=() e hv hp kw login extra h p
+  while IFS= read -r -d '' entry; do
+    key=${entry%%$'\n'*}
+    case "$entry" in *$'\n'*) val=${entry#*$'\n'} ;; *) val="" ;; esac
+    case "$key" in
+      gitsw.scanroot) CFG_SCAN_ROOT="$val" ;;
+      gitsw.aipush) CFG_AI_PUSH="$val" ;;
+      gitsw.maxfilemb) CFG_MAX_MB="$val" ;;
+      gitsw.warnfilemb) CFG_WARN_MB="$val" ;;
+      account.*.*)
+        rest=${key#account.}; var=${rest##*.}; id=${rest%.*}
+        if ! acc_idx "$id"; then
+          ACC_IDS+=("$id"); ACC_EMAIL+=(""); ACC_NAME+=("$id"); ACC_TRAILER+=("keep")
+          ACC_I=$((${#ACC_IDS[@]} - 1))
+        fi
+        case "$var" in
+          email) ACC_EMAIL[$ACC_I]="$val" ;;
+          name) ACC_NAME[$ACC_I]="$val" ;;
+          aitrailer) ACC_TRAILER[$ACC_I]=$(lower "$val") ;;
+          host) hl+=("$id"$'\t'"$val") ;;
+        esac ;;
+      folder.*.account) rest=${key#folder.}; F_RAW+=("${rest%.account}"); F_REAL+=(""); F_ACC+=("$val") ;;
+      folder.*.allowremote) rest=${key#folder.}; AR_RAW+=("${rest%.allowremote}"); AR_REAL+=(""); AR_PAT+=("$(lower "$val")") ;;
+      gitsw.sshstrict) CFG_SSH_STRICT=$(lower "$val") ;;
+      org.*.account)
+        rest=${key#org.}; rest=${rest%.account}; rest=${rest%/}
+        O_RAW+=("$rest"); O_HOST+=("$(lower "${rest%%/*}")"); O_PATH+=("$(lower "${rest#*/}")"); O_ACC+=("$val") ;;
+    esac
+  done < <(git config -f "$CFG" --list -z 2>/dev/null)
+
+  # 서버 바인딩: 자기 키 먼저, via(다른 계정 로그인 빌려 쓰기)는 나중에
+  local b_id=() b_host=() b_port=() b_login=() i
+  for e in "${hl[@]}"; do
+    id=${e%%$'\t'*}; hv=${e#*$'\t'}
+    hp=""; kw=""; login=""; extra=""
+    read -r hp kw login extra <<< "$hv"
+    if [ -z "$hp" ] || { [ -n "$kw" ] && { [ "$kw" != via ] || [ -z "$login" ] || [ -n "$extra" ]; }; }; then
+      CFG_ERRORS+=("account.$id.host = '$hv' — 형식: 서버[:포트] [via 다른계정]"); continue
+    fi
+    h=$(lower "${hp%%:*}"); p=""
+    [ "${hp%%:*}" != "$hp" ] && p=${hp#*:}
+    if [ -z "$p" ]; then p=22
+    elif ! is_number "$p"; then CFG_ERRORS+=("account.$id.host = '$hv' — 포트는 숫자여야 합니다"); continue; fi
+    b_id+=("$id"); b_host+=("$h"); b_port+=("$p"); b_login+=("${login:-$id}")
+  done
+  i=0
+  while [ $i -lt ${#b_id[@]} ]; do
+    [ "${b_login[$i]}" = "${b_id[$i]}" ] && add_binding "${b_id[$i]}" "${b_host[$i]}" "${b_port[$i]}" "${b_id[$i]}"
+    i=$((i+1))
+  done
+  i=0
+  while [ $i -lt ${#b_id[@]} ]; do
+    if [ "${b_login[$i]}" != "${b_id[$i]}" ]; then
+      if find_binding "${b_login[$i]}" "${b_host[$i]}" && [ "${B_LOGIN[$BI]}" = "${b_login[$i]}" ]; then
+        add_binding "${b_id[$i]}" "${b_host[$i]}" "${B_PORT[$BI]}" "${b_login[$i]}"
+      else
+        CFG_ERRORS+=("account.${b_id[$i]}: 'via ${b_login[$i]}' — ${b_login[$i]} 계정에 ${b_host[$i]} 서버가 없습니다")
+      fi
+    fi
+    i=$((i+1))
+  done
+  validate_config
+  return 0
+}
+
+validate_config() {
+  local i=0 id
+  while [ $i -lt ${#ACC_IDS[@]} ]; do
+    id=${ACC_IDS[$i]}
+    case "$id" in
+      ""|[!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) CFG_ERRORS+=("계정 이름 '$id' 에는 영문/숫자/._- 만 쓸 수 있습니다") ;;
+    esac
+    [ -z "${ACC_EMAIL[$i]}" ] && CFG_ERRORS+=("account.$id.email 이 없습니다")
+    case "${ACC_TRAILER[$i]}" in keep|strip) ;; *) CFG_ERRORS+=("account.$id.aiTrailer 는 keep 또는 strip 입니다 (지금: ${ACC_TRAILER[$i]})") ;; esac
+    find_binding_any "$id" || CFG_ERRORS+=("account.$id.host 가 없습니다 (예: host = github.com)")
+    i=$((i+1))
+  done
+  i=0
+  while [ $i -lt ${#F_ACC[@]} ]; do
+    is_account "${F_ACC[$i]}" || CFG_ERRORS+=("folder \"${F_RAW[$i]}\": 없는 계정 '${F_ACC[$i]}'")
+    i=$((i+1))
+  done
+  i=0
+  while [ $i -lt ${#O_ACC[@]} ]; do
+    if [ "${O_HOST[$i]}" = "${O_RAW[$i]}" ] || [ -z "${O_PATH[$i]}" ]; then
+      CFG_ERRORS+=("org \"${O_RAW[$i]}\": '서버/조직' 형식이어야 합니다 (예: github.com/myorg)")
+    elif ! is_account "${O_ACC[$i]}"; then
+      CFG_ERRORS+=("org \"${O_RAW[$i]}\": 없는 계정 '${O_ACC[$i]}'")
+    elif ! find_binding "${O_ACC[$i]}" "${O_HOST[$i]}"; then
+      CFG_ERRORS+=("org \"${O_RAW[$i]}\": ${O_ACC[$i]} 계정에 ${O_HOST[$i]} 서버가 없습니다")
+    fi
+    i=$((i+1))
+  done
+  i=0
+  while [ $i -lt ${#AR_RAW[@]} ]; do
+    [ -z "${AR_PAT[$i]}" ] && CFG_ERRORS+=("folder \"${AR_RAW[$i]}\": allowRemote 가 비어 있습니다 (예: gitlab.example.com/*)")
+    i=$((i+1))
+  done
+  case "$(lower "$CFG_AI_PUSH")" in ask|allow|branch) ;; *) CFG_ERRORS+=("gitsw.aiPush 는 ask, branch, allow 중 하나입니다 (지금: $CFG_AI_PUSH)") ;; esac
+  case "$CFG_SSH_STRICT" in ""|true|false|yes|no|on|off|1|0) ;; *) CFG_ERRORS+=("gitsw.sshStrict 는 true 또는 false 입니다") ;; esac
+  is_number "$CFG_MAX_MB" || CFG_ERRORS+=("gitsw.maxFileMB 는 숫자여야 합니다")
+  is_number "$CFG_WARN_MB" || CFG_ERRORS+=("gitsw.warnFileMB 는 숫자여야 합니다")
+}
+find_binding_any() { local a; for a in "${B_ACC[@]}"; do [ "$a" = "$1" ] && return 0; done; return 1; }
+
+need_config() {   # 설정이 없거나 틀리면 안내하고 종료
+  if ! load_config; then
+    err "설정 파일이 없습니다: $(tilde "$CFG")"
+    err "  기존 gitsw(v1)에서 옮기기: gitsw migrate   /   새로 만들기: gitsw add"
+    exit 1
+  fi
+  if [ ${#CFG_ERRORS[@]} -gt 0 ]; then
+    local e
+    err "설정 파일에 문제가 있습니다: $(tilde "$CFG")"
+    for e in "${CFG_ERRORS[@]}"; do err "  - $e"; done
+    exit 1
+  fi
+  [ ${#ACC_IDS[@]} -gt 0 ] || die "등록된 계정이 없습니다. gitsw add 로 추가하세요."
+}
+
+set_account() {   # 계정 → SA_ID SA_EMAIL SA_NAME (번호도 가능)
+  local i=0
+  if is_number "$1" && [ "$1" -ge 1 ] && [ "$1" -le ${#ACC_IDS[@]} ]; then i=$(($1 - 1))
+  elif acc_idx "$1"; then i=$ACC_I
+  else err "알 수 없는 계정: '$1' (사용 가능: $(account_names))"; return 1; fi
+  SA_ID=${ACC_IDS[$i]}; SA_EMAIL=${ACC_EMAIL[$i]}; SA_NAME=${ACC_NAME[$i]}; SA_ALIAS=""
+}
+
+# shellcheck disable=SC2120
+select_account() {   # 인자가 없으면 번호로 고르기
+  if [ -n "$1" ]; then set_account "$1" || exit 1; return; fi
+  can_prompt || die "계정을 지정하세요. (계정: $(account_names))"
+  local i=0 n
+  echo ""
+  echo "어떤 계정을 쓸까요?"
+  while [ $i -lt ${#ACC_IDS[@]} ]; do
+    echo "  $((i+1))) ${ACC_IDS[$i]}  (${ACC_EMAIL[$i]}, $(acc_hosts_desc "${ACC_IDS[$i]}"))"
+    i=$((i+1))
+  done
+  read -r -p "번호: " n
+  set_account "$n" || exit 1
+}
+
+# ================= 주소 / 계정 판단 =================
+
+# 주소 → U_HOST(실제 서버) U_ALIAS(별칭 주소면) U_PATH(owner/repo) U_OWNER U_KIND(ssh|https|local)
+parse_url() {
+  local u="$1" rest hp h="" p=""
+  U_HOST=""; U_ALIAS=""; U_PATH=""; U_OWNER=""; U_KIND=""
+  case "$u" in
+    http://*|https://*)
+      rest=${u#*://}; hp=${rest%%/*}; hp=${hp##*@}; h=${hp%%:*}
+      case "$rest" in */*) p=${rest#*/} ;; *) p="" ;; esac
+      U_KIND=https ;;
+    ssh://*|git+ssh://*|ssh+git://*)
+      rest=${u#*://}; hp=${rest%%/*}; hp=${hp##*@}; h=${hp%%:*}
+      case "$rest" in */*) p=${rest#*/} ;; *) p="" ;; esac
+      U_KIND=ssh ;;
+    git://*)
+      rest=${u#git://}; hp=${rest%%/*}; h=${hp%%:*}
+      case "$rest" in */*) p=${rest#*/} ;; *) p="" ;; esac
+      U_KIND=git ;;
+    /*|./*|../*|file://*|"") U_KIND=local; return 1 ;;
+    *:*)
+      hp=${u%%:*}
+      case "$hp" in */*) U_KIND=local; return 1 ;; esac
+      h=${hp##*@}; p=${u#*:}; U_KIND=ssh ;;
+    *) U_KIND=local; return 1 ;;
+  esac
+  p=${p#/}; p=${p%/}; p=${p%.git}
+  h=$(lower "$h")
+  [ -z "$h" ] && { U_KIND=local; return 1; }
+  if find_alias "$h"; then U_ALIAS=${B_ALIAS[$BI]}; U_HOST=${B_HOST[$BI]}; else U_HOST=$h; fi
+  U_PATH=$p; U_OWNER=${p%%/*}
+  return 0
+}
+
+folder_account() {   # $1 폴더 → FA (가장 깊게 맞는 기본 폴더의 계정)
+  local d i=0 best="" bl=0 p
+  FA=""
+  d=$(real_dir "${1:-.}") || return 1
+  while [ $i -lt ${#F_RAW[@]} ]; do
+    if [ -z "${F_REAL[$i]}" ]; then F_REAL[$i]=$(real_dir "$(expand_path "${F_RAW[$i]}")"); [ -z "${F_REAL[$i]}" ] && F_REAL[$i]="-"; fi
+    p=${F_REAL[$i]}
+    if [ "$p" != "-" ]; then
+      case "$d/" in "$p/"*) [ ${#p} -gt $bl ] && { best=${F_ACC[$i]}; bl=${#p}; } ;; esac
+    fi
+    i=$((i+1))
+  done
+  FA=$best
+  [ -n "$FA" ]
+}
+
+folder_allow() {   # $1 폴더 → FAP (그 폴더에 허용된 push 대상 패턴, 줄바꿈 구분), FAP_DIR
+  local d i=0 bl=0 p best=""
+  FAP=""; FAP_DIR=""
+  [ ${#AR_RAW[@]} -eq 0 ] && return 1
+  d=$(real_dir "${1:-.}") || return 1
+  while [ $i -lt ${#AR_RAW[@]} ]; do
+    if [ -z "${AR_REAL[$i]}" ]; then AR_REAL[$i]=$(real_dir "$(expand_path "${AR_RAW[$i]}")"); [ -z "${AR_REAL[$i]}" ] && AR_REAL[$i]="-"; fi
+    p=${AR_REAL[$i]}
+    if [ "$p" != "-" ]; then
+      case "$d/" in "$p/"*) [ ${#p} -gt $bl ] && { best=${AR_RAW[$i]}; bl=${#p}; } ;; esac
+    fi
+    i=$((i+1))
+  done
+  [ -z "$best" ] && return 1
+  FAP_DIR=$best
+  i=0
+  while [ $i -lt ${#AR_RAW[@]} ]; do
+    [ "${AR_RAW[$i]}" = "$best" ] && FAP="$FAP${AR_PAT[$i]}"$'\n'
+    i=$((i+1))
+  done
+  return 0
+}
+
+org_account() {   # $1 서버 $2 경로 → OA, OKEY (가장 긴 조직 경로)
+  local h="$1" p i=0 best="" bk="" bl=0 op
+  OA=""; OKEY=""
+  p=$(lower "$2")
+  while [ $i -lt ${#O_RAW[@]} ]; do
+    if [ "${O_HOST[$i]}" = "$h" ]; then
+      op=${O_PATH[$i]}
+      case "$p/" in "$op/"*) [ ${#op} -gt $bl ] && { best=${O_ACC[$i]}; bk=${O_RAW[$i]}; bl=${#op}; } ;; esac
+    fi
+    i=$((i+1))
+  done
+  OA=$best; OKEY=$bk
+  [ -n "$OA" ]
+}
+
+alias_fits() {   # $1 계정: 주소가 별칭이면 그 계정의 별칭과 같은지
+  [ -z "$U_ALIAS" ] && return 0
+  find_binding "$1" "$U_HOST" && [ "$(lower "${B_ALIAS[$BI]}")" = "$(lower "$U_ALIAS")" ]
+}
+
+# 주소(U_*)와 폴더로 계정 추측 → D_ACC D_SRC D_NOTE
+derive_account() {
+  local dir="$1" a ol
+  D_ACC=""; D_SRC=""; D_NOTE=""
+  if [ "$U_HOST" = github.com ] && [ -n "$U_OWNER" ]; then
+    ol=$(lower "$U_OWNER")
+    for a in "${ACC_IDS[@]}"; do
+      if [ "$(lower "$a")" = "$ol" ] && find_binding "$a" github.com && [ "${B_LOGIN[$BI]}" = "$a" ] && alias_fits "$a"; then
+        D_ACC=$a; D_SRC=owner; D_NOTE="소유자 $U_OWNER"; return 0
+      fi
+    done
+  fi
+  if org_account "$U_HOST" "$U_PATH"; then   # 조직 규칙은 사용자가 정한 것이라 주소 별칭보다 우선
+    D_ACC=$OA; D_SRC=org; D_NOTE="조직 규칙 $OKEY"; return 0
+  fi
+  if folder_account "$dir" && find_binding "$FA" "$U_HOST" && alias_fits "$FA"; then
+    D_ACC=$FA; D_SRC=folder; D_NOTE="폴더 기본"; return 0
+  fi
+  if [ -n "$U_ALIAS" ] && find_alias "$U_ALIAS"; then
+    D_ACC=${B_ACC[$BI]}; D_SRC="alias"; D_NOTE="주소 별칭 $U_ALIAS"; return 0
+  fi
+  if [ "$U_HOST" != github.com ] && host_single_account "$U_HOST"; then
+    D_ACC=$HSA; D_SRC=host; D_NOTE="$U_HOST 의 유일한 계정"; return 0
+  fi
+  return 1
+}
+
+# 저장소 → R_ACC(쓸 계정) R_SRC R_NOTE R_LOCK R_DERIVED R_DERIVED_SRC R_HOST R_PATH R_URL R_URL_ALIAS
+#          R_ALIAS(기대 push 별칭) R_LOGIN(로그인 계정) R_IGNORED R_LOCK_UNKNOWN
+resolve_repo() {   # $1 폴더 [$2 fast — 훅용: 잠금이 있으면 규칙 계산 생략]
+  local dir="${1:-.}" line k v want_rules=1
+  R_ACC=""; R_SRC=""; R_NOTE=""; R_LOCK=""; R_DERIVED=""; R_DERIVED_SRC=""; R_DERIVED_NOTE=""
+  R_HOST=""; R_PATH=""; R_URL=""; R_ALIAS=""; R_LOGIN=""; R_IGNORED=""; R_LOCK_UNKNOWN=""; R_URL_KIND=""
+  while IFS= read -r line; do
+    k=${line%% *}; v=${line#* }; [ "$v" = "$line" ] && v=""
+    case "$k" in
+      gitswitch.account) R_LOCK=$v ;;
+      gitswitch.ignore) case "$(lower "$v")" in true|yes|on|1) R_IGNORED=1 ;; esac ;;
+      remote.origin.url) R_URL=$v ;;
+    esac
+  done < <(git -C "$dir" config --get-regexp '^(gitswitch\.(account|ignore)|remote\.origin\.url)$' 2>/dev/null)
+  [ "${2:-}" = fast ] && [ -n "$R_LOCK" ] && is_account "$R_LOCK" && want_rules=""
+
+  if [ -n "$R_URL" ] && parse_url "$R_URL"; then
+    R_HOST=$U_HOST; R_PATH=$U_PATH; R_URL_KIND=$U_KIND
+    [ -n "$want_rules" ] && derive_account "$dir" && { R_DERIVED=$D_ACC; R_DERIVED_SRC=$D_SRC; R_DERIVED_NOTE=$D_NOTE; }
+  elif [ -z "$R_URL" ]; then
+    [ -n "$want_rules" ] && folder_account "$dir" && { R_DERIVED=$FA; R_DERIVED_SRC=folder; R_DERIVED_NOTE="폴더 기본"; }
+  else
+    R_URL_KIND=local
+  fi
+
+  if [ -n "$R_LOCK" ]; then
+    if is_account "$R_LOCK"; then R_ACC=$R_LOCK; R_SRC=lock; R_NOTE="잠금"
+    else R_LOCK_UNKNOWN=1; fi
+  fi
+  if [ -z "$R_ACC" ] && [ -n "$R_DERIVED" ]; then R_ACC=$R_DERIVED; R_SRC=$R_DERIVED_SRC; R_NOTE=$R_DERIVED_NOTE; fi
+  if [ -n "$R_ACC" ] && [ -n "$R_HOST" ] && find_binding "$R_ACC" "$R_HOST"; then
+    R_ALIAS=${B_ALIAS[$BI]}; R_LOGIN=${B_LOGIN[$BI]}
+  fi
+  return 0
+}
+
+
+push_url_alias() {   # $1 폴더 → PU_URL(실제 push 주소) PU_ALIAS
+  PU_URL=$(git -C "${1:-.}" remote get-url --push origin 2>/dev/null)
+  PU_ALIAS=""
+  [ -n "$PU_URL" ] && parse_url "$PU_URL" && PU_ALIAS=$U_ALIAS
+  return 0
+}
+
+
+# ================= 백업 / 기록 =================
+
+BACKUP_SESSION=""
+backup_file() {   # 고치기 전에 한 번 백업 (~/.local/state/gitsw/backups/<시각>/) — 마지막 백업과 내용이 같으면 건너뜀
+  local f="$1" name dest d
+  [ -f "$f" ] || return 0
+  name=$(printf '%s' "${f#"$HOME"/}" | tr '/' '_')
+  [ -n "$BACKUP_SESSION" ] && [ -f "$BACKUP_SESSION/$name" ] && return 0
+  for d in $(ls -1d "$BACKUP_DIR"/[0-9]*-[0-9]*-[0-9]*/ 2>/dev/null | sort -r); do
+    if [ -f "$d$name" ]; then cmp -s "$f" "$d$name" && return 0; break; fi
+  done
+  if [ -z "$BACKUP_SESSION" ]; then
+    BACKUP_SESSION="$BACKUP_DIR/$(date +%Y%m%d-%H%M%S)-$$"
+    mkdir -p "$BACKUP_SESSION" 2>/dev/null || return 0
+    prune_backup_dirs
+  fi
+  dest="$BACKUP_SESSION/$name"
+  cp -p "$f" "$dest" 2>/dev/null
+  return 0
+}
+prune_backup_dirs() {   # <날짜>-<시각>-<번호> 모양 폴더는 최근 30개만 남김 (다른 이름의 폴더는 그대로)
+  local d n=0
+  for d in $(ls -1d "$BACKUP_DIR"/[0-9]*-[0-9]*-[0-9]*/ 2>/dev/null | sort -r); do
+    n=$((n+1)); [ $n -gt 30 ] && rm -rf "$d"
+  done
+}
+global_gitconfig() { printf '%s' "${GIT_CONFIG_GLOBAL:-$HOME/.gitconfig}"; }
+backup_global() { backup_file "$(global_gitconfig)"; backup_file "${XDG_CONFIG_HOME:-$HOME/.config}/git/config"; }
+
+log_action() {   # $1 이벤트, 나머지 key=value — ~/.local/state/gitsw/actions.jsonl (훅에서도 불리므로 가볍게)
+  [ -n "${GITSW_INTERNAL:-}" ] && return 0
+  local ev="$1" kv line top
+  shift
+  [ -d "$STATE_DIR" ] || mkdir -p "$STATE_DIR" 2>/dev/null || return 0
+  top=${LOG_TOP:-$(repo_top)}
+  json_esc "$(now_iso)"; line="{\"ts\":$JE"
+  json_esc "$ev"; line="$line,\"event\":$JE"
+  json_esc "$ACTOR"; line="$line,\"actor\":$JE"
+  json_esc "$top"; line="$line,\"repo\":$JE"
+  for kv in "$@"; do
+    json_esc "${kv%%=*}"; line="$line,$JE"
+    json_esc "${kv#*=}"; line="$line:$JE"
+  done
+  line="$line}"
+  if [ $((RANDOM % 64)) -eq 0 ] && [ -f "$ACTION_LOG" ] && [ "$(wc -c < "$ACTION_LOG" | tr -d ' ')" -gt 5242880 ]; then
+    mv -f "$ACTION_LOG" "$ACTION_LOG.1" 2>/dev/null
+  fi
+  printf '%s\n' "$line" >> "$ACTION_LOG" 2>/dev/null
+  return 0
+}
+
+# 위험한 작업 전 현재 상태를 refs/gitsw/backup/ 에 남김 (gitsw rescue 로 복구)
+backup_ref() {
+  has_head || return 0
+  local ts name n=1 wip
+  ts=$(date +%Y%m%d-%H%M%S)
+  name="refs/gitsw/backup/$ts-$1"
+  while git show-ref -q --verify "$name"; do name="refs/gitsw/backup/$ts-$1-$n"; n=$((n+1)); done
+  git update-ref -m "gitsw backup ($1)" "$name" HEAD 2>/dev/null || return 0
+  wip=$(git stash create 2>/dev/null)
+  [ -n "$wip" ] && git update-ref -m "gitsw backup wip ($1)" "$name-wip" "$wip" 2>/dev/null
+  local refs r i=0
+  refs=$(git for-each-ref --sort=-refname --format='%(refname)' refs/gitsw/backup/ | grep -v -- '-wip$')
+  for r in $refs; do
+    i=$((i+1))
+    if [ $i -gt 30 ]; then git update-ref -d "$r" 2>/dev/null; git update-ref -d "$r-wip" 2>/dev/null; fi
+  done
+  return 0
+}
+
+# ================= 잠금 =================
+
+sign_enabled() { [ "$(git config --global --get gitswitch.sign)" = "true" ]; }
+
+apply_sign() {   # 저장소 서명 설정 (SA_ID 기준)
+  local dir="$1" key="$SSH_DIR/id_ed25519_$SA_ID.pub"
+  if sign_enabled && [ -f "$key" ]; then
+    git -C "$dir" config gpg.format ssh
+    git -C "$dir" config user.signingkey "$key"
+    git -C "$dir" config commit.gpgsign true
+    git -C "$dir" config tag.gpgsign true
+    git -C "$dir" config gitswitch.signed true
+  elif [ "$(git -C "$dir" config --get gitswitch.signed)" = "true" ]; then
+    git -C "$dir" config --unset gpg.format
+    git -C "$dir" config --unset user.signingkey
+    git -C "$dir" config --unset commit.gpgsign
+    git -C "$dir" config --unset tag.gpgsign
+    git -C "$dir" config --unset gitswitch.signed
+  fi
+}
+
+repo_hooks_dir() {   # 저장소의 실제 훅 폴더 (워크트리여도 공용 폴더)
+  local hd
+  hd=$(git -C "$1" rev-parse --git-path hooks 2>/dev/null) || return 1
+  case "$hd" in /*) ;; *) hd="$(real_dir "$1")/$hd" ;; esac
+  printf '%s' "$hd"
+}
+
+repo_hook_script() {   # 보조 훅 내용 (Apple git 처럼 전역 훅을 모르는 git 용)
+  local ev="$1" g; g=$(gitsw_cmd_path)
+  # 이 git 이 전역 훅(gitsw-<이벤트>)을 이미 실행했으면 gitsw 검사는 건너뛰고 기존 훅(.local)만 이어서 실행
+  if [ "$ev" = pre-push ]; then
+    cat <<EOF
+#!/bin/sh
+# gitswitch-lock — gitsw 보조 훅 (gitsw 가 관리, 새 git 은 전역 훅이 먼저 검사)
+g="$g"
+if [ ! -x "\$g" ] || git hook list $ev 2>/dev/null | grep -qx gitsw-$ev; then
+  if [ -x "\$0.local" ]; then exec "\$0.local" "\$@"; fi
+  cat > /dev/null
+  exit 0
+fi
+t=\$(mktemp "\${TMPDIR:-/tmp}/gitsw-push.XXXXXX") || exit 1
+cat > "\$t"
+"\$g" _hook --fallback $ev "\$@" < "\$t" || { rc=\$?; rm -f "\$t"; exit \$rc; }
+if [ -x "\$0.local" ]; then "\$0.local" "\$@" < "\$t"; rc=\$?; rm -f "\$t"; exit \$rc; fi
+rm -f "\$t"
+exit 0
+EOF
+  else
+    cat <<EOF
+#!/bin/sh
+# gitswitch-lock — gitsw 보조 훅 (gitsw 가 관리, 새 git 은 전역 훅이 먼저 검사)
+g="$g"
+if [ -x "\$g" ] && ! git hook list $ev 2>/dev/null | grep -qx gitsw-$ev; then
+  "\$g" _hook --fallback $ev "\$@" || exit \$?
+fi
+if [ -x "\$0.local" ]; then exec "\$0.local" "\$@"; fi
+exit 0
+EOF
+  fi
+}
+
+install_repo_hooks() {   # $1 저장소 — 보조 훅 설치 (기존 훅은 .local 로 옮겨 이어서 실행)
+  local dir="$1" hp hd ev f
+  hp=$(git -C "$dir" config --get core.hooksPath)
+  if [ -n "$hp" ]; then
+    if config_hooks_supported; then
+      REPO_HOOK_NOTE="core.hooksPath 저장소 — 전역 훅이 검사합니다"
+    else
+      REPO_HOOK_NOTE="core.hooksPath($hp) 저장소라 보조 훅을 설치하지 못했습니다"
+    fi
+    return 0
+  fi
+  hd=$(repo_hooks_dir "$dir") || return 1
+  mkdir -p "$hd" || return 1
+  for ev in $HOOK_EVENTS; do
+    f="$hd/$ev"
+    if [ -f "$f" ] && ! grep -q "gitswitch-lock" "$f"; then mv "$f" "$f.local"; fi
+    repo_hook_script "$ev" > "$f" && chmod +x "$f"
+  done
+  REPO_HOOK_NOTE=""
+  return 0
+}
+
+repo_hooks_ok() {   # 보조 훅이 최신으로 깔려 있는지
+  local hd ev
+  [ -n "$(git -C "$1" config --get core.hooksPath)" ] && return 0
+  hd=$(repo_hooks_dir "$1") || return 1
+  for ev in $HOOK_EVENTS; do grep -q "_hook --fallback" "$hd/$ev" 2>/dev/null || return 1; done
+  return 0
+}
+
+remove_repo_hooks() {   # gitsw 보조 훅 제거 (.local 이 있으면 되돌림)
+  local hd ev f
+  hd=$(repo_hooks_dir "$1") || return 0
+  for ev in $HOOK_EVENTS; do
+    f="$hd/$ev"
+    if [ -f "$f" ] && grep -q "gitswitch-lock" "$f"; then
+      rm -f "$f"
+      [ -f "$f.local" ] && mv "$f.local" "$f"
+    fi
+  done
+}
+
+lock_repo() {   # $1 폴더 — SA_* 계정으로 작성자 설정 + 잠금
+  local dir="$1" prev
+  prev=$(git -C "$dir" config --get gitswitch.account)
+  git -C "$dir" config user.name "$SA_NAME"
+  git -C "$dir" config user.email "$SA_EMAIL"
+  git -C "$dir" config gitswitch.account "$SA_ID"
+  git -C "$dir" config gitswitch.email "$SA_EMAIL"
+  if [ -n "$SA_ALIAS" ]; then git -C "$dir" config gitswitch.alias "$SA_ALIAS"
+  else git -C "$dir" config --unset gitswitch.alias 2>/dev/null; fi
+  apply_sign "$dir"
+  install_repo_hooks "$dir"
+  [ -n "$REPO_HOOK_NOTE" ] && dim "  ($REPO_HOOK_NOTE)"
+  if [ -n "$prev" ] && [ "$prev" != "$SA_ID" ]; then
+    say "  ${YELLOW}🔒 잠금 계정 변경: $prev → $SA_ID${RESET}"
+  else
+    say "  🔒 이 저장소는 이제 ${BOLD}$SA_ID${RESET} 계정으로만 commit/push 됩니다."
+  fi
+}
+
+# ================= use / unlock / ignore / protect =================
+
+use_cmd() {
+  need_config
+  local acc="$1"
+  in_repo || die "저장소 안에서 실행하세요. (전역 작성자는 쓰지 않습니다 — 폴더/주소 규칙으로 자동 지정됩니다)"
+  resolve_repo .
+  if [ -z "$acc" ]; then
+    if [ -n "$R_LOCK" ] && [ -z "$R_LOCK_UNKNOWN" ]; then acc=$R_LOCK; say "ℹ 잠금 계정 다시 적용: $acc"
+    elif [ -n "$R_DERIVED" ]; then acc=$R_DERIVED; say "ℹ 계정 자동 선택: $acc ($R_DERIVED_NOTE)"
+    else die "계정을 자동으로 정할 수 없습니다. gitsw use <계정>  (계정: $(account_names))"; fi
+  fi
+  set_account "$acc" || exit 1
+  local url path up upath
+  url=$R_URL
+  if [ -n "$url" ] && parse_url "$url"; then
+    find_binding "$SA_ID" "$U_HOST" || die "✘ $SA_ID 계정에는 $U_HOST 서버가 없습니다 (이 저장소: $U_HOST). 계정을 다시 확인하세요."
+    SA_ALIAS=${B_ALIAS[$BI]}
+    path=$U_PATH
+    git remote set-url origin "git@$SA_ALIAS:$path.git"
+    if [ -n "$(git config --get remote.origin.pushurl)" ]; then
+      git config --unset-all remote.origin.pushurl
+      git config remote.origin.pushurl "git@$SA_ALIAS:$path.git"
+    fi
+    up=$(git config --get remote.upstream.url)
+    if [ -n "$up" ] && parse_url "$up" && [ "$U_HOST" = "${B_HOST[$BI]}" ]; then
+      upath=$U_PATH
+      git remote set-url upstream "git@$SA_ALIAS:$upath.git"
+    fi
+    ok "이 저장소를 $SA_ID 계정으로 전환했습니다."
+    say "  remote: git@$SA_ALIAS:$path.git$( [ "${B_LOGIN[$BI]}" != "$SA_ID" ] && printf '  (로그인: %s)' "${B_LOGIN[$BI]}")"
+  elif [ -n "$url" ]; then
+    ok "이 저장소의 커밋 작성자를 $SA_ID 으로 설정했습니다. (원격이 로컬 경로: $url)"
+  else
+    ok "이 저장소의 커밋 작성자를 $SA_ID 으로 설정했습니다. (origin 없음)"
+  fi
+  lock_repo .
+  say "  커밋 작성자: $SA_NAME <$SA_EMAIL>"
+  log_action use "account=$SA_ID"
+}
+
+unlock_cmd() {
+  require_repo
+  local yes=""; [ "$1" = --yes ] && yes=1
+  confirm "이 저장소의 계정 잠금을 풉니다. 계속할까요?" "$yes" "gitsw unlock --yes"
+  git config --unset gitswitch.account 2>/dev/null
+  git config --unset gitswitch.email 2>/dev/null
+  git config --unset gitswitch.alias 2>/dev/null
+  say "🔓 잠금을 해제했습니다. (작성자 설정은 그대로입니다)"
+  log_action unlock
+}
+
+ignore_cmd() {   # gitsw 관리에서 이 저장소 빼기/되돌리기
+  require_repo
+  local off="" yes="" a
+  for a in "$@"; do case "$a" in --off) off=1 ;; --yes) yes=1 ;; *) die "사용법: gitsw ignore [--off]" ;; esac; done
+  if [ -n "$off" ]; then
+    git config --unset gitswitch.ignore 2>/dev/null
+    ok "이 저장소를 다시 gitsw 가 관리합니다."
+  else
+    confirm "이 저장소를 gitsw 검사에서 뺍니다 (작성자/비밀값/push 검사 안 함). 계속할까요?" "$yes" "gitsw ignore --yes"
+    git config gitswitch.ignore true
+    ok "이 저장소는 이제 gitsw 검사를 하지 않습니다. (되돌리기: gitsw ignore --off)"
+  fi
+}
+
+protect_cmd() {   # 보호 브랜치 (직접 push 금지)
+  require_repo
+  local rm="" b list
+  if [ $# -eq 0 ] || [ "$1" = --list ]; then
+    list=$(git config --get-all gitswitch.protect)
+    if [ -n "$list" ]; then say "보호 브랜치 (직접 push 금지):"; printf '%s\n' "$list" | sed 's/^/  /'
+    else say "보호 브랜치가 없습니다. (추가: gitsw protect main)"; fi
+    return 0
+  fi
+  [ "$1" = --rm ] && { rm=1; shift; }
+  [ $# -gt 0 ] || die "사용법: gitsw protect <브랜치>...  /  gitsw protect --rm <브랜치>"
+  for b in "$@"; do
+    case "$b" in --yes) continue ;; esac
+    if [ -n "$rm" ]; then
+      git config --fixed-value --unset-all gitswitch.protect "$b" 2>/dev/null && ok "보호 해제: $b"
+    else
+      git config --get-all gitswitch.protect | grep -qx -- "$b" || git config --add gitswitch.protect "$b"
+      ok "보호 브랜치: $b (직접 push 금지 → 다른 브랜치에서 gitsw pr)"
+    fi
+  done
+}
+is_protected() { git config --get-all gitswitch.protect 2>/dev/null | grep -qx -- "$1"; }
+
+default_branch() {   # $1 원격 → 기본 브랜치 이름
+  local r="${1:-origin}" d
+  d=$(git symbolic-ref --short "refs/remotes/$r/HEAD" 2>/dev/null)
+  if [ -n "$d" ]; then printf '%s' "${d#"$r"/}"; return 0; fi
+  for d in main master develop; do
+    git show-ref -q --verify "refs/remotes/$r/$d" && { printf '%s' "$d"; return 0; }
+  done
+  printf 'main'
+}
+
+# ================= clone / fork / sync =================
+
+clone_cmd() {   # [계정] <저장소|주소> [폴더]
+  need_config
+  local acc="" input target host="" path name dest fdir
+  if is_account "$1"; then acc="$1"; shift; fi
+  input="$1"; target="$2"
+  if [ -z "$input" ]; then
+    can_prompt || die "사용법: gitsw clone [계정] <저장소|주소> [폴더]"
+    read -r -p "저장소 (예: owner/repo 또는 주소): " input
+  fi
+  [ -z "$input" ] && die "저장소가 비어 있습니다."
+
+  if parse_url "$input"; then
+    host=$U_HOST; path=$U_PATH
+    if [ -z "$acc" ]; then
+      derive_account . && acc=$D_ACC
+      [ -n "$acc" ] && say "ℹ 계정 자동 선택: $acc ($D_NOTE)"
+    fi
+  else
+    path=${input%.git}; path=${path%/}
+    if [ -z "$acc" ]; then
+      U_HOST=github.com; U_ALIAS=""; U_PATH=$path; U_OWNER=${path%%/*}
+      if [ "$path" != "${path#*/}" ] && derive_account .; then acc=$D_ACC; say "ℹ 계정 자동 선택: $acc ($D_NOTE)"
+      elif folder_account .; then acc=$FA; say "ℹ 계정 자동 선택: $acc (폴더 기본)"; fi
+    fi
+  fi
+  [ -z "$acc" ] && die "계정을 정할 수 없습니다. gitsw clone <계정> $input  (계정: $(account_names))"
+  set_account "$acc" || exit 1
+
+  if [ -z "$host" ]; then
+    if find_binding "$SA_ID" github.com; then host=github.com
+    else local i=0; while [ $i -lt ${#B_ACC[@]} ]; do [ "${B_ACC[$i]}" = "$SA_ID" ] && { host=${B_HOST[$i]}; break; }; i=$((i+1)); done; fi
+  fi
+  find_binding "$SA_ID" "$host" || die "✘ $SA_ID 계정에는 $host 서버가 없습니다. 계정을 다시 확인하세요."
+  SA_ALIAS=${B_ALIAS[$BI]}
+  [[ "$path" != */* ]] && path="${B_LOGIN[$BI]}/$path"
+  name=$(basename "$path")
+
+  if [ -n "$target" ]; then dest="$target"
+  else
+    fdir=$(acc_folder "$SA_ID")
+    if in_repo; then
+      [ -n "$fdir" ] || die "지금 폴더가 다른 저장소 안입니다. 받을 폴더를 지정하세요: gitsw clone $SA_ID $input <폴더>"
+      dest="$fdir/$name"; say "ℹ 다른 저장소 안이라 계정 기본 폴더에 받습니다: $(tilde "$dest")"
+    elif [ -n "$fdir" ] && ! { folder_account . && [ "$FA" = "$SA_ID" ]; }; then
+      dest="$fdir/$name"; say "ℹ $SA_ID 기본 폴더에 받습니다: $(tilde "$dest")"
+    else
+      dest="$name"
+    fi
+  fi
+  [ -e "$dest" ] && die "이미 있습니다: $dest"
+  mkdir -p "$(dirname "$dest")" || die "폴더를 만들 수 없습니다: $(dirname "$dest")"
+  net_env
+  say "→ git clone git@$SA_ALIAS:$path.git $(tilde "$dest")"
+  if git clone "git@$SA_ALIAS:$path.git" "$dest"; then
+    ok "'$(tilde "$dest")' 를 $SA_ID 계정으로 clone 했습니다."
+    lock_repo "$dest"
+    CLONED_DIR="$dest"
+    (cd "$dest" && log_action clone "account=$SA_ID" "url=git@$SA_ALIAS:$path.git")
+  else
+    die "clone 실패. 'gitsw doctor' 로 연결 상태를 확인하거나, 저장소 경로와 접근 권한을 확인하세요."
+  fi
+}
+
+gh_token() {   # $1 GitHub 로그인 계정 → 토큰 (gh 전역 계정을 바꾸지 않음)
+  command -v gh >/dev/null 2>&1 || return 1
+  gh auth token --hostname github.com --user "$1" 2>/dev/null
+}
+
+fork_cmd() {   # [계정] <원본> [폴더]
+  need_config
+  local acc="" src target path owner name made="" tok login
+  if is_account "$1"; then acc="$1"; shift; fi
+  src="$1"; target="$2"
+  [ -z "$src" ] && die "사용법: gitsw fork [계정] <원본 owner/repo|주소> [폴더]"
+  if [ -z "$acc" ]; then folder_account . && acc=$FA; fi
+  [ -z "$acc" ] && die "계정을 정할 수 없습니다. gitsw fork <계정> $src  (계정: $(account_names))"
+  set_account "$acc" || exit 1
+  find_binding "$SA_ID" github.com || die "fork 는 GitHub 계정만 지원합니다. ($SA_ID 계정에 github.com 이 없습니다)"
+  login=${B_LOGIN[$BI]}
+  if parse_url "$src"; then
+    [ "$U_HOST" = github.com ] || die "GitHub 저장소 주소를 넣어주세요."
+    path=$U_PATH
+  else path=${src%.git}; fi
+  [[ "$path" != */* ]] && die "원본은 owner/repo 또는 주소로 입력하세요. (예: myorg/app)"
+  owner=${path%%/*}; name=$(basename "$path")
+  [ "$(lower "$owner")" = "$(lower "$login")" ] && die "$login 자신의 저장소입니다. fork 대신 gitsw clone 을 쓰세요."
+
+  say "${BOLD}1) $login 계정에 $path 포크 준비${RESET}"
+  if tok=$(gh_token "$login") && [ -n "$tok" ]; then
+    GH_TOKEN="$tok" gh repo fork "$path" --clone=false --remote=false >/dev/null 2>&1
+    GH_TOKEN="$tok" gh repo view "$login/$name" >/dev/null 2>&1 && made=1
+  fi
+  if [ -n "$made" ]; then ok "포크 준비됨: $login/$name"
+  elif can_prompt; then
+    say "  ${YELLOW}브라우저가 $login 계정으로 로그인됐는지 확인하고 'Create fork' 를 누르세요.${RESET}"
+    read -r -p "  준비되면 Enter (페이지가 열립니다)..."
+    open "https://github.com/$path/fork" 2>/dev/null
+    read -r -p "  포크를 만들었으면 Enter..."
+  else
+    die "포크를 자동으로 만들 수 없습니다 (gh 에 $login 로그인 필요: 사용자가 'gh auth login'). 또는 사용자에게 https://github.com/$path/fork 에서 $login 계정으로 포크를 만들어 달라고 요청하세요."
+  fi
+
+  say "${BOLD}2) 포크 clone${RESET}"
+  clone_cmd "$SA_ID" "$login/$name" "$target"
+  git -C "$CLONED_DIR" remote add upstream "git@$SA_ALIAS:$path.git" 2>/dev/null
+  (cd "$CLONED_DIR" && net_env && git fetch -q upstream 2>/dev/null)
+  ok "upstream(원본) 연결: $path"
+  echo ""
+  echo "작업 흐름:"
+  echo "  cd $(tilde "$CLONED_DIR")"
+  echo "  gitsw b 작업브랜치  →  gitsw c -m '...'  →  gitsw pr"
+  echo "  원본 최신 내용 받기: gitsw sync"
+}
+
+sync_cmd() {   # 포크를 원본 최신으로
+  require_repo
+  git config --get remote.upstream.url >/dev/null || die "upstream(원본) 이 없습니다. fork 로 받은 저장소에서 쓰세요."
+  local br def
+  br=$(cur_branch) || die "브랜치 위에서 실행하세요."
+  net_env
+  git fetch upstream || die "upstream 을 받지 못했습니다."
+  git remote set-head upstream -a >/dev/null 2>&1
+  def=$(default_branch upstream)
+  backup_ref sync
+  if git rev-parse -q --verify "upstream/$br" >/dev/null; then
+    if git merge --ff-only "upstream/$br"; then ok "$br 를 원본(upstream/$br) 최신으로 맞췄습니다."
+    else die "원본과 갈라져서 fast-forward 할 수 없습니다. 'git rebase upstream/$br' 또는 'git merge upstream/$br' 로 직접 합치세요."; fi
+  elif [ -n "$def" ]; then
+    say "원본에 '$br' 브랜치가 없어 upstream/$def 를 합칩니다."
+    GIT_EDITOR=true git merge --no-edit "upstream/$def" || die "합치다가 충돌이 났습니다. 'gitsw ck' 로 확인 → 고친 뒤 gitsw continue (취소: gitsw abort)"
+    ok "upstream/$def 를 합쳤습니다."
+  fi
+}
+
+# ================= fix: 잘못된 작성자 고치기 =================
+
+fix_cmd() {
+  require_repo
+  need_config
+  local yes="" commits c bad=0 total first
+  [ "$1" = --yes ] && yes=1
+  resolve_repo .
+  [ -z "$R_ACC" ] && die "이 저장소의 계정을 알 수 없습니다. 먼저 'gitsw use <계정>' 을 하세요."
+  set_account "$R_ACC" || exit 1
+  commits=$(git rev-list --reverse HEAD --not --remotes 2>/dev/null)
+  if [ -z "$commits" ]; then
+    say "push 안 한 커밋이 없습니다. (이미 push 된 커밋은 고치지 않습니다)"; return 0
+  fi
+  total=$(printf '%s\n' "$commits" | grep -c .)
+  for c in $commits; do
+    if [ "$(git log -1 --format=%ae "$c")" != "$SA_EMAIL" ] || [ "$(git log -1 --format=%ce "$c")" != "$SA_EMAIL" ]; then
+      bad=$((bad+1))
+      say "  ${RED}✘${RESET} $(git log -1 --format='%h  %an <%ae>  %s' "$c")"
+    fi
+  done
+  if [ "$bad" -eq 0 ]; then ok "push 안 한 커밋 ${total}개 모두 $SA_ID 으로 되어 있습니다."; return 0; fi
+  say "위 ${bad}개 커밋의 작성자를 $SA_NAME <$SA_EMAIL> 로 고칩니다. (push 안 한 커밋만, 내용은 그대로)"
+  confirm "진행할까요?" "$yes" "gitsw fix --yes"
+  git config user.name "$SA_NAME"; git config user.email "$SA_EMAIL"
+  backup_ref fix
+  first=$(printf '%s\n' "$commits" | head -1)
+  local exec_cmd="git commit --amend --no-edit --no-verify --allow-empty --author='$SA_NAME <$SA_EMAIL>'"
+  local base=(--root)
+  git rev-parse -q --verify "$first^" >/dev/null && base=("$first^")
+  if GITSW_INTERNAL=1 GIT_SEQUENCE_EDITOR=: GIT_EDITOR=true git rebase -q -r --autostash --exec "$exec_cmd" "${base[@]}" >/dev/null; then
+    ok "${bad}개 커밋의 작성자를 고쳤습니다. (되돌리기: gitsw rescue)"
+    log_action fix "account=$SA_ID" "count=$bad"
+  else
+    err "고치는 중 문제가 생겼습니다. 'git rebase --abort' 로 되돌리거나 gitsw rescue 를 쓰세요."
+    return 1
+  fi
+}
+
+
+# ================= auto: 주소/폴더/조직 자동 규칙 =================
+
+sync_include_file() {   # $1 계정 → ~/.gitconfig-<계정> (작성자 + 서명)
+  local id="$1" f key
+  f="$HOME/.gitconfig-$id"; key="$SSH_DIR/id_ed25519_$id.pub"
+  git config -f "$f" user.name "$(acc_name "$id")"
+  git config -f "$f" user.email "$(acc_email "$id")"
+  if sign_enabled && [ -f "$key" ]; then
+    git config -f "$f" gpg.format ssh
+    git config -f "$f" user.signingkey "$key"
+    git config -f "$f" commit.gpgsign true
+    git config -f "$f" tag.gpgsign true
+  else
+    git config -f "$f" --unset gpg.format 2>/dev/null
+    git config -f "$f" --unset user.signingkey 2>/dev/null
+    git config -f "$f" --unset commit.gpgsign 2>/dev/null
+    git config -f "$f" --unset tag.gpgsign 2>/dev/null
+  fi
+}
+
+remove_section_spellings() {   # $1 하위 이름 $2.. 섹션 이름 후보 — --remove-section 은 섹션 이름 대소문자를 구분하므로 후보를 모두 시도
+  local sub="$1" name n
+  shift
+  for name in "$@"; do
+    n=0
+    while [ $n -lt 5 ] && git config --global --remove-section "$name.$sub" 2>/dev/null; do n=$((n+1)); done
+  done
+}
+
+remove_managed_rules() {   # $1 계정 목록(공백 구분) — 그 계정들의 insteadOf/includeIf 섹션 삭제
+  local ids="$1" entry k v sub al id s secs=""
+  while IFS= read -r -d '' entry; do
+    k=${entry%%$'\n'*}
+    sub=${k#url.}; sub=${sub%.insteadof}
+    case "$sub" in
+      git@*:*)
+        al=${sub#git@}; al=${al%%:*}
+        for id in $ids; do case "$al" in *-"$id") secs="$secs"$'\n'"url"$'\t'"$sub"; break ;; esac; done ;;
+    esac
+  done < <(git config --global -z --get-regexp '^url\..*\.insteadof$' 2>/dev/null)
+  while IFS= read -r -d '' entry; do
+    k=${entry%%$'\n'*}; v=${entry#*$'\n'}
+    case "$v" in
+      */.gitconfig-*)
+        id=${v##*/.gitconfig-}
+        sub=${k#includeif.}; sub=${sub%.path}
+        in_list "$id" "$ids" && secs="$secs"$'\n'"inc"$'\t'"$sub" ;;
+    esac
+  done < <(git config --global -z --get-regexp '^includeif\..*\.path$' 2>/dev/null)
+  while IFS=$'\t' read -r k s; do
+    [ -n "$s" ] || continue
+    if [ "$k" = url ]; then remove_section_spellings "$s" url URL Url
+    else remove_section_spellings "$s" includeIf includeif IncludeIf INCLUDEIF; fi
+  done < <(printf '%s\n' "$secs" | sort -u)
+  return 0
+}
+
+install_auto_rules() {
+  git_version_ok || die "git 2.36 이상이 필요합니다. 지금: git $GIT_VER (brew install git)"
+  need_config
+  backup_global
+  local i id h al f base pat p desc o oacc ohost opath
+  remove_managed_rules "${ACC_IDS[*]}"
+  for id in "${ACC_IDS[@]}"; do sync_include_file "$id"; done
+
+  # 1) 폴더 규칙 (가장 약함 → 먼저)
+  i=0
+  while [ $i -lt ${#F_RAW[@]} ]; do
+    p=$(expand_path "${F_RAW[$i]}"); p=${p%/}
+    mkdir -p "$p" 2>/dev/null
+    git config --global "includeIf.gitdir:$p/.path" "$HOME/.gitconfig-${F_ACC[$i]}"
+    say "  ${GREEN}✔${RESET} ${F_ACC[$i]} ← 폴더 ${F_RAW[$i]}"
+    i=$((i+1))
+  done
+  # 2) 계정 주소 규칙 (자기 키를 쓰는 서버만)
+  i=0
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    if [ "${B_LOGIN[$i]}" = "${B_ACC[$i]}" ]; then
+      id=${B_ACC[$i]}; h=${B_HOST[$i]}; al=${B_ALIAS[$i]}; f="$HOME/.gitconfig-$id"
+      if [ "$h" = github.com ]; then
+        base="git@$al:$id/"
+        git config --global --add "url.$base.insteadOf" "https://github.com/$id/"
+        git config --global --add "url.$base.insteadOf" "git@github.com:$id/"
+        git config --global --add "url.$base.insteadOf" "ssh://git@github.com/$id/"
+        for pat in "https://github.com/$id/**" "git@github.com:$id/**" "ssh://git@github.com/$id/**"; do
+          git config --global "includeIf.hasconfig:remote.*.url:$pat.path" "$f"
+        done
+        git config --global "includeIf.hasconfig:remote.*.url:git@$al:**.path" "$f"
+        desc="github.com/$id/..."
+      else
+        base="git@$al:"
+        git config --global --add "url.$base.insteadOf" "https://$h/"
+        git config --global --add "url.$base.insteadOf" "git@$h:"
+        git config --global --add "url.$base.insteadOf" "ssh://git@$h/"
+        [ "${B_PORT[$i]}" != 22 ] && git config --global --add "url.$base.insteadOf" "ssh://git@$h:${B_PORT[$i]}/"
+        for pat in "git@$al:**" "https://$h/**" "git@$h:**" "ssh://git@$h/**" "ssh://git@$h:${B_PORT[$i]}/**"; do
+          git config --global "includeIf.hasconfig:remote.*.url:$pat.path" "$f"
+        done
+        desc="$h 의 모든 저장소"
+      fi
+      say "  ${GREEN}✔${RESET} $id ← $desc"
+    fi
+    i=$((i+1))
+  done
+  # 3) 조직 규칙 (가장 강함 → 마지막)
+  i=0
+  while [ $i -lt ${#O_RAW[@]} ]; do
+    oacc=${O_ACC[$i]}; ohost=${O_HOST[$i]}; o=${O_RAW[$i]}; opath=${o#*/}
+    if find_binding "$oacc" "$ohost"; then
+      al=${B_ALIAS[$BI]}; f="$HOME/.gitconfig-$oacc"
+      base="git@$al:$opath/"
+      git config --global --add "url.$base.insteadOf" "https://$ohost/$opath/"
+      git config --global --add "url.$base.insteadOf" "git@$ohost:$opath/"
+      git config --global --add "url.$base.insteadOf" "ssh://git@$ohost/$opath/"
+      for pat in "git@$al:$opath/**" "https://$ohost/$opath/**" "git@$ohost:$opath/**" "ssh://git@$ohost/$opath/**"; do
+        git config --global "includeIf.hasconfig:remote.*.url:$pat.path" "$f"
+      done
+      say "  ${GREEN}✔${RESET} $oacc ← 조직 $o"
+    fi
+    i=$((i+1))
+  done
+  dim "  (주소/폴더/조직에 맞는 계정이 자동으로 쓰입니다. 그 외 저장소는 gitsw clone/use 로 지정)"
+}
+
+auto_rules_ok() {   # 계정 주소 규칙이 깔려 있는지
+  local i=0 rules
+  rules=$(git config --global --get-regexp '^url\..*\.insteadof$' 2>/dev/null)
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    if [ "${B_LOGIN[$i]}" = "${B_ACC[$i]}" ]; then
+      printf '%s\n' "$rules" | grep -q "^url\.git@${B_ALIAS[$i]}:" || return 1
+    fi
+    i=$((i+1))
+  done
+  return 0
+}
+
+# ================= 전역 안전 설정 / 훅 =================
+
+apply_safety_settings() {
+  # 작성자가 설정 안 된 저장소에서 'me@컴퓨터이름' 같은 엉뚱한 작성자로 커밋되지 않게
+  [ "$(git config --global --get user.useConfigOnly)" = true ] || git config --global user.useConfigOnly true
+}
+
+write_dispatcher() {
+  local g; g=$(gitsw_cmd_path)
+  mkdir -p "$DATA_DIR" || return 1
+  cat > "$HOOK_DISPATCHER" <<EOF
+#!/bin/sh
+# gitsw 훅 연결 (gitsw install 이 관리) — gitsw 가 없으면 아무 것도 하지 않음
+g="$g"
+[ -x "\$g" ] || exit 0
+exec "\$g" _hook "\$@"
+EOF
+  chmod +x "$HOOK_DISPATCHER"
+}
+
+install_global_hooks() {   # git 설정 기반 훅 등록 (모든 저장소/워크트리/husky 저장소에 적용)
+  local ev
+  write_dispatcher || return 1
+  for ev in $HOOK_EVENTS; do git config --global --remove-section "hook.gitsw-$ev" 2>/dev/null; done
+  config_hooks_supported || return 1
+  for ev in $HOOK_EVENTS; do
+    git config --global "hook.gitsw-$ev.event" "$ev"
+    git config --global "hook.gitsw-$ev.command" "\"$HOOK_DISPATCHER\" $ev"
+  done
+  return 0
+}
+
+global_hooks_ok() {
+  local ev
+  [ -x "$HOOK_DISPATCHER" ] && grep -q "$(gitsw_cmd_path)" "$HOOK_DISPATCHER" 2>/dev/null || return 1
+  config_hooks_supported || return 1
+  for ev in $HOOK_EVENTS; do
+    [ "$(git config --global --get "hook.gitsw-$ev.command")" = "\"$HOOK_DISPATCHER\" $ev" ] || return 1
+  done
+  return 0
+}
+
+ssh_strict_on() { case "$CFG_SSH_STRICT" in true|yes|on|1) return 0 ;; esac; return 1; }
+
+apply_ssh_strict() {   # 별칭 없는 github.com 등으로는 키 인증을 안 하게 (선택 기능)
+  local block="" hosts="" i=0 h
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    h=${B_HOST[$i]}; in_list "$h" "$hosts" || hosts="$hosts $h"
+    i=$((i+1))
+  done
+  if ssh_strict_on; then
+    block="# >>> gitsw strict >>>  ('gitsw install' 이 관리 — 별칭 없는 주소로는 키 인증 안 함)"
+    for h in $hosts; do
+      block="$block"$'\n'"Host $h"$'\n'"    PubkeyAuthentication no"$'\n'"    IdentitiesOnly yes"
+    done
+    block="$block"$'\n'"# <<< gitsw strict <<<"
+    backup_file "$SSH_CONFIG"
+    update_marked_block "$SSH_CONFIG" "# >>> gitsw strict >>>" "# <<< gitsw strict <<<" "$block"
+    chmod 600 "$SSH_CONFIG"
+    return 0
+  fi
+  if grep -q '^# >>> gitsw strict >>>' "$SSH_CONFIG" 2>/dev/null; then
+    backup_file "$SSH_CONFIG"
+    remove_marked_block "$SSH_CONFIG" "# >>> gitsw strict >>>" "# <<< gitsw strict <<<"
+  fi
+  return 0
+}
+
+# 표시된 블록을 파일 끝에 넣거나 교체 ($1 파일 $2 시작표시 $3 끝표시 $4 내용 $5 지울 옛 제목 $6 지울 한 줄)
+update_marked_block() {
+  local f="$1" tmp
+  mkdir -p "$(dirname "$f")"
+  [ -f "$f" ] || : > "$f"
+  tmp=$(mktemp "${TMPDIR:-/tmp}/gitsw.XXXXXX") || return 1
+  awk -v b="$2" -v e="$3" -v old="$5" -v drop="$6" '
+    skip { if (index($0, e) == 1) skip = 0; next }
+    index($0, b) == 1 { skip = 1; next }
+    (old != "" && $0 == old) { inold = 1; next }
+    inold { if ($0 ~ /^#{1,2} /) inold = 0; else next }
+    (drop != "" && $0 == drop) { next }
+    /^[[:space:]]*$/ { blank++; next }
+    { while (blank > 0) { print ""; blank-- } print }
+  ' "$f" > "$tmp"
+  if [ -s "$tmp" ]; then printf '\n%s\n' "$4" >> "$tmp"; else printf '%s\n' "$4" >> "$tmp"; fi
+  cat "$tmp" > "$f"
+  rm -f "$tmp"
+}
+
+remove_marked_block() {   # $1 파일 $2 시작표시 $3 끝표시
+  local f="$1" tmp
+  [ -f "$f" ] || return 0
+  tmp=$(mktemp "${TMPDIR:-/tmp}/gitsw.XXXXXX") || return 1
+  awk -v b="$2" -v e="$3" '
+    skip { if (index($0, e) == 1) skip = 0; next }
+    index($0, b) == 1 { skip = 1; next }
+    /^[[:space:]]*$/ { blank++; next }
+    { while (blank > 0) { print ""; blank-- } print }
+  ' "$f" > "$tmp"
+  cat "$tmp" > "$f"
+  rm -f "$tmp"
+}
+
+# ================= _hook: git 이 부르는 검사 =================
+
+hook_skip() { case ",${GITSW_SKIP:-}," in *",$1,"*|*",all,"*) return 0 ;; esac; return 1; }
+
+hook_footer() {
+  if [ "$ACTOR" = human ]; then
+    err "  (정말 필요하면 터미널에서 직접: GITSW_SKIP=<identity|secrets|bigfile|force|protect|remote> git ...)"
+  else
+    err "  → AI 는 이 검사를 우회하지 말고, 위 메시지를 사용자에게 그대로 보고하세요."
+  fi
+}
+
+hook_main() {   # [--fallback] <이벤트> [인자...] — 보조 훅 스크립트가 전역 훅과의 중복은 미리 걸러서 부름
+  local ev
+  [ "$1" = --fallback ] && shift
+  ev="$1"; shift
+  if hook_skip all || ! load_config || [ "$(git rev-parse --is-bare-repository 2>/dev/null)" = true ]; then
+    [ "$ev" = pre-push ] && cat >/dev/null
+    return 0
+  fi
+  if [ ${#CFG_ERRORS[@]} -gt 0 ]; then
+    err "⚠ [gitsw] 설정 파일에 문제가 있어 검사를 건너뜁니다 → gitsw doctor"
+    [ "$ev" = pre-push ] && cat >/dev/null
+    return 0
+  fi
+  case "$ev" in
+    pre-commit) hook_pre_commit ;;
+    commit-msg) hook_commit_msg "$1" ;;
+    pre-push) hook_pre_push "$1" "$2" ;;
+    post-commit) hook_post_commit ;;
+    *) return 0 ;;
+  esac
+}
+
+hook_pre_commit() {
+  local rc=0
+  resolve_repo . fast
+  [ -n "$R_IGNORED" ] && return 0
+  hook_skip identity || hook_check_identity || rc=1
+  hook_skip secrets || hook_check_secrets || rc=1
+  hook_skip bigfile || hook_check_sizes || rc=1
+  [ $rc -ne 0 ] && hook_footer
+  return $rc
+}
+
+hook_check_identity() {
+  local ai ci ae ce want
+  if ! ai=$(git var GIT_AUTHOR_IDENT 2>/dev/null); then
+    err "✘ [gitsw] 커밋 작성자가 설정되지 않았습니다."
+    if [ -n "$R_ACC" ]; then err "  해결: gitsw use $R_ACC"; else err "  해결: gitsw use <계정>  (계정: $(account_names))"; fi
+    return 1
+  fi
+  ci=$(git var GIT_COMMITTER_IDENT 2>/dev/null)
+  ae=$(ident_email "$ai"); ce=$(ident_email "$ci")
+  if [ -n "$R_ACC" ]; then
+    want=$(acc_email "$R_ACC")
+    if [ "$ae" != "$want" ] || [ "$ce" != "$want" ]; then
+      err "✘ [gitsw] 이 저장소는 $R_ACC 계정 전용입니다. ($R_NOTE)"
+      if [ "$ce" != "$ae" ]; then err "  현재 작성자: $ae / 커미터: $ce  (필요: $want)"
+      else err "  현재 작성자: $ae  (필요: $want)"; fi
+      err "  해결: gitsw use $R_ACC"
+      return 1
+    fi
+  elif [ -n "$R_HOST" ] && host_is_managed "$R_HOST"; then
+    err "✘ [gitsw] 이 저장소($R_HOST/$R_PATH)는 어느 계정으로 커밋할지 정해지지 않았습니다."
+    err "  해결: gitsw use <계정>  (계정: $(account_names))"
+    return 1
+  fi
+  return 0
+}
+
+sensitive_name() {   # $1 경로 → SN_REASON(막을 이유), 해당 없으면 1
+  local b="${1##*/}"
+  SN_REASON=""
+  case "$b" in
+    *.pub) return 1 ;;
+    .env.example|.env.sample|.env.template|.env.dist|.env.defaults|.env.schema) return 1 ;;
+    .env.*.example|.env.*.sample|.env.*.template) return 1 ;;
+    .env|.env.*) SN_REASON=".env 파일 (환경변수/비밀값)" ;;
+    *.p12|*.pfx) SN_REASON="인증서 개인키 파일" ;;
+    *.jks|*.keystore) SN_REASON="서명 키스토어" ;;
+    *.p8) SN_REASON="Apple/서비스 인증 키(.p8)" ;;
+    id_rsa|id_dsa|id_ecdsa|id_ed25519|id_rsa_*|id_ecdsa_*|id_ed25519_*) SN_REASON="SSH 개인키" ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+
+read -r -d '' SECRET_AWK <<'AWKEOF'
+function mask(s) { if (length(s) <= 10) return substr(s, 1, 3) "…"; return substr(s, 1, 8) "…(" length(s) "자)" }
+function okb(l) { return RSTART == 1 || substr(l, RSTART - 1, 1) !~ /[A-Za-z0-9_]/ }
+BEGIN { file = ""; skip = 0; ln = 0 }
+/^\+\+\+ / { f = substr($0, 5); if (substr(f, 1, 2) == "b/") f = substr(f, 3); file = f; skip = (file ~ ENVIRON["GITSW_LOCKRE"]); next }
+/^--- / { next }
+/^@@/ { s = $0; sub(/^@@ -[0-9]+(,[0-9]+)? \+/, "", s); sub(/[^0-9].*$/, "", s); ln = s + 0; next }
+/^\+/ {
+  if (skip) { ln++; next }
+  line = substr($0, 2)
+  if (index(line, "gitsw:allow") > 0) { ln++; next }
+  kind = ""
+  if (match(line, /-----BEGIN [A-Z0-9 ]*PRIVATE KEY/)) kind = "개인키"
+  else if (match(line, /gh[pousr]_[A-Za-z0-9]{36}/) && okb(line)) kind = "GitHub 토큰"
+  else if (match(line, /github_pat_[A-Za-z0-9_]{40,}/) && okb(line)) kind = "GitHub 토큰"
+  else if (match(line, /gl(pat|dt|rt|ptt|cbt|ft|imt|agent|oas|soat)-[A-Za-z0-9_-]{20,}/) && okb(line)) kind = "GitLab 토큰"
+  else if (match(line, /(AKIA|ASIA)[0-9A-Z]{16}/) && okb(line) && substr(line, RSTART + RLENGTH, 1) !~ /[0-9A-Z]/) kind = "AWS 키"
+  else if (match(line, /xox[baprs]-[A-Za-z0-9-]{10,}/) && okb(line)) kind = "Slack 토큰"
+  else if (match(line, /hooks\.slack\.com\/services\/T[A-Za-z0-9]+\/B[A-Za-z0-9]+\/[A-Za-z0-9]+/)) kind = "Slack 웹훅"
+  else if (match(line, /sk-ant-[A-Za-z0-9_-]{20,}/) && okb(line)) kind = "Anthropic 키"
+  else if (match(line, /sk-(proj-|svcacct-|admin-)?[A-Za-z0-9_-]{32,}/) && okb(line)) kind = "OpenAI 키"
+  else if (match(line, /[sr]k_live_[0-9A-Za-z]{24,}/) && okb(line)) kind = "Stripe 키"
+  else if (match(line, /npm_[A-Za-z0-9]{36}/) && okb(line)) kind = "npm 토큰"
+  if (kind != "") print file ":" ln "  " kind "  " mask(substr(line, RSTART, RLENGTH))
+  ln++
+  next
+}
+AWKEOF
+
+run_gitleaks() {   # gitleaks 가 설치돼 있으면 스테이지 내용을 한 번 더 검사 (발견 내용 출력)
+  command -v gitleaks >/dev/null 2>&1 || return 0
+  local out rc
+  out=$(gitleaks git --pre-commit --staged --redact --no-banner --exit-code 9 2>&1); rc=$?
+  if [ $rc -ne 0 ] && [ $rc -ne 9 ] && printf '%s' "$out" | grep -qiE 'unknown (command|flag|shorthand)'; then
+    out=$(gitleaks protect --staged --redact --no-banner --exit-code 9 2>&1); rc=$?
+  fi
+  [ $rc -eq 9 ] && printf '%s\n' "$out" | grep -E '^(RuleID|File|Line|Finding):' | head -20 | sed 's/^/gitleaks /'
+  return 0
+}
+
+hook_check_secrets() {
+  local out bad="" f gl
+  out=$(git -c core.quotepath=off diff --cached --no-color --no-ext-diff --no-textconv -U0 --diff-filter=ACMR 2>/dev/null | GITSW_LOCKRE="$LOCKFILE_RE" awk "$SECRET_AWK")
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    sensitive_name "$f" && bad="$bad  $f  — $SN_REASON"$'\n'
+  done < <(git -c core.quotepath=off diff --cached --name-only --diff-filter=ACR 2>/dev/null)
+  gl=$(run_gitleaks)
+  if [ -n "$out" ] || [ -n "$bad" ] || [ -n "$gl" ]; then
+    err "✘ [gitsw] 비밀값으로 보이는 내용이 있어 커밋을 막았습니다:"
+    [ -n "$bad" ] && printf '%s' "$bad" >&2
+    [ -n "$out" ] && printf '%s\n' "$out" | sed 's/^/  /' >&2
+    [ -n "$gl" ] && printf '%s\n' "$gl" | sed 's/^/  /' >&2
+    err "  해결: 그 파일/줄을 커밋에서 빼세요 (git restore --staged <파일>, .gitignore 에 추가)."
+    err "  일부러 넣는 예시 값이면 그 줄에 'gitsw:allow' 주석을 붙이세요."
+    return 1
+  fi
+  return 0
+}
+
+human_size() { local b=$1; if [ "$b" -ge 1048576 ]; then echo "$((b/1048576))MB"; elif [ "$b" -ge 1024 ]; then echo "$((b/1024))KB"; else echo "${b}B"; fi; }
+
+hook_check_sizes() {
+  local raw list sizes paths max warnb s p big="" warned=""
+  raw=$(git -c core.quotepath=off diff --cached --raw --no-abbrev --diff-filter=AM 2>/dev/null)
+  [ -z "$raw" ] && return 0
+  max=$((CFG_MAX_MB * 1048576)); warnb=$((CFG_WARN_MB * 1048576))
+  list=$(printf '%s\n' "$raw" | awk -F'\t' '{ split($1, m, " "); if (m[2] != "160000" && m[4] != "") print m[4] "\t" $2 }')
+  [ -z "$list" ] && return 0
+  sizes=$(printf '%s\n' "$list" | cut -f1 | git cat-file --batch-check='%(objectsize)' 2>/dev/null)
+  paths=$(printf '%s\n' "$list" | cut -f2-)
+  while IFS=$'\t' read -r s p; do
+    is_number "$s" || continue
+    if [ "$max" -gt 0 ] && [ "$s" -ge "$max" ]; then big="$big  $p  ($(human_size "$s"))"$'\n'
+    elif [ "$warnb" -gt 0 ] && [ "$s" -ge "$warnb" ]; then warned="$warned  $p  ($(human_size "$s"))"$'\n'; fi
+  done < <(paste <(printf '%s\n' "$sizes") <(printf '%s\n' "$paths"))
+  if [ -n "$warned" ]; then err "⚠ [gitsw] 큰 파일이 있습니다 (${CFG_WARN_MB}MB 이상):"; printf '%s' "$warned" >&2; fi
+  if [ -n "$big" ]; then
+    err "✘ [gitsw] ${CFG_MAX_MB}MB 이상 파일은 커밋할 수 없습니다:"
+    printf '%s' "$big" >&2
+    err "  해결: 커밋에서 빼거나(git restore --staged <파일>) Git LFS 를 쓰세요."
+    return 1
+  fi
+  return 0
+}
+
+hook_commit_msg() {   # 계정 정책 aiTrailer=strip 이면 AI 표기 줄 제거
+  local f="$1" tmp t any=""
+  { [ -n "$f" ] && [ -f "$f" ]; } || return 0
+  for t in "${ACC_TRAILER[@]}"; do [ "$t" = strip ] && any=1; done
+  [ -n "$any" ] || return 0
+  resolve_repo . fast
+  [ -n "$R_IGNORED" ] && return 0
+  { [ -n "$R_ACC" ] && acc_idx "$R_ACC"; } || return 0
+  [ "${ACC_TRAILER[$ACC_I]}" = strip ] || return 0
+  grep -qiE "$AI_TRAILER_RE" "$f" || return 0
+  tmp="$f.gitsw.$$"
+  grep -viE "$AI_TRAILER_RE" "$f" > "$tmp"
+  cat "$tmp" > "$f"
+  rm -f "$tmp"
+  err "ℹ [gitsw] $R_ACC 계정 정책(aiTrailer=strip)에 따라 AI 표기 줄을 뺐습니다."
+  return 0
+}
+
+hook_pre_push() {   # $1 원격 이름 $2 주소, 표준입력: <local ref> <local sha> <remote ref> <remote sha>
+  local remote="$1" url="$2" refs rc=0 managed="" uk="" uh="" up="" ua="" target pat okp=""
+  refs=$(cat)
+  resolve_repo . fast
+  [ -n "$R_IGNORED" ] && return 0
+  [ -z "$url" ] && url=$(git remote get-url --push "$remote" 2>/dev/null)
+  if parse_url "$url"; then
+    uk=$U_KIND; uh=$U_HOST; up=$U_PATH; ua=$U_ALIAS
+    host_is_managed "$uh" && managed=1
+  else
+    uk=local
+  fi
+  # 폴더별 push 허용 목록 (예: 회사 폴더 코드는 회사 서버로만)
+  if ! hook_skip remote && folder_allow .; then
+    if [ "$uk" = local ]; then target=$(lower "$url"); else target=$(lower "$uh/$up"); fi
+    while IFS= read -r pat; do
+      [ -z "$pat" ] && continue
+      # shellcheck disable=SC2254
+      case "$target" in $pat) okp=1; break ;; esac
+    done <<< "$FAP"
+    if [ -z "$okp" ]; then
+      err "✘ [gitsw] $FAP_DIR 폴더의 저장소는 이 곳으로 push 할 수 없습니다: $target"
+      err "  허용된 곳: $(printf '%s' "$FAP" | tr '\n' ' ')"
+      rc=1
+    fi
+  fi
+  if [ -n "$managed" ] && ! hook_skip identity; then hook_check_target "$url" "$uh" "$ua" || rc=1; fi
+  if [ -n "$refs" ]; then hook_check_refs "$remote" "$refs" "$managed" || rc=1; fi
+  # gitsw p 로 한 push 는 결과를 보고 gitsw 가 직접 기록하므로 여기서는 건너뜀 (중복 기록 방지)
+  if [ $rc -eq 0 ]; then [ "${GITSW_NOLOG_PUSH:-}" = 1 ] || log_action push "remote=$remote" "url=$url" "account=${R_ACC:-}"
+  else hook_footer; fi
+  return $rc
+}
+
+hook_check_target() {   # $1 주소 $2 서버 $3 주소 별칭
+  local url="$1" h="$2" ua="$3" want
+  if [ -z "$R_ACC" ]; then
+    err "✘ [gitsw] 이 저장소는 push 계정이 정해지지 않았습니다. ($h)"
+    err "  해결: gitsw use <계정>  (계정: $(account_names))"
+    return 1
+  fi
+  if ! find_binding "$R_ACC" "$h"; then
+    err "✘ [gitsw] $R_ACC 계정에는 $h 서버가 없습니다. (push 주소: $url)"
+    err "  해결: 계정을 확인하고 gitsw use <계정>"
+    return 1
+  fi
+  want=${B_ALIAS[$BI]}
+  if [ -z "$ua" ]; then
+    err "✘ [gitsw] 별칭 없는 주소로는 push 할 수 없습니다: $url"
+    err "  이 저장소는 $R_ACC 계정(git@$want:...)으로 push 합니다. 해결: gitsw use $R_ACC"
+    return 1
+  fi
+  if [ "$(lower "$ua")" != "$(lower "$want")" ]; then
+    err "✘ [gitsw] 이 저장소는 $R_ACC 계정 전용입니다. ($R_NOTE)"
+    err "  push 주소: $url  (필요: git@$want:...)"
+    err "  해결: gitsw use $R_ACC"
+    return 1
+  fi
+  return 0
+}
+
+hook_check_refs() {   # $1 원격 $2 ref 줄들 $3 관리 서버 여부
+  local remote="$1" refs="$2" managed="$3" _lref lsha rref rsha br def rc=0
+  def=$(default_branch "$remote")
+  while read -r _lref lsha rref rsha; do
+    [ -z "$rref" ] && continue
+    br=""
+    case "$rref" in refs/heads/*) br=${rref#refs/heads/} ;; esac
+    if is_zero_sha "$lsha"; then
+      if [ -n "$br" ] && { [ "$br" = "$def" ] || is_protected "$br"; } && ! hook_skip protect; then
+        err "✘ [gitsw] 기본/보호 브랜치 삭제를 막았습니다: $br"
+        rc=1
+      fi
+      continue
+    fi
+    if ! is_zero_sha "$rsha"; then
+      if ! git cat-file -e "$rsha^{commit}" 2>/dev/null || ! git merge-base --is-ancestor "$rsha" "$lsha" 2>/dev/null; then
+        if [ "${GITSW_ALLOW_FORCE:-}" != 1 ] && ! hook_skip force; then
+          err "✘ [gitsw] 강제 push(원격의 기존 커밋 덮어쓰기)를 막았습니다: ${br:-$rref}"
+          err "  원격에 새 커밋이 있으면: gitsw pl 로 받은 뒤 다시 push"
+          err "  정말 덮어써야 하면 사용자가 직접: gitsw p --force"
+          rc=1
+        fi
+      fi
+    fi
+    if [ -n "$br" ] && is_protected "$br" && ! hook_skip protect; then
+      err "✘ [gitsw] 보호된 브랜치($br)에는 직접 push 할 수 없습니다 → 다른 브랜치에서 gitsw pr"
+      rc=1
+    fi
+    if [ -n "$managed" ] && [ -n "$R_ACC" ] && ! hook_skip identity; then
+      hook_check_new_commits "$lsha" || rc=1
+    fi
+  done <<< "$refs"
+  return $rc
+}
+
+hook_check_new_commits() {   # push 할 새 커밋들의 작성자 검사
+  local want h ae ce s n=0 bad=""
+  want=$(acc_email "$R_ACC")
+  while IFS=$'\t' read -r h ae ce s; do
+    [ -z "$h" ] && continue
+    if [ "$ce" != "$want" ] || { [ "$ae" != "$want" ] && email_is_mine "$ae"; }; then
+      n=$((n+1))
+      [ $n -le 10 ] && bad="$bad    $h  작성자 $ae / 커미터 $ce  $s"$'\n'
+    fi
+  done < <(git log --format='%h%x09%ae%x09%ce%x09%s' "$1" --not --remotes 2>/dev/null)
+  if [ $n -gt 0 ]; then
+    err "✘ [gitsw] push 할 커밋 중 ${n}개의 작성자가 $R_ACC($want) 가 아닙니다:"
+    printf '%s' "$bad" >&2
+    err "  해결: gitsw fix --yes  (push 안 한 커밋의 작성자를 고침, 사용자 동의 필요)"
+    return 1
+  fi
+  return 0
+}
+
+hook_post_commit() {   # 기록 + (--no-verify 등으로) 잘못된 작성자 커밋이 생기면 경고
+  local paths top rm ra info sha ae subj want
+  resolve_repo . fast
+  [ -n "$R_IGNORED" ] && return 0
+  paths=$(git rev-parse --show-toplevel --git-path rebase-merge --git-path rebase-apply 2>/dev/null) || return 0
+  top=$(printf '%s\n' "$paths" | sed -n 1p); rm=$(printf '%s\n' "$paths" | sed -n 2p); ra=$(printf '%s\n' "$paths" | sed -n 3p)
+  { [ -d "$rm" ] || [ -d "$ra" ]; } && return 0
+  info=$(git log -1 --format='%h%x09%ae%x09%s' HEAD 2>/dev/null) || return 0
+  IFS=$'\t' read -r sha ae subj <<< "$info"
+  if [ -n "$R_ACC" ]; then
+    want=$(acc_email "$R_ACC")
+    [ "$ae" != "$want" ] && err "⚠ [gitsw] 방금 커밋($sha)의 작성자($ae)가 $R_ACC($want) 가 아닙니다 → push 전에 gitsw fix"
+  fi
+  LOG_TOP=$top log_action commit "sha=$sha" "branch=$(cur_branch)" "account=${R_ACC:-}" "subject=$subj"
+  return 0
+}
+
+
+# ================= 상태 / 점검 =================
+
+global_author_desc() {
+  local n e
+  n=$(git config --global user.name); e=$(git config --global user.email)
+  if [ -n "$e" ]; then printf '%s <%s>' "$n" "$e"
+  else
+    printf '없음 — 폴더/주소/조직 규칙으로 자동 지정'
+    [ "$(git config --global --get user.useConfigOnly)" = true ] && printf ' (규칙 밖 저장소는 커밋이 막힘)'
+  fi
+}
+
+repo_state() {   # RS_OP(rebase|merge|cherry-pick|revert|am|bisect|"") RS_CONFLICT_FILES RS_CONFLICTS
+  local paths rm ra bl
+  RS_OP=""
+  paths=$(git rev-parse --git-path rebase-merge --git-path rebase-apply --git-path BISECT_LOG 2>/dev/null)
+  rm=$(printf '%s\n' "$paths" | sed -n 1p); ra=$(printf '%s\n' "$paths" | sed -n 2p); bl=$(printf '%s\n' "$paths" | sed -n 3p)
+  if [ -d "$rm" ]; then RS_OP=rebase
+  elif [ -d "$ra" ]; then if [ -f "$ra/applying" ]; then RS_OP=am; else RS_OP=rebase; fi
+  elif git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then RS_OP=merge
+  elif git rev-parse -q --verify CHERRY_PICK_HEAD >/dev/null 2>&1; then RS_OP=cherry-pick
+  elif git rev-parse -q --verify REVERT_HEAD >/dev/null 2>&1; then RS_OP=revert
+  elif [ -f "$bl" ]; then RS_OP=bisect; fi
+  RS_CONFLICT_FILES=$(git -c core.quotepath=off diff --name-only --diff-filter=U 2>/dev/null)
+  RS_CONFLICTS=$(printf '%s' "$RS_CONFLICT_FILES" | grep -c .)
+}
+
+op_word() {
+  case "$1" in rebase) echo "rebase" ;; merge) echo "merge(합치기)" ;; cherry-pick) echo "cherry-pick" ;;
+    revert) echo "revert" ;; am) echo "패치 적용(am)" ;; bisect) echo "bisect" ;; *) echo "$1" ;; esac
+}
+
+maybe_fetch() {   # $1 force|auto|never → 0 받음/최근에 받음, 1 실패, 2 건너뜀
+  local fh age
+  [ "$1" = never ] && return 2
+  git remote get-url origin >/dev/null 2>&1 || return 2
+  fh=$(git rev-parse --git-path FETCH_HEAD 2>/dev/null)
+  if [ "$1" = auto ] && [ -f "$fh" ]; then
+    age=$(( $(date +%s) - $(file_mtime "$fh") ))
+    [ "$age" -lt "${GITSW_FETCH_TTL:-60}" ] && return 0
+  fi
+  GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=5}" GIT_TERMINAL_PROMPT=0 git fetch -q --no-tags origin 2>/dev/null
+}
+
+status_cmd() {
+  local json="" strict="" ssh="" a
+  for a in "$@"; do
+    case "$a" in --json) json=1 ;; --strict) strict=1 ;; --ssh) ssh=1 ;; *) die "사용법: gitsw status [--json] [--strict] [--ssh]" ;; esac
+  done
+  load_config >/dev/null 2>&1
+  if ! in_repo; then
+    if [ -n "$json" ]; then
+      folder_account . && printf '{"inRepo":false,"folderAccount":%s}\n' "$(json_str "$FA")" || printf '{"inRepo":false,"folderAccount":null}\n'
+      return 0
+    fi
+    say "${BOLD}[전역 작성자]${RESET} $(global_author_desc)"
+    say "  (git 저장소 밖입니다)"
+    folder_account . && say "  이 폴더의 기본 계정: $FA  (gitsw clone <저장소> 로 계정 생략 가능)"
+    [ -n "$ssh" ] && status_ssh
+    return 0
+  fi
+  resolve_repo .
+  push_url_alias .
+  local name email top push_acc="" want up unpushed warns=() w fold signed=""
+  name=$(git config user.name); email=$(git config user.email)
+  top=$(repo_top); up=$(git config --get remote.upstream.url)
+  unpushed=$(git rev-list --count HEAD --not --remotes 2>/dev/null || echo 0)
+  [ "$(git config --get commit.gpgsign)" = true ] && signed=1
+  folder_account . && fold=$FA
+  if [ -n "$R_ACC" ] && [ -n "$R_ALIAS" ] && [ -n "$PU_ALIAS" ] && [ "$(lower "$PU_ALIAS")" = "$(lower "$R_ALIAS")" ]; then push_acc=$R_ACC; fi
+  if [ -n "$R_ACC" ]; then
+    want=$(acc_email "$R_ACC")
+    [ "$email" != "$want" ] && warns+=("커밋 작성자(${email:-없음})가 $R_ACC($want)와 다릅니다 → gitsw use $R_ACC")
+    if [ -n "$PU_URL" ] && [ -z "$push_acc" ] && [ "$R_URL_KIND" != local ]; then
+      if [ -z "$R_ALIAS" ]; then warns+=("$R_ACC 계정에는 ${R_HOST:-이 서버} 가 없습니다 → 계정을 확인하고 gitsw use <계정>")
+      else warns+=("push 주소($PU_URL)가 $R_ACC 계정 주소(git@$R_ALIAS:...)가 아닙니다 → gitsw use $R_ACC"); fi
+    fi
+  fi
+  [ -n "$R_LOCK_UNKNOWN" ] && warns+=("잠금 계정 '$R_LOCK' 이 설정에 없습니다 → gitsw use <계정>")
+  if [ -n "$R_LOCK" ] && [ -n "$R_DERIVED" ] && [ "$R_DERIVED" != "$R_LOCK" ] && [ "$R_DERIVED_SRC" != folder ]; then
+    warns+=("잠금($R_LOCK)과 규칙($R_DERIVED — $R_DERIVED_NOTE)이 다릅니다. 의도가 아니면 gitsw use $R_DERIVED")
+  fi
+
+  if [ -n "$json" ]; then
+    local wj="" first=1
+    for w in "${warns[@]}"; do [ -n "$first" ] || wj="$wj,"; wj="$wj$(json_str "$w")"; first=""; done
+    printf '{"inRepo":true,"repo":%s,"path":%s,"branch":%s,"author":{"name":%s,"email":%s},"remote":%s,"pushUrl":%s,"upstream":%s,"lockedAccount":%s,"account":%s,"accountSource":%s,"derivedAccount":%s,"folderAccount":%s,"pushAccount":%s,"pushLogin":%s,"unpushedCommits":%s,"signing":%s,"ignored":%s,"warnings":[%s]}\n' \
+      "$(json_str "$(basename "$top")")" "$(json_str "$top")" "$(json_str "$(cur_branch)")" "$(json_str "$name")" "$(json_str "$email")" \
+      "$(json_str "$R_URL")" "$(json_str "$PU_URL")" "$(json_str "$up")" "$(json_str "$R_LOCK")" "$(json_str "$R_ACC")" "$(json_str "$R_SRC")" \
+      "$(json_str "$R_DERIVED")" "$(json_str "$fold")" "$(json_str "${push_acc:-unknown}")" "$(json_str "$R_LOGIN")" \
+      "$(json_num "$unpushed")" "$(json_bool "$signed")" "$(json_bool "$R_IGNORED")" "$wj"
+  else
+    say "${BOLD}[전역 작성자]${RESET} $(global_author_desc)"
+    say "${BOLD}[현재 저장소]${RESET} $(basename "$top")"
+    say "  커밋 작성자 : ${name:-없음} <${email:-없음}>"
+    say "  remote      : ${R_URL:-없음}"
+    [ -n "$PU_URL" ] && [ "$R_URL" != "$PU_URL" ] && say "  실제 push   : $PU_URL"
+    [ -n "$up" ] && say "  upstream    : $up"
+    if [ -n "$R_LOCK" ]; then say "  🔒 잠금     : ${BOLD}$R_LOCK${RESET} 전용"; else say "  🔓 잠금     : 없음"; fi
+    [ -n "$R_DERIVED" ] && say "  계정 규칙   : $R_DERIVED ($R_DERIVED_NOTE)"
+    [ -n "$fold" ] && say "  폴더 기본   : $fold"
+    [ -n "$signed" ] && say "  서명        : 켜짐"
+    [ -n "$R_IGNORED" ] && say "  관리 제외   : 예 (gitsw ignore --off 로 되돌림)"
+    if [ -n "$push_acc" ]; then
+      say "  ${GREEN}push 계정   : $push_acc${RESET}$( [ -n "$R_LOGIN" ] && [ "$R_LOGIN" != "$push_acc" ] && printf '  (로그인 %s)' "$R_LOGIN")"
+    elif [ -z "$PU_URL" ]; then
+      say "  push 계정   : 원격 없음${R_ACC:+ (커밋 계정 $R_ACC)}"
+    else
+      say "  ${YELLOW}push 계정   : 정해지지 않음 → 사용자에게 계정을 확인한 뒤 'gitsw use <계정>'${RESET}"
+    fi
+    for w in "${warns[@]}"; do say "  ${YELLOW}⚠ $w${RESET}"; done
+    say "PUSH_ACCOUNT=${push_acc:-unknown}"
+    say "PUSH_LOGIN=${R_LOGIN:-none}"
+    say "REPO_ACCOUNT=${R_ACC:-unknown}"
+    say "LOCKED_ACCOUNT=${R_LOCK:-none}"
+    say "UNPUSHED_COMMITS=$unpushed"
+    say "WARNINGS=${#warns[@]}"
+    [ -n "$ssh" ] && status_ssh
+  fi
+  if [ -n "$strict" ] && { [ -z "$push_acc" ] || [ ${#warns[@]} -gt 0 ]; }; then return 1; fi
+  return 0
+}
+
+test_ssh() {   # $1 별칭 $2 아이디
+  local out
+  out=$("$SSH_BIN" -T -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new "git@$1" 2>&1)
+  if printf '%s' "$out" | grep -qE "Hi $2[!,]|@$2[!,]|Welcome to GitLab, @$2"; then
+    say "  ${GREEN}✔ $1 → $2 연결 OK${RESET}"; return 0
+  fi
+  say "  ${RED}✘ $1 연결 실패${RESET}: $(printf '%s' "$out" | head -2 | tr '\n' ' ')"; return 1
+}
+
+status_ssh() {
+  local i=0
+  say "${BOLD}[SSH 연결]${RESET}"
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    [ "${B_LOGIN[$i]}" = "${B_ACC[$i]}" ] && test_ssh "${B_ALIAS[$i]}" "${B_ACC[$i]}"
+    i=$((i+1))
+  done
+}
+
+preflight_cmd() {   # 작업/커밋/push 전 한 번에 점검 → PREFLIGHT=OK|WARN|STOP
+  local json="" nofetch="" a
+  for a in "$@"; do case "$a" in --json) json=1 ;; --no-fetch) nofetch=1 ;; *) die "사용법: gitsw preflight [--json] [--no-fetch]" ;; esac; done
+  PF_ITEMS=(); PF_LEVEL=OK
+  local br="" want ae ce push_acc="" fetched="" behind=0 ahead=0
+  if ! in_repo; then pf_add STOP not_repo "git 저장소 밖입니다."; pf_print "$json"; return 1; fi
+  if ! load_config; then pf_add STOP no_config "gitsw 설정 파일이 없습니다 → gitsw migrate 또는 gitsw add"; pf_print "$json"; return 1; fi
+  if [ ${#CFG_ERRORS[@]} -gt 0 ]; then pf_add STOP bad_config "gitsw 설정 파일에 문제가 있습니다 → gitsw doctor"; pf_print "$json"; return 1; fi
+  resolve_repo .
+  push_url_alias .
+  br=$(cur_branch)
+  [ -n "$R_IGNORED" ] && pf_add WARN ignored "gitsw 관리 제외 저장소입니다 (검사 안 함)."
+  if [ -z "$R_ACC" ]; then
+    pf_add STOP no_account "이 저장소의 계정이 정해지지 않았습니다 → 사용자에게 계정을 확인한 뒤 gitsw use <계정>"
+  else
+    want=$(acc_email "$R_ACC")
+    ae=$(ident_email "$(git var GIT_AUTHOR_IDENT 2>/dev/null)")
+    ce=$(ident_email "$(git var GIT_COMMITTER_IDENT 2>/dev/null)")
+    if [ "$ae" != "$want" ] || [ "$ce" != "$want" ]; then
+      pf_add STOP identity "커밋 작성자(${ae:-없음})가 $R_ACC($want)가 아닙니다 → gitsw use $R_ACC"
+    else
+      pf_add OK identity "커밋 작성자: $R_ACC <$want> ($R_NOTE)"
+    fi
+    if [ -z "$PU_URL" ]; then pf_add WARN no_remote "origin 원격이 없습니다 (push 불가)."
+    elif [ "$R_URL_KIND" = local ]; then pf_add OK remote "원격이 로컬 경로입니다: $PU_URL"
+    elif [ -z "$R_ALIAS" ]; then pf_add STOP no_binding "$R_ACC 계정에는 $R_HOST 서버가 없습니다 → 계정을 확인하세요."
+    elif [ -z "$PU_ALIAS" ] || [ "$(lower "$PU_ALIAS")" != "$(lower "$R_ALIAS")" ]; then
+      pf_add STOP push_url "push 주소($PU_URL)가 $R_ACC 계정 주소(git@$R_ALIAS:...)가 아닙니다 → gitsw use $R_ACC"
+    else
+      push_acc=$R_ACC
+      pf_add OK remote "push 계정: $R_ACC ($PU_URL)"
+    fi
+    if [ -n "$R_LOCK" ] && [ -n "$R_DERIVED" ] && [ "$R_DERIVED" != "$R_LOCK" ] && [ "$R_DERIVED_SRC" != folder ]; then
+      pf_add WARN rule_mismatch "잠금($R_LOCK)과 규칙($R_DERIVED — $R_DERIVED_NOTE)이 다릅니다. 사용자에게 확인하세요."
+    fi
+  fi
+  [ -n "$R_LOCK_UNKNOWN" ] && pf_add STOP lock_unknown "잠금 계정 '$R_LOCK' 이 설정에 없습니다 → 사용자에게 확인"
+  repo_state
+  if [ -n "$RS_OP" ]; then
+    if [ "$RS_CONFLICTS" -gt 0 ]; then pf_add STOP in_progress "$(op_word "$RS_OP") 진행 중, 충돌 파일 ${RS_CONFLICTS}개 → 고친 뒤 git add → gitsw continue (취소: gitsw abort)"
+    else pf_add STOP in_progress "$(op_word "$RS_OP") 진행 중 → gitsw continue 또는 gitsw abort"; fi
+  elif [ "$RS_CONFLICTS" -gt 0 ]; then
+    pf_add STOP conflicts "충돌 표시가 남은 파일이 ${RS_CONFLICTS}개 있습니다."
+  fi
+  [ -z "$br" ] && has_head && pf_add WARN detached "브랜치가 아닌 커밋 위(detached HEAD)입니다 → gitsw b <브랜치>"
+  if [ -n "$br" ] && [ -n "$PU_URL" ]; then
+    if [ -n "$nofetch" ]; then fetched=skip
+    elif maybe_fetch auto; then fetched=1
+    else fetched=0; pf_add WARN offline "원격 정보를 받지 못했습니다 (오프라인/연결 문제 — 마지막 정보 기준)."; fi
+    if has_upstream; then
+      read -r behind ahead <<< "$(git rev-list --left-right --count '@{u}...HEAD' 2>/dev/null)"
+      behind=${behind:-0}; ahead=${ahead:-0}
+      if [ "$behind" -gt 0 ] && [ "$ahead" -gt 0 ]; then pf_add WARN diverged "원격과 갈라졌습니다 (받을 ${behind}개 / 보낼 ${ahead}개) → gitsw pl"
+      elif [ "$behind" -gt 0 ]; then pf_add WARN behind "원격에 받을 커밋이 ${behind}개 있습니다 → gitsw pl"; fi
+    elif has_head; then
+      ahead=$(git rev-list --count HEAD --not --remotes 2>/dev/null || echo 0)
+    fi
+  fi
+  if ! global_hooks_ok && ! repo_hooks_ok .; then pf_add WARN no_guard "gitsw 검사 훅이 없습니다 → gitsw install (또는 gitsw use)"; fi
+  PF_ACC=$R_ACC; PF_PUSH=$push_acc; PF_BR=$br; PF_AHEAD=$ahead; PF_BEHIND=$behind
+  pf_print "$json"
+  [ "$PF_LEVEL" = STOP ] && return 1
+  return 0
+}
+pf_add() {
+  PF_ITEMS+=("$1|$2|$3")
+  case "$1" in STOP) PF_LEVEL=STOP ;; WARN) [ "$PF_LEVEL" = OK ] && PF_LEVEL=WARN ;; esac
+}
+pf_print() {
+  local it lv code msg icon first=1 cj=""
+  if [ -n "$1" ]; then
+    for it in "${PF_ITEMS[@]}"; do
+      lv=${it%%|*}; code=${it#*|}; msg=${code#*|}; code=${code%%|*}
+      [ -n "$first" ] || cj="$cj,"; first=""
+      cj="$cj{\"level\":$(json_str "$lv"),\"code\":$(json_str "$code"),\"message\":$(json_str "$msg")}"
+    done
+    printf '{"result":%s,"account":%s,"pushAccount":%s,"branch":%s,"ahead":%s,"behind":%s,"checks":[%s]}\n' \
+      "$(json_str "$PF_LEVEL")" "$(json_str "${PF_ACC:-}")" "$(json_str "${PF_PUSH:-unknown}")" "$(json_str "${PF_BR:-}")" \
+      "$(json_num "${PF_AHEAD:-0}")" "$(json_num "${PF_BEHIND:-0}")" "$cj"
+    return
+  fi
+  for it in "${PF_ITEMS[@]}"; do
+    lv=${it%%|*}; code=${it#*|}; msg=${code#*|}
+    case "$lv" in OK) icon="${GREEN}✔${RESET}" ;; WARN) icon="${YELLOW}⚠${RESET}" ;; *) icon="${RED}✘${RESET}" ;; esac
+    say "  $icon $msg"
+  done
+  say "PREFLIGHT=$PF_LEVEL"
+  say "REPO_ACCOUNT=${PF_ACC:-unknown} PUSH_ACCOUNT=${PF_PUSH:-unknown} BRANCH=${PF_BR:-none} AHEAD=${PF_AHEAD:-0} BEHIND=${PF_BEHIND:-0}"
+}
+
+st_word() {
+  case "$1" in
+    A*) echo "추가" ;; M*) echo "수정" ;; D*) echo "삭제" ;; R*) echo "이름변경" ;;
+    C*) echo "복사" ;; T*) echo "형식변경" ;; U*) echo "충돌" ;; "??") echo "새 파일" ;; *) echo "$1" ;;
+  esac
+}
+
+json_files() {   # name-status 줄들 → [{"status":..,"path":..}]
+  local s f g out="" first=1
+  while IFS=$'\t' read -r s f g; do
+    [ -z "$s" ] && continue
+    [ -n "$first" ] || out="$out,"; first=""
+    out="$out{\"status\":$(json_str "$(st_word "$s")"),\"path\":$(json_str "${g:-$f}")}"
+  done <<< "$1"
+  printf '[%s]' "$out"
+}
+json_lines() {   # 줄들 → ["..",".."]
+  local l out="" first=1
+  while IFS= read -r l; do
+    [ -z "$l" ] && continue
+    [ -n "$first" ] || out="$out,"; first=""
+    out="$out$(json_str "$l")"
+  done <<< "$1"
+  printf '[%s]' "$out"
+}
+
+check_cmd() {   # gitsw ck
+  require_repo
+  local json="" fmode=auto a br acc lock staged unstaged untracked ahead=0 behind=0 stash fetched=1 n_s n_u n_n
+  for a in "$@"; do
+    case "$a" in --json) json=1 ;; --fetch) fmode=force ;; --no-fetch) fmode=never ;; *) die "사용법: gitsw ck [--json] [--fetch|--no-fetch]" ;; esac
+  done
+  load_config >/dev/null 2>&1
+  br=$(cur_branch)
+  maybe_fetch "$fmode"; case $? in 1) fetched=0 ;; 2) fetched=skip ;; esac
+  staged=$(git -c core.quotepath=off diff --cached --name-status 2>/dev/null)
+  unstaged=$(git -c core.quotepath=off diff --name-status 2>/dev/null)
+  untracked=$(git -c core.quotepath=off ls-files --others --exclude-standard)
+  n_s=$(printf '%s' "$staged" | grep -c .); n_u=$(printf '%s' "$unstaged" | grep -c .); n_n=$(printf '%s' "$untracked" | grep -c .)
+  stash=$(git stash list 2>/dev/null | grep -c .)
+  resolve_repo .
+  lock=$R_LOCK; acc=$R_ACC
+  repo_state
+  if has_upstream; then
+    read -r behind ahead <<< "$(git rev-list --left-right --count '@{u}...HEAD' 2>/dev/null)"
+    behind=${behind:-0}; ahead=${ahead:-0}
+  elif has_head; then
+    ahead=$(git rev-list --count HEAD --not --remotes 2>/dev/null || echo 0)
+  fi
+
+  if [ -n "$json" ]; then
+    printf '{"repo":%s,"branch":%s,"account":%s,"locked":%s,"fetched":%s,"hasUpstream":%s,"ahead":%s,"behind":%s,"staged":%s,"unstaged":%s,"untracked":%s,"stash":%s,"inProgress":%s,"conflicts":%s}\n' \
+      "$(json_str "$(basename "$(repo_top)")")" "$(json_str "$br")" "$(json_str "$acc")" "$(json_bool "$lock")" \
+      "$( [ "$fetched" = 1 ] && echo true || echo false)" "$(has_upstream && echo true || echo false)" \
+      "$(json_num "$ahead")" "$(json_num "$behind")" "$(json_files "$staged")" "$(json_files "$unstaged")" \
+      "$(json_lines "$untracked")" "$(json_num "$stash")" \
+      "$( [ -n "$RS_OP" ] && json_str "$RS_OP" || echo null)" "$(json_lines "$RS_CONFLICT_FILES")"
+    return 0
+  fi
+
+  say "${BOLD}$(basename "$(repo_top)")${RESET}  브랜치: ${BOLD}${br:-(detached HEAD)}${RESET}  계정: ${acc:-?}${lock:+ 🔒}"
+  if [ -n "$RS_OP" ]; then
+    say "  ${RED}⚠ $(op_word "$RS_OP") 진행 중${RESET}$( [ "$RS_CONFLICTS" -gt 0 ] && printf ' — 충돌 파일 %s개' "$RS_CONFLICTS")"
+    [ "$RS_CONFLICTS" -gt 0 ] && printf '%s\n' "$RS_CONFLICT_FILES" | head -15 | sed 's/^/    /'
+    if [ "$RS_CONFLICTS" -gt 0 ]; then say "    → 파일을 고친 뒤 git add <파일> → gitsw continue   (취소: gitsw abort)"
+    else say "    → 계속: gitsw continue   /   취소: gitsw abort"; fi
+  fi
+  if has_upstream; then
+    if [ "$ahead" = 0 ] && [ "$behind" = 0 ]; then say "  원격    : ${GREEN}같음${RESET}"
+    else
+      [ "$ahead" != 0 ] && say "  원격    : ${YELLOW}push 안 한 커밋 ${ahead}개${RESET} → gitsw p"
+      [ "$behind" != 0 ] && say "  원격    : ${YELLOW}받을 커밋 ${behind}개${RESET} → gitsw pl"
+    fi
+  elif has_head; then
+    say "  원격    : ${YELLOW}아직 push 안 한 브랜치 (커밋 ${ahead}개)${RESET} → gitsw p"
+  else
+    say "  원격    : 아직 커밋 없음"
+  fi
+  [ "$fetched" = 0 ] && dim "  (원격 확인 실패: 오프라인이거나 연결 문제 — 마지막으로 받은 정보 기준)"
+  if [ "$ahead" != 0 ] && has_head; then
+    say "  push 안 한 커밋:"
+    if has_upstream; then git --no-pager log --format='    %h %s' '@{u}..HEAD' | head -10
+    else git --no-pager log --format='    %h %s' HEAD --not --remotes | head -10; fi
+  fi
+  if [ $((n_s + n_u + n_n)) -eq 0 ]; then
+    say "  작업내용: ${GREEN}수정 없음 (깨끗함)${RESET}"
+  else
+    if [ "$n_s" -gt 0 ]; then
+      say "  ${GREEN}커밋 준비됨 ${n_s}개${RESET}"
+      printf '%s\n' "$staged" | head -15 | while IFS=$'\t' read -r s f g; do say "    $(st_word "$s")  ${g:-$f}"; done
+    fi
+    if [ "$n_u" -gt 0 ]; then
+      say "  ${YELLOW}수정됨 ${n_u}개${RESET}"
+      printf '%s\n' "$unstaged" | head -15 | while IFS=$'\t' read -r s f g; do say "    $(st_word "$s")  ${g:-$f}"; done
+    fi
+    if [ "$n_n" -gt 0 ]; then
+      say "  ${YELLOW}새 파일 ${n_n}개${RESET}"
+      printf '%s\n' "$untracked" | head -15 | sed 's/^/    /'
+    fi
+    say "  → 커밋: gitsw c -m \"메시지\" (준비된 것만) / gitsw c -a -m \"메시지\" (전부)  /  커밋+push: gitsw cp ..."
+  fi
+  [ "$stash" -gt 0 ] && say "  임시저장(stash) ${stash}개"
+  say "CHANGES=$((n_s + n_u + n_n)) STAGED=$n_s UNSTAGED=$n_u UNTRACKED=$n_n AHEAD=$ahead BEHIND=$behind IN_PROGRESS=${RS_OP:-none} CONFLICTS=$RS_CONFLICTS ACCOUNT=${acc:-unknown}"
+}
+
+# ================= 커밋 / push / pull =================
+
+auto_msg() {   # 메시지를 안 줬을 때 (스테이지된 파일 기준)
+  local list n kinds word first
+  list=$(git -c core.quotepath=off diff --cached --name-status)
+  n=$(printf '%s\n' "$list" | grep -c .)
+  kinds=$(printf '%s\n' "$list" | cut -c1 | sort -u | tr -d '\n')
+  case "$kinds" in A) word="추가" ;; D) word="삭제" ;; R) word="이름변경" ;; *) word="수정" ;; esac
+  first=$(printf '%s\n' "$list" | awk -F'\t' '{print $NF}' | head -3 | while IFS= read -r p; do basename "$p"; done | paste -sd, - | sed 's/,/, /g')
+  if [ "$n" -le 3 ]; then echo "$word: $first"; else echo "$word: $first 외 $((n-3))개"; fi
+}
+
+commit_cmd() {   # [-a] [-m 메시지]... [-F 파일] [--trailer "키: 값"]... [메시지...]
+  require_repo
+  local all=0 msgs=() words=() file="" trailers=() m t files
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -a|--all) all=1 ;;
+      -am) all=1; shift; [ $# -gt 0 ] || die "-m 뒤에 메시지가 필요합니다."; msgs+=("$1") ;;
+      -m|--message) shift; [ $# -gt 0 ] || die "-m 뒤에 메시지가 필요합니다."; msgs+=("$1") ;;
+      --message=*) msgs+=("${1#--message=}") ;;
+      -m?*) msgs+=("${1#-m}") ;;
+      -F|--file) shift; [ -f "$1" ] || die "메시지 파일이 없습니다: $1"; file="$1" ;;
+      --file=*) file="${1#--file=}"; [ -f "$file" ] || die "메시지 파일이 없습니다: $file" ;;
+      --trailer) shift; [ $# -gt 0 ] || die "--trailer 뒤에 '키: 값' 이 필요합니다."; trailers+=("$1") ;;
+      --trailer=*) trailers+=("${1#--trailer=}") ;;
+      -n|--no-verify) die "--no-verify 는 쓸 수 없습니다. (gitsw 검사를 우회하지 않습니다)" ;;
+      --) shift; words+=("$@"); break ;;
+      -*) die "알 수 없는 옵션: $1  (사용법: gitsw c [-a] -m \"메시지\" [-m \"본문\"] [-F 파일] [--trailer \"키: 값\"])" ;;
+      *) words+=("$1") ;;
+    esac
+    shift
+  done
+  if [ ${#msgs[@]} -gt 0 ] && [ ${#words[@]} -gt 0 ]; then
+    die "메시지는 -m 으로만 주거나 그냥 글자로만 주세요. (예: gitsw c -m \"제목\" -m \"본문\")"
+  fi
+  if [ "$all" = 1 ]; then
+    git add -A || die "git add 실패"
+  elif git diff --cached --quiet 2>/dev/null; then
+    if [ -n "$(git status --porcelain)" ]; then
+      if can_prompt; then
+        dim "ℹ 스테이지된 파일이 없어 변경사항 전체를 올립니다 (git add -A)"
+        git add -A || die "git add 실패"
+      else
+        err "스테이지된 파일이 없습니다. 올릴 파일을 'git add <파일>' 로 고르거나, 전부 올리려면 'gitsw c -a -m \"...\"' 를 쓰세요."
+        git -c core.quotepath=off status --short | head -20 | sed 's/^/  /' >&2
+        return 4
+      fi
+    fi
+  fi
+  if git diff --cached --quiet 2>/dev/null; then say "커밋할 변경사항이 없습니다."; return 3; fi
+  local args=(-q)
+  if [ ${#msgs[@]} -gt 0 ]; then
+    for m in "${msgs[@]}"; do args+=(-m "$m"); done
+  elif [ -n "$file" ]; then
+    args+=(-F "$file")
+  elif [ ${#words[@]} -gt 0 ]; then
+    args+=(-m "${words[*]}")
+  else
+    m=""
+    can_prompt && read -r -p "커밋 메시지 (Enter = 자동 생성): " m
+    [ -z "$m" ] && m=$(auto_msg)
+    args+=(-m "$m")
+  fi
+  for t in "${trailers[@]}"; do args+=(--trailer "$t"); done
+  files=$(git diff --cached --name-only | grep -c .)
+  git commit "${args[@]}" || { err "커밋 실패 (위의 [gitsw] 메시지를 확인하세요)"; return 1; }
+  ok "커밋 $(git log -1 --format=%h) \"$(git log -1 --format=%s)\"  (파일 ${files}개, $(git log -1 --format=%an))"
+}
+
+push_cmd() {   # [--force [--yes]] [--dry-run] [--tags]
+  require_repo
+  local force="" yes="" dry="" tags="" a br rc
+  for a in "$@"; do
+    case "$a" in
+      -f|--force|--force-with-lease) force=1 ;;
+      -y|--yes) yes=1 ;;
+      -n|--dry-run) dry=1 ;;
+      --tags|--follow-tags) tags=1 ;;
+      --no-verify) die "--no-verify 는 쓸 수 없습니다." ;;
+      *) die "알 수 없는 옵션: $a  (사용법: gitsw p [--force] [--dry-run] [--tags])" ;;
+    esac
+  done
+  br=$(cur_branch) || die "브랜치 위에서 실행하세요. (detached HEAD)"
+  git remote get-url --push origin >/dev/null 2>&1 || die "origin 원격 저장소가 없습니다."
+  need_config
+  resolve_repo .
+  push_url_alias .
+  if [ "$R_URL_KIND" != local ]; then
+    [ -z "$R_ACC" ] && die "push 계정이 정해지지 않았습니다. 사용자에게 계정을 확인한 뒤 'gitsw use <계정>' 후 다시 하세요."
+    if [ -z "$R_ALIAS" ] || [ "$(lower "$PU_ALIAS")" != "$(lower "$R_ALIAS")" ]; then
+      die "push 주소($PU_URL)가 $R_ACC 계정 주소가 아닙니다. 'gitsw use $R_ACC' 후 다시 하세요."
+    fi
+  fi
+  has_head || { say "push 할 커밋이 없습니다."; return 0; }
+  local args=(push -q)
+  [ -n "$dry" ] && args+=(--dry-run)
+  [ -n "$tags" ] && args+=(--follow-tags)
+  if [ -n "$force" ]; then
+    confirm "$br 브랜치를 강제 push(원격의 기존 커밋 덮어쓰기) 합니다. 계속할까요?" "$yes" "gitsw p --force --yes"
+    args+=(--force-with-lease)
+  fi
+  net_env
+  if has_upstream; then
+    if [ -z "$force" ] && [ -z "$tags" ] && [ "$(git rev-list --count '@{u}..HEAD')" = 0 ]; then say "이미 최신입니다. (push 할 커밋 없음)"; return 0; fi
+    if [ -n "$force" ]; then GITSW_NOLOG_PUSH=1 GITSW_ALLOW_FORCE=1 git "${args[@]}"; else GITSW_NOLOG_PUSH=1 git "${args[@]}"; fi
+  else
+    if [ -n "$force" ]; then GITSW_NOLOG_PUSH=1 GITSW_ALLOW_FORCE=1 git "${args[@]}" -u origin "$br"; else GITSW_NOLOG_PUSH=1 git "${args[@]}" -u origin "$br"; fi
+  fi
+  rc=$?
+  if [ $rc -eq 0 ]; then
+    ok "push $br → origin  (${R_ACC:-로컬})$( [ -n "$dry" ] && printf ' [연습 실행]')"
+    [ -z "$dry" ] && log_action push "remote=origin" "branch=$br" "account=${R_ACC:-}" "force=${force:-0}"
+  else
+    err "push 실패. 원격에 새 커밋이 있으면 'gitsw pl' 로 받은 뒤 다시 'gitsw p' 하세요. ([gitsw] 메시지가 있으면 그 내용을 확인)"
+  fi
+  return $rc
+}
+
+commit_push_cmd() {
+  local rc
+  commit_cmd "$@"; rc=$?
+  case $rc in 0|3) ;; *) return $rc ;; esac
+  push_cmd
+}
+
+pull_cmd() {
+  require_repo
+  local br before out rc
+  br=$(cur_branch) || die "브랜치 위에서 실행하세요."
+  repo_state
+  [ -n "$RS_OP" ] && die "$(op_word "$RS_OP") 진행 중입니다. 먼저 끝내거나(gitsw continue) 취소하세요(gitsw abort)."
+  net_env
+  if ! has_upstream; then
+    git fetch -q origin 2>/dev/null || die "origin 을 받지 못했습니다. (gitsw doctor)"
+    if ! git show-ref -q --verify "refs/remotes/origin/$br"; then say "원격에 '$br' 브랜치가 아직 없습니다. (첫 push: gitsw p)"; return 0; fi
+  fi
+  backup_ref pull
+  before=$(git rev-parse -q --verify HEAD)
+  if has_upstream; then out=$(GIT_EDITOR=true git pull --rebase --autostash -q 2>&1)
+  else out=$(GIT_EDITOR=true git pull --rebase --autostash -q origin "$br" 2>&1); fi
+  rc=$?
+  if [ $rc -eq 0 ]; then
+    if [ "$before" = "$(git rev-parse -q --verify HEAD)" ]; then say "이미 최신입니다."
+    else ok "pull — $br 를 최신으로 맞췄습니다. $(git log -1 --format='(%h %s)')"; fi
+    log_action pull "branch=$br"
+  else
+    printf '%s\n' "$out" | grep -viE 'autostash' >&2
+    repo_state
+    if [ -n "$RS_OP" ]; then err "pull 중 충돌이 났습니다. 'gitsw ck' 로 충돌 파일 확인 → 고친 뒤 git add <파일> → gitsw continue  (취소: gitsw abort)"
+    else err "pull 실패. 연결/권한을 확인하세요. (gitsw doctor)"; fi
+  fi
+  return $rc
+}
+
+up_cmd() {   # 기본 브랜치 최신을 따라가기
+  require_repo
+  local br def
+  br=$(cur_branch) || die "브랜치 위에서 실행하세요."
+  repo_state
+  [ -n "$RS_OP" ] && die "$(op_word "$RS_OP") 진행 중입니다. 먼저 끝내거나(gitsw continue) 취소하세요(gitsw abort)."
+  net_env
+  git fetch -q origin || die "origin 을 받지 못했습니다. (gitsw doctor)"
+  git rev-parse -q --verify refs/remotes/origin/HEAD >/dev/null || git remote set-head origin -a >/dev/null 2>&1
+  def=$(default_branch origin)
+  git rev-parse -q --verify "refs/remotes/origin/$def" >/dev/null || die "origin/$def 브랜치를 찾을 수 없습니다."
+  if [ "$br" = "$def" ]; then pull_cmd; return $?; fi
+  backup_ref up
+  if git show-ref -q --verify "refs/heads/$def"; then
+    git fetch -q origin "$def:$def" 2>/dev/null || dim "  (로컬 $def 는 원격과 갈라져서 그대로 둡니다)"
+  fi
+  if has_upstream && git rev-parse -q --verify '@{u}' >/dev/null; then
+    # 이미 push 한 브랜치는 rebase 하면 강제 push 가 필요해지므로 merge
+    if GIT_EDITOR=true git merge -q --no-edit "origin/$def"; then ok "origin/$def 를 $br 에 합쳤습니다. (push 한 브랜치라 merge)"
+    else err "합치는 중 충돌 → 고친 뒤 git add <파일> → gitsw continue  (취소: gitsw abort)"; return 1; fi
+  else
+    if GIT_EDITOR=true git rebase -q --autostash "origin/$def"; then ok "$br 를 최신 origin/$def 위로 옮겼습니다."
+    else err "rebase 중 충돌 → 고친 뒤 git add <파일> → gitsw continue  (취소: gitsw abort)"; return 1; fi
+  fi
+  log_action up "branch=$br" "base=origin/$def"
+}
+
+log_cmd() {
+  require_repo
+  has_head || { say "아직 커밋이 없습니다."; return 0; }
+  local n="${1:-15}"
+  is_number "$n" || die "사용법: gitsw l [개수]"
+  git --no-pager log --graph -n "$n" --format='%C(yellow)%h%C(reset) %s %C(dim)— %an, %ar%C(reset)%C(auto)%d'
+  echo ""
+}
+
+diff_cmd() {
+  require_repo
+  if has_head; then git --no-pager diff HEAD "$@"; else git --no-pager diff --cached "$@"; fi
+  local u; u=$(git -c core.quotepath=off ls-files --others --exclude-standard)
+  if [ -n "$u" ]; then echo ""; echo "새 파일 (diff 에는 안 나옴):"; printf '%s\n' "$u" | sed 's/^/  /'; fi
+}
+
+branch_cmd() {
+  require_repo
+  if [ -z "$1" ]; then
+    git --no-pager branch --sort=-committerdate --format='%(if)%(HEAD)%(then)* %(else)  %(end)%(color:yellow)%(refname:short)%(color:reset) %(color:dim)%(committerdate:relative)%(color:reset) %(upstream:track)'
+    dim "새 브랜치/이동: gitsw b 이름"
+    return 0
+  fi
+  if git show-ref --verify -q "refs/heads/$1"; then
+    git switch -q "$1" && ok "$1 브랜치로 이동"
+  elif git show-ref --verify -q "refs/remotes/origin/$1"; then
+    git switch -q --track "origin/$1" && ok "원격 $1 브랜치를 받아서 이동"
+  else
+    git switch -q -c "$1" && ok "새 브랜치 $1 만들고 이동 (첫 push: gitsw p)"
+  fi
+}
+
+undo_cmd() {
+  require_repo
+  has_head || { say "되돌릴 커밋이 없습니다."; return 1; }
+  head_pushed && die "마지막 커밋은 이미 push 됐습니다. 되돌리면 다른 사람과 꼬일 수 있어 막았습니다. (필요하면 git revert HEAD)"
+  local info; info=$(git log -1 --format='%h "%s"')
+  backup_ref undo
+  if git rev-parse -q --verify HEAD~1 >/dev/null; then git reset -q --soft HEAD~1
+  else git update-ref -d HEAD; fi
+  ok "마지막 커밋 $info 를 취소했습니다. 변경 내용은 그대로 '커밋 준비됨' 상태로 남아 있습니다. (되돌리기: gitsw rescue)"
+  log_action undo
+}
+
+amend_cmd() {   # [-m 메시지 | 메시지...]
+  require_repo
+  has_head || die "고칠 커밋이 없습니다."
+  head_pushed && die "마지막 커밋은 이미 push 됐습니다. 새 커밋으로 올려주세요 (gitsw c)."
+  local msg=""
+  if [ "$1" = -m ] || [ "$1" = --message ]; then shift; msg="$*"; else msg="$*"; fi
+  if git diff --cached --quiet && [ -n "$(git status --porcelain)" ]; then
+    if can_prompt; then git add -A
+    else dim "ℹ 스테이지된 파일이 없어 메시지만 고칩니다. (내용도 넣으려면 먼저 git add <파일>)"; fi
+  fi
+  backup_ref amend
+  if [ -n "$msg" ]; then git commit -q --amend -m "$msg"
+  else git commit -q --amend --no-edit; fi || { err "고치지 못했습니다."; return 1; }
+  ok "마지막 커밋을 고쳤습니다: $(git log -1 --format='%h "%s"')  (되돌리기: gitsw rescue)"
+  log_action amend
+}
+
+abort_cmd() {
+  require_repo
+  repo_state
+  local yes=""; [ "$1" = --yes ] && yes=1
+  [ -z "$RS_OP" ] && { say "진행 중인 작업이 없습니다."; return 0; }
+  confirm "진행 중인 $(op_word "$RS_OP") 를 취소합니다 (고치던 충돌 내용은 사라짐). 계속할까요?" "$yes" "gitsw abort --yes"
+  case "$RS_OP" in
+    rebase) git rebase --abort ;; merge) git merge --abort ;; cherry-pick) git cherry-pick --abort ;;
+    revert) git revert --abort ;; am) git am --abort ;; bisect) git bisect reset ;;
+  esac && ok "$(op_word "$RS_OP") 를 취소했습니다."
+}
+
+continue_cmd() {
+  require_repo
+  repo_state
+  [ -z "$RS_OP" ] && { say "진행 중인 작업이 없습니다."; return 0; }
+  if [ "$RS_CONFLICTS" -gt 0 ]; then
+    err "아직 충돌이 남은 파일이 있습니다:"; printf '%s\n' "$RS_CONFLICT_FILES" | sed 's/^/  /' >&2
+    die "파일을 고친 뒤 git add <파일> 하고 다시 gitsw continue"
+  fi
+  case "$RS_OP" in
+    rebase) GIT_EDITOR=true git rebase --continue ;;
+    merge) GIT_EDITOR=true git merge --continue ;;
+    cherry-pick) GIT_EDITOR=true git cherry-pick --continue ;;
+    revert) GIT_EDITOR=true git revert --continue ;;
+    am) git am --continue ;;
+    bisect) say "bisect 는 git bisect good/bad 로 진행하세요."; return 0 ;;
+  esac || { err "계속하지 못했습니다. gitsw ck 로 상태를 확인하세요."; return 1; }
+  repo_state
+  if [ -n "$RS_OP" ]; then say "다음 단계에서 또 멈췄습니다. gitsw ck 로 확인하세요."; else ok "완료했습니다."; fi
+}
+
+open_url() { if can_prompt && command -v open >/dev/null 2>&1; then open "$1" 2>/dev/null; fi; return 0; }
+
+web_url() {   # origin → 웹 주소
+  local raw
+  raw=$(git config --get remote.origin.url) || return 1
+  parse_url "$raw" || return 1
+  [ -n "$U_HOST" ] && [ -n "$U_PATH" ] || return 1
+  printf 'https://%s/%s' "$U_HOST" "$U_PATH"
+}
+
+open_cmd() {
+  require_repo
+  need_config
+  local u; u=$(web_url) || die "웹 주소를 알 수 없습니다."
+  say "$u"; open_url "$u"
+}
+
+# ================= 백업 복구 / 정리 / 워크트리 =================
+
+rescue_line() {   # $1 번호 $2 ref
+  local r="$2" n ts reason sha subj wip=""
+  n=${r#refs/gitsw/backup/}; ts=${n:0:15}; reason=${n:16}
+  sha=$(git rev-parse --short "$r" 2>/dev/null); subj=$(git log -1 --format=%s "$r" 2>/dev/null)
+  git show-ref -q --verify "$r-wip" && wip="  ${DIM}(+수정 중이던 파일)${RESET}"
+  printf '  %2s) %s-%s-%s %s:%s:%s  %-8s %s %s%s\n' "$1" "${ts:0:4}" "${ts:4:2}" "${ts:6:2}" "${ts:9:2}" "${ts:11:2}" "${ts:13:2}" "$reason" "$sha" "$subj" "$wip"
+}
+
+rescue_cmd() {   # [번호] [--branch 이름 | --restore [--yes]]
+  require_repo
+  local refs=() r i=0 pick="" restore="" branch="" yes=""
+  while IFS= read -r r; do [ -n "$r" ] && refs+=("$r"); done < <(git for-each-ref --sort=-refname --format='%(refname)' refs/gitsw/backup/ 2>/dev/null | grep -v -- '-wip$')
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --restore) restore=1 ;; --yes) yes=1 ;;
+      --branch) shift; branch="$1"; [ -n "$branch" ] || die "--branch 뒤에 이름이 필요합니다." ;;
+      *) is_number "$1" || die "사용법: gitsw rescue [번호] [--branch 이름 | --restore]"; pick=$1 ;;
+    esac
+    shift
+  done
+  if [ ${#refs[@]} -eq 0 ]; then say "백업이 없습니다. (gitsw pl/up/sync/fix/undo/amend 전에 자동으로 만들어집니다)"; return 0; fi
+  if [ -z "$pick" ]; then
+    say "${BOLD}백업 목록${RESET} (최근 순, 30개까지 보관)"
+    for r in "${refs[@]}"; do i=$((i+1)); rescue_line "$i" "$r"; done
+    say ""
+    say "자세히: gitsw rescue <번호>  /  새 브랜치로 꺼내기: gitsw rescue <번호> --branch 이름  /  되돌리기: gitsw rescue <번호> --restore"
+    return 0
+  fi
+  { [ "$pick" -ge 1 ] && [ "$pick" -le ${#refs[@]} ]; } || die "번호가 맞지 않습니다: $pick (1~${#refs[@]})"
+  r=${refs[$((pick-1))]}
+  if [ -n "$branch" ]; then
+    git branch "$branch" "$r" && ok "백업 $pick 을 새 브랜치 '$branch' 로 꺼냈습니다."
+    return
+  fi
+  if [ -n "$restore" ]; then
+    confirm "현재 브랜치를 백업 $pick 시점으로 되돌립니다 (지금 상태도 먼저 백업). 계속할까요?" "$yes" "gitsw rescue $pick --restore --yes"
+    backup_ref rescue
+    git reset -q --keep "$r" || die "되돌리지 못했습니다 (수정 중인 파일과 겹침). 수정 내용을 커밋하거나 stash 한 뒤 다시 하세요."
+    if git show-ref -q --verify "$r-wip"; then
+      if git stash apply -q "$r-wip" 2>/dev/null; then say "  수정 중이던 파일 내용도 되살렸습니다."
+      else warn "수정 중이던 파일 내용은 충돌로 되살리지 못했습니다: git stash apply $r-wip"; fi
+    fi
+    ok "백업 $pick 시점으로 되돌렸습니다. (방금 전 상태로 다시: gitsw rescue 1 --restore)"
+    log_action rescue "ref=$r"
+    return 0
+  fi
+  rescue_line "$pick" "$r"
+  echo ""
+  git --no-pager log --oneline -5 "$r"
+  echo ""
+  say "지금(HEAD)과의 차이:"
+  git --no-pager diff --stat HEAD "$r" | tail -8
+}
+
+prune_cmd() {   # 합쳐진 브랜치 정리 [--gone] [--yes]
+  require_repo
+  local yes="" gone="" a def cur b track base merged=() goneb=()
+  for a in "$@"; do case "$a" in --yes) yes=1 ;; --gone) gone=1 ;; *) die "사용법: gitsw prune [--gone] [--yes]" ;; esac; done
+  net_env
+  git fetch -q --prune origin 2>/dev/null || warn "원격 정보를 새로 받지 못했습니다 (마지막 정보 기준)"
+  def=$(default_branch origin); cur=$(cur_branch)
+  base="origin/$def"; git rev-parse -q --verify "$base" >/dev/null || base="$def"
+  while IFS= read -r b; do
+    [ -z "$b" ] && continue
+    if [ "$b" = "$def" ] || [ "$b" = "$cur" ] || is_protected "$b"; then continue; fi
+    merged+=("$b")
+  done < <(git branch --format='%(refname:short)' --merged "$base" 2>/dev/null)
+  if [ -n "$gone" ]; then
+    while read -r b track; do
+      [ "$track" = "[gone]" ] || continue
+      if [ "$b" = "$def" ] || [ "$b" = "$cur" ] || is_protected "$b" || in_list "$b" "${merged[*]}"; then continue; fi
+      goneb+=("$b")
+    done < <(git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads)
+  fi
+  if [ ${#merged[@]} -eq 0 ] && [ ${#goneb[@]} -eq 0 ]; then say "정리할 브랜치가 없습니다."; return 0; fi
+  [ ${#merged[@]} -gt 0 ] && { say "합쳐진 브랜치 (${base} 에 포함):"; for b in "${merged[@]}"; do say "  $b"; done; }
+  [ ${#goneb[@]} -gt 0 ] && { say "원격에서 지워진 브랜치 (squash 머지 등 — 합쳐졌는지 확인 필요):"; for b in "${goneb[@]}"; do say "  $b"; done; }
+  if [ -z "$yes" ] && ! can_prompt; then say "지우려면: gitsw prune${gone:+ --gone} --yes"; return 0; fi
+  confirm "위 브랜치를 로컬에서 지울까요? (원격은 그대로)" "$yes" "gitsw prune${gone:+ --gone} --yes"
+  for b in "${merged[@]}"; do git branch -q -d "$b" && say "  지움: $b"; done
+  for b in "${goneb[@]}"; do git branch -q -D "$b" && say "  지움: $b"; done
+  log_action prune "count=$(( ${#merged[@]} + ${#goneb[@]} ))"
+}
+
+wt_cmd() {   # 워크트리: ls | new <브랜치> [폴더] | rm <폴더> [--force] | prune
+  require_repo
+  local sub="${1:-ls}" b p force="" common mainroot name
+  [ $# -gt 0 ] && shift
+  case "$sub" in
+    ls|list) git worktree list ;;
+    new|add)
+      b="$1"; p="$2"
+      [ -z "$b" ] && die "사용법: gitsw wt new <브랜치> [폴더]"
+      common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+      mainroot=${common%/.git}; name=$(basename "$mainroot")
+      [ -z "$p" ] && p="$(dirname "$mainroot")/$name.worktrees/$(printf '%s' "$b" | tr '/' '-')"
+      [ -e "$p" ] && die "이미 있습니다: $p"
+      if git show-ref -q --verify "refs/heads/$b"; then git worktree add -q "$p" "$b"
+      elif git show-ref -q --verify "refs/remotes/origin/$b"; then git worktree add -q --track -b "$b" "$p" "origin/$b"
+      else git worktree add -q -b "$b" "$p"; fi || die "워크트리를 만들지 못했습니다."
+      ok "워크트리: $(tilde "$p")  (브랜치 $b — 계정/잠금은 그대로 이어집니다)"
+      say "  cd $(tilde "$p")" ;;
+    rm|remove)
+      p="$1"; [ "$2" = --force ] && force=--force
+      [ -z "$p" ] && die "사용법: gitsw wt rm <폴더> [--force]"
+      git worktree remove $force "$p" && ok "워크트리를 지웠습니다: $p" ;;
+    prune) git worktree prune && ok "사라진 워크트리 정보를 정리했습니다." ;;
+    *) die "사용법: gitsw wt [ls | new <브랜치> [폴더] | rm <폴더> [--force] | prune]" ;;
+  esac
+}
+
+# ================= PR / MR / CI =================
+
+oneline() { printf '%s' "$1" | tr '\r\n' '  ' | sed 's/  */ /g'; }
+urlenc() { printf '%s' "$1" | sed -e 's/%/%25/g' -e 's/ /%20/g' -e 's/&/%26/g' -e 's/#/%23/g' -e 's/+/%2B/g' -e 's/?/%3F/g'; }
+
+pr_target() {   # PR 대상 → PT_REPO PT_HEAD PT_BASE_REMOTE
+  local up
+  PT_REPO=$R_PATH; PT_HEAD=$1; PT_BASE_REMOTE=origin
+  up=$(git config --get remote.upstream.url)
+  if [ -n "$up" ] && parse_url "$up" && [ "$U_HOST" = "$R_HOST" ] && [ "$U_PATH" != "$R_PATH" ]; then
+    PT_REPO=$U_PATH; PT_BASE_REMOTE=upstream
+    [ "$R_HOST" = github.com ] && PT_HEAD="${R_PATH%%/*}:$1"
+  fi
+}
+
+pr_cmd() {
+  require_repo
+  need_config
+  case "${1:-}" in
+    status|view) shift; pr_status_cmd "$@"; return $? ;;
+    create) shift ;;
+    ""|-*) ;;
+    *) die "사용법: gitsw pr [--title 제목] [--body 내용 | --body-file 파일] [--base 브랜치] [--draft] [--web]  /  gitsw pr status" ;;
+  esac
+  local title="" body="" bodyfile="" base="" draft="" web="" br
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -t|--title) shift; title="$1" ;;
+      --title=*) title="${1#--title=}" ;;
+      -b|--body) shift; body="$1" ;;
+      --body=*) body="${1#--body=}" ;;
+      -F|--body-file) shift; bodyfile="$1" ;;
+      --base|-B) shift; base="$1" ;;
+      --base=*) base="${1#--base=}" ;;
+      -d|--draft) draft=1 ;;
+      -w|--web) web=1 ;;
+      *) die "알 수 없는 옵션: $1" ;;
+    esac
+    shift
+  done
+  if [ -n "$bodyfile" ]; then [ -f "$bodyfile" ] || die "파일이 없습니다: $bodyfile"; body=$(cat "$bodyfile"); fi
+  br=$(cur_branch) || die "브랜치 위에서 실행하세요."
+  resolve_repo .
+  [ -n "$R_HOST" ] || die "원격 저장소 주소를 알 수 없습니다."
+  [ -n "$R_ACC" ] || die "계정이 정해지지 않았습니다 → 사용자에게 확인 후 gitsw use <계정>"
+  pr_target "$br"
+  [ -z "$base" ] && base=$(default_branch "$PT_BASE_REMOTE")
+  [ "$br" = "$base" ] && [ "$PT_BASE_REMOTE" = origin ] && die "기본 브랜치($base)에서는 PR/MR 을 만들 수 없습니다. 새 브랜치에서 작업하세요: gitsw b 작업브랜치"
+  if [ "$R_HOST" = github.com ]; then pr_github "$br" "$base" "$title" "$body" "$draft" "$web"
+  else pr_gitlab "$br" "$base" "$title" "$body" "$draft" "$web"; fi
+}
+
+pr_github() {   # $1 브랜치 $2 base $3 제목 $4 본문 $5 draft $6 web
+  local br="$1" base="$2" title="$3" body="$4" draft="$5" web="$6" tok out rc url newurl
+  if ! has_upstream || [ "$(git rev-list --count '@{u}..HEAD' 2>/dev/null)" != 0 ]; then
+    say "먼저 push 합니다."; push_cmd || return 1
+  fi
+  newurl="https://github.com/$PT_REPO/compare/$(urlenc "$base")...$(urlenc "$PT_HEAD")?expand=1"
+  if [ -n "$web" ]; then say "$newurl"; open_url "$newurl"; return 0; fi
+  tok=$(gh_token "$R_LOGIN")
+  if [ -z "$tok" ]; then
+    err "gh 에 $R_LOGIN 계정 로그인이 필요합니다. 사용자가 터미널에서: gh auth login --hostname github.com  ($R_LOGIN 계정으로)"
+    say "웹에서 만들기: $newurl"
+    return 1
+  fi
+  local args=(pr create -R "$PT_REPO" --head "$PT_HEAD" --base "$base")
+  if [ -n "$title" ]; then args+=(--title "$title" --body "$body"); else args+=(--fill); fi
+  [ -n "$draft" ] && args+=(--draft)
+  out=$(GH_TOKEN="$tok" gh "${args[@]}" 2>&1); rc=$?
+  url=$(printf '%s\n' "$out" | grep -oE 'https://github\.com/[^ ]+/pull/[0-9]+' | tail -1)
+  if [ $rc -eq 0 ] && [ -n "$url" ]; then ok "PR 을 만들었습니다: $url"; log_action pr "url=$url" "account=$R_ACC"; return 0; fi
+  if [ -n "$url" ] && printf '%s' "$out" | grep -qi 'already exists'; then ok "이미 PR 이 있습니다: $url"; return 0; fi
+  err "PR 을 만들지 못했습니다:"; printf '%s\n' "$out" | sed 's/^/  /' >&2
+  say "웹에서 만들기: $newurl"
+  return 1
+}
+
+pr_gitlab() {   # push 옵션으로 MR 생성 (토큰/glab 불필요)
+  local br="$1" base="$2" title="$3" body="$4" draft="$5" web="$6" weburl newurl out rc url
+  weburl="https://$R_HOST/$PT_REPO"
+  newurl="$weburl/-/merge_requests/new?merge_request%5Bsource_branch%5D=$(urlenc "$br")&merge_request%5Btarget_branch%5D=$(urlenc "$base")"
+  if [ -n "$web" ]; then say "$newurl"; open_url "$newurl"; return 0; fi
+  if [ "$PT_BASE_REMOTE" != origin ]; then
+    say "포크에서 원본으로 가는 MR 은 웹에서 만드세요: $newurl"; return 0
+  fi
+  if has_upstream && [ "$(git rev-list --count '@{u}..HEAD' 2>/dev/null)" = 0 ]; then
+    say "push 할 새 커밋이 없어서 push 옵션으로는 MR 을 만들 수 없습니다."
+    say "웹에서 만들기 (이미 있으면 그 MR 이 보입니다): $newurl"
+    return 0
+  fi
+  local opts=(-o merge_request.create -o "merge_request.target=$base" -o merge_request.remove_source_branch)
+  [ -n "$title" ] && opts+=(-o "merge_request.title=$(oneline "$title")")
+  [ -n "$body" ] && opts+=(-o "merge_request.description=$(oneline "$body")")
+  [ -n "$draft" ] && opts+=(-o merge_request.draft)
+  need_config; resolve_repo .
+  net_env
+  out=$(git push -u origin "$br" "${opts[@]}" 2>&1); rc=$?
+  printf '%s\n' "$out" | grep -vE '^remote: *$|^To |^ \* \[new branch\]|^branch .* set up to track' | sed 's/^remote: //' | grep -v '^$' | head -20
+  url=$(printf '%s\n' "$out" | grep -oE 'https?://[^ ]+/-/merge_requests/[0-9]+' | tail -1)
+  if [ $rc -ne 0 ]; then err "push/MR 생성에 실패했습니다. 웹에서 만들기: $newurl"; return 1; fi
+  if [ -n "$url" ]; then ok "MR: $url"; log_action pr "url=$url" "account=$R_ACC"
+  else say "MR 주소를 받지 못했습니다. 웹에서 확인: $newurl"; fi
+  return 0
+}
+
+pr_status_cmd() {   # [--json]
+  local json="" br tok out
+  [ "$1" = --json ] && json=1
+  br=$(cur_branch) || die "브랜치 위에서 실행하세요."
+  resolve_repo .
+  [ -n "$R_HOST" ] || die "원격 저장소 주소를 알 수 없습니다."
+  pr_target "$br"
+  if [ "$R_HOST" != github.com ]; then
+    say "MR 목록: https://$R_HOST/$PT_REPO/-/merge_requests?scope=all&state=all&source_branch=$(urlenc "$br")"
+    say "CI(파이프라인): https://$R_HOST/$PT_REPO/-/pipelines?ref=$(urlenc "$br")"
+    return 0
+  fi
+  tok=$(gh_token "$R_LOGIN") || tok=""
+  [ -n "$tok" ] || die "gh 에 $R_LOGIN 계정 로그인이 필요합니다. 사용자가 터미널에서: gh auth login --hostname github.com"
+  out=$(GH_TOKEN="$tok" gh pr view "$PT_HEAD" -R "$PT_REPO" --json number,url,state,title,isDraft,mergeable,reviewDecision,statusCheckRollup 2>&1) || {
+    say "이 브랜치($br)의 PR 이 없습니다. 만들기: gitsw pr --title \"...\""; return 0; }
+  if [ -n "$json" ] || ! command -v jq >/dev/null 2>&1; then printf '%s\n' "$out"; return 0; fi
+  printf '%s' "$out" | jq -r '"PR #\(.number) \(.title)\n  상태: \(.state)\(if .isDraft then " (초안)" else "" end)  머지 가능: \(.mergeable)  리뷰: \(.reviewDecision // "없음")\n  \(.url)\n  CI: " + ((.statusCheckRollup // []) | if length == 0 then "없음" else (group_by(.conclusion // .status) | map("\(.[0].conclusion // .[0].status)=\(length)") | join(", ")) end)'
+}
+
+ci_cmd() {
+  require_repo
+  need_config
+  local br tok
+  br=$(cur_branch) || die "브랜치 위에서 실행하세요."
+  resolve_repo .
+  [ -n "$R_HOST" ] || die "원격 저장소 주소를 알 수 없습니다."
+  pr_target "$br"
+  if [ "$R_HOST" != github.com ]; then
+    say "CI(파이프라인): https://$R_HOST/$PT_REPO/-/pipelines?ref=$(urlenc "$br")"
+    return 0
+  fi
+  tok=$(gh_token "$R_LOGIN") || tok=""
+  [ -n "$tok" ] || die "gh 에 $R_LOGIN 계정 로그인이 필요합니다. 사용자가 터미널에서: gh auth login --hostname github.com"
+  if GH_TOKEN="$tok" gh pr view "$PT_HEAD" -R "$PT_REPO" --json number >/dev/null 2>&1; then
+    GH_TOKEN="$tok" gh pr checks "$PT_HEAD" -R "$PT_REPO"
+  else
+    GH_TOKEN="$tok" gh run list -R "$PT_REPO" --branch "$br" --limit 5
+  fi
+}
+
+publish_cmd() {   # [이름] [--public] [--description 설명] [--yes] — 원격 저장소를 새로 만들고 첫 push
+  require_repo
+  need_config
+  local name="" vis=private desc="" yes="" host="" login al url tok i args=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --public) vis=public ;;
+      --private) vis=private ;;
+      -d|--description) shift; desc="$1" ;;
+      --description=*) desc="${1#--description=}" ;;
+      -y|--yes) yes=1 ;;
+      -*) die "사용법: gitsw publish [이름] [--public] [--description 설명]" ;;
+      *) name="$1" ;;
+    esac
+    shift
+  done
+  git remote get-url origin >/dev/null 2>&1 && die "이미 origin 이 있습니다: $(git remote get-url origin)  (push 는 gitsw p)"
+  has_head || die "커밋이 없습니다. 먼저 gitsw c 로 커밋하세요."
+  cur_branch >/dev/null || die "브랜치 위에서 실행하세요."
+  resolve_repo .
+  [ -n "$R_ACC" ] || die "이 저장소의 계정이 정해지지 않았습니다. 먼저 사용자에게 계정을 확인한 뒤 gitsw use <계정>"
+  [ -n "$name" ] || name=$(basename "$(repo_top)")
+  case "$name" in */*|""|.*) die "저장소 이름이 올바르지 않습니다: $name" ;; esac
+  if find_binding "$R_ACC" github.com; then host=github.com
+  else
+    i=0
+    while [ $i -lt ${#B_ACC[@]} ]; do [ "${B_ACC[$i]}" = "$R_ACC" ] && { host=${B_HOST[$i]}; break; }; i=$((i+1)); done
+    find_binding "$R_ACC" "$host" || die "$R_ACC 계정에 서버가 없습니다."
+  fi
+  login=${B_LOGIN[$BI]}; al=${B_ALIAS[$BI]}
+  url="git@$al:$login/$name.git"
+  confirm "$host 에 $vis 저장소 $login/$name 을 만들고 push 합니다. 계속할까요?" "$yes" "gitsw publish $name${desc:+ --description \"$desc\"}$( [ "$vis" = public ] && printf ' --public') --yes"
+  if [ "$host" = github.com ]; then
+    tok=$(gh_token "$login")
+    [ -n "$tok" ] || die "gh 에 $login 계정 로그인이 필요합니다. 사용자가 터미널에서: gh auth login --hostname github.com  ($login 계정으로)"
+    if GH_TOKEN="$tok" gh repo view "$login/$name" >/dev/null 2>&1; then
+      die "GitHub 에 이미 $login/$name 저장소가 있습니다. 다른 이름을 주거나, 그 저장소에 올리려면: git remote add origin $url → gitsw use $R_ACC → gitsw p"
+    fi
+    args=(repo create "$login/$name" "--$vis")
+    [ -n "$desc" ] && args+=(--description "$desc")
+    GH_TOKEN="$tok" gh "${args[@]}" >/dev/null || die "GitHub 저장소를 만들지 못했습니다."
+    ok "GitHub 저장소를 만들었습니다: https://github.com/$login/$name ($vis)"
+  else
+    # GitLab 은 없는 프로젝트로 push 하면 비공개 프로젝트가 만들어짐 (push to create)
+    [ "$vis" = public ] && warn "GitLab 은 push 로 만들면 비공개로 생깁니다. 공개는 웹 설정에서 바꾸세요."
+  fi
+  git remote add origin "$url" || die "origin 을 추가하지 못했습니다."
+  set_account "$R_ACC" || exit 1
+  SA_ALIAS=$al
+  lock_repo . >/dev/null
+  log_action publish "url=$url" "account=$R_ACC" "visibility=$vis"
+  push_cmd
+}
+
+
+# ================= scan / audit =================
+
+find_repos() {
+  local root; root=$(expand_path "${1:-$CFG_SCAN_ROOT}")
+  find "$root" -maxdepth 6 \
+    \( -name node_modules -o -name Pods -o -name .build -o -name DerivedData -o -name vendor -o -name .gradle -o -name .venv -o -name .next -o -name .terraform \) -prune \
+    -o -name .git -print -prune 2>/dev/null | sed 's#/\.git$##' | sort
+}
+
+scan_cmd() {   # [폴더] [--fix] [--json]
+  local root="" fix="" json="" a d rel state sug note n=0 okc=0 prob=0 fixable=0 hk gh_ok="" wt email want first=1 jl="" icon line
+  for a in "$@"; do
+    case "$a" in --fix) fix=1 ;; --json) json=1 ;; --yes) ;; -*) die "사용법: gitsw scan [폴더] [--fix] [--json]" ;; *) root="$a" ;; esac
+  done
+  need_config
+  root=$(expand_path "${root:-$CFG_SCAN_ROOT}")
+  [ -d "$root" ] || die "폴더가 없습니다: $root"
+  root=$(real_dir "$root")
+  global_hooks_ok && gh_ok=1
+  [ -z "$json" ] && say "${BOLD}저장소 점검: $(tilde "$root")${RESET}"
+  while IFS= read -r d; do
+    [ -z "$d" ] && continue
+    n=$((n+1)); rel=${d#"$root"/}; [ "$d" = "$root" ] && rel="."
+    resolve_repo "$d"
+    email=$(git -C "$d" config user.email)
+    wt=""; [ -f "$d/.git" ] && wt=1
+    sug=""; note=""; hk=1
+    if [ -n "$R_IGNORED" ]; then state=ignored
+    elif [ -n "$R_LOCK_UNKNOWN" ]; then state=badlock; note="잠금 계정 '$R_LOCK' 이 설정에 없음"
+    elif [ -n "$R_LOCK" ]; then
+      want=$(acc_email "$R_LOCK")
+      push_url_alias "$d"
+      if [ "$email" = "$want" ] && { [ -z "$R_URL" ] || [ "$R_URL_KIND" = local ] || { [ -n "$R_ALIAS" ] && [ "$(lower "$PU_ALIAS")" = "$(lower "$R_ALIAS")" ]; }; }; then
+        state=ok
+        if [ -n "$R_DERIVED" ] && [ "$R_DERIVED" != "$R_LOCK" ]; then
+          if [ "$R_DERIVED_SRC" = folder ]; then note="폴더 기본은 $R_DERIVED"
+          else state=rule; note="규칙은 $R_DERIVED ($R_DERIVED_NOTE)"; fi
+        fi
+      else state=mismatch; sug=$R_LOCK; fi
+    elif [ -n "$R_DERIVED" ]; then state=unlocked; sug=$R_DERIVED
+    elif [ -z "$R_URL" ]; then state=noremote
+    else state=unlocked; fi
+    if [ -z "$gh_ok" ] && [ "$state" != ignored ] && [ -n "$R_LOCK" ] && ! repo_hooks_ok "$d"; then hk=""; fi
+
+    if [ -n "$fix" ]; then
+      if { [ "$state" = mismatch ] || [ "$state" = unlocked ]; } && [ -n "$sug" ]; then
+        if (cd "$d" && use_cmd "$sug") >/dev/null 2>&1 </dev/null; then note="고침: $sug 로 잠금"; state=ok; hk=1
+        else note="자동으로 못 고침 — 폴더에서 gitsw use <계정>"; fi
+      elif [ -z "$hk" ] && [ "$state" = ok ]; then
+        install_repo_hooks "$d" >/dev/null 2>&1 && repo_hooks_ok "$d" && { hk=1; note="${note:+$note, }보조 훅 설치"; }
+      fi
+    fi
+    case "$state" in
+      ok) if [ -n "$hk" ]; then okc=$((okc+1)); else prob=$((prob+1)); fi ;;
+      rule|mismatch|unlocked|badlock) prob=$((prob+1)) ;;
+    esac
+    { [ -n "$sug" ] && [ "$state" != ok ]; } && fixable=$((fixable+1))
+    if [ -n "$json" ]; then
+      [ -n "$first" ] || jl="$jl,"; first=""
+      jl="$jl{\"path\":$(json_str "$rel"),\"state\":$(json_str "$state"),\"lock\":$(json_str "$R_LOCK"),\"account\":$(json_str "$R_ACC"),\"suggest\":$(json_str "$sug"),\"note\":$(json_str "$note"),\"worktree\":$(json_bool "$wt"),\"hooks\":$(json_bool "$hk")}"
+      continue
+    fi
+    line=""
+    case "$state" in
+      ok)       if [ -n "$hk" ]; then icon="${GREEN}✔${RESET}"; else icon="${YELLOW}⚠${RESET}"; note="${note:+$note, }검사 훅 없음 → gitsw scan --fix"; fi
+                line="$icon $(printf '%-14s' "[$R_LOCK]") $rel" ;;
+      rule)     line="${YELLOW}⚠${RESET} $(printf '%-14s' "[$R_LOCK]") $rel — 잠금과 규칙이 다름 → 의도가 아니면 그 폴더에서 gitsw use $R_DERIVED" ;;
+      mismatch) line="${RED}✘${RESET} [$R_LOCK] 작성자/주소가 잠금과 다름   $rel" ;;
+      unlocked) if [ -n "$sug" ]; then line="${YELLOW}⚠${RESET} 잠금 없음 → 제안: $sug   $rel"
+                else line="${YELLOW}⚠${RESET} 잠금 없음, 계정 판단 불가 → gitsw use <계정>   $rel"; fi ;;
+      badlock)  line="${RED}✘${RESET} [?] $rel" ;;
+      noremote) line="${DIM}· 원격 저장소 없음   $rel${RESET}" ;;
+      ignored)  line="${DIM}· 관리 제외 (gitsw ignore)   $rel${RESET}" ;;
+    esac
+    [ -n "$wt" ] && line="$line ${DIM}(워크트리)${RESET}"
+    [ -n "$note" ] && line="$line ${DIM}($note)${RESET}"
+    say "  $line"
+  done < <(find_repos "$root")
+  if [ -n "$json" ]; then
+    printf '{"root":%s,"total":%s,"ok":%s,"problems":%s,"repos":[%s]}\n' "$(json_str "$root")" "$n" "$okc" "$prob" "$jl"
+  else
+    echo ""
+    say "저장소 ${n}개: 정상 ${okc}, 문제 ${prob}"
+    [ "$fixable" -gt 0 ] && [ -z "$fix" ] && say "제안대로 한 번에 고치기: gitsw scan --fix"
+    say "SCAN_OK=$okc SCAN_PROBLEMS=$prob"
+  fi
+  [ "$prob" -eq 0 ]
+}
+
+audit_cmd() {   # 이미 push 된 커밋 중 '다른 내 계정' 이메일로 된 것 보고 (고치지 않음)
+  local root="" since="90 days ago" json="" a d rel want e others hits cnt total=0 first=1 jl="" repos
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --since) shift; since="$1" ;; --since=*) since="${1#--since=}" ;; --json) json=1 ;;
+      -*) die "사용법: gitsw audit [폴더|.] [--since '90 days ago'] [--json]" ;; *) root="$1" ;;
+    esac
+    shift
+  done
+  need_config
+  if [ "$root" = "." ] || { [ -z "$root" ] && in_repo; }; then repos=$(repo_top); [ -n "$repos" ] || die "git 저장소 안에서 실행하세요."
+  else repos=$(find_repos "${root:-$CFG_SCAN_ROOT}"); fi
+  [ -z "$json" ] && say "${BOLD}push 된 커밋 작성자 점검 (since: $since)${RESET}"
+  while IFS= read -r d; do
+    [ -z "$d" ] && continue
+    resolve_repo "$d"
+    [ -n "$R_IGNORED" ] && continue
+    [ -n "$R_ACC" ] || continue
+    want=$(acc_email "$R_ACC"); others=""
+    for e in "${ACC_EMAIL[@]}"; do [ "$e" != "$want" ] && others="$others|$e"; done
+    [ -z "$others" ] && continue
+    hits=$(git -C "$d" log --remotes --since="$since" --date=short --format='%h%x09%ae%x09%ce%x09%ad%x09%s' 2>/dev/null | \
+      awk -F'\t' -v o="${others#|}" 'BEGIN { n = split(o, arr, "|"); for (i = 1; i <= n; i++) bad[arr[i]] = 1 } ($2 in bad) || ($3 in bad)')
+    cnt=$(printf '%s' "$hits" | grep -c .)
+    [ "$cnt" -eq 0 ] && continue
+    total=$((total + cnt))
+    rel=$(tilde "$d")
+    if [ -n "$json" ]; then
+      [ -n "$first" ] || jl="$jl,"; first=""
+      jl="$jl{\"repo\":$(json_str "$rel"),\"account\":$(json_str "$R_ACC"),\"count\":$cnt,\"commits\":$(json_lines "$hits")}"
+    else
+      say "  ${YELLOW}⚠${RESET} $rel [$R_ACC]: 다른 내 계정 이메일로 된 push 된 커밋 ${cnt}개"
+      printf '%s\n' "$hits" | head -5 | awk -F'\t' '{ printf "      %s %s  %s  %s\n", $1, $4, $2, $5 }'
+    fi
+  done <<< "$repos"
+  if [ -n "$json" ]; then printf '{"since":%s,"findings":%s,"repos":[%s]}\n' "$(json_str "$since")" "$total" "$jl"
+  else
+    [ "$total" -eq 0 ] && say "  ${GREEN}✔${RESET} 문제 없음"
+    [ "$total" -gt 0 ] && dim "  (이미 push 된 커밋은 고치지 않습니다. 앞으로는 gitsw 검사가 막아 줍니다)"
+    say "AUDIT_FINDINGS=$total"
+  fi
+  return 0
+}
+
+# ================= doctor =================
+
+DR_ITEMS=(); DR_PROBLEMS=0
+dr() {   # $1 섹션 $2 OK|WARN|FAIL|INFO $3 메시지
+  DR_ITEMS+=("$1|$2|$3")
+  case "$2" in WARN|FAIL) DR_PROBLEMS=$((DR_PROBLEMS+1)) ;; esac
+}
+
+ssh_orphans() {   # gitsw 가 만든 모양의 SSH Host 중 지금 설정에 없는 별칭
+  [ -f "$SSH_CONFIG" ] || return 0
+  local own h
+  own=" $(own_aliases) "
+  awk '/^Host[ \t]+/ { h = $2; next } /^[ \t]*IdentityFile[ \t]+/ { if (h != "" && $2 ~ /id_ed25519_/) print h; h = "" }' "$SSH_CONFIG" | \
+  while IFS= read -r h; do
+    case "$h" in *-*) ;; *) continue ;; esac
+    case "$own" in *" $h "*) ;; *) printf '%s\n' "$h" ;; esac
+  done
+}
+
+doctor_cmd() {   # [--json] [--no-net]
+  local json="" nonet="" a i id h al tok emails e repos d missing v1 orphans f kept
+  for a in "$@"; do case "$a" in --json) json=1 ;; --no-net|--offline) nonet=1 ;; *) die "사용법: gitsw doctor [--json] [--no-net]" ;; esac; done
+  DR_ITEMS=(); DR_PROBLEMS=0
+  # [기본]
+  if git_version_ok; then dr 기본 OK "git $GIT_VER ($(command -v git))"; else dr 기본 FAIL "git ${GIT_VER:-?} — 2.36 이상 필요 → brew install git"; fi
+  if config_hooks_supported; then dr 기본 OK "이 git 은 전역 검사 훅(hook.<이름>.command)을 지원"
+  else dr 기본 INFO "이 git 은 전역 훅을 지원하지 않아 저장소별 보조 훅으로 검사합니다"; fi
+  if [ -x /usr/bin/git ] && [ "$(command -v git)" != /usr/bin/git ]; then
+    dr 기본 INFO "Apple git(/usr/bin/git)으로 커밋하면 저장소별 보조 훅이 검사합니다"
+  fi
+  if [ "$(resolve_link "$BIN_LINK" 2>/dev/null)" = "$(self_path)" ]; then dr 기본 OK "gitsw 명령 → $(tilde "$(self_path)") (v$GITSW_VERSION)"
+  else dr 기본 WARN "~/bin/gitsw 가 이 파일을 가리키지 않습니다 → $(tilde "$(self_path)") install"; fi
+  if grep -q '# >>> gitsw >>>' "$ZSHRC" 2>/dev/null; then dr 기본 OK "터미널 연동(~/.zshrc)"; else dr 기본 WARN "터미널 연동 없음 → gitsw install"; fi
+  command -v jq >/dev/null 2>&1 && dr 기본 OK "jq 있음" || dr 기본 WARN "jq 없음 — Claude 훅/PR 상태 요약에 필요 → brew install jq"
+  command -v gh >/dev/null 2>&1 && dr 기본 OK "gh 있음 ($(gh --version 2>/dev/null | head -1 | awk '{print $3}'))" || dr 기본 WARN "gh 없음 — GitHub PR 자동화에 필요 → brew install gh"
+
+  # [설정]
+  if ! load_config; then
+    dr 설정 FAIL "설정 파일 없음: $(tilde "$CFG") → gitsw migrate (v1 에서 옮기기) 또는 gitsw add"
+    doctor_print "$json"; return 1
+  fi
+  if [ ${#CFG_ERRORS[@]} -gt 0 ]; then
+    for e in "${CFG_ERRORS[@]}"; do dr 설정 FAIL "$e"; done
+    doctor_print "$json"; return 1
+  fi
+  dr 설정 OK "$(tilde "$CFG") — 계정 ${#ACC_IDS[@]}개, 폴더 ${#F_RAW[@]}개, 조직 ${#O_RAW[@]}개"
+
+  # [계정]
+  i=0
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    id=${B_ACC[$i]}; h=${B_HOST[$i]}; al=${B_ALIAS[$i]}
+    if [ "${B_LOGIN[$i]}" != "$id" ]; then
+      dr 계정 OK "$id ($h) — ${B_LOGIN[$i]} 로그인으로 접속"
+    elif [ ! -f "$SSH_DIR/id_ed25519_$id" ] || ! grep -q "^Host $al\$" "$SSH_CONFIG" 2>/dev/null; then
+      dr 계정 FAIL "$id ($h): SSH 키/설정 없음 → 사용자가 터미널에서 gitsw setup"
+    elif [ -n "$nonet" ]; then
+      dr 계정 OK "$id ($h): SSH 키/설정 있음 (연결 확인 생략)"
+    elif test_ssh "$al" "$id" >/dev/null 2>&1; then
+      dr 계정 OK "$id ($h) 연결 OK"
+    else
+      dr 계정 FAIL "$id ($h) 연결 실패 → gitsw setup (키 등록), 포트/회사망(VPN) 확인"
+    fi
+    i=$((i+1))
+  done
+  auto_rules_ok && dr 계정 OK "주소/폴더/조직 자동 규칙" || dr 계정 WARN "자동 규칙이 빠졌습니다 → gitsw auto"
+
+  # [안전장치]
+  if config_hooks_supported; then
+    global_hooks_ok && dr 안전장치 OK "전역 검사 훅 (작성자/비밀값/큰 파일/강제 push)" || dr 안전장치 FAIL "전역 검사 훅 없음 → gitsw install"
+  fi
+  [ "$(git config --global --get user.useConfigOnly)" = true ] && dr 안전장치 OK "규칙 밖 저장소는 작성자 없음으로 커밋이 막힘 (useConfigOnly)" || dr 안전장치 WARN "user.useConfigOnly 꺼짐 → gitsw install"
+  missing=0; v1=0
+  repos=$(find_repos)
+  while IFS= read -r d; do
+    [ -z "$d" ] && continue
+    [ -n "$(git -C "$d" config --get gitswitch.account)" ] || continue
+    [ "$(git -C "$d" config --get gitswitch.ignore)" = true ] && continue
+    if ! repo_hooks_ok "$d"; then
+      missing=$((missing+1))
+      f=$(repo_hooks_dir "$d")/pre-commit
+      grep -q gitswitch-lock "$f" 2>/dev/null && v1=$((v1+1))
+    fi
+  done <<< "$repos"
+  if [ "$missing" -gt 0 ]; then
+    if [ "$v1" -gt 0 ]; then dr 안전장치 WARN "예전(v1) 저장소 훅 ${v1}개 → gitsw install 로 새 보조 훅으로 교체"
+    else dr 안전장치 WARN "보조 훅이 없는 잠긴 저장소 ${missing}개 → gitsw scan --fix"; fi
+  else dr 안전장치 OK "잠긴 저장소 보조 훅 (Apple git 등 대비)"; fi
+  ssh_strict_on && dr 안전장치 OK "별칭 없는 주소 SSH 인증 막기 (sshStrict) 켜짐" || dr 안전장치 INFO "sshStrict 꺼짐 — 별칭 없는 git@github.com 은 기본 키로 접속 (push 는 검사 훅이 막음)"
+
+  # [AI]
+  for f in "$CLAUDE_DIR/CLAUDE.md" "$CODEX_DIR/AGENTS.md"; do
+    grep -q 'gitsw:begin' "$f" 2>/dev/null && dr AI OK "규칙: $(tilde "$f")" || dr AI WARN "$(tilde "$f") 에 규칙 없음 → gitsw ai"
+  done
+  [ -d "$CLAUDE_DIR" ] && { [ -f "$CLAUDE_DIR/skills/gitsw/SKILL.md" ] && dr AI OK "Claude 스킬" || dr AI WARN "Claude 스킬 없음 → gitsw ai"; }
+  [ -d "$CODEX_DIR" ] && { [ -f "$CODEX_DIR/skills/gitsw/SKILL.md" ] && dr AI OK "Codex 스킬" || dr AI WARN "Codex 스킬 없음 → gitsw ai"; }
+  if [ -d "$CLAUDE_DIR" ]; then
+    if grep -q 'guard --claude' "$CLAUDE_DIR/settings.json" 2>/dev/null; then dr AI OK "Claude Code 명령 검사 훅 (~/.claude/settings.json)"
+    else dr AI WARN "Claude Code 명령 검사 훅 없음 → gitsw ai"; fi
+    case "$(lower "$CFG_AI_PUSH")" in
+      branch) dr AI INFO "Claude push 정책: 작업 브랜치는 자동, main/보호 브랜치 push 와 PR 생성만 확인 (gitsw.aiPush=branch)" ;;
+      allow) dr AI INFO "Claude push 정책: 확인 없음 (gitsw.aiPush=allow) — 검사 훅은 그대로" ;;
+      *) dr AI INFO "Claude push 정책: 매번 확인 (gitsw.aiPush=ask) — 작업 브랜치 자동: gitsw config set gitsw.aiPush branch" ;;
+    esac
+  fi
+
+  # [GitHub CLI]
+  if command -v gh >/dev/null 2>&1; then
+    kept=""
+    i=0
+    while [ $i -lt ${#B_ACC[@]} ]; do
+      if [ "${B_HOST[$i]}" = github.com ] && ! in_list "${B_LOGIN[$i]}" "$kept"; then
+        id=${B_LOGIN[$i]}; kept="$kept $id"
+        if tok=$(gh_token "$id") && [ -n "$tok" ]; then
+          dr GitHub OK "gh 로그인: $id"
+          if [ -z "$nonet" ]; then
+            # 토큰에 user 권한이 없으면 GitHub 이 404 를 주고 gh 가 오류 본문을 출력하므로, 성공했을 때의 메일 줄만 씀
+            emails=$(GH_TOKEN="$tok" gh api user/emails --jq '.[] | select(.verified) | .email' 2>/dev/null) || emails=""
+            emails=$(printf '%s\n' "$emails" | grep -E '^[^[:space:]{}"]+@[^[:space:]{}"]+$')
+            if [ -z "$emails" ]; then
+              dr GitHub INFO "$id: 커밋 이메일 인증 확인은 건너뜀 (gh 토큰에 user 권한 없음 — 확인하려면: gh auth refresh -h github.com -s user)"
+            else
+              local j=0
+              while [ $j -lt ${#B_ACC[@]} ]; do
+                if [ "${B_HOST[$j]}" = github.com ] && [ "${B_LOGIN[$j]}" = "$id" ]; then
+                  e=$(acc_email "${B_ACC[$j]}")
+                  printf '%s\n' "$emails" | grep -qixF "$e" || dr GitHub WARN "GitHub $id 계정에 $e 가 인증돼 있지 않아 커밋이 프로필에 연결되지 않습니다 (GitHub Settings → Emails)"
+                fi
+                j=$((j+1))
+              done
+            fi
+          fi
+        else
+          dr GitHub WARN "gh 에 $id 로그인 안 됨 → 사용자가 터미널에서 gh auth login --hostname github.com ($id 계정) — PR 자동화에 필요"
+        fi
+      fi
+      i=$((i+1))
+    done
+  fi
+
+  # [정리 대상]
+  orphans=$(ssh_orphans)
+  [ -n "$orphans" ] && dr 정리 WARN "쓰지 않는 SSH 설정: $(printf '%s' "$orphans" | tr '\n' ' ')→ gitsw ssh prune"
+  for f in "$HOME"/.gitconfig-*; do
+    [ -f "$f" ] || continue
+    id=${f##*/.gitconfig-}
+    is_account "$id" || dr 정리 WARN "쓰지 않는 파일: $(tilde "$f") (계정 '$id' 없음)"
+  done
+  [ "$(printf '%s' "$orphans" | grep -c .)" -eq 0 ] && dr 정리 OK "정리할 것 없음"
+
+  # [서명]
+  sign_enabled && dr 서명 INFO "커밋 서명 켜짐 (끄기: gitsw sign off)" || dr 서명 INFO "커밋 서명 꺼짐 (켜기: gitsw sign on)"
+
+  doctor_print "$json"
+  [ "$DR_PROBLEMS" -eq 0 ]
+}
+
+doctor_print() {
+  local it sec lv msg last="" first=1 jl="" icon
+  if [ -n "$1" ]; then
+    for it in "${DR_ITEMS[@]}"; do
+      sec=${it%%|*}; lv=${it#*|}; msg=${lv#*|}; lv=${lv%%|*}
+      [ -n "$first" ] || jl="$jl,"; first=""
+      jl="$jl{\"section\":$(json_str "$sec"),\"level\":$(json_str "$lv"),\"message\":$(json_str "$msg")}"
+    done
+    printf '{"version":%s,"problems":%s,"items":[%s]}\n' "$(json_str "$GITSW_VERSION")" "$DR_PROBLEMS" "$jl"
+    return
+  fi
+  for it in "${DR_ITEMS[@]}"; do
+    sec=${it%%|*}; lv=${it#*|}; msg=${lv#*|}; lv=${lv%%|*}
+    [ "$sec" != "$last" ] && { say "${BOLD}[$sec]${RESET}"; last=$sec; }
+    case "$lv" in OK) icon="${GREEN}✔${RESET}" ;; WARN) icon="${YELLOW}⚠${RESET}" ;; FAIL) icon="${RED}✘${RESET}" ;; *) icon="${DIM}·${RESET}" ;; esac
+    say "  $icon $msg"
+  done
+  if in_repo && load_config && [ ${#CFG_ERRORS[@]} -eq 0 ]; then echo ""; status_cmd; fi
+  echo ""
+  if [ "$DR_PROBLEMS" -eq 0 ]; then say "${GREEN}문제 없음${RESET}"; else say "${YELLOW}확인할 항목 ${DR_PROBLEMS}개${RESET}"; fi
+  say "DOCTOR_PROBLEMS=$DR_PROBLEMS"
+}
+
+# ================= 계정 목록 / 추가 / 삭제 / 조직 / 설정 =================
+
+list_cmd() {   # [--check] [--json]
+  local check="" json="" a i id cur="" key conn folders j first=1 jl=""
+  for a in "$@"; do case "$a" in --check) check=1 ;; --json) json=1 ;; *) die "사용법: gitsw list [--check] [--json]" ;; esac; done
+  need_config
+  if in_repo; then resolve_repo .; cur=$R_ACC; fi
+  [ -z "$json" ] && say "${BOLD}등록된 계정 (${#ACC_IDS[@]}개)${RESET}"
+  i=0
+  while [ $i -lt ${#ACC_IDS[@]} ]; do
+    id=${ACC_IDS[$i]}
+    folders=""; j=0
+    while [ $j -lt ${#F_RAW[@]} ]; do [ "${F_ACC[$j]}" = "$id" ] && folders="$folders${folders:+, }${F_RAW[$j]}"; j=$((j+1)); done
+    j=0
+    while [ $j -lt ${#O_RAW[@]} ]; do [ "${O_ACC[$j]}" = "$id" ] && folders="$folders${folders:+, }조직 ${O_RAW[$j]}"; j=$((j+1)); done
+    key="✘ 없음 (gitsw setup)"; [ -f "$SSH_DIR/id_ed25519_$id" ] && key="✔"
+    if [ -n "$json" ]; then
+      [ -n "$first" ] || jl="$jl,"; first=""
+      jl="$jl{\"id\":$(json_str "$id"),\"email\":$(json_str "${ACC_EMAIL[$i]}"),\"hosts\":$(json_str "$(acc_hosts_desc "$id")"),\"rules\":$(json_str "$folders"),\"sshKey\":$(json_bool "$( [ -f "$SSH_DIR/id_ed25519_$id" ] && echo 1)"),\"current\":$(json_bool "$( [ "$id" = "$cur" ] && echo 1)")}"
+      i=$((i+1)); continue
+    fi
+    echo ""
+    if [ "$id" = "$cur" ]; then say "▶ ${BOLD}$((i+1))) $id${RESET}"; else say "  ${BOLD}$((i+1))) $id${RESET}"; fi
+    say "     이메일   : ${ACC_EMAIL[$i]}"
+    say "     서버     : $(acc_hosts_desc "$id")"
+    say "     자동규칙 : ${folders:-없음}"
+    say "     SSH 키   : $key"
+    [ "${ACC_TRAILER[$i]}" = strip ] && say "     AI 표기  : 커밋에서 뺌 (aiTrailer=strip)"
+    if [ -n "$check" ]; then
+      j=0
+      while [ $j -lt ${#B_ACC[@]} ]; do
+        if [ "${B_ACC[$j]}" = "$id" ] && [ "${B_LOGIN[$j]}" = "$id" ]; then
+          if test_ssh "${B_ALIAS[$j]}" "$id" >/dev/null 2>&1; then conn="${GREEN}✔ 연결 OK${RESET}"; else conn="${RED}✘ 연결 실패${RESET} → gitsw setup"; fi
+          say "     연결     : ${B_HOST[$j]} $conn"
+        fi
+        j=$((j+1))
+      done
+    fi
+    i=$((i+1))
+  done
+  if [ -n "$json" ]; then printf '{"accounts":[%s]}\n' "$jl"; return 0; fi
+  echo ""
+  [ -n "$cur" ] && say "▶ = 현재 저장소 계정"
+  [ -z "$check" ] && say "실제 연결까지 확인: gitsw list --check"
+  say "계정 추가: gitsw add  /  삭제: gitsw remove <아이디>  /  조직 규칙: gitsw org"
+}
+
+cfg_header() {
+  cat <<'EOF'
+# gitsw 설정 파일 (git config 형식) — 'gitsw config set|add|unset' 으로 고치거나 사용자가 직접 편집
+#
+# [gitsw]
+#     scanRoot = ~/Develop          # gitsw scan 기본 폴더
+#     aiPush = ask                  # Claude Code push 확인: ask 매번 | branch 기본/보호 브랜치와 PR 만 | allow 안 함
+#     maxFileMB = 50                # 이 크기 이상 파일은 커밋 막기
+# [account "아이디"]
+#     email = 메일
+#     host = github.com             # 서버[:포트] — 여러 개 가능, 'host = github.com via 다른계정' 은 그 계정의 SSH 로그인을 빌려 씀
+#     aiTrailer = keep              # strip 이면 이 계정 커밋에서 Co-Authored-By: Claude 같은 AI 표기 줄을 뺌
+# [folder "~/Develop/아이디"]
+#     account = 아이디              # 이 폴더 안 저장소의 기본 계정
+#     allowRemote = github.com/*    # (선택) 이 폴더 저장소가 push 할 수 있는 곳 — 여러 개 가능
+# [org "github.com/조직"]
+#     account = 아이디              # 이 조직 저장소는 이 계정
+EOF
+}
+
+reset_config_state() {
+  CFG_LOADED=""; CFG_EXISTS=""
+  ACC_IDS=(); ACC_EMAIL=(); ACC_NAME=(); ACC_TRAILER=()
+  B_ACC=(); B_HOST=(); B_PORT=(); B_LOGIN=(); B_ALIAS=()
+  F_RAW=(); F_REAL=(); F_ACC=(); O_RAW=(); O_HOST=(); O_PATH=(); O_ACC=(); AR_RAW=(); AR_REAL=(); AR_PAT=()
+  CFG_SCAN_ROOT="~/Develop"; CFG_AI_PUSH="ask"; CFG_MAX_MB=50; CFG_WARN_MB=10; CFG_SSH_STRICT=""
+  CFG_ERRORS=()
+}
+
+cfg_change() {   # $1 set|add|unset|unset-all|remove-section $2 키 [$3 값] — 바꾼 뒤 검사, 틀리면 되돌림
+  local op="$1" key="$2" val="$3" bak rc=0
+  mkdir -p "$(dirname "$CFG")" || die "설정 폴더를 만들 수 없습니다."
+  [ -f "$CFG" ] || cfg_header > "$CFG"
+  backup_file "$CFG"
+  bak=$(mktemp "${TMPDIR:-/tmp}/gitsw-cfg.XXXXXX") || die "임시 파일을 만들 수 없습니다."
+  cp -p "$CFG" "$bak"
+  case "$op" in
+    set) git config -f "$CFG" "$key" "$val" || rc=$? ;;
+    add) git config -f "$CFG" --add "$key" "$val" || rc=$? ;;
+    unset) if [ -n "$val" ]; then git config -f "$CFG" --fixed-value --unset "$key" "$val" || rc=$?
+           else git config -f "$CFG" --unset "$key" || rc=$?; fi ;;
+    unset-all) git config -f "$CFG" --unset-all "$key" || rc=$? ;;
+    remove-section) git config -f "$CFG" --remove-section "$key" || rc=$? ;;
+    *) rm -f "$bak"; die "알 수 없는 설정 명령: $op" ;;
+  esac
+  if [ $rc -ne 0 ]; then cp -p "$bak" "$CFG"; rm -f "$bak"; die "설정을 바꾸지 못했습니다: $op $key"; fi
+  if ! GITSW_CONFIG="$CFG" "$(self_path)" config check >/dev/null 2>&1; then
+    GITSW_CONFIG="$CFG" "$(self_path)" config check 2>&1 | sed 's/^/  /' >&2
+    cp -p "$bak" "$CFG"; rm -f "$bak"
+    die "설정이 올바르지 않아 되돌렸습니다."
+  fi
+  rm -f "$bak"
+  reset_config_state
+  load_config
+  return 0
+}
+
+after_config_change() {   # 계정/폴더/조직/push 정책이 바뀌면 규칙과 AI 안내를 다시 만듦
+  install_auto_rules >/dev/null
+  apply_ssh_strict
+  write_ai_rules >/dev/null
+  write_skills >/dev/null
+  write_claude_settings >/dev/null
+  ok "자동 규칙과 AI 안내를 갱신했습니다."
+}
+
+config_cmd() {   # path | show | get <키> | check | set|add|unset|unset-all <키> [값] [--yes] | edit
+  local sub="${1:-show}" yes="" args=() a
+  [ $# -gt 0 ] && shift
+  for a in "$@"; do if [ "$a" = --yes ]; then yes=1; else args+=("$a"); fi; done
+  case "$sub" in
+    path) say "$CFG" ;;
+    show|cat) [ -f "$CFG" ] || die "설정 파일이 없습니다: $(tilde "$CFG") → gitsw migrate 또는 gitsw add"; cat "$CFG" ;;
+    get) [ ${#args[@]} -ge 1 ] || die "사용법: gitsw config get <키>"; git config -f "$CFG" --get-all "${args[0]}" ;;
+    check)
+      load_config || die "설정 파일이 없습니다: $CFG"
+      if [ ${#CFG_ERRORS[@]} -gt 0 ]; then for a in "${CFG_ERRORS[@]}"; do err "- $a"; done; exit 1; fi
+      ok "설정 정상: 계정 ${#ACC_IDS[@]}개" ;;
+    set|add|unset|unset-all)
+      [ ${#args[@]} -ge 1 ] || die "사용법: gitsw config $sub <키> [값]"
+      { [ "$sub" = set ] || [ "$sub" = add ]; } && [ ${#args[@]} -lt 2 ] && die "사용법: gitsw config $sub <키> <값>"
+      confirm "gitsw 설정 변경: $sub ${args[*]}" "$yes" "gitsw config $sub ${args[*]} --yes"
+      cfg_change "$sub" "${args[0]}" "${args[1]}"
+      ok "설정을 바꿨습니다: $sub ${args[*]}"
+      case "$(lower "${args[0]}")" in account.*|folder.*|org.*|gitsw.sshstrict|gitsw.aipush) after_config_change ;; esac ;;
+    edit)
+      can_prompt || die "설정 편집은 사용자가 터미널에서 직접 하세요: gitsw config edit"
+      mkdir -p "$(dirname "$CFG")"; [ -f "$CFG" ] || cfg_header > "$CFG"
+      backup_file "$CFG"
+      "${EDITOR:-vi}" "$CFG"
+      reset_config_state
+      need_config
+      after_config_change ;;
+    *) die "사용법: gitsw config [path | show | get <키> | check | set|add|unset <키> [값] | edit]" ;;
+  esac
+}
+
+org_key_norm() {   # 입력 → "서버/조직"
+  local s="$1"
+  s=${s#http://}; s=${s#https://}; s=${s#ssh://}; s=${s#git@}
+  s=${s/://}; s=${s%/}; s=${s%.git}
+  printf '%s' "$s"
+}
+
+org_cmd() {   # list | add <서버/조직> <계정> | rm <서버/조직>
+  local sub="${1:-list}" yes="" args=() a key acc i
+  [ $# -gt 0 ] && shift
+  for a in "$@"; do if [ "$a" = --yes ]; then yes=1; else args+=("$a"); fi; done
+  case "$sub" in
+    list|ls)
+      need_config
+      [ ${#O_RAW[@]} -eq 0 ] && { say "조직 규칙이 없습니다. (추가: gitsw org add github.com/조직 계정)"; return 0; }
+      say "조직 규칙 (이 조직 저장소는 이 계정):"
+      i=0; while [ $i -lt ${#O_RAW[@]} ]; do say "  ${O_RAW[$i]} → ${O_ACC[$i]}"; i=$((i+1)); done ;;
+    add)
+      [ ${#args[@]} -eq 2 ] || die "사용법: gitsw org add <서버/조직> <계정>  (예: gitsw org add github.com/myorg alice)"
+      need_config
+      key=$(org_key_norm "${args[0]}"); acc=${args[1]}
+      case "$key" in */*) ;; *) die "'서버/조직' 형식으로 입력하세요. (예: github.com/myorg)" ;; esac
+      is_account "$acc" || die "없는 계정: $acc (계정: $(account_names))"
+      confirm "조직 규칙 추가: $key → $acc" "$yes" "gitsw org add $key $acc --yes"
+      cfg_change set "org.$key.account" "$acc"
+      ok "조직 규칙: $key → $acc"
+      after_config_change ;;
+    rm|remove)
+      [ ${#args[@]} -eq 1 ] || die "사용법: gitsw org rm <서버/조직>"
+      need_config
+      key=$(org_key_norm "${args[0]}")
+      git config -f "$CFG" --get "org.$key.account" >/dev/null || die "그런 조직 규칙이 없습니다: $key"
+      confirm "조직 규칙 삭제: $key" "$yes" "gitsw org rm $key --yes"
+      cfg_change remove-section "org.$key"
+      ok "조직 규칙을 지웠습니다: $key"
+      after_config_change ;;
+    *) die "사용법: gitsw org [list | add <서버/조직> <계정> | rm <서버/조직>]" ;;
+  esac
+}
+
+add_cmd() {
+  can_prompt || die "계정 추가는 사용자가 터미널에서 직접 'gitsw add' 를 실행해야 합니다."
+  load_config >/dev/null 2>&1
+  local id email host port via folder hv
+  say "${BOLD}새 계정 추가${RESET}"
+  read -r -p "아이디 (GitHub/GitLab 사용자명): " id
+  case "$id" in ""|[!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) die "아이디는 영문/숫자/._- 만 쓸 수 있습니다." ;; esac
+  is_account "$id" && die "이미 있는 계정입니다: $id"
+  read -r -p "이메일: " email
+  case "$email" in *@*) ;; *) die "이메일 형식이 아닙니다." ;; esac
+  read -r -p "서버 (Enter = github.com, 회사면 gitlab 주소): " host
+  host=$(printf '%s' "${host:-github.com}" | sed -E 's#^[a-z]+://##; s#/.*$##'); host=$(lower "$host")
+  port=22
+  if [ "$host" != github.com ]; then read -r -p "SSH 포트 (Enter = 22): " port; port="${port:-22}"; is_number "$port" || die "포트는 숫자입니다."; fi
+  via=""
+  read -r -p "이 서버에 다른 계정의 SSH 로그인을 빌려 쓰나요? (Enter = 아니오, 빌릴 계정 아이디): " via
+  if [ -n "$via" ]; then find_binding "$via" "$host" || die "$via 계정에 $host 서버가 없습니다."; fi
+  read -r -p "기본 폴더 (Enter = ~/Develop/$id, - = 없음): " folder
+  folder="${folder:-~/Develop/$id}"
+  hv="$host"; [ "$port" != 22 ] && hv="$host:$port"; [ -n "$via" ] && hv="$hv via $via"
+  cfg_change set "account.$id.email" "$email"
+  cfg_change add "account.$id.host" "$hv"
+  if [ "$folder" != "-" ]; then
+    mkdir -p "$(expand_path "$folder")"
+    cfg_change set "folder.$folder.account" "$id"
+  fi
+  ok "$id 를 계정 목록에 추가했습니다. 이어서 SSH 키 등록과 규칙 갱신을 합니다."
+  [ -z "$via" ] && setup_cmd "$id"
+  install_auto_rules
+  write_ai_rules; write_skills
+}
+
+remove_cmd() {
+  local id="$1" i keys=() k
+  [ -z "$id" ] && die "사용법: gitsw remove <아이디>"
+  can_prompt || die "계정 삭제는 사용자가 터미널에서 직접 실행해야 합니다."
+  need_config
+  is_account "$id" || die "없는 계정입니다: $id"
+  i=0; while [ $i -lt ${#B_ACC[@]} ]; do
+    [ "${B_LOGIN[$i]}" = "$id" ] && [ "${B_ACC[$i]}" != "$id" ] && die "${B_ACC[$i]} 계정이 $id 로그인을 빌려 씁니다 (via). 먼저 그 설정을 고치세요."
+    i=$((i+1)); done
+  confirm "$id 계정을 목록에서 지울까요? (SSH 키 파일과 잠긴 저장소는 그대로 둡니다)" "" ""
+  remove_managed_rules "$id"
+  rm -f "$HOME/.gitconfig-$id"
+  i=0; while [ $i -lt ${#F_ACC[@]} ]; do [ "${F_ACC[$i]}" = "$id" ] && keys+=("folder.${F_RAW[$i]}"); i=$((i+1)); done
+  i=0; while [ $i -lt ${#O_ACC[@]} ]; do [ "${O_ACC[$i]}" = "$id" ] && keys+=("org.${O_RAW[$i]}"); i=$((i+1)); done
+  backup_file "$CFG"
+  for k in "${keys[@]}"; do git config -f "$CFG" --remove-section "$k" 2>/dev/null; done
+  git config -f "$CFG" --remove-section "account.$id" 2>/dev/null
+  reset_config_state; load_config
+  ok "$id 를 지웠습니다. (~/.ssh 의 키와 Host 설정은 남아 있습니다 — 정리: gitsw ssh prune)"
+  install_auto_rules >/dev/null
+  write_ai_rules >/dev/null; write_skills >/dev/null
+}
+
+# ================= setup: SSH 키 / sign: 커밋 서명 =================
+
+ssh_keys_page() { if [ "$1" = github.com ]; then echo "https://github.com/settings/ssh/new"; else echo "https://$1/-/user_settings/ssh_keys"; fi; }
+
+setup_cmd() {   # [계정]
+  need_config
+  local only="$1" i id h al key y
+  [ -n "$only" ] && { is_account "$only" || die "없는 계정: $only"; }
+  mkdir -p "$SSH_DIR"; chmod 700 "$SSH_DIR"
+  [ -f "$SSH_CONFIG" ] || : > "$SSH_CONFIG"
+  chmod 600 "$SSH_CONFIG"
+  i=0
+  while [ $i -lt ${#B_ACC[@]} ]; do
+    id=${B_ACC[$i]}; h=${B_HOST[$i]}; al=${B_ALIAS[$i]}
+    if [ "${B_LOGIN[$i]}" != "$id" ] || { [ -n "$only" ] && [ "$only" != "$id" ]; }; then i=$((i+1)); continue; fi
+    key="$SSH_DIR/id_ed25519_$id"
+    echo ""
+    say "${BOLD}===== $id ($h) =====${RESET}"
+    if [ -f "$key" ]; then say "  SSH 키가 이미 있습니다: $(tilde "$key")"
+    else
+      y=n
+      can_prompt && read -r -p "  SSH 키에 암호를 걸까요? (macOS 키체인에 저장되어 매번 묻지 않음) (y/N) " y
+      case "$y" in
+        y|Y) ssh-keygen -t ed25519 -C "$(acc_email "$id")" -f "$key" -q && { ssh-add --apple-use-keychain "$key" 2>/dev/null || ssh-add "$key" 2>/dev/null; } ;;
+        *) ssh-keygen -t ed25519 -C "$(acc_email "$id")" -f "$key" -N "" -q ;;
+      esac
+      say "  SSH 키 생성: $(tilde "$key")"
+    fi
+    if grep -q "^Host $al\$" "$SSH_CONFIG"; then say "  ~/.ssh/config 에 이미 등록됨 ($al)"
+    else
+      backup_file "$SSH_CONFIG"
+      cat >> "$SSH_CONFIG" <<EOF2
+
+Host $al
+    HostName $h
+    Port ${B_PORT[$i]}
+    User git
+    IdentityFile $key
+    IdentitiesOnly yes
+    AddKeysToAgent yes
+    UseKeychain yes
+EOF2
+      say "  ~/.ssh/config 에 $al 추가"
+    fi
+    if test_ssh "$al" "$id" >/dev/null 2>&1; then ok "이미 등록되어 있습니다."; i=$((i+1)); continue; fi
+    if ! can_prompt; then err "  키 등록은 사용자가 직접 터미널에서 'gitsw setup' 을 실행해야 합니다."; i=$((i+1)); continue; fi
+    pbcopy < "$key.pub"
+    say "  ${YELLOW}공개키를 클립보드에 복사했습니다.${RESET}"
+    say "  ${YELLOW}브라우저가 ${BOLD}$h${RESET}${YELLOW} 에 ${BOLD}$id${RESET}${YELLOW} 로 로그인됐는지 확인하고, Key 칸에 붙여넣기(⌘V) → 추가${RESET}"
+    [ "$h" != github.com ] && say "  (페이지가 안 열리면: 오른쪽 위 프로필 → Preferences → SSH Keys)"
+    read -r -p "  준비되면 Enter (페이지가 열립니다)..."
+    open "$(ssh_keys_page "$h")"
+    read -r -p "  등록을 마쳤으면 Enter..."
+    test_ssh "$al" "$id"
+    i=$((i+1))
+  done
+  echo ""
+  ok "SSH 설정 완료"
+}
+
+sign_cmd() {   # on | off | (상태)
+  local d acc id y
+  case "$1" in
+    on|off)
+      can_prompt || [ "$2" = --yes ] || die "서명 설정은 사용자가 터미널에서 직접 'gitsw sign $1' 을 실행해야 합니다."
+      need_config
+      if [ "$1" = on ]; then git config --global gitswitch.sign true; else git config --global --unset gitswitch.sign 2>/dev/null; fi
+      for id in "${ACC_IDS[@]}"; do sync_include_file "$id"; done
+      while IFS= read -r d; do
+        acc=$(git -C "$d" config --get gitswitch.account)
+        [ -n "$acc" ] && is_account "$acc" && { set_account "$acc"; apply_sign "$d"; }
+      done < <(find_repos)
+      if [ "$1" = off ]; then say "커밋 서명을 껐습니다."; return 0; fi
+      ok "커밋 서명을 켰습니다. 각 계정의 SSH 키로 서명합니다."
+      for id in "${ACC_IDS[@]}"; do
+        if find_binding "$id" github.com && [ "${B_LOGIN[$BI]}" = "$id" ]; then
+          say "${BOLD}$id${RESET}: GitHub 에 '서명용 키'를 따로 한 번 등록해야 Verified 가 붙습니다."
+          if can_prompt; then
+            read -r -p "  지금 등록할까요? (y/N) " y
+            case "$y" in y|Y)
+              pbcopy < "$SSH_DIR/id_ed25519_$id.pub"
+              say "  ${YELLOW}공개키 복사 완료. $id 로 로그인된 브라우저에서 Key type 을 'Signing Key' 로 바꾸고 붙여넣기 → Add${RESET}"
+              open "https://github.com/settings/ssh/new"
+              read -r -p "  등록을 마쳤으면 Enter..." ;;
+            esac
+          fi
+        else
+          say "${BOLD}$id${RESET}: GitLab 키가 'Authentication & Signing' 이면 추가 등록 필요 없음"
+        fi
+      done ;;
+    *) if sign_enabled; then say "커밋 서명: 켜짐 (끄기: gitsw sign off)"; else say "커밋 서명: 꺼짐 (켜기: gitsw sign on)"; fi ;;
+  esac
+}
+
+ssh_cmd() {   # prune [--yes]
+  local sub="$1" yes="" orphans h tmp
+  [ "$2" = --yes ] && yes=1
+  case "$sub" in
+    prune)
+      need_config
+      orphans=$(ssh_orphans)
+      [ -z "$orphans" ] && { say "정리할 SSH 설정이 없습니다."; return 0; }
+      say "지금 계정 설정에서 쓰지 않는 SSH Host:"; printf '%s\n' "$orphans" | sed 's/^/  /'
+      confirm "위 Host 설정을 ~/.ssh/config 에서 지울까요? (키 파일은 그대로, 백업 남김)" "$yes" "gitsw ssh prune --yes"
+      backup_file "$SSH_CONFIG"
+      for h in $orphans; do
+        tmp=$(mktemp "${TMPDIR:-/tmp}/gitsw.XXXXXX") || die "임시 파일을 만들 수 없습니다."
+        awk -v host="$h" '
+          /^(Host|Match)[ \t]/ { skip = ($1 == "Host" && $2 == host && NF == 2) }
+          skip { next }
+          /^[[:space:]]*$/ { blank++; next }
+          { while (blank > 0) { print ""; blank-- } print }
+        ' "$SSH_CONFIG" > "$tmp" && cat "$tmp" > "$SSH_CONFIG"
+        rm -f "$tmp"
+        say "  지움: Host $h"
+      done
+      ok "정리했습니다. (백업: $(tilde "$BACKUP_SESSION"))" ;;
+    *) die "사용법: gitsw ssh prune [--yes]" ;;
+  esac
+}
+
+
+# ================= ai: AI 도구 규칙 / 스킬 / Claude Code 훅 =================
+
+gen_ai_block() {
+  local i id strip=""
+  echo "<!-- gitsw:begin — 'gitsw ai' 가 자동으로 만들고 갱신합니다. 직접 고치지 마세요 -->"
+  echo "## Git 계정 규칙 (gitsw)"
+  echo ""
+  echo "이 컴퓨터에는 git 계정이 여러 개 있고, 모든 git 작업은 \`gitsw\` 로 한다. (자세한 절차: gitsw 스킬, \`gitsw help\`)"
+  echo ""
+  echo "계정:"
+  for id in "${ACC_IDS[@]}"; do echo "- $id — $(acc_email "$id") — $(acc_hosts_desc "$id")"; done
+  echo ""
+  echo "자동 계정 규칙 (이 폴더/조직이면 계정을 생략해도 됨):"
+  i=0; while [ $i -lt ${#F_RAW[@]} ]; do echo "- 폴더 ${F_RAW[$i]} → ${F_ACC[$i]}"; i=$((i+1)); done
+  i=0; while [ $i -lt ${#O_RAW[@]} ]; do echo "- 조직 ${O_RAW[$i]} → ${O_ACC[$i]}"; i=$((i+1)); done
+  echo ""
+  echo "작업 흐름:"
+  echo "- 커밋/push 전에 \`gitsw preflight\` 를 실행한다. PREFLIGHT=STOP 이면 진행하지 말고 이유를 사용자에게 보고한다. WARN 이면 내용을 확인하고 필요하면 사용자에게 알린다."
+  echo "- 커밋: 올릴 파일을 \`git add <파일>\` 로 고른 뒤 \`gitsw c -m \"제목\" [-m \"본문\"]\`. 전부 올릴 때만 \`gitsw c -a -m \"...\"\`. 커밋 메시지는 변경 내용을 요약해 직접 쓴다."
+  echo "- push \`gitsw p\` / 커밋+push \`gitsw cp -m \"...\"\` / 받기 \`gitsw pl\` / 기본 브랜치 따라가기 \`gitsw up\` / 상태 \`gitsw ck\`."
+  case "$(lower "$CFG_AI_PUSH")" in
+    branch) echo "- push 확인: 작업 브랜치 push 는 바로 되고, main/보호 브랜치 push 와 PR 생성만 사용자 확인 창이 뜬다. 여러 커밋이 드는 작업은 \`gitsw b <브랜치>\` 로 브랜치를 만들어 하고 \`gitsw pr\` 로 합친다 (사용자가 main 에 바로 올리라고 하면 그대로 해도 된다)." ;;
+    allow) echo "- push 와 PR 생성은 확인 없이 진행된다. 그래도 검사 훅(작성자/강제 push/비밀값)은 그대로 적용된다." ;;
+    *) echo "- push 와 PR 생성 전에는 사용자 확인 창이 뜬다." ;;
+  esac
+  echo "- PR(GitLab 은 MR): \`gitsw pr --title \"...\" --body \"...\"\`, 상태 \`gitsw pr status\`, CI \`gitsw ci\`."
+  echo "- 저장소 받기는 \`git clone\` 대신 \`gitsw clone [계정] <주소>\`, 포크 \`gitsw fork [계정] <원본>\`, 포크 최신화 \`gitsw sync\`."
+  echo "- 원격이 없는 새 저장소를 처음 올릴 때는 \`gitsw publish [이름]\` (기본 비공개, 사용자 확인 후)."
+  echo "- 충돌·진행 중 작업은 \`gitsw ck\` 로 보고 \`gitsw continue\` 로 이어간다 (\`gitsw abort\` 는 사용자 확인 후). 실수 복구 지점은 \`gitsw rescue\`."
+  echo ""
+  echo "금지/확인:"
+  echo "- 잠긴 저장소(LOCKED_ACCOUNT)의 계정을 다른 계정으로 바꾸거나(\`gitsw use <다른계정>\`) 잠금을 풀지(\`gitsw unlock\`) 않는다. 사용자가 명시적으로 요청한 경우만 예외. 같은 계정을 다시 적용하는 \`gitsw use <LOCKED_ACCOUNT>\` 는 괜찮다."
+  echo "- \`--no-verify\`, \`git push --force\`, \`GITSW_SKIP\`·\`GIT_AUTHOR_*\` 같은 환경변수, \`git -c user.*\`·\`core.hooksPath\` 로 검사를 우회하지 않는다. 강제 push 가 꼭 필요하면 사용자에게 요청한다."
+  echo "- commit/push 가 \`[gitsw]\` 메시지로 거부되면 우회하지 말고 메시지를 그대로 사용자에게 보고한다. 비밀값으로 막힌 파일은 커밋에서 빼고 사용자에게 알린다."
+  echo "- \`gitsw undo\`·\`amend\`·\`fix --yes\`·\`rescue --restore\` 는 사용자가 요청했을 때만, push 전 커밋에만 쓴다."
+  echo "- ~/.gitconfig, ~/.ssh, ~/.config/gitsw 를 직접 수정하지 않는다. HTTPS 비밀번호/토큰 인증을 시도하지 않는다."
+  echo "- \`gitsw add\`·\`remove\`·\`setup\`·\`sign on|off\`·\`import\` 와 \`gh auth login\` 은 사용자가 터미널에서 직접 실행하도록 안내한다."
+  for id in "${ACC_IDS[@]}"; do acc_idx "$id"; [ "${ACC_TRAILER[$ACC_I]}" = strip ] && strip="$strip${strip:+, }$id"; done
+  [ -n "$strip" ] && echo "- $strip 계정 저장소의 커밋 메시지에는 AI 표기(Co-Authored-By: Claude 등)를 넣지 않는다."
+  echo "- git 계정 문제가 생기면 \`gitsw doctor\` 결과를 사용자에게 보여준다."
+  echo "<!-- gitsw:end -->"
+}
+
+write_ai_rules() {
+  local block f
+  block=$(gen_ai_block)
+  for f in "$CLAUDE_DIR/CLAUDE.md" "$CODEX_DIR/AGENTS.md"; do
+    backup_file "$f"
+    update_marked_block "$f" "<!-- gitsw:begin" "<!-- gitsw:end -->" "$block" "## Git 계정 규칙"
+    say "  ${GREEN}✔${RESET} AI 규칙: $(tilde "$f")"
+  done
+  if [ -d "$GEMINI_DIR" ]; then
+    backup_file "$GEMINI_DIR/GEMINI.md"
+    update_marked_block "$GEMINI_DIR/GEMINI.md" "<!-- gitsw:begin" "<!-- gitsw:end -->" "$block" "## Git 계정 규칙"
+    say "  ${GREEN}✔${RESET} AI 규칙: ~/.gemini/GEMINI.md"
+  fi
+  dim "  Cursor 등 다른 도구: 'gitsw ai --print' 내용을 그 도구의 규칙 설정에 붙여넣으세요."
+}
+
+gen_skill() {
+  cat <<'EOF'
+---
+name: gitsw
+description: 이 컴퓨터의 git 작업(상태 확인, 커밋, push, PR/MR, clone, 충돌 해결, 실수 복구, 계정 문제)을 gitsw 로 처리하는 절차. git 저장소에서 커밋하거나 push·PR·clone 할 때 사용한다.
+---
+
+# gitsw 로 git 작업하기
+
+이 컴퓨터는 git 계정이 여러 개라서 모든 git 작업을 `gitsw` 로 한다.
+gitsw 는 저장소마다 계정을 잠그고, 커밋/push 때 작성자·비밀값·큰 파일·강제 push 를 검사한다.
+
+## 1. 시작 전 확인
+
+```bash
+gitsw preflight          # PREFLIGHT=OK | WARN | STOP
+gitsw ck                 # 바뀐 파일 / push 안 한 커밋 / 받을 커밋 / 진행 중 작업
+```
+
+- STOP 이면 진행하지 말고 이유를 사용자에게 보고한다. 예: 계정이 없으면 사용자에게 어떤 계정을 쓸지 묻고 `gitsw use <계정>`.
+- 받을 커밋이 있으면(behind) `gitsw pl` 로 먼저 받는다.
+- 기계가 읽기 좋은 출력: `gitsw preflight --json`, `gitsw ck --json`, `gitsw status --json`.
+
+## 2. 커밋
+
+```bash
+git add src/a.ts src/b.ts                    # 올릴 파일만 고르기
+gitsw c -m "fix: 로그인 오류 수정" -m "본문 설명"
+gitsw c -a -m "chore: 전체 정리"              # 전부 올릴 때만 -a
+```
+
+- 스테이지된 파일이 없으면 gitsw 가 종료코드 4 로 멈춘다 → 올릴 파일을 골라 `git add`.
+- 트레일러: `--trailer "Co-Authored-By: 이름 <메일>"` (계정 정책이 strip 이면 AI 표기는 자동으로 빠진다).
+
+## 3. push / PR
+
+```bash
+gitsw p                                      # 첫 push 면 원격 브랜치 자동 연결
+gitsw pr --title "제목" --body "내용"          # GitHub PR / GitLab MR
+gitsw pr status                              # PR 상태, 리뷰, CI
+gitsw ci                                     # CI 결과
+```
+
+- 기본 브랜치에서는 PR 을 만들 수 없다 → `gitsw b feature/이름` 으로 브랜치를 만들고 작업한다.
+- Claude Code 에서는 `gitsw.aiPush` 설정에 따라 확인 창이 뜬다. branch 면 작업 브랜치 push 는 바로 되고, main/보호 브랜치 push 와 PR 생성만 확인한다.
+- GitHub PR 은 gh 로그인이 필요하다. "gh 에 <계정> 로그인이 필요" 가 나오면 사용자에게 `gh auth login` 을 요청하고, 출력된 웹 주소를 알려준다.
+- GitLab MR 은 push 옵션으로 만들어진다 (새 커밋이 있어야 함). 출력된 MR 주소를 사용자에게 알려준다.
+
+## 4. [gitsw] 거부 메시지별 대응
+
+| 메시지 | 뜻 | 할 일 |
+|---|---|---|
+| 이 저장소는 X 계정 전용 | 작성자/주소가 잠금과 다름 | `gitsw use X` (같은 계정 재적용은 괜찮음) |
+| 계정이 정해지지 않았습니다 | 잠금/규칙 없음 | 사용자에게 계정을 묻고 `gitsw use <계정>` |
+| 비밀값으로 보이는 내용 | 토큰/키/.env | `git restore --staged <파일>` 로 빼고 사용자에게 보고 |
+| MB 이상 파일 | 큰 파일 | 커밋에서 빼고 사용자에게 보고 (LFS 여부는 사용자 결정) |
+| 강제 push 를 막았습니다 | 원격에 새 커밋이 있음 | `gitsw pl` 후 다시 `gitsw p`. 덮어쓰기는 사용자 결정 |
+| push 할 커밋 중 N개의 작성자가 | 잘못된 작성자 커밋 | 사용자 동의 후 `gitsw fix --yes` |
+| 이 곳으로 push 할 수 없습니다 | 폴더 허용 목록 밖 | push 대상을 다시 확인하고 사용자에게 보고 |
+
+`--no-verify`, `GITSW_SKIP`, `git -c ...`, `GIT_AUTHOR_*` 로 절대 우회하지 않는다.
+
+## 5. 충돌 / 진행 중 작업
+
+```bash
+gitsw ck                    # 충돌 파일 목록 (IN_PROGRESS=rebase 등)
+# 파일을 고친 뒤
+git add <파일>
+gitsw continue
+gitsw abort                 # 취소 — 사용자 확인 후
+```
+
+## 6. 실수 복구
+
+`gitsw pl`, `up`, `sync`, `fix`, `undo`, `amend` 전에는 자동 백업이 생긴다.
+
+```bash
+gitsw rescue                       # 백업 목록
+gitsw rescue 1                     # 자세히
+gitsw rescue 1 --branch 복구본      # 새 브랜치로 꺼내기 (안전)
+gitsw rescue 1 --restore           # 되돌리기 — 사용자 확인 후
+```
+
+## 7. 저장소 받기 / 포크
+
+```bash
+gitsw clone owner/repo             # 폴더/조직 규칙으로 계정 자동 선택, 계정 폴더에 받음
+gitsw clone alice owner/repo       # 계정 지정
+gitsw fork alice owner/repo        # 포크 + clone + upstream 연결
+gitsw sync                         # 포크를 원본 최신으로
+gitsw publish                      # 원격이 없는 새 저장소를 GitHub/GitLab 에 비공개로 만들고 첫 push
+```
+
+## 8. 사용자만 하는 것
+
+`gitsw add/remove/setup/sign on|off/import`, `gh auth login`, 잠금 해제·다른 계정으로 변경,
+강제 push, 설정 변경(`gitsw config set`, `gitsw org add`). Claude Code 에서는 확인 창이 뜬다.
+EOF
+}
+
+write_skills() {
+  local d
+  for d in "$CLAUDE_DIR" "$CODEX_DIR"; do
+    [ -d "$d" ] || continue
+    mkdir -p "$d/skills/gitsw" && gen_skill > "$d/skills/gitsw/SKILL.md" && say "  ${GREEN}✔${RESET} 스킬: $(tilde "$d/skills/gitsw/SKILL.md")"
+  done
+}
+
+# 자동 허용 (":*" 는 인자 없는 명령도 포함)
+#  - 읽기 명령, 일상 명령(커밋/브랜치/pull/push)과 그에 해당하는 git 명령
+#  - 위험한 경우는 PreToolUse 훅(gitsw guard)이 먼저 막거나(deny) 확인(ask)을 받으므로 여기서 허용해도 안전
+#    예: --no-verify·강제 push 거부, main/보호 브랜치 push·PR 생성 확인(aiPush=branch), reset --hard·branch -D 확인
+CLAUDE_ALLOW='["Bash(gitsw ck:*)","Bash(gitsw check:*)","Bash(gitsw status:*)","Bash(gitsw st:*)","Bash(gitsw preflight:*)","Bash(gitsw l:*)","Bash(gitsw log:*)","Bash(gitsw d:*)","Bash(gitsw diff:*)","Bash(gitsw doctor:*)","Bash(gitsw list:*)","Bash(gitsw report:*)","Bash(gitsw audit:*)","Bash(gitsw help)","Bash(gitsw version)","Bash(gitsw ci)","Bash(gitsw rescue)","Bash(gitsw c:*)","Bash(gitsw commit:*)","Bash(gitsw cp:*)","Bash(gitsw p:*)","Bash(gitsw push:*)","Bash(gitsw pl)","Bash(gitsw pull)","Bash(gitsw up)","Bash(gitsw b:*)","Bash(gitsw branch:*)","Bash(gitsw wt:*)","Bash(gitsw continue)","Bash(gitsw sync)","Bash(gitsw clone:*)","Bash(gitsw pr:*)","Bash(git status:*)","Bash(git diff:*)","Bash(git log:*)","Bash(git show:*)","Bash(git blame:*)","Bash(git grep:*)","Bash(git ls-files:*)","Bash(git rev-parse:*)","Bash(git fetch:*)","Bash(git add:*)","Bash(git commit:*)","Bash(git push:*)","Bash(git pull:*)","Bash(git branch:*)","Bash(git switch:*)","Bash(git checkout:*)","Bash(git restore:*)","Bash(git stash:*)","Bash(git remote:*)"]'
+# 예전 버전이 넣었지만 지금은 위 항목과 겹치는 것 (설치할 때 지움)
+CLAUDE_ALLOW_OLD='["Bash(gitsw ck)","Bash(gitsw status)","Bash(gitsw preflight)","Bash(gitsw l)","Bash(gitsw d)","Bash(gitsw doctor)","Bash(gitsw list)","Bash(gitsw b)","Bash(gitsw pr status:*)"]'
+JQ_CLAUDE_INSTALL='
+  def notgitsw: ((.hooks // []) | map((.command // "") | test("gitsw\"? guard")) | any) | not;
+  .hooks = (.hooks // {})
+  | .hooks.PreToolUse = (((.hooks.PreToolUse // []) | map(select(notgitsw))) + [
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": $cmd, "timeout": 15}]},
+      {"matcher": "Edit|Write|MultiEdit|NotebookEdit", "hooks": [{"type": "command", "command": $cmd, "timeout": 15}]}
+    ])
+  | .permissions = (.permissions // {})
+  | .permissions.allow = (((.permissions.allow // []) | map(select(. as $x | ($old | any(.[]; . == $x)) | not))) as $kept
+      | reduce $allow[] as $x ($kept; if any(.[]; . == $x) then . else . + [$x] end))'
+JQ_CLAUDE_REMOVE='
+  def notgitsw: ((.hooks // []) | map((.command // "") | test("gitsw\"? guard")) | any) | not;
+  (if .hooks.PreToolUse then .hooks.PreToolUse |= map(select(notgitsw)) else . end)
+  | (if .hooks.PreToolUse == [] then del(.hooks.PreToolUse) else . end)
+  | (if .hooks == {} then del(.hooks) else . end)
+  | (if .permissions.allow then .permissions.allow |= map(select(. as $x | ($allow | any(.[]; . == $x)) | not)) else . end)
+  | (if .permissions.allow == [] then del(.permissions.allow) else . end)
+  | (if .permissions == {} then del(.permissions) else . end)'
+
+write_claude_settings() {
+  [ -d "$CLAUDE_DIR" ] || return 0
+  command -v jq >/dev/null 2>&1 || { warn "jq 가 없어 Claude Code 검사 훅을 설치하지 못했습니다 (brew install jq)"; return 1; }
+  local f="$CLAUDE_DIR/settings.json" tmp cmd
+  cmd="\"$(gitsw_cmd_path)\" guard --claude"
+  if [ -f "$f" ]; then
+    jq empty "$f" >/dev/null 2>&1 || { warn "$(tilde "$f") 이 올바른 JSON 이 아니라 건드리지 않았습니다"; return 1; }
+    backup_file "$f"
+  fi
+  tmp=$(mktemp "${TMPDIR:-/tmp}/gitsw-claude.XXXXXX") || return 1
+  if { if [ -f "$f" ]; then cat "$f"; else echo '{}'; fi; } | jq --arg cmd "$cmd" --argjson allow "$CLAUDE_ALLOW" --argjson old "$CLAUDE_ALLOW_OLD" "$JQ_CLAUDE_INSTALL" > "$tmp"; then
+    cat "$tmp" > "$f"
+    say "  ${GREEN}✔${RESET} Claude Code 명령 검사 훅 + 읽기 명령 허용: $(tilde "$f")"
+  else
+    warn "Claude Code 설정을 바꾸지 못했습니다: $(tilde "$f")"
+  fi
+  rm -f "$tmp"
+}
+
+ai_remove() {
+  local f tmp d
+  for f in "$CLAUDE_DIR/CLAUDE.md" "$CODEX_DIR/AGENTS.md" "$GEMINI_DIR/GEMINI.md"; do
+    grep -q 'gitsw:begin' "$f" 2>/dev/null || continue
+    backup_file "$f"; remove_marked_block "$f" "<!-- gitsw:begin" "<!-- gitsw:end -->"
+  done
+  for d in "$CLAUDE_DIR" "$CODEX_DIR"; do rm -rf "$d/skills/gitsw"; done
+  f="$CLAUDE_DIR/settings.json"
+  if [ -f "$f" ] && command -v jq >/dev/null 2>&1 && jq empty "$f" >/dev/null 2>&1; then
+    backup_file "$f"
+    tmp=$(mktemp "${TMPDIR:-/tmp}/gitsw-claude.XXXXXX") || return 1
+    jq --argjson allow "$(jq -cn --argjson a "$CLAUDE_ALLOW" --argjson b "$CLAUDE_ALLOW_OLD" '$a + $b')" "$JQ_CLAUDE_REMOVE" "$f" > "$tmp" && cat "$tmp" > "$f"
+    rm -f "$tmp"
+  fi
+}
+
+ai_cmd() {
+  case "${1:-}" in
+    --print) need_config; gen_ai_block ;;
+    --skill) gen_skill ;;
+    --remove) ai_remove; ok "AI 도구 연동(규칙/스킬/Claude 훅)을 지웠습니다." ;;
+    "") need_config; write_ai_rules; write_skills; write_claude_settings ;;
+    *) die "사용법: gitsw ai [--print | --skill | --remove]" ;;
+  esac
+}
+
+# ================= guard: Claude Code 명령 검사 (PreToolUse 훅) =================
+# 표준입력 JSON(tool_name, tool_input, cwd)을 보고 위험한 명령은 deny, 확인이 필요한 명령은 ask 를 돌려준다.
+
+read -r -d '' GUARD_AWK <<'AWKEOF'
+BEGIN { US = "\037"; RD = "\036"; nl = 0 }
+{ lines[++nl] = $0 }
+function endw() {
+  if (!inw) return
+  gsub(/\n/, " ", word)
+  if (skipnext) skipnext = 0
+  else if (redir) { redir = 0; W[++nw] = RD word }
+  else W[++nw] = word
+  word = ""; inw = 0
+}
+function endc(   k, ln) {
+  if (nw == 0) return
+  ln = W[1]
+  for (k = 2; k <= nw; k++) ln = ln US W[k]
+  print ln
+  nw = 0
+}
+END {
+  out = ""; i = 1
+  while (i <= nl) {
+    line = lines[i]; out = out line "\n"; i++
+    rest = line; nd = 0
+    while (match(rest, /<<-?[ \t]*(\\?[A-Za-z_][A-Za-z0-9_]*|'[^']+'|"[^"]+")/)) {
+      pre = (RSTART > 1) ? substr(rest, RSTART - 1, 1) : ""
+      tok = substr(rest, RSTART, RLENGTH); rest = substr(rest, RSTART + RLENGTH)
+      if (pre == "<") continue
+      st = (substr(tok, 3, 1) == "-")
+      d = tok; sub(/^<<-?[ \t]*/, "", d); gsub(/['"\\]/, "", d)
+      nd++; dl[nd] = d; ds[nd] = st
+    }
+    for (k = 1; k <= nd; k++) {
+      while (i <= nl) { t = lines[i]; i++; if (ds[k]) sub(/^\t+/, "", t); if (t == dl[k]) break }
+    }
+  }
+  s = out; n = length(s); q = ""; word = ""; inw = 0; nw = 0; skipnext = 0; redir = 0
+  for (p = 1; p <= n; p++) {
+    c = substr(s, p, 1)
+    if (q == "'") { if (c == "'") q = ""; else word = word c; continue }
+    if (q == "\"") {
+      if (c == "\\") {
+        d = substr(s, p + 1, 1)
+        if (d == "\"" || d == "\\" || d == "$" || d == "`") { word = word d; p++; continue }
+        if (d == "\n") { p++; continue }
+      }
+      if (c == "\"") { q = ""; continue }
+      word = word c; continue
+    }
+    if (c == "\\") { d = substr(s, p + 1, 1); if (d != "\n") { word = word d; inw = 1 } p++; continue }
+    if (c == "'" || c == "\"") { q = c; inw = 1; continue }
+    if (c == " " || c == "\t") { endw(); continue }
+    if (c == "\n" || c == ";" || c == "&" || c == "|" || c == "(" || c == ")" || c == "`") { endw(); endc(); continue }
+    if (c == "$" && substr(s, p + 1, 1) == "(") { endw(); endc(); p++; continue }
+    if (c == "#" && !inw) { while (p < n && substr(s, p + 1, 1) != "\n") p++; continue }
+    if (c == "<") {
+      endw()
+      if (substr(s, p + 1, 2) == "<<") { p += 2; skipnext = 1; continue }
+      if (substr(s, p + 1, 1) == "<") { p++; if (substr(s, p + 1, 1) == "-") p++; skipnext = 1; continue }
+      if (substr(s, p + 1, 1) == "(") { endc(); p++; continue }
+      skipnext = 1; continue
+    }
+    if (c == ">") {
+      endw()
+      if (substr(s, p + 1, 1) == "(") { endc(); p++; continue }
+      if (substr(s, p + 1, 1) == ">" || substr(s, p + 1, 1) == "|") p++
+      if (substr(s, p + 1, 1) == "&") { p++; while (substr(s, p + 1, 1) ~ /[0-9-]/) p++; continue }
+      redir = 1; continue
+    }
+    if (c ~ /[0-9]/ && !inw && substr(s, p + 1, 1) == ">") continue
+    word = word c; inw = 1
+  }
+  endw(); endc()
+}
+AWKEOF
+
+g_decide() {   # $1 ask|deny $2 이유 — 더 강한 결정만 반영
+  case "$1" in
+    deny) [ "$G_DEC" != deny ] && { G_DEC=deny; G_REASON="$2"; } ;;
+    ask) [ -z "$G_DEC" ] && { G_DEC=ask; G_REASON="$2"; } ;;
+  esac
+  return 0
+}
+g_path() { local p; p=$(expand_path "$1"); case "$p" in /*) ;; *) p="$G_CWD/$p" ;; esac; printf '%s' "$p"; }
+g_has() { local i=$1 w; shift; for w in "${GW[@]:$i}"; do [ "$w" = "$1" ] && return 0; done; return 1; }
+g_has_prefix() { local i=$1 w; shift; for w in "${GW[@]:$i}"; do case "$w" in "$1"*) return 0 ;; esac; done; return 1; }
+g_in_list() { local x="$1" w; shift; for w in "$@"; do [ "$w" = "$x" ] && return 0; done; return 1; }
+
+g_protected() {   # gitsw 가 관리하는 파일인지
+  local p; p=$(g_path "$1")
+  case "$p" in
+    "$HOME/.ssh"|"$HOME/.ssh/"*|"$HOME/.gitconfig"|"$HOME/.gitconfig-"*|"$HOME/.config/git/config") return 0 ;;
+    "$CFG"|"$(dirname "$CFG")"|"$(dirname "$CFG")/"*|"$DATA_DIR"|"$DATA_DIR/"*) return 0 ;;
+    */.git/config|*/.git/hooks|*/.git/hooks/*) return 0 ;;
+  esac
+  return 1
+}
+
+g_sensitive_key() {
+  case "$1" in
+    user.*|author.*|committer.*|gitswitch.*|core.hookspath|hook.*|url.*|includeif.*|include.*|core.sshcommand) return 0 ;;
+    remote.*.url|remote.*.pushurl|alias.*|gpg.*|commit.gpgsign) return 0 ;;
+  esac
+  return 1
+}
+
+g_push_mode() {   # gitsw.aiPush → ask(매번 확인) | branch(기본/보호 브랜치만 확인) | allow(확인 안 함)
+  local p; p=$(lower "$(git config -f "$CFG" --get gitsw.aipush 2>/dev/null)")
+  case "$p" in allow|branch) printf '%s' "$p" ;; *) printf 'ask' ;; esac
+}
+g_cur_branch() { git -C "$G_CWD" symbolic-ref --short HEAD 2>/dev/null; }
+g_remote_default() {   # $1 원격 → 그 원격의 기본 브랜치 (모르면 main)
+  local r="${1:-origin}" d
+  d=$(git -C "$G_CWD" symbolic-ref --short "refs/remotes/$r/HEAD" 2>/dev/null)
+  if [ -n "$d" ]; then printf '%s' "${d#"$r"/}"; return 0; fi
+  for d in main master; do
+    git -C "$G_CWD" show-ref -q --verify "refs/remotes/$r/$d" 2>/dev/null && { printf '%s' "$d"; return 0; }
+  done
+  printf 'main'
+}
+
+g_push_check() {   # $1 설명 $2 원격 $3.. 올라갈 브랜치 (빈 값 = 알 수 없음)
+  local what="$1" remote="${2:-origin}" mode b def
+  shift 2
+  mode=$(g_push_mode)
+  case "$mode" in
+    allow) return 0 ;;
+    branch)
+      if [ $# -eq 0 ]; then g_decide ask "$what — 어느 브랜치로 올라가는지 알 수 없어 사용자 확인을 받습니다."; return 0; fi
+      def=$(g_remote_default "$remote")
+      for b in "$@"; do
+        if [ -z "$b" ] || [ "$b" = "$def" ] || [ "$b" = main ] || [ "$b" = master ] || \
+           git -C "$G_CWD" config --get-all gitswitch.protect 2>/dev/null | grep -qx -- "$b"; then
+          g_decide ask "$what — 기본/보호 브랜치(${b:-?})에 올리기 전에 사용자 확인을 받습니다. (작업 브랜치는 확인 없이 push 됩니다)"
+          return 0
+        fi
+      done
+      return 0 ;;
+    *) g_decide ask "$what — 원격에 올리기 전에 사용자 확인을 받습니다. (작업 브랜치는 자동으로 하려면 사용자가: gitsw config set gitsw.aiPush branch)" ;;
+  esac
+}
+
+g_pr_check() {   # PR/MR 생성: allow 가 아니면 확인
+  [ "$(g_push_mode)" = allow ] && return 0
+  g_decide ask "$1 — PR/MR 을 만들기 전에 사용자 확인을 받습니다."
+}
+
+guard_env() {   # NAME=값
+  local name="${1%%=*}"
+  case "$name" in
+    GITSW_SKIP|GITSW_ALLOW_FORCE|GITSW_CONFIG|GITSW_ACTOR|GITSW_INTERNAL|GITSW_NOLOG_PUSH)
+      g_decide deny "gitsw 검사를 바꾸는 환경변수($name)는 AI 가 쓸 수 없습니다. 필요하면 사용자에게 요청하세요." ;;
+    GIT_AUTHOR_NAME|GIT_AUTHOR_EMAIL|GIT_COMMITTER_NAME|GIT_COMMITTER_EMAIL|GIT_SSH|GIT_SSH_COMMAND|GIT_CONFIG|GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|GIT_CONFIG_NOSYSTEM|GIT_CONFIG_COUNT|GIT_CONFIG_KEY_*|GIT_CONFIG_VALUE_*|GIT_CONFIG_PARAMETERS)
+      g_decide deny "환경변수($name)로 작성자/SSH/git 설정을 바꾸면 gitsw 검사를 우회하게 됩니다. 'gitsw use <계정>' 을 쓰세요." ;;
+  esac
+}
+
+guard_git_cfgkv() {   # "키=값"
+  local k; k=$(lower "${1%%=*}")
+  g_sensitive_key "$k" && g_decide deny "git -c $k 로 계정/훅/주소 설정을 바꿀 수 없습니다 (gitsw 검사 우회)."
+  return 0
+}
+
+guard_git_commit() {
+  local i=$1 n=${#GW[@]} w c j
+  while [ $i -lt $n ]; do
+    w=${GW[$i]}
+    case "$w" in
+      --no-verify) g_decide deny "--no-verify 는 쓸 수 없습니다 (gitsw 검사 우회). 검사에 걸리면 그 메시지를 사용자에게 보고하세요." ;;
+      --amend) g_decide ask "마지막 커밋을 고칩니다 (amend). 사용자가 요청한 경우에만 하세요." ;;
+      --author|--author=*) g_decide ask "다른 작성자로 커밋합니다 (--author)." ;;
+      -m|-F|-c|-C|-t|--message|--file|--template|--reuse-message|--reedit-message|--fixup|--squash|--trailer|--date|--cleanup|--pathspec-from-file) i=$((i+1)) ;;
+      --) break ;;
+      --*) ;;
+      -?*)
+        j=1
+        while [ $j -lt ${#w} ]; do
+          c=${w:$j:1}
+          case "$c" in
+            n) g_decide deny "--no-verify(-n) 는 쓸 수 없습니다 (gitsw 검사 우회)."; break ;;
+            m|F|c|C|t) [ $((j+1)) -eq ${#w} ] && i=$((i+1)); break ;;
+            S|u) break ;;
+          esac
+          j=$((j+1))
+        done ;;
+    esac
+    i=$((i+1))
+  done
+}
+
+guard_git_push() {
+  local i=$1 n=${#GW[@]} w c j force="" del="" big="" tags="" pos=() dests=() r d
+  while [ $i -lt $n ]; do
+    w=${GW[$i]}
+    case "$w" in
+      --no-verify) g_decide deny "--no-verify 는 쓸 수 없습니다 (gitsw push 검사 우회)." ;;
+      -f|--force|--force-with-lease|--force-with-lease=*|--force-if-includes) force=1 ;;
+      -d|--delete) del=1 ;;
+      --mirror|--all|--branches|--prune) big=1 ;;
+      --tags) tags=1 ;;
+      -o|--push-option|--repo|--receive-pack|--exec) i=$((i+1)) ;;
+      --*) ;;
+      -?*)
+        j=1
+        while [ $j -lt ${#w} ]; do
+          c=${w:$j:1}
+          case "$c" in f) force=1 ;; d) del=1 ;; o) [ $((j+1)) -eq ${#w} ] && i=$((i+1)); break ;; esac
+          j=$((j+1))
+        done ;;
+      *) pos+=("$w") ;;
+    esac
+    i=$((i+1))
+  done
+  # 첫 번째는 원격, 나머지는 refspec (+ 는 강제, :브랜치 는 삭제, 원본:대상)
+  for r in "${pos[@]:1}"; do
+    case "$r" in +*) force=1; r=${r#+} ;; esac
+    case "$r" in
+      :*) del=1; continue ;;
+      *:*) d=${r#*:} ;;
+      *) d=$r ;;
+    esac
+    case "$d" in
+      HEAD|@) d=$(g_cur_branch) ;;
+      refs/heads/*) d=${d#refs/heads/} ;;
+      refs/*) tags=1; continue ;;
+    esac
+    dests+=("$d")
+  done
+  [ ${#pos[@]} -le 1 ] && dests=("$(g_cur_branch)")   # 브랜치를 안 적으면 지금 브랜치
+  if [ -n "$force" ]; then g_decide deny "강제 push 는 'gitsw p --force' 로만 합니다 (사용자 확인 필요). 원격에 새 커밋이 있으면 gitsw pl 후 다시 push 하세요."
+  elif [ -n "$del" ]; then g_decide ask "원격 브랜치/태그를 지웁니다."
+  elif [ -n "$big" ]; then g_decide ask "여러 브랜치를 한 번에 push 합니다 (--mirror/--all/--prune)."
+  elif [ -n "$tags" ]; then g_decide ask "태그/참조를 push 합니다."
+  else g_push_check "git push" "${pos[0]:-origin}" "${dests[@]}"; fi
+}
+
+guard_git_config() {
+  local i=$1 n=${#GW[@]} w scope="" write="" rd="" edit="" file="" pos=() key
+  while [ $i -lt $n ]; do
+    w=${GW[$i]}
+    case "$w" in
+      --global|--system) scope=global ;;
+      --local|--worktree) ;;
+      -f|--file) file=${GW[$((i+1))]:-}; i=$((i+1)) ;;
+      --file=*) file=${w#--file=} ;;
+      --blob|--type|--default|--comment|--value|--url) i=$((i+1)) ;;
+      --get|--get-all|--get-regexp|--get-urlmatch|--get-color|--get-colorbool|-l|--list|--show-origin|--show-scope|--name-only) rd=1 ;;
+      --unset|--unset-all|--add|--replace-all|--rename-section|--remove-section) write=1 ;;
+      -e|--edit) edit=1; write=1 ;;
+      -*) ;;
+      *) pos+=("$w") ;;
+    esac
+    i=$((i+1))
+  done
+  case "${pos[0]:-}" in
+    get|list) rd=1; pos=("${pos[@]:1}") ;;
+    set|unset|rename-section|remove-section) write=1; pos=("${pos[@]:1}") ;;
+    edit) edit=1; write=1; pos=("${pos[@]:1}") ;;
+  esac
+  [ -z "$rd" ] && [ -z "$write" ] && [ ${#pos[@]} -ge 2 ] && write=1
+  [ -z "$write" ] && return 0
+  if [ -n "$file" ]; then
+    g_protected "$file" && g_decide deny "$(tilde "$(g_path "$file")") 는 gitsw 가 관리하는 설정 파일이라 직접 바꿀 수 없습니다."
+    return 0
+  fi
+  if [ "$scope" = global ]; then g_decide deny "전역 git 설정(--global)은 gitsw 가 관리합니다. 필요하면 사용자에게 요청하세요."; return 0; fi
+  if [ -n "$edit" ]; then g_decide ask "저장소 git 설정을 편집합니다."; return 0; fi
+  key=$(lower "${pos[0]:-}")
+  g_sensitive_key "$key" && g_decide deny "작성자/원격/훅 설정($key)은 직접 바꾸지 말고 'gitsw use <계정>' 을 쓰세요."
+  return 0
+}
+
+guard_git_clone() {
+  local i=$1 n=${#GW[@]} w url=""
+  while [ $i -lt $n ]; do
+    w=${GW[$i]}
+    case "$w" in
+      -c|--config) guard_git_cfgkv "${GW[$((i+1))]:-}"; i=$((i+2)); continue ;;
+      --config=*) guard_git_cfgkv "${w#--config=}" ;;
+      -b|--branch|-o|--origin|--depth|--reference|--reference-if-able|--separate-git-dir|-u|--upload-pack|-j|--jobs|--filter|--template|--shallow-since|--shallow-exclude|--bundle-uri|--server-option) i=$((i+2)); continue ;;
+      -*) ;;
+      *) [ -z "$url" ] && url=$w ;;
+    esac
+    i=$((i+1))
+  done
+  [ -z "$url" ] && return 0
+  load_config >/dev/null 2>&1 || return 0
+  parse_url "$url" || return 0
+  host_is_managed "$U_HOST" || return 0
+  D_ACC=""
+  derive_account "$G_CWD" >/dev/null 2>&1
+  if [ -n "$U_ALIAS" ] || [ "$U_KIND" = ssh ] || [ -n "$D_ACC" ] || [ "$U_HOST" != github.com ]; then
+    g_decide deny "저장소는 'gitsw clone ${D_ACC:+$D_ACC }$url' 로 받으세요 (계정 자동 선택 + 잠금)."
+  fi
+}
+
+guard_git_checkout() {
+  local i=$1 w dd=""
+  for w in "${GW[@]:$i}"; do
+    case "$w" in
+      --) dd=1 ;;
+      -f|--force) g_decide ask "git checkout --force 가 수정 내용을 버립니다." ;;
+      .|./) g_decide ask "git checkout . 이 수정 내용을 되돌립니다." ;;
+      -*) ;;
+      *) [ -z "$dd" ] && [ -e "$(g_path "$w")" ] && [ -f "$(g_path "$w")" ] && g_decide ask "git checkout <파일> 이 그 파일의 수정 내용을 되돌립니다." ;;
+    esac
+  done
+  [ -n "$dd" ] && g_decide ask "git checkout -- <파일> 이 수정 내용을 되돌립니다."
+  return 0
+}
+
+guard_git_branch() {
+  local w del="" force=""
+  for w in "${GW[@]:$1}"; do
+    case "$w" in
+      -D) del=1; force=1 ;;
+      -d|--delete) del=1 ;;
+      -f|--force) force=1 ;;
+      -M|-C) g_decide ask "브랜치를 강제로 이름변경/복사합니다." ;;
+      --*) ;;
+      -*) case "$w" in *D*) del=1; force=1 ;; esac ;;
+    esac
+  done
+  [ -n "$del" ] && [ -n "$force" ] && g_decide ask "합쳐지지 않은 브랜치도 지웁니다 (git branch -D)."
+  return 0
+}
+
+guard_git() {
+  local i=$1 n=${#GW[@]} w sub
+  local G_CWD="$G_CWD"   # git -C 는 이 명령에만 적용
+  while [ $i -lt $n ]; do
+    w=${GW[$i]}
+    case "$w" in
+      -C) G_CWD=$(g_path "${GW[$((i+1))]:-.}"); i=$((i+2)) ;;
+      -c) guard_git_cfgkv "${GW[$((i+1))]:-}"; i=$((i+2)) ;;
+      --config-env) guard_git_cfgkv "${GW[$((i+1))]:-}"; i=$((i+2)) ;;
+      --config-env=*) guard_git_cfgkv "${w#--config-env=}"; i=$((i+1)) ;;
+      --git-dir|--work-tree|--namespace|--exec-path|--super-prefix) i=$((i+2)) ;;
+      -*) i=$((i+1)) ;;
+      *) break ;;
+    esac
+  done
+  [ $i -ge $n ] && return 0
+  sub=${GW[$i]}; i=$((i+1))
+  case "$sub" in
+    commit) guard_git_commit $i ;;
+    push) guard_git_push $i ;;
+    reset) g_has $i --hard && g_decide ask "git reset --hard 는 수정 내용을 지웁니다. 사용자 확인이 필요합니다." ;;
+    clean)
+      local cw force="" dry=""
+      for cw in "${GW[@]:$i}"; do
+        case "$cw" in -n|--dry-run) dry=1 ;; -f|--force) force=1 ;; --*) ;; -*) case "$cw" in *n*) dry=1 ;; esac; case "$cw" in *f*) force=1 ;; esac ;; esac
+      done
+      [ -n "$force" ] && [ -z "$dry" ] && g_decide ask "git clean 이 추적 안 되는 파일을 지웁니다." ;;
+    checkout) guard_git_checkout $i ;;
+    restore)
+      local rw staged="" worktree=""
+      for rw in "${GW[@]:$i}"; do case "$rw" in -S|--staged) staged=1 ;; -W|--worktree) worktree=1 ;; -SW|-WS) staged=1; worktree=1 ;; esac; done
+      { [ -z "$staged" ] || [ -n "$worktree" ]; } && g_decide ask "git restore 가 수정 내용을 되돌립니다." ;;
+    switch) { g_has $i --discard-changes || g_has $i -f || g_has $i --force; } && g_decide ask "git switch 가 수정 내용을 버립니다." ;;
+    branch) guard_git_branch $i ;;
+    stash) case "${GW[$i]:-}" in drop|clear) g_decide ask "stash 를 지웁니다 (git stash ${GW[$i]})." ;; esac ;;
+    remote) case "${GW[$i]:-}" in add|set-url|rename|remove|rm) g_decide ask "원격 주소를 바꿉니다. 계정 전환은 'gitsw use <계정>' 이 안전합니다." ;; esac ;;
+    config) guard_git_config $i ;;
+    clone) guard_git_clone $i ;;
+    filter-branch|filter-repo|replace) g_decide ask "git $sub 는 기록을 다시 씁니다. 사용자 확인이 필요합니다." ;;
+    update-ref) { g_has $i -d || g_has $i --stdin; } && g_decide ask "git update-ref 로 참조를 지우거나 바꿉니다." ;;
+    reflog) case "${GW[$i]:-}" in expire|delete) g_decide ask "reflog 를 지우면 복구가 어려워집니다." ;; esac ;;
+    gc) g_has_prefix $i --prune && g_decide ask "git gc --prune 은 복구 가능한 기록을 지웁니다." ;;
+    worktree) [ "${GW[$i]:-}" = remove ] && { g_has $i -f || g_has $i --force; } && g_decide ask "수정 중인 워크트리를 강제로 지웁니다." ;;
+  esac
+  return 0
+}
+
+guard_gitsw() {
+  local i=$1 sub="${GW[$1]:-}" rest=() lock acc
+  rest=("${GW[@]:$((i+1))}")
+  case "$sub" in
+    unlock) g_decide ask "저장소 계정 잠금을 풉니다. 사용자가 명시적으로 요청한 경우에만 하세요." ;;
+    use)
+      acc=${rest[0]:-}
+      case "$acc" in ""|-*) return 0 ;; esac
+      lock=$(git -C "$G_CWD" config --get gitswitch.account 2>/dev/null)
+      [ -n "$lock" ] && [ "$lock" != "$acc" ] && g_decide ask "잠긴 저장소($lock)의 계정을 $acc 로 바꿉니다. 사용자가 요청한 경우에만 하세요." ;;
+    p|push|cp)
+      if g_in_list --force "${rest[@]}" || g_in_list -f "${rest[@]}" || g_in_list --force-with-lease "${rest[@]}"; then
+        g_decide ask "강제 push(원격의 기존 커밋 덮어쓰기)입니다. 사용자 확인이 필요합니다."
+      else g_push_check "gitsw $sub" origin "$(g_cur_branch)"; fi ;;
+    pr|mr) case "${rest[0]:-}" in status|view) ;; *) g_pr_check "gitsw $sub" ;; esac ;;
+    fix) g_in_list --yes "${rest[@]}" && g_decide ask "push 안 한 커밋의 작성자를 고칩니다 (기록 다시 쓰기)." ;;
+    undo) g_decide ask "마지막 커밋을 취소합니다. 사용자가 요청한 경우에만 하세요." ;;
+    amend) g_decide ask "마지막 커밋을 고칩니다. 사용자가 요청한 경우에만 하세요." ;;
+    abort) g_decide ask "진행 중인 rebase/merge 를 취소합니다 (고치던 충돌 내용이 사라짐)." ;;
+    rescue) g_in_list --restore "${rest[@]}" && g_decide ask "백업 시점으로 브랜치를 되돌립니다." ;;
+    prune) g_in_list --yes "${rest[@]}" && g_decide ask "로컬 브랜치를 지웁니다." ;;
+    scan) g_in_list --fix "${rest[@]}" && g_decide ask "여러 저장소의 계정 설정을 한 번에 고칩니다." ;;
+    wt|worktree) [ "${rest[0]:-}" = rm ] && g_in_list --force "${rest[@]}" && g_decide ask "수정 중인 워크트리를 강제로 지웁니다." ;;
+    add|remove|rm|setup|import) g_decide deny "'gitsw $sub' 는 사용자가 터미널에서 직접 실행해야 합니다." ;;
+    sign) case "${rest[0]:-}" in on|off) g_decide deny "'gitsw sign ${rest[0]}' 은 사용자가 터미널에서 직접 실행해야 합니다." ;; esac ;;
+    org) case "${rest[0]:-list}" in list|ls) ;; *) g_decide ask "gitsw 조직 규칙을 바꿉니다." ;; esac ;;
+    config) case "${rest[0]:-show}" in path|show|cat|get|check) ;; *) g_decide ask "gitsw 설정을 바꿉니다." ;; esac ;;
+    protect) [ ${#rest[@]} -gt 0 ] && [ "${rest[0]}" != --list ] && g_decide ask "보호 브랜치 설정을 바꿉니다." ;;
+    ignore) g_decide ask "이 저장소의 gitsw 검사를 끄거나 켭니다." ;;
+    install|auto|uninstall|migrate|self-update) g_decide ask "gitsw 전역 설정(gitconfig, 훅, AI 규칙 등)을 바꿉니다." ;;
+    publish) g_decide ask "원격 저장소를 새로 만들고 push 합니다." ;;
+    ai) case "${rest[0]:-}" in --print|--skill) ;; *) g_decide ask "AI 도구 설정(CLAUDE.md, settings.json 등)을 바꿉니다." ;; esac ;;
+    ssh) g_decide ask "~/.ssh/config 를 정리합니다." ;;
+  esac
+  return 0
+}
+
+guard_fileops() {   # $1 프로그램 $2 시작 위치
+  local prog="$1" i=$2 n=${#GW[@]} w inplace="" targets=() last=""
+  while [ $i -lt $n ]; do
+    w=${GW[$i]}
+    case "$w" in
+      $'\036'*) ;;
+      -i|-i*|--in-place*|-pi|-pi*) inplace=1 ;;
+      of=*) targets+=("${w#of=}"); last=${w#of=} ;;
+      -*) ;;
+      *) targets+=("$w"); last=$w ;;
+    esac
+    i=$((i+1))
+  done
+  case "$prog" in
+    sed|gsed|perl) [ -z "$inplace" ] && return 0 ;;
+    cp|rsync|install|ln) targets=("$last") ;;
+  esac
+  for w in "${targets[@]}"; do
+    [ -n "$w" ] || continue
+    if g_protected "$w"; then
+      g_decide deny "$(tilde "$(g_path "$w")") 는 gitsw 가 관리하는 파일입니다. 직접 바꾸지 말고 gitsw 명령을 쓰거나 사용자에게 요청하세요."
+      return 0
+    fi
+  done
+}
+
+guard_simple() {   # GW 배열(단순 명령 하나) 검사
+  local n=${#GW[@]} i=0 w prog
+  for w in "${GW[@]}"; do
+    case "$w" in
+      $'\036'*) g_protected "${w#$'\036'}" && g_decide deny "$(tilde "$(g_path "${w#$'\036'}")") 는 gitsw 가 관리하는 파일이라 직접 쓸 수 없습니다." ;;
+    esac
+  done
+  while [ $i -lt $n ]; do
+    w=${GW[$i]}
+    case "$w" in
+      $'\036'*|if|then|else|elif|fi|do|done|while|until|'{'|'}'|'!'|time|nohup|command|builtin|exec|noglob|'[['|xargs) i=$((i+1)); continue ;;
+      sudo|doas) i=$((i+1)); while [ $i -lt $n ] && [ "${GW[$i]#-}" != "${GW[$i]}" ]; do i=$((i+1)); done; continue ;;
+      env)
+        i=$((i+1))
+        while [ $i -lt $n ]; do
+          case "${GW[$i]}" in -u|--unset|-C|--chdir) i=$((i+2)) ;; -*) i=$((i+1)) ;; *=*) guard_env "${GW[$i]}"; i=$((i+1)) ;; *) break ;; esac
+        done
+        continue ;;
+      nice|timeout|caffeinate|stdbuf)
+        i=$((i+1))
+        while [ $i -lt $n ]; do case "${GW[$i]}" in -*|[0-9]*) i=$((i+1)) ;; *) break ;; esac; done
+        continue ;;
+      *=*)
+        case "${w%%=*}" in ""|[0-9]*|*[!A-Za-z0-9_]*) break ;; esac
+        guard_env "$w"; i=$((i+1)); continue ;;
+      *) break ;;
+    esac
+  done
+  [ $i -ge $n ] && return 0
+  prog=${GW[$i]##*/}
+  i=$((i+1))
+  case "$prog" in
+    git) guard_git $i ;;
+    gitsw) guard_gitsw $i ;;
+    cd|pushd) [ $i -lt $n ] && case "${GW[$i]}" in -*) ;; *) G_CWD=$(g_path "${GW[$i]}") ;; esac ;;
+    export|declare|typeset|local|readonly)
+      while [ $i -lt $n ]; do case "${GW[$i]}" in *=*) guard_env "${GW[$i]}" ;; esac; i=$((i+1)); done ;;
+    cp|mv|rm|ln|tee|sed|gsed|perl|chmod|chown|truncate|install|rsync|dd|touch|unlink|shred) guard_fileops "$prog" $i ;;
+    ssh-keygen)
+      g_has $i -l || g_has $i -y || g_has $i -F || g_has $i -Y || g_has $i -L || g_has $i -lf || \
+        g_decide ask "SSH 키를 만들거나 바꿉니다. 계정 키는 사용자가 'gitsw setup' 으로 관리합니다." ;;
+    ssh-add) { g_has $i -D || g_has $i -d || g_has $i -x || g_has $i -X; } && g_decide ask "ssh-agent 의 키를 지우거나 잠급니다." ;;
+  esac
+  return 0
+}
+
+guard_bash() {   # $1 명령 문자열
+  local line
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    GW=()
+    IFS=$'\037' read -r -a GW <<< "$line"
+    guard_simple
+  done < <(printf '%s\n' "$1" | awk "$GUARD_AWK")
+}
+
+guard_file_edit() {   # Edit/Write 도구의 파일 경로
+  local p="$1"
+  [ -z "$p" ] && return 0
+  if g_protected "$p"; then
+    g_decide deny "$(tilde "$(g_path "$p")") 는 gitsw 가 관리하는 파일이라 직접 고칠 수 없습니다. gitsw 명령을 쓰거나 사용자에게 요청하세요."
+    return 0
+  fi
+  [ "$(g_path "$p")" = "$CLAUDE_DIR/settings.json" ] && g_decide ask "Claude Code 설정(~/.claude/settings.json)을 바꿉니다. gitsw 검사 훅이 빠지지 않게 주의하세요."
+  return 0
+}
+
+guard_cmd() {   # gitsw guard --claude  (Claude Code PreToolUse 훅)
+  [ "${1:-}" = --claude ] || die "사용법: gitsw guard --claude  (Claude Code 훅 전용, 표준입력 JSON)"
+  local input tool="" cwd="" arg=""
+  input=$(cat)
+  command -v jq >/dev/null 2>&1 || return 0
+  case "$input" in *git*|*GIT*|*.ssh*|*ssh-*|*hooks*) ;; *) return 0 ;; esac
+  { IFS= read -r -d '' tool; IFS= read -r -d '' cwd; IFS= read -r -d '' arg; } < <(printf '%s' "$input" | \
+    jq -j '(.tool_name // ""), "\u0000", (.cwd // ""), "\u0000", (.tool_input.command // .tool_input.file_path // .tool_input.notebook_path // ""), "\u0000"' 2>/dev/null)
+  G_DEC=""; G_REASON=""; G_CWD=${cwd:-$PWD}
+  case "$tool" in
+    Bash) guard_bash "$arg" ;;
+    Edit|Write|MultiEdit|NotebookEdit) guard_file_edit "$arg" ;;
+    *) return 0 ;;
+  esac
+  [ -z "$G_DEC" ] && return 0
+  jq -cn --arg d "$G_DEC" --arg r "[gitsw] $G_REASON" '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: $d, permissionDecisionReason: $r}}'
+  return 0
+}
+
+
+# ================= install / uninstall / migrate / export / import =================
+
+read -r -d '' ZSH_BLOCK <<'EOF'
+# >>> gitsw >>>  ('gitsw install' 이 관리합니다)
+[[ ":$PATH:" != *":$HOME/bin:"* ]] && export PATH="$HOME/bin:$PATH"
+alias gitsw='noglob gitsw'
+_gitsw_prompt() {
+  git rev-parse --is-inside-work-tree &>/dev/null || return
+  local a; a=$(git config --get gitswitch.account)
+  if [[ -n $a ]]; then print -n "%F{green}[$a]%f"; else print -n "%F{yellow}[계정?]%f"; fi
+}
+setopt PROMPT_SUBST
+[[ $RPROMPT == *_gitsw_prompt* ]] || RPROMPT='$(_gitsw_prompt)'"$RPROMPT"
+# <<< gitsw <<<
+EOF
+
+install_cmd() {
+  git_version_ok || die "git 2.36 이상이 필요합니다. 지금: git ${GIT_VER:-?} (brew install git)"
+  load_config || die "설정 파일이 없습니다: $(tilde "$CFG") → 먼저 gitsw migrate (v1 에서 옮기기) 또는 gitsw add"
+  need_config
+  local self n=0 d
+  self=$(self_path); chmod +x "$self"
+  mkdir -p "$HOME/bin"
+  [ "$(resolve_link "$BIN_LINK" 2>/dev/null)" != "$self" ] && ln -sfn "$self" "$BIN_LINK"
+  [ -L "$HOME/bin/gitswitch" ] && rm -f "$HOME/bin/gitswitch"
+  ok "gitsw 명령 연결: ~/bin/gitsw → $(tilde "$self")"
+  backup_file "$ZSHRC"
+  update_marked_block "$ZSHRC" "# >>> gitsw >>>" "# <<< gitsw <<<" "$ZSH_BLOCK" "" "alias gitsw='noglob gitsw'"
+  ok "터미널 연동: 따옴표 없는 주소 + 오른쪽에 현재 계정 표시"
+  # 순서 고정: [user] → 자동 규칙 → 훅 (몇 번을 설치해도 ~/.gitconfig 내용이 같도록)
+  backup_global
+  apply_safety_settings
+  say "${BOLD}자동 규칙${RESET}"
+  install_auto_rules
+  ok "규칙 밖 저장소는 작성자가 없어서 커밋이 막히게 했습니다 (user.useConfigOnly)"
+  if install_global_hooks; then ok "전역 검사 훅: 모든 저장소/워크트리에서 작성자·비밀값·큰 파일·강제 push 검사"
+  else warn "이 git 은 전역 훅을 지원하지 않아 저장소별 보조 훅으로만 검사합니다"; fi
+  while IFS= read -r d; do
+    [ -n "$(git -C "$d" config --get gitswitch.account)" ] || continue
+    install_repo_hooks "$d" >/dev/null 2>&1 && n=$((n+1))
+  done < <(find_repos)
+  ok "잠긴 저장소 ${n}개에 보조 훅 설치/갱신 (Apple git 등 전역 훅을 모르는 git 대비)"
+  apply_ssh_strict
+  say "${BOLD}AI 도구${RESET}"
+  write_ai_rules
+  write_skills
+  write_claude_settings
+  echo ""
+  ok "설치 완료! 지금 터미널에 적용: ${BOLD}source ~/.zshrc${RESET}"
+  [ -n "$BACKUP_SESSION" ] && dim "  (바꾸기 전 파일 백업: $(tilde "$BACKUP_SESSION"))"
+  log_action install "version=$GITSW_VERSION"
+}
+
+uninstall_cmd() {
+  local yes="" ev d
+  [ "${1:-}" = --yes ] && yes=1
+  confirm "gitsw 전역 설정(자동 규칙, 검사 훅, AI 연동, 터미널 연동)을 지웁니다. 계정 설정 파일/SSH 키/저장소 잠금은 남깁니다. 계속할까요?" "$yes" "gitsw uninstall --yes"
+  load_config >/dev/null 2>&1
+  backup_global
+  for ev in $HOOK_EVENTS; do git config --global --remove-section "hook.gitsw-$ev" 2>/dev/null; done
+  rm -f "$HOOK_DISPATCHER"
+  [ ${#ACC_IDS[@]} -gt 0 ] && remove_managed_rules "${ACC_IDS[*]}"
+  if grep -q '# >>> gitsw >>>' "$ZSHRC" 2>/dev/null; then backup_file "$ZSHRC"; remove_marked_block "$ZSHRC" "# >>> gitsw >>>" "# <<< gitsw <<<"; fi
+  ai_remove
+  if grep -q '^# >>> gitsw strict >>>' "$SSH_CONFIG" 2>/dev/null; then
+    backup_file "$SSH_CONFIG"; remove_marked_block "$SSH_CONFIG" "# >>> gitsw strict >>>" "# <<< gitsw strict <<<"
+  fi
+  while IFS= read -r d; do remove_repo_hooks "$d"; done < <(find_repos)
+  ok "gitsw 전역 설정을 지웠습니다.${BACKUP_SESSION:+ (백업: $(tilde "$BACKUP_SESSION"))}"
+  say "남긴 것: 설정 파일 $(tilde "$CFG"), SSH 키/설정, 저장소별 작성자/잠금, user.useConfigOnly=true, ~/bin/gitsw"
+  say "다시 설치: gitsw install"
+}
+
+migrate_cmd() {   # [기존 gitsw(v1) 경로] [--force]
+  local src="" force="" a line id email host port tmp root
+  for a in "$@"; do case "$a" in --force) force=1 ;; *) src="$a" ;; esac; done
+  [ -f "$CFG" ] && [ -z "$force" ] && die "설정 파일이 이미 있습니다: $(tilde "$CFG") (덮어쓰려면 --force)"
+  if [ -z "$src" ]; then
+    for a in "$HOME/Develop/gitsw" "$(dirname "$(self_path)")/gitsw.v1"; do
+      if [ -f "$a" ] && [ "$(resolve_link "$a")" != "$(self_path)" ] && grep -q '^ACCOUNTS=(' "$a" 2>/dev/null; then src="$a"; break; fi
+    done
+  fi
+  { [ -n "$src" ] && [ -f "$src" ]; } || die "옮길 기존 gitsw(v1) 파일을 찾지 못했습니다. 사용법: gitsw migrate <기존 gitsw 경로>"
+  grep -q '^ACCOUNTS=(' "$src" || die "v1 gitsw 파일이 아닙니다: $src"
+  tmp=$(mktemp "${TMPDIR:-/tmp}/gitsw-migrate.XXXXXX") || die "임시 파일을 만들 수 없습니다."
+  cfg_header > "$tmp"
+  root=$(sed -n 's/^SCAN_ROOT="\(.*\)"$/\1/p' "$src" | head -1)
+  [ -n "$root" ] && git config -f "$tmp" gitsw.scanRoot "$root"
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    IFS='|' read -r id email host port <<< "$line"
+    [ -z "$id" ] && continue
+    host=${host:-github.com}
+    [ -n "$port" ] && [ "$port" != 22 ] && host="$host:$port"
+    git config -f "$tmp" "account.$id.email" "$email"
+    git config -f "$tmp" --add "account.$id.host" "$host"
+  done < <(awk '/^ACCOUNTS=\(/ { f = 1; next } f && /^\)/ { f = 0 } f' "$src" | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    git config -f "$tmp" "folder.${line%%|*}.account" "${line#*|}"
+  done < <(awk '/^FOLDERS=\(/ { f = 1; next } f && /^\)/ { f = 0 } f' "$src" | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
+  if ! GITSW_CONFIG="$tmp" "$(self_path)" config check >/dev/null 2>&1; then
+    GITSW_CONFIG="$tmp" "$(self_path)" config check 2>&1 | sed 's/^/  /' >&2
+    rm -f "$tmp"; die "옮긴 설정에 문제가 있어 멈췄습니다."
+  fi
+  mkdir -p "$(dirname "$CFG")"
+  [ -f "$CFG" ] && backup_file "$CFG"
+  mv "$tmp" "$CFG"
+  ok "v1 설정을 옮겼습니다: $(tilde "$src") → $(tilde "$CFG")"
+  reset_config_state; load_config
+  say "  계정: $(account_names)"
+  say "다음: gitsw install  (조직 규칙 추가: gitsw org add github.com/<조직> <계정>)"
+}
+
+export_cmd() {   # [파일] — 설정만 (SSH 키 제외)
+  [ -f "$CFG" ] || die "설정 파일이 없습니다: $(tilde "$CFG")"
+  if [ -n "$1" ]; then cp "$CFG" "$1" && ok "설정을 내보냈습니다: $1"
+  else cat "$CFG"; fi
+  dim "  (SSH 키는 포함하지 않습니다 — 새 컴퓨터에서는 gitsw import 후 gitsw setup 으로 키를 만들고 등록하세요)" >&2
+}
+
+import_cmd() {   # <파일> [--yes]
+  local f="" yes="" a
+  for a in "$@"; do case "$a" in --yes) yes=1 ;; *) f="$a" ;; esac; done
+  [ -n "$f" ] && [ -f "$f" ] || die "사용법: gitsw import <설정 파일>"
+  can_prompt || [ -n "$yes" ] || die "설정 가져오기는 사용자가 터미널에서 직접 실행해야 합니다."
+  GITSW_CONFIG="$f" "$(self_path)" config check >/dev/null 2>&1 || { GITSW_CONFIG="$f" "$(self_path)" config check 2>&1 | sed 's/^/  /' >&2; die "가져올 설정에 문제가 있습니다."; }
+  [ -f "$CFG" ] && confirm "지금 설정($(tilde "$CFG"))을 바꿉니다 (백업 남김). 계속할까요?" "$yes" "gitsw import $f --yes"
+  mkdir -p "$(dirname "$CFG")"
+  backup_file "$CFG"
+  cp "$f" "$CFG"
+  ok "설정을 가져왔습니다. 이어서: gitsw install, gitsw setup (SSH 키)"
+}
+
+# ================= report / version / self-update =================
+
+read -r -d '' REPORT_AWK <<'AWKEOF'
+function jget(l, k,   re, v) {
+  re = "\"" k "\":\"([^\"\\\\]|\\\\.)*\""
+  if (match(l, re)) {
+    v = substr(l, RSTART + length(k) + 4, RLENGTH - length(k) - 5)
+    gsub(/\\"/, "\"", v); gsub(/\\\\/, "\\", v)
+    return v
+  }
+  return ""
+}
+{
+  ts = jget($0, "ts"); if (ts < s) next
+  ev = jget($0, "event"); ac = jget($0, "actor"); repo = jget($0, "repo"); acc = jget($0, "account")
+  if (index(repo, home) == 1) repo = "~" substr(repo, length(home) + 1)
+  if (repo == "") repo = "(저장소 밖)"
+  cnt[ac SUBSEP ev]++; actors[ac] = 1
+  if (!(repo in seen)) { seen[repo] = 1; order[++nr] = repo }
+  det = ""
+  if (ev == "commit") det = jget($0, "sha") " \"" jget($0, "subject") "\""
+  else if (ev == "push") det = jget($0, "remote")
+  else if (ev == "pr" || ev == "clone") det = jget($0, "url")
+  else if (ev == "fix") det = jget($0, "count") "개"
+  t = substr(ts, 6, 5) " " substr(ts, 12, 5)
+  rows[repo] = rows[repo] sprintf("    %s  %-7s %-8s %-12s %s\n", t, ac, ev, acc, det)
+  total++
+}
+END {
+  if (total == 0) { print "기록 없음 (" s " 이후)"; exit }
+  print "gitsw 작업 기록 (" s " 이후, " total "건)"
+  for (a in actors) {
+    line = "  " a ":"
+    for (k in cnt) { split(k, p, SUBSEP); if (p[1] == a) line = line " " p[2] " " cnt[k] }
+    print line
+  }
+  for (i = 1; i <= nr; i++) { print ""; print "  " order[i]; printf "%s", rows[order[i]] }
+}
+AWKEOF
+
+report_cmd() {   # [--today | --days N | --since YYYY-MM-DD] [--json]
+  local since json=""
+  since=$(date +%Y-%m-%d)
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --today) since=$(date +%Y-%m-%d) ;;
+      --days) shift; is_number "$1" || die "--days 뒤에 숫자가 필요합니다."; since=$(date -v-"$1"d +%Y-%m-%d 2>/dev/null || date -d "-$1 days" +%Y-%m-%d) ;;
+      --since) shift; since="$1" ;;
+      --json) json=1 ;;
+      *) die "사용법: gitsw report [--today | --days N | --since YYYY-MM-DD] [--json]" ;;
+    esac
+    shift
+  done
+  if [ ! -f "$ACTION_LOG" ]; then
+    if [ -n "$json" ]; then echo "[]"; else say "아직 기록이 없습니다. ($(tilde "$ACTION_LOG"))"; fi
+    return 0
+  fi
+  if [ -n "$json" ]; then
+    awk -v s="$since" 'BEGIN { printf "["; n = 0 } { if (match($0, /"ts":"[^"]*"/)) { ts = substr($0, RSTART + 6, RLENGTH - 7); if (ts >= s) { printf "%s%s", (n++ ? "," : ""), $0 } } } END { print "]" }' "$ACTION_LOG"
+    return 0
+  fi
+  awk -v s="$since" -v home="$HOME" "$REPORT_AWK" "$ACTION_LOG"
+}
+
+version_cmd() {
+  local dir d
+  dir=$(dirname "$(self_path)")
+  d=$(git -C "$dir" describe --always --dirty --tags 2>/dev/null)
+  say "gitsw $GITSW_VERSION${d:+ ($d)} — $(tilde "$(self_path)")"
+}
+
+self_update_cmd() {
+  local dir
+  dir=$(dirname "$(self_path)")
+  git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "gitsw 가 git 저장소 안에 있지 않습니다: $dir"
+  git -C "$dir" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1 || die "gitsw 저장소에 연결된 원격 브랜치가 없습니다. (원격을 연결한 뒤 사용하세요)"
+  (cd "$dir" && net_env && git pull --ff-only -q) || die "업데이트 실패 (gitsw 저장소에 직접 고친 내용이 있으면 먼저 정리하세요)"
+  ok "gitsw 를 업데이트했습니다: $(git -C "$dir" log -1 --format='%h %s')"
+  exec "$(self_path)" install
+}
+
+# ================= 도움말 =================
+
+help_cmd() {
+  load_config >/dev/null 2>&1
+  cat <<EOF
+gitsw $GITSW_VERSION — 여러 Git 계정 관리 (계정: $(account_names))
+
+매일 쓰는 것
+  gitsw preflight [--json]                 커밋/push 전 한 번에 점검 (PREFLIGHT=OK|WARN|STOP)
+  gitsw ck [--json]                        수정한 파일 / push 안 한 커밋 / 받을 커밋 / 진행 중 작업
+  gitsw c -m 제목 [-m 본문]                 커밋 (준비된 파일만, 터미널에서는 없으면 전체)
+  gitsw c -a -m 메시지                      변경사항 전부 커밋   (-F 파일, --trailer "키: 값")
+  gitsw p [--force]                        push (첫 push 면 원격 브랜치 연결, --force 는 확인 후)
+  gitsw cp [-a] -m 메시지                   커밋 + push
+  gitsw pl                                 pull (내 커밋은 위로, 수정 중인 파일 보존)
+  gitsw up                                 기본 브랜치(main 등) 최신을 지금 브랜치에 반영
+  gitsw l [개수] / gitsw d                  최근 커밋 그래프 / 바뀐 내용
+  gitsw b [이름]                           브랜치 목록 / 이동 / 새로 만들기
+  gitsw undo / gitsw amend [메시지]         마지막 커밋 취소 / 고치기 (push 전만)
+  gitsw continue / gitsw abort             충돌난 rebase/merge 이어가기 / 취소
+  gitsw rescue [번호] [--branch 이름|--restore]  자동 백업 목록 / 복구
+  gitsw o                                  저장소 웹페이지
+
+PR / MR
+  gitsw pr --title 제목 [--body 내용] [--base 브랜치] [--draft] [--web]
+  gitsw pr status / gitsw ci               PR 상태·리뷰 / CI 결과
+  gitsw publish [이름] [--public]          원격 저장소 새로 만들기 + 첫 push (기본 비공개)
+
+받기
+  gitsw clone [계정] <저장소|주소> [폴더]   계정으로 clone + 잠금 (규칙으로 계정 자동, 계정 폴더에 받음)
+  gitsw fork  [계정] <원본> [폴더]          포크 + clone + upstream 연결
+  gitsw sync                               포크를 원본 최신으로
+
+저장소
+  gitsw status [--json] [--strict]         이 저장소의 계정/잠금 상태
+  gitsw use [계정]                         이 저장소를 계정으로 전환 + 잠금
+  gitsw unlock / gitsw ignore [--off]      잠금 해제 / gitsw 검사에서 빼기
+  gitsw protect [브랜치...|--rm 브랜치]     직접 push 금지 브랜치
+  gitsw fix [--yes]                        push 안 한 커밋 중 작성자가 잘못된 것 고치기
+  gitsw scan [폴더] [--fix] [--json]       폴더 아래 모든 저장소 점검
+  gitsw audit [폴더|.] [--since 날짜]       push 된 커밋 중 다른 내 계정으로 된 것 보고
+  gitsw prune [--gone] [--yes]             합쳐진 브랜치 정리
+  gitsw wt [ls|new 브랜치|rm 폴더]          워크트리
+  gitsw report [--today|--days N]          gitsw/AI 작업 기록
+
+계정/설정
+  gitsw list [--check] [--json]            등록된 계정
+  gitsw add / gitsw remove <아이디>        계정 추가/삭제 (사용자만)
+  gitsw org [add <서버/조직> <계정>|rm]     조직 → 계정 규칙
+  gitsw config [show|path|get|set|add|unset|edit]   설정 파일 ($(tilde "$CFG"))
+  gitsw setup [계정]                       SSH 키 생성·등록 (사용자만)
+  gitsw auto                               주소/폴더/조직 자동 규칙 다시 만들기
+  gitsw sign on|off                        커밋 서명(Verified)
+  gitsw ai [--print|--remove]              AI 도구(Claude, Codex) 규칙·스킬·검사 훅
+  gitsw ssh prune                          쓰지 않는 SSH Host 정리
+  gitsw install / gitsw uninstall          전체 설치·갱신 / 전역 설정 제거
+  gitsw migrate / export / import          v1 에서 옮기기 / 설정 내보내기 / 가져오기
+  gitsw doctor [--json] [--no-net]         문제 진단
+  gitsw version / gitsw self-update        버전 / 업데이트
+
+종료코드: 0 정상, 1 문제/실패, 2 사용자 확인 필요(--yes), 3 커밋할 것 없음, 4 올릴 파일을 고르지 않음
+EOF
+}
+
+menu_cmd() {
+  load_config >/dev/null 2>&1
+  say "${BOLD}gitsw${RESET}  ($(account_names))"
+  echo "  1) 이 저장소 계정 전환 + 잠금"
+  echo "  2) clone"
+  echo "  3) fork 해서 clone"
+  echo "  4) 현재 저장소 상태"
+  echo "  5) 등록된 계정 (접속 확인)"
+  echo "  6) 저장소 전체 점검 ($CFG_SCAN_ROOT)"
+  echo "  7) 문제 진단"
+  echo "  8) 계정 추가"
+  echo "  9) 전체 설치/갱신"
+  echo "  h) 전체 명령 보기"
+  local menu src
+  read -r -p "번호: " menu
+  case "$menu" in
+    1) need_config; select_account; use_cmd "$SA_ID" ;;
+    2) clone_cmd ;;
+    3) need_config; select_account; read -r -p "원본 저장소 (owner/repo 또는 주소): " src; fork_cmd "$SA_ID" "$src" ;;
+    4) status_cmd ;;
+    5) list_cmd --check ;;
+    6) scan_cmd ;;
+    7) doctor_cmd ;;
+    8) add_cmd ;;
+    9) install_cmd ;;
+    h|H) help_cmd ;;
+    *) die "잘못된 선택입니다." ;;
+  esac
+}
+
+# ================= 명령줄 =================
+
+detect_actor
+setup_colors
+
+case "${1:-}" in
+  help|-h|--help) help_cmd; exit 0 ;;
+  version|-v|--version) version_cmd; exit 0 ;;
+  c|commit) shift; commit_cmd "$@"; rc=$?; [ $rc -eq 3 ] && rc=0; exit $rc ;;
+  p|push) shift; push_cmd "$@"; exit $? ;;
+  cp) shift; commit_push_cmd "$@"; exit $? ;;
+  pl|pull) pull_cmd; exit $? ;;
+  up) up_cmd; exit $? ;;
+  ck|check) shift; check_cmd "$@"; exit $? ;;
+  preflight|pf) shift; preflight_cmd "$@"; exit $? ;;
+  l|log) log_cmd "${2:-}"; exit $? ;;
+  d|diff) shift; diff_cmd "$@"; exit 0 ;;
+  b|branch) branch_cmd "${2:-}"; exit $? ;;
+  undo) undo_cmd; exit $? ;;
+  amend) shift; amend_cmd "$@"; exit $? ;;
+  continue) continue_cmd; exit $? ;;
+  abort) shift; abort_cmd "$@"; exit $? ;;
+  rescue) shift; rescue_cmd "$@"; exit $? ;;
+  o|open) open_cmd; exit $? ;;
+  pr|mr) shift; pr_cmd "$@"; exit $? ;;
+  ci) ci_cmd; exit $? ;;
+  publish) shift; publish_cmd "$@"; exit $? ;;
+  status|st) shift; status_cmd "$@"; exit $? ;;
+  use) use_cmd "${2:-}"; exit $? ;;
+  unlock) shift; unlock_cmd "$@"; exit $? ;;
+  ignore) shift; ignore_cmd "$@"; exit $? ;;
+  protect) shift; protect_cmd "$@"; exit $? ;;
+  clone) shift; clone_cmd "$@"; exit $? ;;
+  fork) shift; fork_cmd "$@"; exit $? ;;
+  sync) sync_cmd; exit $? ;;
+  fix) fix_cmd "${2:-}"; exit $? ;;
+  scan) shift; scan_cmd "$@"; exit $? ;;
+  audit) shift; audit_cmd "$@"; exit $? ;;
+  prune) shift; prune_cmd "$@"; exit $? ;;
+  wt|worktree) shift; wt_cmd "$@"; exit $? ;;
+  report) shift; report_cmd "$@"; exit $? ;;
+  list|ls) shift; list_cmd "$@"; exit $? ;;
+  add) add_cmd; exit $? ;;
+  remove|rm) remove_cmd "${2:-}"; exit $? ;;
+  org) shift; org_cmd "$@"; exit $? ;;
+  config) shift; config_cmd "$@"; exit $? ;;
+  setup) setup_cmd "${2:-}"; exit $? ;;
+  auto) install_auto_rules; exit $? ;;
+  sign) sign_cmd "${2:-}" "${3:-}"; exit $? ;;
+  ai) shift; ai_cmd "$@"; exit $? ;;
+  ssh) shift; ssh_cmd "$@"; exit $? ;;
+  install) install_cmd; exit $? ;;
+  uninstall) shift; uninstall_cmd "$@"; exit $? ;;
+  migrate) shift; migrate_cmd "$@"; exit $? ;;
+  export) export_cmd "${2:-}"; exit $? ;;
+  import) shift; import_cmd "$@"; exit $? ;;
+  doctor) shift; doctor_cmd "$@"; exit $? ;;
+  self-update) self_update_cmd; exit $? ;;
+  guard) shift; guard_cmd "$@"; exit 0 ;;
+  _hook) shift; hook_main "$@"; exit $? ;;
+  "") menu_cmd; exit $? ;;
+  *) err "알 수 없는 명령: $1"; help_cmd; exit 1 ;;
+esac

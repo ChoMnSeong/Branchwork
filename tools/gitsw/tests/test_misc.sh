@@ -1,0 +1,272 @@
+# shellcheck shell=bash
+# 상태 출력 / scan / doctor / install / AI 연동 / PR / 기타
+
+misc_repo() {
+  mk_config; install_quiet
+  mk_remote_seeded github-alice alice/m alice@example.com
+  gitsw clone alice alice/m "$HOME/Develop/alice/m" >/dev/null 2>&1 || fail clone
+  cd "$HOME/Develop/alice/m" || fail cd
+}
+
+test_json_outputs_valid_and_no_colors() {
+  misc_repo
+  echo x > x
+  run gitsw status --json; assert_ok; assert_json "$OUT"
+  assert_eq "$(printf '%s' "$OUT" | jq -r .pushAccount)" "alice"
+  run gitsw ck --json; assert_ok; assert_json "$OUT"
+  assert_eq "$(printf '%s' "$OUT" | jq -r '.untracked[0]')" "x"
+  run gitsw preflight --json; assert_ok; assert_json "$OUT"
+  assert_eq "$(printf '%s' "$OUT" | jq -r .result)" "OK"
+  run gitsw scan --json; assert_json "$OUT"
+  run gitsw doctor --json --no-net; assert_json "$OUT"
+  run gitsw list --json; assert_json "$OUT"
+  GITSW_COLOR=auto run gitsw status
+  case "$OUT" in *$'\033['*) fail "파이프 출력에 색상 코드가 있음" ;; esac
+}
+
+test_preflight_detects_problems() {
+  misc_repo
+  git config user.email bob@example.com
+  run gitsw preflight; assert_rc 1; assert_out "PREFLIGHT=STOP"; assert_out "gitsw use alice"
+  git config user.email alice@example.com
+  git config remote.origin.url git@github-bob:alice/m.git
+  run gitsw preflight --no-fetch; assert_rc 1; assert_out "push 주소"
+  git config remote.origin.url git@github-alice:alice/m.git
+  run gitsw preflight --no-fetch; assert_ok; assert_out "PREFLIGHT=OK"
+  run gitsw status --strict; assert_ok
+}
+
+test_status_warns_rule_mismatch() {
+  mk_config; install_quiet
+  mk_remote_seeded github-alice teamb/x
+  gitsw clone alice https://github.com/teamb/x "$HOME/Develop/alice/x" >/dev/null 2>&1 || fail clone
+  cd "$HOME/Develop/alice/x" || fail cd
+  # teamb 조직 규칙은 bob 인데 alice 로 잠금 → 경고
+  run gitsw status; assert_out "잠금(alice)과 규칙(bob"
+  run gitsw scan; assert_fail; assert_out "잠금과 규칙이 다름"
+}
+
+test_sync_exit_code_on_failure() {
+  mk_config; install_quiet
+  mk_remote_seeded github-alice orig/proj
+  mk_repo "$HOME/Develop/alice/fork" "git@github-alice:alice/proj.git"
+  cd "$HOME/Develop/alice/fork" && gitsw use alice >/dev/null
+  git remote add upstream git@github-alice:orig/proj.git
+  git fetch -q upstream && git checkout -q -b main upstream/main 2>/dev/null || git reset -q --hard upstream/main
+  echo mine > m; gitsw c -a -m mine >/dev/null
+  git clone -q "$FAKE_REMOTES/github-alice/orig/proj.git" "$T/o"
+  git -C "$T/o" -c user.name=o -c user.email=o@x commit -q --allow-empty -m theirs
+  GITSW_SKIP=all git -C "$T/o" push -q origin main
+  run gitsw sync; assert_fail "갈라졌으면 sync 는 실패 종료코드"
+}
+
+test_scan_fix_and_hooks() {
+  mk_config; install_quiet
+  mk_repo "$HOME/Develop/bob/u" "https://github.com/bob/u.git"
+  mk_repo "$HOME/Develop/bob/n"
+  run gitsw scan; assert_fail; assert_out "잠금 없음 → 제안: bob"
+  run gitsw scan --fix; assert_ok
+  assert_eq "$(git -C "$HOME/Develop/bob/u" config gitswitch.account)" "bob"
+  assert_eq "$(git -C "$HOME/Develop/bob/u" config remote.origin.url)" "git@github-bob:bob/u.git"
+  run gitsw scan --json; assert_ok
+  assert_eq "$(printf '%s' "$OUT" | jq -r .problems)" "0"
+}
+
+test_install_idempotent_and_rule_order() {
+  mk_config
+  install_quiet; install_quiet
+  local list
+  list=$(git config --global --list --name-only)
+  [ "$(printf '%s\n' "$list" | grep -c '^hook\.gitsw-pre-commit\.command$')" -eq 1 ] || fail "전역 훅이 중복 등록됨"
+  [ "$(printf '%s\n' "$list" | grep -c 'url.git@github-bob:teamb/.insteadof')" -eq 3 ] || fail "조직 insteadOf 개수\n$list"
+  # 폴더 규칙이 먼저, 조직 규칙이 마지막
+  local fl ol
+  fl=$(printf '%s\n' "$list" | grep -n 'includeif.gitdir:' | head -1 | cut -d: -f1)
+  ol=$(printf '%s\n' "$list" | grep -n 'includeif.hasconfig:remote.\*.url:git@github-bob:teamb/' | tail -1 | cut -d: -f1)
+  [ "$fl" -lt "$ol" ] || fail "규칙 순서가 틀림 (folder $fl, org $ol)"
+  [ "$(git config --global user.useConfigOnly)" = true ] || fail "useConfigOnly"
+  grep -q '# >>> gitsw >>>' "$HOME/.zshrc" || fail "zshrc 연동"
+  [ "$(grep -c '# >>> gitsw >>>' "$HOME/.zshrc")" -eq 1 ] || fail "zshrc 블록 중복"
+  echo tok > "$FAKE_GH/tokens/alice"; echo tok > "$FAKE_GH/tokens/bob"
+  run gitsw doctor --no-net; assert_ok; assert_out "DOCTOR_PROBLEMS=0"
+  rm "$FAKE_GH/tokens/bob"
+  run gitsw doctor --no-net; assert_fail "문제가 있으면 doctor 종료코드 1"; assert_out "gh 에 bob 로그인 안 됨"
+}
+
+test_claude_settings_merge_and_remove() {
+  mk_config
+  cat > "$HOME/.claude/settings.json" <<'EOF'
+{"model": "x", "hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "my-own-hook"}]}]}, "permissions": {"allow": ["Bash(npm test)", "Bash(gitsw ck)", "Bash(gitsw doctor)"]}}
+EOF
+  install_quiet; install_quiet
+  local s="$HOME/.claude/settings.json"
+  assert_eq "$(jq -r .model "$s")" "x"
+  assert_eq "$(jq '[.hooks.PreToolUse[] | select(.hooks[0].command == "my-own-hook")] | length' "$s")" "1"
+  assert_eq "$(jq '[.hooks.PreToolUse[] | select(.hooks[0].command | test("guard --claude"))] | length' "$s")" "2"
+  assert_eq "$(jq '[.permissions.allow[] | select(. == "Bash(gitsw ck:*)")] | length' "$s")" "1"
+  assert_eq "$(jq '[.permissions.allow[] | select(. == "Bash(gitsw ck)" or . == "Bash(gitsw doctor)")] | length' "$s")" "0" "예전에 넣은 겹치는 허용 항목은 지워야 함"
+  assert_eq "$(jq '[.permissions.allow[] | select(. == "Bash(npm test)")] | length' "$s")" "1"
+  assert_eq "$(jq '.permissions.allow | length' "$s")" "$(jq '.permissions.allow | unique | length' "$s")" "허용 목록 중복"
+  [ -f "$HOME/.claude/skills/gitsw/SKILL.md" ] || fail "Claude 스킬"
+  [ -f "$HOME/.codex/skills/gitsw/SKILL.md" ] || fail "Codex 스킬"
+  grep -q 'gitsw:begin' "$HOME/.claude/CLAUDE.md" || fail "CLAUDE.md 규칙"
+  run gitsw ai --remove; assert_ok
+  assert_eq "$(jq '[.hooks.PreToolUse[] | select(.hooks[0].command | test("guard --claude"))] | length' "$s")" "0"
+  assert_eq "$(jq -r '.permissions.allow | join(",")' "$s")" "Bash(npm test)"
+  grep -q 'gitsw:begin' "$HOME/.claude/CLAUDE.md" && fail "규칙이 남아 있음"
+  printf 'not json' > "$s"
+  run gitsw ai; assert_out "올바른 JSON 이 아니라"
+  assert_eq "$(cat "$s")" "not json"
+}
+
+test_ai_rules_keep_user_content() {
+  mk_config
+  printf '# 내 규칙\n\n- 한국어로 답한다\n' > "$HOME/.claude/CLAUDE.md"
+  install_quiet; install_quiet
+  grep -q '한국어로 답한다' "$HOME/.claude/CLAUDE.md" || fail "사용자 내용이 사라짐"
+  [ "$(grep -c 'gitsw:begin' "$HOME/.claude/CLAUDE.md")" -eq 1 ] || fail "블록 중복"
+  grep -q '조직 github.com/teamb → bob' "$HOME/.claude/CLAUDE.md" || fail "조직 규칙 안내 없음"
+}
+
+test_audit_reports_other_account_commits() {
+  mk_config; install_quiet
+  mk_remote_seeded github-alice alice/au alice@example.com
+  git clone -q "$FAKE_REMOTES/github-alice/alice/au.git" "$T/seed2"
+  git -C "$T/seed2" -c user.name=bob -c user.email=bob@example.com commit -q --allow-empty -m "oops bob"
+  GITSW_SKIP=all git -C "$T/seed2" push -q origin main
+  gitsw clone alice alice/au "$HOME/Develop/alice/au" >/dev/null 2>&1 || fail clone
+  cd "$HOME/Develop/alice/au" && run gitsw audit; assert_ok; assert_out "1개"; assert_out "oops bob"
+  run gitsw audit --json; assert_json "$OUT"
+}
+
+test_pr_github_uses_account_token() {
+  misc_repo
+  gitsw b feat >/dev/null; echo f > f; gitsw c -a -m feat >/dev/null
+  run gitsw pr --title "t" --body "b"; assert_fail; assert_out "gh 에 alice 계정 로그인이 필요"; assert_out "compare/main...feat"
+  echo "tok-alice" > "$FAKE_GH/tokens/alice"
+  run gitsw pr --title "t" --body "b"; assert_ok; assert_out "https://github.com/alice/m/pull/7"
+  grep -q "GH_TOKEN=tok-alice pr create -R alice/m --head feat --base main --title t --body b" "$FAKE_GH/log" || fail "gh 호출 내용\n$(cat "$FAKE_GH/log")"
+  grep -q "auth switch" "$FAKE_GH/log" && fail "gh 전역 계정을 바꾸면 안 됨"
+  gitsw b main >/dev/null
+  run gitsw pr --title x; assert_fail; assert_out "기본 브랜치"
+}
+
+test_pr_gitlab_push_options() {
+  mk_config; install_quiet
+  mk_remote_seeded gitlab-carol grp/app carol@corp.example
+  local bare="$FAKE_REMOTES/gitlab-carol/grp/app.git"
+  git -C "$bare" config receive.advertisePushOptions true
+  printf '#!/bin/sh\ni=0; while [ $i -lt "${GIT_PUSH_OPTION_COUNT:-0}" ]; do eval "echo opt=\\$GIT_PUSH_OPTION_$i"; i=$((i+1)); done >&2\necho "View merge request: https://gitlab.example.com/grp/app/-/merge_requests/3" >&2\n' > "$bare/hooks/post-receive"
+  chmod +x "$bare/hooks/post-receive"
+  gitsw clone carol grp/app "$HOME/Develop/corp/app" >/dev/null 2>&1 || fail clone
+  cd "$HOME/Develop/corp/app" && gitsw b feat >/dev/null && echo f > f && gitsw c -a -m feat >/dev/null
+  run gitsw pr --title "MR 제목" --body "줄1
+줄2"; assert_ok
+  assert_out "merge_requests/3"
+  assert_out "opt=merge_request.title=MR 제목"
+  assert_out "opt=merge_request.description=줄1 줄2"
+}
+
+test_ssh_prune_removes_only_orphans() {
+  mk_config
+  printf '\nHost github-zed\n    HostName github.com\n    IdentityFile %s/.ssh/id_ed25519_zed\n' "$HOME" >> "$HOME/.ssh/config"
+  run gitsw doctor --no-net; assert_out "쓰지 않는 SSH 설정: github-zed"
+  run gitsw ssh prune; assert_rc 2
+  run gitsw ssh prune --yes; assert_ok
+  grep -q 'github-zed' "$HOME/.ssh/config" && fail "고아 설정이 남음"
+  grep -q 'Host github-alice' "$HOME/.ssh/config" || fail "정상 설정이 지워짐"
+  grep -q 'Host gitlab-carol' "$HOME/.ssh/config" || fail "정상 설정이 지워짐"
+  ls "$HOME/.local/state/gitsw/backups"/*/.ssh_config >/dev/null 2>&1 || fail "백업 없음"
+}
+
+test_ssh_strict_option() {
+  mk_config; install_quiet
+  run gitsw config set gitsw.sshStrict true --yes; assert_ok
+  grep -q '^Host github.com$' "$HOME/.ssh/config" || fail "strict 블록 없음"
+  grep -q 'PubkeyAuthentication no' "$HOME/.ssh/config" || fail "strict 설정"
+  run gitsw config set gitsw.sshStrict false --yes; assert_ok
+  grep -q 'gitsw strict' "$HOME/.ssh/config" && fail "strict 블록이 남음"
+  return 0
+}
+
+test_export_import_uninstall_version() {
+  mk_config; install_quiet
+  run gitsw export "$T/exp.cfg"; assert_ok
+  grep -q 'account "alice"' "$T/exp.cfg" || fail "내보내기 내용"
+  run gitsw import "$T/exp.cfg"; assert_fail "비대화형은 --yes 필요"
+  run gitsw import "$T/exp.cfg" --yes; assert_ok
+  run gitsw version; assert_ok; assert_out "gitsw 2."
+  run gitsw help; assert_ok; assert_out "gitsw preflight"
+  run gitsw uninstall --yes; assert_ok
+  git config --global --get hook.gitsw-pre-commit.command >/dev/null && fail "전역 훅이 남음"
+  git config --global --get-regexp '^url\.' >/dev/null && fail "insteadOf 가 남음"
+  grep -q '# >>> gitsw >>>' "$HOME/.zshrc" && fail "zshrc 블록이 남음"
+  [ -f "$HOME/.config/gitsw/config" ] || fail "설정 파일은 남겨야 함"
+  run gitsw install; assert_ok "다시 설치"
+}
+
+test_fork_flow_without_gh_switch() {
+  mk_config; install_quiet
+  mk_remote_seeded github-alice alice/lib
+  echo "tok-alice" > "$FAKE_GH/tokens/alice"
+  cd "$HOME/Develop/alice" && run gitsw fork alice orig/lib; assert_ok
+  grep -q "GH_TOKEN=tok-alice repo fork orig/lib" "$FAKE_GH/log" || fail "포크 호출\n$(cat "$FAKE_GH/log")"
+  assert_eq "$(git -C "$HOME/Develop/alice/lib" config remote.upstream.url)" "git@github-alice:orig/lib.git"
+}
+
+test_publish_github_creates_private_repo_and_pushes() {
+  mk_config; install_quiet
+  mk_repo "$HOME/Develop/alice/newproj"
+  cd "$HOME/Develop/alice/newproj" && gitsw use alice >/dev/null
+  echo a > a.txt; gitsw c -a -m first >/dev/null
+  run gitsw publish; assert_rc 2 "--yes 없으면 확인 필요"
+  run gitsw publish --yes; assert_fail; assert_out "gh 에 alice 계정 로그인이 필요"
+  echo tok-alice > "$FAKE_GH/tokens/alice"
+  run gitsw publish --description "테스트 저장소" --yes; assert_ok
+  assert_out "GitHub 저장소를 만들었습니다: https://github.com/alice/newproj (private)"
+  grep -q "GH_TOKEN=tok-alice repo create alice/newproj --private --description 테스트 저장소" "$FAKE_GH/log" || fail "gh 호출\n$(cat "$FAKE_GH/log")"
+  assert_eq "$(git config remote.origin.url)" "git@github-alice:alice/newproj.git"
+  assert_eq "$(git config gitswitch.alias)" "github-alice"
+  assert_eq "$(git -C "$FAKE_REMOTES/github-alice/alice/newproj.git" log -1 --format=%s main)" "first"
+  run gitsw publish --yes; assert_fail; assert_out "이미 origin 이 있습니다"
+  mk_repo "$HOME/Develop/alice/dup"
+  cd "$HOME/Develop/alice/dup" && gitsw use alice >/dev/null && echo b > b && gitsw c -a -m b >/dev/null
+  run gitsw publish newproj --yes; assert_fail; assert_out "이미 alice/newproj 저장소가 있습니다"
+}
+
+test_publish_gitlab_push_to_create() {
+  mk_config; install_quiet
+  mk_repo "$HOME/Develop/corp/svc"
+  cd "$HOME/Develop/corp/svc" && gitsw use carol >/dev/null
+  echo a > a.txt; gitsw c -a -m first >/dev/null
+  mk_remote gitlab-carol carol/svc   # 실제 GitLab 은 push 하면 프로젝트를 만들어 줌
+  run gitsw publish --yes; assert_ok
+  assert_eq "$(git config remote.origin.url)" "git@gitlab-carol:carol/svc.git"
+  assert_eq "$(git -C "$FAKE_REMOTES/gitlab-carol/carol/svc.git" log -1 --format=%s main)" "first"
+}
+
+test_backups_skip_identical_and_rules_have_no_case_duplicates() {
+  mk_config
+  git config -f "$HOME/.config/gitsw/config" org.github.com/TeamX.account bob
+  install_quiet; install_quiet; install_quiet
+  local n
+  n=$(ls -1d "$HOME/.local/state/gitsw/backups"/*/ 2>/dev/null | grep -c .)
+  [ "$n" -le 2 ] || fail "같은 내용인데도 백업이 계속 쌓임 ($n 개)"
+  git config --global --list --name-only | grep -q 'url.git@github-bob:teamx/' && fail "대소문자만 다른 규칙이 또 생김"
+  git config --global --list --name-only | grep -q 'url.git@github-bob:TeamX/' || fail "조직 규칙 없음"
+  mkdir -p "$HOME/.local/state/gitsw/backups/v1-원본"
+  for i in $(seq 1 32); do mkdir -p "$HOME/.local/state/gitsw/backups/2026010$((i % 9))-0000$i-1"; done
+  echo "# change" >> "$HOME/.zshrc"; install_quiet
+  [ -d "$HOME/.local/state/gitsw/backups/v1-원본" ] || fail "보관용 폴더는 정리 대상이 아님"
+  n=$(ls -1d "$HOME/.local/state/gitsw/backups"/[0-9]*-[0-9]*-[0-9]*/ | grep -c .)
+  [ "$n" -le 30 ] || fail "백업 폴더가 30개를 넘음 ($n)"
+}
+
+test_doctor_email_check_handles_missing_scope() {
+  mk_config; install_quiet
+  echo tok > "$FAKE_GH/tokens/alice"; echo tok > "$FAKE_GH/tokens/bob"
+  echo 1 > "$FAKE_GH/emails_error"
+  run gitsw doctor; assert_out "이메일 인증 확인은 건너뜀"; assert_no_out "인증돼 있지 않아"
+  rm "$FAKE_GH/emails_error"; printf 'alice@example.com\n' > "$FAKE_GH/emails"
+  run gitsw doctor; assert_out "GitHub bob 계정에 bob@example.com 가 인증돼 있지 않아"; assert_no_out "alice@example.com 가 인증돼"
+}
