@@ -68,6 +68,9 @@ mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 lipo -create "${BINS[@]}" -output "$CONTENTS/MacOS/$BIN"
 cp "$ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
+# 설정에서 고르는 앱 아이콘(1024 PNG 원본 — AppIcon.swift)
+mkdir -p "$CONTENTS/Resources/AppIcons"
+cp "$REPO/assets/app-icons/"*.png "$CONTENTS/Resources/AppIcons/"
 # 화면 번역(한국어 글자가 키, <언어>.lproj/Localizable.strings)
 cp -R "$ROOT/Resources/Localizations/"*.lproj "$CONTENTS/Resources/"
 cp "$REPO/LICENSE" "$CONTENTS/Resources/LICENSE.txt"

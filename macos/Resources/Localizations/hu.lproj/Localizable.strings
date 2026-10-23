@@ -96,6 +96,7 @@
 "An empty file was deleted" = "Üres fájl törölve";
 "Another account's token" = "Másik fiók tokenje";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Bármely szerver használható, amely elfogadja az OpenAI formátumot (/chat/completions). Példa: Ollama http://localhost:11434/v1";
+"App icon" = "Alkalmazásikon";
 "Appearance" = "Megjelenés";
 "Applies the most recently stashed changes (Pop)." = "Alkalmazza a legutóbbi stash módosításait (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Minden AI-funkcióra vonatkozik, az alább funkciónként megadott szabályokkal együtt.";
@@ -155,6 +156,7 @@
 "Changes" = "Módosítások";
 "Changes %lld" = "Módosítások %1$lld";
 "Changes requested: " = "Módosítást kért: ";
+"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Megváltoztatja az ikont a Dockban, a Finderben és a Launchpadben. Új ikonok a frissítésekkel érkeznek.";
 "Change…" = "Módosítás…";
 "Check failed: %@" = "Az ellenőrzés sikertelen: %1$@";
 "Check for new versions at launch and once a day" = "Új verziók keresése indításkor és naponta egyszer";
@@ -253,6 +255,7 @@
 "Copy message" = "Üzenet másolása";
 "Copy name" = "Név másolása";
 "Copy path" = "Útvonal másolása";
+"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "A Finderben nem sikerült megváltoztatni az ikont, mert a Branchwork mappája nem írható. A Dock ikonja ettől még megváltozik, amíg a Branchwork fut.";
 "Couldn't complete the operation" = "Nem sikerült befejezni a műveletet";
 "Couldn't download the file." = "Nem sikerült letölteni a fájlt.";
 "Couldn't extract: %@" = "Nem sikerült kibontani: %1$@";
@@ -695,6 +698,7 @@
 "Server error %lld: %@" = "Szerverhiba %1$lld: %2$@";
 "Sessions in other folders" = "Munkamenetek más mappákban";
 "Set manually" = "Kézzel megadva";
+"Shadow" = "Árnyék";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Az alsó terminálpanelen megnyíló shell (zsh, bash, fish stb.)";
 "Show all" = "Összes megjelenítése";
 "Show all %lld hidden branches" = "Összes rejtett ág megjelenítése (%1$lld)";

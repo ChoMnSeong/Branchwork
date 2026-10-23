@@ -94,6 +94,7 @@
 "An empty file was deleted" = "È stato eliminato un file vuoto";
 "Another account's token" = "Token di un altro account";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Funziona con qualsiasi server che accetti il formato OpenAI (/chat/completions). Esempio: Ollama http://localhost:11434/v1";
+"App icon" = "Icona dell'app";
 "Appearance" = "Aspetto";
 "Applies the most recently stashed changes (Pop)." = "Applica le ultime modifiche salvate nello stash (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Si applica a tutte le funzioni AI, insieme alle regole scritte per ciascuna funzione qui sotto.";
@@ -149,6 +150,7 @@
 "Changes" = "Modifiche";
 "Changes %lld" = "Modifiche %1$lld";
 "Changes requested: " = "Modifiche richieste: ";
+"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Cambia l'icona nel Dock, nel Finder e nel Launchpad. Le nuove icone arrivano con gli aggiornamenti.";
 "Change…" = "Cambia…";
 "Check failed: %@" = "Verifica non riuscita: %1$@";
 "Check for new versions at launch and once a day" = "Cerca nuove versioni all'avvio e una volta al giorno";
@@ -244,6 +246,7 @@
 "Copy message" = "Copia messaggio";
 "Copy name" = "Copia nome";
 "Copy path" = "Copia percorso";
+"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Impossibile cambiare l'icona nel Finder perché la cartella di Branchwork non è scrivibile. L'icona nel Dock cambia comunque mentre Branchwork è in esecuzione.";
 "Couldn't complete the operation" = "Impossibile completare l'operazione";
 "Couldn't download the file." = "Impossibile scaricare il file.";
 "Couldn't extract: %@" = "Impossibile estrarre: %1$@";
@@ -685,6 +688,7 @@
 "Server error %lld: %@" = "Errore del server %1$lld: %2$@";
 "Sessions in other folders" = "Sessioni in altre cartelle";
 "Set manually" = "Impostato manualmente";
+"Shadow" = "Ombra";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell aperta nel pannello del terminale in basso (zsh, bash, fish, ecc.)";
 "Show all" = "Mostra tutto";
 "Show all %lld hidden branches" = "Mostra tutti i branch nascosti (%1$lld)";

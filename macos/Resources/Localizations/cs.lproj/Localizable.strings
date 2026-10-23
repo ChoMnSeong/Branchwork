@@ -94,6 +94,7 @@
 "An empty file was deleted" = "Byl smazán prázdný soubor";
 "Another account's token" = "Token jiného účtu";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Funguje jakýkoli server, který přijímá formát OpenAI (/chat/completions). Příklad: Ollama http://localhost:11434/v1";
+"App icon" = "Ikona aplikace";
 "Appearance" = "Vzhled";
 "Applies the most recently stashed changes (Pop)." = "Použije naposledy odložené změny (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Platí pro všechny funkce AI, spolu s pravidly zadanými níže pro jednotlivé funkce.";
@@ -153,6 +154,7 @@
 "Changes" = "Změny";
 "Changes %lld" = "Změny %1$lld";
 "Changes requested: " = "Požadovány změny: ";
+"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Změní ikonu v Docku, Finderu a Launchpadu. Nové ikony přicházejí s aktualizacemi.";
 "Change…" = "Změnit…";
 "Check failed: %@" = "Kontrola selhala: %1$@";
 "Check for new versions at launch and once a day" = "Kontrolovat nové verze při spuštění a jednou denně";
@@ -248,6 +250,7 @@
 "Copy message" = "Kopírovat zprávu";
 "Copy name" = "Kopírovat název";
 "Copy path" = "Kopírovat cestu";
+"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Ikonu ve Finderu se nepodařilo změnit, protože do složky Branchwork nelze zapisovat. Ikona v Docku se přesto změní, dokud Branchwork běží.";
 "Couldn't complete the operation" = "Operaci se nepodařilo dokončit";
 "Couldn't download the file." = "Soubor se nepodařilo stáhnout.";
 "Couldn't extract: %@" = "Nepodařilo se rozbalit: %1$@";
@@ -690,6 +693,7 @@
 "Server error %lld: %@" = "Chyba serveru %1$lld: %2$@";
 "Sessions in other folders" = "Relace v jiných složkách";
 "Set manually" = "Nastaveno ručně";
+"Shadow" = "Stín";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell otevřený v panelu terminálu dole (zsh, bash, fish atd.)";
 "Show all" = "Zobrazit vše";
 "Show all %lld hidden branches" = "Zobrazit všechny skryté větve (%1$lld)";

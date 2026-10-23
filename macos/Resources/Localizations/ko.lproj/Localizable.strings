@@ -98,6 +98,7 @@
 "An empty file was deleted" = "빈 파일을 지웠습니다";
 "Another account's token" = "다른 계정의 토큰";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "OpenAI 형식(/chat/completions)을 받는 서버라면 무엇이든 됩니다. 예: Ollama http://localhost:11434/v1";
+"App icon" = "앱 아이콘";
 "Appearance" = "화면";
 "Applies the most recently stashed changes (Pop)." = "가장 최근에 보관한 변경을 꺼냅니다(Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "아래 기능마다 따로 적은 규칙과 함께 모든 AI 기능에 적용됩니다.";
@@ -158,6 +159,7 @@
 "Changes" = "변경";
 "Changes %lld" = "변경 %1$lld";
 "Changes requested: " = "변경 요청: ";
+"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Dock·Finder·Launchpad 의 아이콘이 바뀝니다. 새 아이콘은 업데이트로 추가됩니다.";
 "Change…" = "변경…";
 "Check failed: %@" = "확인 실패: %1$@";
 "Check for new versions at launch and once a day" = "켤 때와 하루에 한 번 새 버전 확인";
@@ -259,6 +261,7 @@
 "Copy message" = "메시지 복사";
 "Copy name" = "이름 복사";
 "Copy path" = "경로 복사";
+"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Branchwork 폴더에 쓸 권한이 없어 Finder 아이콘은 바꾸지 못했습니다. Dock 아이콘은 Branchwork 가 켜져 있는 동안 바뀝니다.";
 "Couldn't complete the operation" = "작업을 완료하지 못했습니다";
 "Couldn't download the file." = "파일을 받지 못했습니다.";
 "Couldn't extract: %@" = "압축을 풀지 못했습니다: %1$@";
@@ -701,6 +704,7 @@
 "Server error %lld: %@" = "서버 오류 %1$lld: %2$@";
 "Sessions in other folders" = "다른 폴더의 세션";
 "Set manually" = "직접 지정";
+"Shadow" = "그림자";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "아래 터미널 패널에서 여는 셸(zsh·bash·fish 등)";
 "Show all" = "전체 보기";
 "Show all %lld hidden branches" = "숨긴 브랜치 %1$lld개 모두 보이기";
