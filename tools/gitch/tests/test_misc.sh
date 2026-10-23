@@ -205,6 +205,18 @@ test_export_import_uninstall_version() {
   run gitch install; assert_ok "다시 설치"
 }
 
+test_install_banner_fits_terminal() {
+  mk_config
+  # 터미널이 아니면 로고 없이 단계만
+  run gitch install; assert_ok; assert_out "◆ 명령  1/5"; assert_out "설치 완료"; assert_no_out "⣿"
+  export GITSW_BANNER=always GITSW_ANIM=0
+  COLUMNS=100 LINES=40 run gitch install; assert_ok; assert_out "⣸⣿⣿⣿⣿⣿⣿⣿⡷"
+  COLUMNS=80 LINES=24 run gitch install; assert_ok; assert_out "⢿⣿⣿⡇ ⢀⡆"; assert_no_out "⣸⣿⣿⣿⣿⣿⣿⣿⡷"
+  COLUMNS=40 LINES=24 run gitch install; assert_ok; assert_out "⣿⣿⠃⢀⡄"
+  COLUMNS=20 LINES=24 run gitch install; assert_ok; assert_out "gitch v"; assert_no_out "⣿"
+  unset GITSW_BANNER GITSW_ANIM
+}
+
 test_fork_flow_without_gh_switch() {
   mk_config; install_quiet
   mk_remote_seeded github-alice alice/lib

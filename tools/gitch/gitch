@@ -48,8 +48,19 @@ setup_colors() {
   local c="${GITSW_COLOR:-auto}"
   if [ "$c" = always ] || { [ "$c" = auto ] && [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; }; then
     GREEN=$'\033[32m'; RED=$'\033[31m'; YELLOW=$'\033[33m'; BOLD=$'\033[1m'; DIM=$'\033[2m'; RESET=$'\033[0m'
+    # 앱 아이콘 색: 로고는 은색 → 파랑, 강조는 파랑, 점은 초록 노드. 24비트 색이 안 되면 256색 근사, 그것도 안 되면 기본색
+    case "${COLORTERM:-}:${TERM:-}" in
+      truecolor:*|24bit:*)
+        ACCENT=$'\033[38;2;127;164;255m'; LEAF=$'\033[38;2;107;229;154m'
+        LOGO_PAL=($'\033[38;2;247;248;250m' $'\033[38;2;227;234;251m' $'\033[38;2;207;220;252m' $'\033[38;2;187;206;252m'
+                  $'\033[38;2;167;192;253m' $'\033[38;2;147;178;254m' $'\033[38;2;127;164;255m') ;;
+      *256color*)
+        ACCENT=$'\033[38;5;111m'; LEAF=$'\033[38;5;78m'
+        LOGO_PAL=($'\033[38;5;231m' $'\033[38;5;255m' $'\033[38;5;189m' $'\033[38;5;153m' $'\033[38;5;147m' $'\033[38;5;111m' $'\033[38;5;111m') ;;
+      *) ACCENT=$'\033[34m'; LEAF="$GREEN"; LOGO_PAL=() ;;
+    esac
   else
-    GREEN=""; RED=""; YELLOW=""; BOLD=""; DIM=""; RESET=""
+    GREEN=""; RED=""; YELLOW=""; BOLD=""; DIM=""; RESET=""; ACCENT=""; LEAF=""; LOGO_PAL=()
   fi
 }
 say()  { printf '%s\n' "$*"; }
@@ -58,6 +69,83 @@ warn() { printf '%s\n' "${YELLOW}⚠ $*${RESET}"; }
 dim()  { printf '%s\n' "${DIM}$*${RESET}"; }
 err()  { printf '%s\n' "${RED}$*${RESET}" >&2; }
 die()  { err "$@"; exit 1; }
+
+# 로고: 앱 아이콘의 두 눈(점자 한 칸 = 2×4 점). 큰 것은 그대로, 중간·작은 것은 점을 줄여 두 눈을 나란히 놓았다.
+LOGO_L=(
+  '  ⣠⣤⣤⣀'
+  ' ⣴⣿⣿⣿⣿⣷⣄'
+  '⣸⣿⣿⣿⣿⣿⣿⣿⡷           '
+  '⣿⣿⣿⣿⣿⣿⣿⡟            '
+  '⣿⣿⣿⣿⣿⣿⡿'
+  '⢻⣿⣿⣿⣿⣿⡇    ⢀⡆'
+  ' ⢻⣿⣿⣿⣿⡇   ⢀⣾⡇'
+  '  ⠙⢿⣿⣿⣷⣄⣀⣤⣾⣿⡇                          ⣀⡀'
+  '    ⠉⠛⠿⣿⣿⣿⣿⠟                   ⣠     ⢸⣿⣿⣿⣿⣿⣿⣶⣆'
+  '        ⠈⠉                 ⢀⣠⣶⡿⠁     ⣾⣿⣿⣿⣿⣿⣿⣿⡿'
+  '                         ⢀⣴⣿⣿⣿⠁    ⢀⣼⣿⣿⣿⣿⣿⣿⣿⡿⠁'
+  '                        ⢰⣿⣿⣿⣿⡇    ⣠⣾⣿⣿⣿⣿⣿⣿⣿⠟⠁'
+  '                        ⠘⠿⣿⣿⣿⣷⣤⣤⣴⣾⣿⣿⣿⣿⣿⣿⠿⠛⠁'
+  '                           ⠉⠛⠛⠻⠿⠿⠿⠿⠿⠛⠛⠉'
+)
+LOGO_M=(
+  '⣠⣿⣿⣦⡀                  '
+  '⣿⣿⣿⡿⠁                  '
+  '⢿⣿⣿⡇ ⢀⡆      ⢀⣠  ⢀⣿⣿⣿⣶⡄'
+  '⠈⠻⣿⣧⣤⣾⠇    ⢀⣴⣿⠃ ⢀⣼⣿⣿⣿⠟ '
+  '   ⠉⠛⠁     ⠘⠻⢿⣶⣶⣿⣿⠿⠛⠁  '
+)
+LOGO_S=(
+  '⣼⣿⣦             '
+  '⣿⣿⠃⢀⡄    ⣠⡔ ⢠⣿⣿⡶'
+  '⠈⠻⢦⡾⠃   ⠸⢿⣥⣴⣿⠿⠋ '
+)
+
+term_size() {   # 터미널 크기 → TW(칸) TH(줄). 모르면 80×24
+  local s
+  s=$( { stty size </dev/tty; } 2>/dev/null)
+  TW="${COLUMNS:-}"; TH="${LINES:-}"
+  is_number "$TW" || TW="${s##* }"; is_number "$TH" || TH="${s%% *}"
+  is_number "$TW" || TW=80; is_number "$TH" || TH=24
+}
+
+fancy_out() {   # 사람이 보는 터미널이면 로고·진행 표시를 그린다 (GITSW_BANNER=always|never 로 강제)
+  case "${GITSW_BANNER:-auto}" in always) return 0 ;; never) return 1 ;; esac
+  [ -t 1 ] && [ "$ACTOR" = human ]
+}
+
+banner() {   # 터미널 크기에 맞는 로고 + 이름: 넓고 높으면 큰 것, 낮으면 중간, 좁으면 작은 것, 아주 좁으면 글자만
+  local t1 t2 i n at=-9 below="" line
+  local -a rows
+  t1="${LEAF}●${RESET} ${BOLD}gitch${RESET} ${DIM}v$GITSW_VERSION${RESET}"
+  t2="${DIM}여러 Git 계정을 섞이지 않게${RESET}"
+  term_size
+  if [ "$TW" -ge 60 ] && [ "$TH" -ge 30 ]; then rows=("${LOGO_L[@]}"); at=2
+  elif [ "$TW" -ge 58 ] && [ "$TH" -ge 16 ]; then rows=("${LOGO_M[@]}"); at=1
+  elif [ "$TW" -ge 50 ]; then rows=("${LOGO_S[@]}"); at=0
+  elif [ "$TW" -ge 30 ]; then rows=("${LOGO_S[@]}"); below=1
+  else printf '\n  %s\n  %s\n' "$t1" "$t2"; return 0; fi
+  n=${#rows[@]}
+  echo ""
+  for ((i = 0; i < n; i++)); do
+    line="  ${LOGO_PAL[$((i * 6 / (n - 1)))]}${rows[$i]}${RESET}"
+    if [ "$i" -eq "$at" ]; then line="$line   $t1"; elif [ "$i" -eq $((at + 1)) ]; then line="$line   $t2"; fi
+    printf '%s\n' "$line"
+    [ "${GITSW_ANIM:-1}" = 0 ] || sleep 0.02
+  done
+  [ -n "$below" ] && printf '\n  %s\n  %s\n' "$t1" "$t2"
+  return 0
+}
+
+step() {   # 여러 단계 명령의 단계 제목: ◆ 제목  번호/전체
+  printf '\n%s\n' "${ACCENT}◆${RESET} ${BOLD}$2${RESET}  ${DIM}$1/$3${RESET}"
+}
+
+rule() {   # 구분선 (터미널 너비에 맞춰 최대 52칸)
+  local w i r=""
+  term_size; w=$((TW - 2)); [ "$w" -gt 52 ] && w=52
+  for ((i = 0; i < w; i++)); do r="$r━"; done
+  printf '%s\n' "${ACCENT}${r}${RESET}"
+}
 
 # 확인: 터미널이면 y/N 질문, 아니면 --yes 가 있어야 진행 (없으면 종료코드 2)
 confirm() {   # $1 질문  $2 yes(1이면 통과)  $3 비대화형일 때 안내할 명령
@@ -4014,41 +4102,50 @@ install_cmd() {
   git_version_ok || die "git 2.36 이상이 필요합니다. 지금: git ${GIT_VER:-?} (brew install git)"
   load_config || die "설정 파일이 없습니다: $(tilde "$CFG") → 먼저 gitch migrate (v1 에서 옮기기) 또는 gitch add"
   need_config
-  local self n=0 d
+  local self n=0 d fancy=""
+  fancy_out && { fancy=1; banner; }
   self=$(self_path); chmod +x "$self"
+  step 1 "명령" 5
   mkdir -p "$HOME/bin"
   [ "$(resolve_link "$BIN_LINK" 2>/dev/null)" != "$self" ] && ln -sfn "$self" "$BIN_LINK"
   # 예전 이름 ~/bin/gitsw 도 같은 파일로(링크가 아닌 파일이면 사용자 것이라 그대로 둔다)
   if [ -L "$SHIM_LINK" ] || [ ! -e "$SHIM_LINK" ]; then
     [ "$(resolve_link "$SHIM_LINK" 2>/dev/null)" != "$self" ] && ln -sfn "$self" "$SHIM_LINK"
   else
-    warn "~/bin/gitsw 가 링크가 아닌 파일이라 그대로 뒀습니다 (gitsw 로 부르면 그 파일이 돕니다)"
+    say "  ${YELLOW}⚠ ~/bin/gitsw 가 링크가 아닌 파일이라 그대로 뒀습니다 (gitsw 로 부르면 그 파일이 돕니다)${RESET}"
   fi
   [ -L "$HOME/bin/gitswitch" ] && rm -f "$HOME/bin/gitswitch"
-  ok "gitch 명령 연결: ~/bin/gitch → $(tilde "$self") (예전 이름 ~/bin/gitsw 도)"
+  say "  ${GREEN}✔${RESET} gitch 명령 연결: ~/bin/gitch → $(tilde "$self") (예전 이름 ~/bin/gitsw 도)"
+  step 2 "터미널" 5
   backup_file "$ZSHRC"
   update_marked_block "$ZSHRC" "# >>> gitsw >>>" "# <<< gitsw <<<" "$ZSH_BLOCK" "" "alias gitsw='noglob gitsw'"
-  ok "터미널 연동: 따옴표 없는 주소 + 오른쪽에 현재 계정 표시"
+  say "  ${GREEN}✔${RESET} 터미널 연동: 따옴표 없는 주소 + 오른쪽에 현재 계정 표시"
   # 순서 고정: [user] → 자동 규칙 → 훅 (몇 번을 설치해도 ~/.gitconfig 내용이 같도록)
   backup_global
   apply_safety_settings
-  say "${BOLD}자동 규칙${RESET}"
+  step 3 "자동 규칙" 5
   install_auto_rules
-  ok "규칙 밖 저장소는 작성자가 없어서 커밋이 막히게 했습니다 (user.useConfigOnly)"
-  if install_global_hooks; then ok "전역 검사 훅: 모든 저장소/워크트리에서 작성자·비밀값·큰 파일·강제 push 검사"
-  else warn "이 git 은 전역 훅을 지원하지 않아 저장소별 보조 훅으로만 검사합니다"; fi
+  say "  ${GREEN}✔${RESET} 규칙 밖 저장소는 작성자가 없어서 커밋이 막히게 했습니다 (user.useConfigOnly)"
+  step 4 "검사 훅" 5
+  if install_global_hooks; then say "  ${GREEN}✔${RESET} 전역 검사 훅: 모든 저장소/워크트리에서 작성자·비밀값·큰 파일·강제 push 검사"
+  else say "  ${YELLOW}⚠ 이 git 은 전역 훅을 지원하지 않아 저장소별 보조 훅으로만 검사합니다${RESET}"; fi
+  [ -n "$fancy" ] && printf '  %s' "${DIM}잠긴 저장소 찾는 중…${RESET}"
   while IFS= read -r d; do
     [ -n "$(git -C "$d" config --get gitswitch.account)" ] || continue
     install_repo_hooks "$d" >/dev/null 2>&1 && n=$((n+1))
   done < <(find_repos)
-  ok "잠긴 저장소 ${n}개에 보조 훅 설치/갱신 (Apple git 등 전역 훅을 모르는 git 대비)"
+  [ -n "$fancy" ] && printf '\r\033[K'
+  say "  ${GREEN}✔${RESET} 잠긴 저장소 ${n}개에 보조 훅 설치/갱신 (Apple git 등 전역 훅을 모르는 git 대비)"
   apply_ssh_strict
-  say "${BOLD}AI 도구${RESET}"
+  step 5 "AI 도구" 5
   write_ai_rules
   write_skills
   write_claude_settings
   echo ""
+  [ -n "$fancy" ] && rule
   ok "설치 완료! 지금 터미널에 적용: ${BOLD}source ~/.zshrc${RESET}"
+  say "  ${DIM}계정 ${#ACC_IDS[@]}개 · 잠긴 저장소 ${n}개 · gitch v$GITSW_VERSION${RESET}"
+  say "  ${DIM}다음: gitch doctor (점검) · gitch help (명령 보기)${RESET}"
   [ -n "$BACKUP_SESSION" ] && dim "  (바꾸기 전 파일 백업: $(tilde "$BACKUP_SESSION"))"
   log_action install "version=$GITSW_VERSION"
 }

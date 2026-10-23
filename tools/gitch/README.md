@@ -27,6 +27,8 @@ source ~/.zshrc
 gitch doctor
 ```
 
+터미널에서 `gitch install` 을 하면 맨 위에 로고(앱 아이콘의 두 눈)가 창 크기에 맞춰 크게·중간·작게(아주 좁으면 이름만) 나오고, 단계(명령 · 터미널 · 자동 규칙 · 검사 훅 · AI 도구)별로 설치한다. 로고는 사람이 보는 터미널에서만 나온다(`GITSW_BANNER=never` 로 끄고 `always` 로 켠다).
+
 새 컴퓨터: `gitch import <내보낸 설정>` → `gitch install` → `gitch setup` (SSH 키 생성·등록).
 
 ## Gitrochi 앱에서
