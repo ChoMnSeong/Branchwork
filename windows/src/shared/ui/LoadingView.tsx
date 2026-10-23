@@ -1,9 +1,17 @@
 import { useEffect, useRef } from "react";
 
-const PERIOD = 2600;
-const MAIN = "rgb(61,214,232)";
-const FEATURE = "rgb(255,138,61)";
-const TOPIC = "rgb(156,224,92)";
+const PERIOD = 3200;
+const SIZE = 176;
+const LINE = "rgb(235,238,245)";
+const HOLE = "rgb(30,34,52)";
+const GREEN = "rgb(74,222,128)";
+const EYE = "rgb(205,215,255)";
+const RIM = "rgba(90,120,255,0.55)";
+
+type P = [number, number];
+const A: P = [0.24, 0.36];
+const B: P = [0.4, 0.66];
+const C: P = [0.74, 0.62];
 
 const ease = (x: number) => {
   const t = Math.min(1, Math.max(0, x));
@@ -15,18 +23,36 @@ const easeOutBack = (x: number) => {
     c3 = c1 + 1;
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 };
-/** 선 진행도가 at 을 지난 뒤 점이 나타나는 정도(0…1, 약 0.12 동안) */
-const at = (progress: number, a: number) => Math.min(1, Math.max(0, (progress - a) / 0.12 + (progress >= 1 && a >= 0.99 ? 1 : 0)));
+const cubic = (p0: P, p1: P, p2: P, p3: P, t: number): P => {
+  const u = 1 - t;
+  const f = (i: 0 | 1) => u * u * u * p0[i] + 3 * u * u * t * p1[i] + 3 * u * t * t * p2[i] + t * t * t * p3[i];
+  return [f(0), f(1)];
+};
+
+/** The commit line A → B → C (unit square), sampled into points with their distance along the line */
+const samples: { point: P; distance: number }[] = (() => {
+  const bend: P = [0.24, 0.5];
+  const points: P[] = [];
+  for (let i = 0; i <= 10; i++) points.push([A[0], A[1] + ((bend[1] - A[1]) * i) / 10]);
+  for (let i = 1; i <= 40; i++) points.push(cubic(bend, [0.24, 0.61], [0.29, 0.66], B, i / 40));
+  for (let i = 1; i <= 60; i++) points.push(cubic(B, [0.52, 0.69], [0.62, 0.68], C, i / 60));
+  let distance = 0;
+  return points.map((point, i) => {
+    if (i > 0) distance += Math.hypot(point[0] - points[i - 1][0], point[1] - points[i - 1][1]);
+    return { point, distance };
+  });
+})();
+const TOTAL = samples[samples.length - 1].distance;
+const B_AT = samples[50].distance / TOTAL;
 
 /**
- * 저장소를 여는 동안 보이는 로딩 화면(맥 버전과 같은 그림).
- * 앱 아이콘과 같은 세 갈래 브랜치가 아래에서 위로 자라고, 곁가지가 갈라졌다 다시 합쳐지며,
- * 선이 지나갈 때 커밋 점이 톡 튀어나온 뒤 사라지기를 반복한다.
+ * Shown while a repository opens: the app icon's commit line grows while the Gitrochi watches it.
+ * The macOS app draws the same picture (Views/Shared/LoadingView.swift).
  */
 export function LoadingView({ title, step, hidden }: { title: string; step: string; hidden?: boolean }) {
   return (
     <div className={`loading ${hidden ? "hide" : ""}`}>
-      <BranchMark />
+      <GitrochiMark />
       <div style={{ textAlign: "center" }}>
         <div className="title">{title}</div>
         <div className="step">{step}</div>
@@ -35,97 +61,111 @@ export function LoadingView({ title, step, hidden }: { title: string; step: stri
   );
 }
 
-function BranchMark() {
+function GitrochiMark() {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current!;
-    const w = 150,
-      h = 176;
+    const s = SIZE;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
+    canvas.width = s * dpr;
+    canvas.height = s * dpr;
     const ctx = canvas.getContext("2d")!;
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0;
-    const p = (x: number, y: number): [number, number] => [x * w, y * h];
-    const lw = Math.min(w, h) * 0.06;
-    const r = Math.min(w, h) * 0.058;
-
-    const main = new Path2D();
-    main.moveTo(...p(0.3, 0.96));
-    main.lineTo(...p(0.3, 0.04));
-    const feature = new Path2D();
-    feature.moveTo(...p(0.3, 0.8));
-    feature.bezierCurveTo(...p(0.3, 0.68), ...p(0.64, 0.7), ...p(0.64, 0.58));
-    feature.lineTo(...p(0.64, 0.38));
-    feature.bezierCurveTo(...p(0.64, 0.26), ...p(0.3, 0.28), ...p(0.3, 0.16));
-    const topic = new Path2D();
-    topic.moveTo(...p(0.64, 0.52));
-    topic.bezierCurveTo(...p(0.64, 0.4), ...p(0.9, 0.42), ...p(0.9, 0.3));
-    topic.lineTo(...p(0.9, 0.22));
-    // 선 길이(대략) — 대시 오프셋으로 자라는 모습을 낸다
-    const lengths = [h * 0.92, h * 1.15, h * 0.5];
+    const p = (u: P): P => [u[0] * s, u[1] * s];
 
     const draw = (phase: number) => {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-      const mainP = ease(phase / 0.42);
-      const featureP = ease((phase - 0.18) / 0.42);
-      const topicP = ease((phase - 0.42) / 0.28);
-      ctx.globalAlpha = phase < 0.05 ? phase / 0.05 : phase > 0.86 ? Math.max(0, (1 - phase) / 0.14) : 1;
-      ctx.lineWidth = lw;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      const lines: [Path2D, string, number, number][] = [
-        [main, MAIN, mainP, lengths[0]],
-        [feature, FEATURE, featureP, lengths[1]],
-        [topic, TOPIC, topicP, lengths[2]],
-      ];
-      for (const [path, color, prog, len] of lines) {
-        if (prog <= 0) continue;
-        ctx.setLineDash([len * prog, len * 2]);
-        ctx.shadowColor = color;
-        ctx.shadowBlur = lw * 1.4;
-        ctx.strokeStyle = color;
-        ctx.stroke(path);
-      }
-      ctx.setLineDash([]);
+      ctx.clearRect(0, 0, s, s);
+      ctx.globalAlpha = phase < 0.08 ? phase / 0.08 : phase > 0.86 ? Math.max(0, (1 - phase) / 0.14) : 1;
+
+      // The Gitrochi: a dark head with a blue rim light
+      ctx.beginPath();
+      ctx.arc(0.69 * s, 0.31 * s, 0.25 * s, 0, Math.PI * 2);
+      ctx.shadowColor = RIM;
+      ctx.shadowBlur = s * 0.07;
+      ctx.strokeStyle = "rgba(90,120,255,0.3)";
+      ctx.lineWidth = s * 0.012;
+      ctx.stroke();
       ctx.shadowBlur = 0;
-      const nodes: [[number, number], string, number][] = [
-        [p(0.3, 0.9), MAIN, at(mainP, 0.065)],
-        [p(0.3, 0.62), MAIN, at(mainP, 0.37)],
-        [p(0.3, 0.34), MAIN, at(mainP, 0.67)],
-        [p(0.3, 0.08), MAIN, at(mainP, 0.96)],
-        [p(0.64, 0.54), FEATURE, at(featureP, 0.4)],
-        [p(0.64, 0.4), FEATURE, at(featureP, 0.58)],
-        [p(0.9, 0.22), TOPIC, at(topicP, 1.0)],
-      ];
-      for (const [[cx, cy], color, appear] of nodes) {
-        if (appear <= 0) continue;
-        const rr = r * easeOutBack(appear);
+      ctx.fillStyle = "rgb(15,18,36)";
+      ctx.fill();
+
+      // Commit line growing from A to C
+      const grow = ease((phase - 0.04) / 0.5);
+      const shown = samples.filter((x) => x.distance <= TOTAL * grow);
+      const tip = p(shown.length ? shown[shown.length - 1].point : A);
+      if (shown.length > 1) {
         ctx.beginPath();
-        ctx.arc(cx, cy, Math.max(0, rr), 0, Math.PI * 2);
-        ctx.fillStyle = "rgb(247,247,247)";
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(cx, cy, Math.max(0, rr - lw * 0.18), 0, Math.PI * 2);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = lw * 0.42;
+        shown.forEach(({ point }, i) => (i ? ctx.lineTo(...p(point)) : ctx.moveTo(...p(point))));
+        ctx.lineWidth = s * 0.06;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = LINE;
+        ctx.shadowColor = "rgba(235,238,245,0.35)";
+        ctx.shadowBlur = s * 0.04;
         ctx.stroke();
-        if (appear < 1) {
-          ctx.beginPath();
-          ctx.arc(cx, cy, r * (1 + appear * 1.6), 0, Math.PI * 2);
-          ctx.strokeStyle = color;
-          ctx.globalAlpha *= 1;
-          ctx.lineWidth = 1.5;
-          const a = ctx.globalAlpha;
-          ctx.globalAlpha = a * 0.5 * (1 - appear);
-          ctx.stroke();
-          ctx.globalAlpha = a;
+        ctx.shadowBlur = 0;
+      }
+
+      // Commits pop in as the line reaches them; the last one glows green
+      const nodes: [P, number, boolean][] = [
+        [A, 0, false],
+        [B, B_AT, false],
+        [C, 1, true],
+      ];
+      for (const [center, at, last] of nodes) {
+        const appear = Math.min(1, Math.max(0, (grow - at) / 0.1 + (grow >= 1 && at >= 1 ? 1 : 0)));
+        if (appear <= 0) continue;
+        const r = s * 0.075 * easeOutBack(appear);
+        const [x, y] = p(center);
+        if (last) {
+          ctx.shadowColor = "rgba(74,222,128,0.8)";
+          ctx.shadowBlur = s * 0.1;
         }
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2);
+        ctx.fillStyle = last ? "rgb(220,250,230)" : LINE;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(x, y, Math.max(0, r * 0.55), 0, Math.PI * 2);
+        ctx.fillStyle = last ? GREEN : HOLE;
+        ctx.fill();
+      }
+
+      // Eyes follow the tip of the line and blink once a loop
+      const blink = 1 - 0.92 * Math.max(0, 1 - Math.abs(phase - 0.66) / 0.035);
+      const eyes: [P, number, number, number][] = [
+        [[0.58, 0.26], 0.1, 0.16, -0.2],
+        [[0.8, 0.37], 0.16, 0.1, -0.3],
+      ];
+      for (const [center, w, h, angle] of eyes) {
+        const [cx, cy] = p(center);
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.scale(1, blink);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, (w * s) / 2, (h * s) / 2, 0, 0, Math.PI * 2);
+        ctx.shadowColor = "rgba(90,120,255,0.7)";
+        ctx.shadowBlur = s * 0.05;
+        ctx.fillStyle = EYE;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.clip();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const d = Math.max(1, Math.hypot(tip[0] - cx, tip[1] - cy));
+        const reach = Math.min(w, h) * s * 0.22;
+        ctx.beginPath();
+        ctx.ellipse(cx + ((tip[0] - cx) / d) * reach, cy + ((tip[1] - cy) / d) * reach, Math.min(w, h) * s * 0.16, Math.max(w, h) * s * 0.35, 0, 0, Math.PI * 2);
+        ctx.fillStyle = "rgb(20,24,60)";
+        ctx.fill();
+        ctx.restore();
       }
     };
-    if (reduce) draw(0.7);
+
+    if (reduce) draw(0.6);
     else {
       const start = performance.now();
       const tick = (t: number) => {
@@ -136,5 +176,5 @@ function BranchMark() {
     }
     return () => cancelAnimationFrame(raf);
   }, []);
-  return <canvas ref={ref} style={{ width: 150, height: 176 }} />;
+  return <canvas ref={ref} style={{ width: SIZE, height: SIZE }} />;
 }
