@@ -6,7 +6,7 @@ on:
   push:
     tags: ["v*"]
   pull_request:
-    paths: ["macos/**", ".github/workflows/macos.yml"]
+    paths: ["macos/**", "tools/gitch/**", ".github/workflows/macos.yml"]
   workflow_dispatch:
 
 # 같은 PR 에 새로 푸시하면 돌던 실행은 취소
@@ -36,6 +36,20 @@ jobs:
         with:
           name: gitrochi-macos
           path: macos/build/Gitrochi.app
+
+  # gitch(앱에 함께 들어가는 셸 도구): macOS 기본 bash 3.2 로 전체 테스트(임시 HOME · 가짜 ssh/gh/원격)
+  gitch:
+    name: gitch 테스트
+    if: github.ref_type != 'tag'
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 테스트
+        run: tools/gitch/tests/run.sh
 
   # 릴리스에 파일을 올려야 해서 쓰기 권한은 태그 실행에만 준다.
   # 앱의 업데이트 확인은 초안을 보지 않으므로, 관리자가 노트를 쓰고 '게시'해야 사용자에게 간다.
