@@ -1,4 +1,4 @@
-/* Branchwork — ko. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
+/* Branchwork — ko. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "다운로드한 곳에서 바로 열어서 macOS 가 임시 위치에서 실행하고 있어, 스스로 바꿔 넣을 수 없습니다. 응용 프로그램 폴더로 옮겨 다시 연 뒤 업데이트하세요.";
 "Couldn't replace the app: %@" = "앱을 바꿔 넣지 못했습니다: %1$@";
