@@ -42,7 +42,9 @@ enum AppIcon: String, CaseIterable, Identifiable {
         if icon != .standard { NSApp.applicationIconImage = icon.image }
         let custom = FileManager.default.fileExists(atPath: Bundle.main.bundlePath + "/Icon\r")
         let applied = UserDefaults.standard.string(forKey: fileKey) ?? AppIcon.standard.rawValue
-        if icon == .standard ? custom : (!custom || applied != icon.rawValue) { setBundleIcon(icon) }
+        // With the default icon, only remove a custom icon we set — keep one the user set in Finder
+        let stale = icon == .standard ? (custom && applied != AppIcon.standard.rawValue) : (!custom || applied != icon.rawValue)
+        if stale { setBundleIcon(icon) }
     }
 
     /// 번들 루트에 사용자 지정 아이콘을 넣거나(기본이면 지운다). Finder 의 '정보 가져오기'로 아이콘을 바꾸는 것과 같다.
