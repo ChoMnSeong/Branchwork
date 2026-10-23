@@ -12,8 +12,8 @@ t_setup() {
   unset CLAUDECODE AI_AGENT CODEX_SANDBOX CODEX_SANDBOX_NETWORK_DISABLED CODEX_THREAD_ID CODEX_CI CURSOR_AGENT CURSOR_TRACE_ID GEMINI_CLI
   unset GIT_SSH GIT_SSH_COMMAND GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_EDITOR
   export GITSW_ACTOR=script GITSW_COLOR=never GITSW_FETCH_TTL=0
-  export FAKE_REMOTES="$T/remotes" FAKE_SSH_USERS="$T/sshusers" FAKE_GH="$T/gh"
-  mkdir -p "$FAKE_REMOTES" "$FAKE_SSH_USERS" "$FAKE_GH/tokens" "$T/fakebin"
+  export FAKE_REMOTES="$T/remotes" FAKE_SSH_USERS="$T/sshusers" FAKE_GH="$T/gh" FAKE_WEB="$T/web"
+  mkdir -p "$FAKE_REMOTES" "$FAKE_SSH_USERS" "$FAKE_GH/tokens" "$FAKE_WEB" "$T/fakebin"
   make_fakes
   export PATH="$HOME/bin:$T/fakebin:$ORIG_PATH"
   ln -s "$GITSW_SRC" "$HOME/bin/gitch"
@@ -72,6 +72,24 @@ case "$1 $2" in
   "--version ") echo "gh version 9.9.9 (fake)"; exit 0 ;;
 esac
 exit 0
+EOF
+  cat > "$T/fakebin/curl" <<'EOF'
+#!/bin/bash
+# 가짜 curl: https://<호스트>/<경로>(? 뒤는 무시) → $FAKE_WEB/<호스트>/<경로> 파일, 없으면 404 (-f 처럼 종료코드 22)
+out=""; url=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o|--output) out="$2"; shift ;;
+    -H|--header|-A|--user-agent|-m|--max-time|--connect-timeout|--retry|-w|--write-out) shift ;;
+    -*) ;;
+    *) url="$1" ;;
+  esac
+  shift
+done
+echo "$url" >> "$FAKE_WEB/log"
+f="$FAKE_WEB/${url#https://}"; f="${f%%\?*}"
+[ -f "$f" ] || { echo "curl: (22) The requested URL returned error: 404" >&2; exit 22; }
+if [ -n "$out" ]; then cp "$f" "$out"; else cat "$f"; fi
 EOF
   printf '#!/bin/sh\necho "open $*" >> "%s/opened"\n' "$T" > "$T/fakebin/open"
   printf '#!/bin/sh\ncat > /dev/null\n' > "$T/fakebin/pbcopy"

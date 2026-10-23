@@ -1,6 +1,6 @@
 #!/bin/bash
 # gitch 테스트 실행기
-#   실제 ~/.gitconfig, ~/.ssh, ~/.claude 는 건드리지 않습니다 (테스트마다 임시 HOME + 가짜 ssh/gh/원격 저장소).
+#   실제 ~/.gitconfig, ~/.ssh, ~/.claude 는 건드리지 않습니다 (테스트마다 임시 HOME + 가짜 ssh/gh/curl/원격 저장소).
 #   사용: tests/run.sh [-k 이름일부] [테스트파일...]
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 ROOT=$(cd "$HERE/.." && pwd -P)

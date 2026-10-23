@@ -152,6 +152,7 @@ test_guard_gitsw_rules() {
   expect ask 'gitch org add github.com/x alice'
   expect none 'gitch org'
   expect ask 'gitch install'
+  expect ask 'gitch self-update'
   expect none 'gitch ai --print'
   expect ask 'gitch scan --fix'
   expect none 'gitch scan'

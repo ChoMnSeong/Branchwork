@@ -3872,7 +3872,8 @@ guard_gitsw() {
     config) case "${rest[0]:-show}" in path|show|cat|get|check) ;; *) g_decide ask "gitch 설정을 바꿉니다." ;; esac ;;
     protect) [ ${#rest[@]} -gt 0 ] && [ "${rest[0]}" != --list ] && g_decide ask "보호 브랜치 설정을 바꿉니다." ;;
     ignore) g_decide ask "이 저장소의 gitch 검사를 끄거나 켭니다." ;;
-    install|auto|uninstall|migrate|self-update) g_decide ask "gitch 전역 설정(gitconfig, 훅, AI 규칙 등)을 바꿉니다." ;;
+    install|auto|uninstall|migrate) g_decide ask "gitch 전역 설정(gitconfig, 훅, AI 규칙 등)을 바꿉니다." ;;
+    self-update) g_decide ask "gitch 를 릴리스에서 받은 새 버전으로 바꿉니다." ;;
     publish) g_decide ask "원격 저장소를 새로 만들고 push 합니다." ;;
     ai) case "${rest[0]:-}" in --print|--skill) ;; *) g_decide ask "AI 도구 설정(CLAUDE.md, settings.json 등)을 바꿉니다." ;; esac ;;
     ssh) g_decide ask "~/.ssh/config 를 정리합니다." ;;
@@ -4205,9 +4206,66 @@ version_cmd() {
   say "gitch $GITSW_VERSION${d:+ ($d)} — $(tilde "$(self_path)")"
 }
 
-self_update_cmd() {   # gitch 는 앱과 함께 바뀐다 — 스크립트가 든 저장소를 받으면(git pull) 앱 저장소 전체가 바뀌므로 하지 않는다
+GITCH_RELEASES="Gitrochi/Gitrochi"   # 따로 받은 gitch 가 업데이트를 받는 곳 (tools/gitch/install.sh 와 같음)
+
+# 릴리스 목록(GitHub API)에서 초안·시험판이 아니고 gitch 가 든 첫(가장 새) 릴리스 → "태그 주소"
+# Windows 만 고친 릴리스가 최신일 수 있어서 releases/latest 를 쓰지 않는다. tools/gitch/install.sh 와 같은 내용.
+RELEASE_AWK='
+/^[[:space:]]*"tag_name":/ { tag = $0; sub(/^[^:]*:[[:space:]]*"/, "", tag); sub(/".*/, "", tag); skip = 0 }
+/^[[:space:]]*"(draft|prerelease)":[[:space:]]*true/ { skip = 1 }
+/^[[:space:]]*"browser_download_url":.*\/gitch"/ && !skip { url = $0; sub(/^[^:]*:[[:space:]]*"/, "", url); sub(/".*/, "", url); print tag, url; exit }'
+
+curl_get() { curl -fsSL --connect-timeout 15 --max-time 120 "$@"; }
+sha256_of() { { shasum -a 256 "$1" 2>/dev/null || sha256sum "$1"; } | awk '{ print $1 }'; }
+ver_lt() {   # $1 이 $2 보다 낮은 버전인지 (3.0.9 < 3.0.10)
+  local IFS=. i x y a b
+  read -r -a a <<< "$1"; read -r -a b <<< "$2"
+  for i in 0 1 2 3; do
+    x=${a[$i]:-0}; y=${b[$i]:-0}
+    is_number "$x" || x=0; is_number "$y" || y=0
+    [ "$x" -lt "$y" ] && return 0
+    [ "$x" -gt "$y" ] && return 1
+  done
+  return 1
+}
+
+self_update_cmd() {   # 따로 받은 gitch 만 바꾼다 — 앱에 든 것은 앱과 함께, 저장소(git)의 것은 그 저장소와 함께(git pull 은 앱 저장소 전체를 바꾸므로 하지 않음)
+  local self dir
+  self=$(self_path); dir=$(dirname "$self")
+  case "$self" in
+    *.app/Contents/*) ;;
+    *) git -C "$dir" ls-files --error-unmatch -- "$(basename "$self")" >/dev/null 2>&1 || { self_update_standalone "$self"; return $?; } ;;
+  esac
   say "gitch 는 Gitrochi 앱과 함께 업데이트됩니다(앱의 자동 업데이트). 저장소(tools/gitch)에서 쓰고 있다면 그 저장소를 직접 받으세요."
-  say "지금: $(tilde "$(self_path)") (v$GITSW_VERSION)"
+  say "지금: $(tilde "$self") (v$GITSW_VERSION)"
+}
+
+UPDATE_TMP=""
+self_update_standalone() {   # $1 이 파일 — 릴리스의 gitch 를 gitch.sha256 과 맞춰 본 뒤 같은 폴더의 임시 파일 → mv (돌고 있는 셸은 원래 파일을 계속 읽음)
+  local self="$1" dir json tag url want have new
+  dir=$(dirname "$self")
+  command -v curl >/dev/null 2>&1 || die "curl 이 필요합니다."
+  json=$(curl_get -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITCH_RELEASES/releases?per_page=20") \
+    || die "릴리스 목록을 받지 못했습니다: https://github.com/$GITCH_RELEASES/releases"
+  read -r tag url <<< "$(printf '%s\n' "$json" | tr ',' '\n' | awk "$RELEASE_AWK")"
+  [ -n "$url" ] || die "gitch 가 든 릴리스가 아직 없습니다: https://github.com/$GITCH_RELEASES/releases"
+  UPDATE_TMP=$(mktemp "$dir/.gitch-update.XXXXXX") || die "$(tilde "$dir") 에 쓸 수 없어 바꾸지 못했습니다."
+  trap 'rm -f "$UPDATE_TMP" "$UPDATE_TMP.sha256"' EXIT
+  curl_get -o "$UPDATE_TMP" "$url" && curl_get -o "$UPDATE_TMP.sha256" "$url.sha256" || die "받지 못했습니다: $url"
+  want=$(awk '$2 == "gitch" || $2 == "*gitch" { print $1; exit }' "$UPDATE_TMP.sha256")
+  have=$(sha256_of "$UPDATE_TMP")
+  [ -n "$want" ] && [ "$want" = "$have" ] || die "SHA-256 이 gitch.sha256 과 맞지 않아 바꾸지 않았습니다 ($tag)"
+  new=$(sed -n 's/^GITSW_VERSION="\([^"]*\)".*/\1/p' "$UPDATE_TMP" | head -1)
+  [ -n "$new" ] && "${BASH:-bash}" -n "$UPDATE_TMP" 2>/dev/null || die "받은 파일이 gitch 가 아닙니다: $url"
+  if [ "$have" = "$(sha256_of "$self")" ]; then ok "이미 최신입니다: gitch $GITSW_VERSION ($tag)"; return 0; fi
+  if ver_lt "$new" "$GITSW_VERSION"; then
+    say "지금 gitch($GITSW_VERSION)가 릴리스 $tag 의 gitch($new)보다 새 버전이라 그대로 뒀습니다."
+    return 0
+  fi
+  chmod 755 "$UPDATE_TMP" && mv -f "$UPDATE_TMP" "$self" || die "바꾸지 못했습니다: $(tilde "$self")"
+  ok "gitch $GITSW_VERSION → $new ($tag): $(tilde "$self")"
+  dim "  AI 규칙·스킬·검사 훅도 새 버전으로 쓰려면: gitch install"
+  log_action self-update "from=$GITSW_VERSION" "to=$new" "release=$tag"
 }
 
 # ================= 도움말 =================

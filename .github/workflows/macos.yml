@@ -37,7 +37,7 @@ jobs:
           name: gitrochi-macos
           path: macos/build/Gitrochi.app
 
-  # gitch(앱에 함께 들어가는 셸 도구): macOS 기본 bash 3.2 로 전체 테스트(임시 HOME · 가짜 ssh/gh/원격)
+  # gitch(앱에 함께 들어가는 셸 도구): macOS 기본 bash 3.2 로 전체 테스트(임시 HOME · 가짜 ssh/gh/curl/원격)
   gitch:
     name: gitch 테스트
     if: github.ref_type != 'tag'
