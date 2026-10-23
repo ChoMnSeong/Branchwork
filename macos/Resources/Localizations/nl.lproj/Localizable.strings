@@ -1,5 +1,12 @@
 /* Branchwork — nl. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork is rechtstreeks vanuit de download geopend en draait vanaf een tijdelijke locatie, dus het kan zichzelf niet vervangen. Verplaats het naar de map Apps, open het opnieuw en werk het daarna bij.";
+"Couldn't replace the app: %@" = "Kan de app niet vervangen: %1$@";
+"Downloaded and verified — ready to install." = "Gedownload en gecontroleerd — klaar om te installeren.";
+"Enter an administrator password to update Branchwork in %@." = "Voer een beheerderswachtwoord in om Branchwork in %1$@ bij te werken.";
+"The release has no SHA-256 file. It wasn't installed." = "De release heeft geen SHA-256-bestand. De update is niet geïnstalleerd.";
+"The release has no update signature. It wasn't installed." = "De release heeft geen updatehandtekening. De update is niet geïnstalleerd.";
+"The update signature doesn't match. It wasn't installed." = "De updatehandtekening klopt niet. De update is niet geïnstalleerd.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(De diff was lang, dus alleen het begin is uitgelegd.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nAuthenticatie vereist. Voer één keer push/pull uit in een terminal zodat je inloggegevens worden opgeslagen (Sleutelhanger of SSH-sleutel), en probeer het opnieuw.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nHet token heeft de scope api nodig, en alleen wie deze MR mag goedkeuren, kan hem goedkeuren.";
@@ -497,7 +504,6 @@
 "No one has approved yet." = "Nog niemand heeft goedgekeurd.";
 "No open %@" = "Geen open %1$@";
 "No permission (403): %@" = "Geen toestemming (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "Geen schrijfrechten voor %1$@. Download en installeer de update via de releasepagina.";
 "No remote repository." = "Geen remote repository.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Geen remote repository. Voeg er eerst een toe in een terminal met `git remote add origin <URL>`.";
 "No repositories opened yet" = "Nog geen repository's geopend";

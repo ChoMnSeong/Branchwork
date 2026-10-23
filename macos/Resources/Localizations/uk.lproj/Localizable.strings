@@ -1,5 +1,12 @@
 /* Branchwork — uk. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork відкрито просто із завантажень, і він працює з тимчасового розташування, тому не може замінити сам себе. Перемістіть його в папку «Програми», відкрийте знову, а потім оновіть.";
+"Couldn't replace the app: %@" = "Не вдалося замінити застосунок: %1$@";
+"Downloaded and verified — ready to install." = "Завантажено й перевірено — можна встановлювати.";
+"Enter an administrator password to update Branchwork in %@." = "Введіть пароль адміністратора, щоб оновити Branchwork у %1$@.";
+"The release has no SHA-256 file. It wasn't installed." = "У випуску немає файлу SHA-256. Оновлення не встановлено.";
+"The release has no update signature. It wasn't installed." = "У випуску немає підпису оновлення. Оновлення не встановлено.";
+"The update signature doesn't match. It wasn't installed." = "Підпис оновлення не збігається. Оновлення не встановлено.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Зміни були задовгі, тож пояснено лише їхній початок.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nПотрібна автентифікація. Один раз виконайте push/pull у терміналі, щоб зберегти облікові дані (Зв’язка ключів або SSH-ключ), і спробуйте ще раз.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nТокен повинен мати область api, а схвалити цей MR можуть лише ті, хто має право його схвалювати.";
@@ -524,7 +531,6 @@
 "No one has approved yet." = "Ще ніхто не схвалив.";
 "No open %@" = "Відкритих %1$@ немає";
 "No permission (403): %@" = "Немає дозволу (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "Немає дозволу на запис у %1$@. Завантажте й установіть оновлення зі сторінки випусків.";
 "No remote repository." = "Немає віддаленого репозиторію.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Немає віддаленого репозиторію. Спершу додайте його в терміналі командою `git remote add origin <URL>`.";
 "No repositories opened yet" = "Ще не відкрито жодного репозиторію";

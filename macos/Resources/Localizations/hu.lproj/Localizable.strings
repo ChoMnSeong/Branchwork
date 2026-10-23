@@ -1,5 +1,12 @@
 /* Branchwork — hu. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "A Branchwork közvetlenül a letöltésből lett megnyitva, és ideiglenes helyről fut, ezért nem tudja lecserélni önmagát. Helyezze át az Alkalmazások mappába, nyissa meg újra, majd frissítsen.";
+"Couldn't replace the app: %@" = "Nem sikerült lecserélni az alkalmazást: %1$@";
+"Downloaded and verified — ready to install." = "Letöltve és ellenőrizve — telepíthető.";
+"Enter an administrator password to update Branchwork in %@." = "Adjon meg egy rendszergazdai jelszót a(z) %1$@ helyen lévő Branchwork frissítéséhez.";
+"The release has no SHA-256 file. It wasn't installed." = "A kiadásban nincs SHA-256 fájl, ezért nem történt telepítés.";
+"The release has no update signature. It wasn't installed." = "A kiadásban nincs frissítési aláírás, ezért nem történt telepítés.";
+"The update signature doesn't match. It wasn't installed." = "A frissítés aláírása nem egyezik, ezért nem történt telepítés.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(A diff hosszú volt, ezért csak az eleje kapott magyarázatot.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nHitelesítés szükséges. Futtasson egyszer push/pull parancsot egy terminálban a hitelesítő adatok mentéséhez (kulcskarika vagy SSH-kulcs), majd próbálja újra.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nA tokennek api hatókör kell, és csak az hagyhatja jóvá, aki jogosult ennek az MR-nek a jóváhagyására.";
@@ -515,7 +522,6 @@
 "No one has approved yet." = "Még senki sem hagyta jóvá.";
 "No open %@" = "Nincs nyitott %1$@";
 "No permission (403): %@" = "Nincs jogosultság (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "Nincs írási jogosultság ide: %1$@. Töltse le és telepítse a kiadások oldaláról.";
 "No remote repository." = "Nincs távoli tároló.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "Nincs távoli tároló. Előbb adjon hozzá egyet egy terminálban: `git remote add origin <URL>`.";
 "No repositories opened yet" = "Még nincs megnyitott tároló";

@@ -1,5 +1,12 @@
 /* Branchwork — ko. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "다운로드한 곳에서 바로 열어서 macOS 가 임시 위치에서 실행하고 있어, 스스로 바꿔 넣을 수 없습니다. 응용 프로그램 폴더로 옮겨 다시 연 뒤 업데이트하세요.";
+"Couldn't replace the app: %@" = "앱을 바꿔 넣지 못했습니다: %1$@";
+"Downloaded and verified — ready to install." = "받아서 확인까지 마쳤습니다 — 바로 설치할 수 있습니다.";
+"Enter an administrator password to update Branchwork in %@." = "%1$@ 에 있는 Branchwork 를 업데이트하려면 관리자 암호를 입력하세요.";
+"The release has no SHA-256 file. It wasn't installed." = "릴리스에 SHA-256 파일이 없습니다. 설치하지 않았습니다.";
+"The release has no update signature. It wasn't installed." = "릴리스에 업데이트 서명이 없습니다. 설치하지 않았습니다.";
+"The update signature doesn't match. It wasn't installed." = "업데이트 서명이 맞지 않습니다. 설치하지 않았습니다.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(변경이 길어 앞부분만 보고 설명했습니다.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n인증이 필요합니다. 터미널에서 한 번 push/pull 해서 자격 증명(키체인·SSH 키)을 저장한 뒤 다시 시도하세요.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\n토큰에 api 권한이 있어야 하고, 승인은 그 MR 을 승인할 수 있는 사람만 할 수 있습니다.";
@@ -521,7 +528,6 @@
 "No one has approved yet." = "아직 승인한 사람이 없습니다.";
 "No open %@" = "열린 %1$@ 없음";
 "No permission (403): %@" = "권한이 없습니다(403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "%1$@ 에 쓸 권한이 없습니다. 릴리스 페이지에서 직접 받아 설치해 주세요.";
 "No remote repository." = "원격 저장소가 없습니다.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "원격 저장소가 없습니다. 터미널에서 `git remote add origin <URL>` 로 먼저 추가하세요.";
 "No repositories opened yet" = "아직 연 저장소가 없습니다";

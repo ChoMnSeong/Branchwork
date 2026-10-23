@@ -1,5 +1,12 @@
 /* Branchwork — es. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
 
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork se abrió directamente desde la descarga y se está ejecutando desde una ubicación temporal, así que no puede reemplazarse a sí mismo. Muévelo a la carpeta Aplicaciones, vuelve a abrirlo y luego actualízalo.";
+"Couldn't replace the app: %@" = "No se pudo reemplazar la app: %1$@";
+"Downloaded and verified — ready to install." = "Descargada y verificada: lista para instalar.";
+"Enter an administrator password to update Branchwork in %@." = "Introduce una contraseña de administrador para actualizar Branchwork en %1$@.";
+"The release has no SHA-256 file. It wasn't installed." = "La versión publicada no tiene archivo SHA-256. No se instaló.";
+"The release has no update signature. It wasn't installed." = "La versión publicada no tiene firma de actualización. No se instaló.";
+"The update signature doesn't match. It wasn't installed." = "La firma de la actualización no coincide. No se instaló.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(El diff era largo, así que solo se explicó el principio.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nSe requiere autenticación. Haz push/pull una vez en una terminal para guardar tus credenciales (Llavero o clave SSH) y vuelve a intentarlo.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nEl token necesita el ámbito api, y solo pueden aprobar este MR las personas con permiso para aprobarlo.";
@@ -509,7 +516,6 @@
 "No one has approved yet." = "Nadie lo ha aprobado todavía.";
 "No open %@" = "No hay ningún %1$@ abierto";
 "No permission (403): %@" = "Sin permiso (403): %1$@";
-"No permission to write to %@. Download and install it from the releases page." = "No tienes permiso para escribir en %1$@. Descárgalo e instálalo desde la página de versiones.";
 "No remote repository." = "No hay repositorio remoto.";
 "No remote repository. Add one first in a terminal with `git remote add origin <URL>`." = "No hay repositorio remoto. Primero agrega uno en una terminal con `git remote add origin <URL>`.";
 "No repositories opened yet" = "Aún no se ha abierto ningún repositorio";
