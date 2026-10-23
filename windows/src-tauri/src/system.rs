@@ -12,12 +12,12 @@ const SERVICE: &str = "Branchwork";
 // MARK: 자격 증명(Windows 자격 증명 관리자 / macOS 키체인)
 
 #[tauri::command]
-pub fn secret_get(name: String) -> Option<String> {
+pub async fn secret_get(name: String) -> Option<String> {
     keyring::Entry::new(SERVICE, &name).ok()?.get_password().ok()
 }
 
 #[tauri::command]
-pub fn secret_set(name: String, value: Option<String>) -> Result<(), String> {
+pub async fn secret_set(name: String, value: Option<String>) -> Result<(), String> {
     let entry = keyring::Entry::new(SERVICE, &name).map_err(|e| e.to_string())?;
     match value.filter(|v| !v.is_empty()) {
         Some(v) => entry.set_password(&v).map_err(|e| e.to_string()),
@@ -31,12 +31,12 @@ pub fn secret_set(name: String, value: Option<String>) -> Result<(), String> {
 // MARK: 파일
 
 #[tauri::command]
-pub fn fs_exists(path: String) -> bool {
+pub async fn fs_exists(path: String) -> bool {
     Path::new(&path).exists()
 }
 
 #[tauri::command]
-pub fn fs_read_text(path: String) -> Option<String> {
+pub async fn fs_read_text(path: String) -> Option<String> {
     std::fs::read(&path).ok().map(|b| String::from_utf8_lossy(&b).into_owned())
 }
 
@@ -50,7 +50,7 @@ pub struct FileHead {
 
 /// 파일 전체를 base64 로(이미지 diff 용, 너무 크면 None)
 #[tauri::command]
-pub fn fs_read_base64(path: String, max: u64) -> Option<String> {
+pub async fn fs_read_base64(path: String, max: u64) -> Option<String> {
     let meta = std::fs::metadata(&path).ok()?;
     if meta.len() > max {
         return None;
@@ -60,7 +60,7 @@ pub fn fs_read_base64(path: String, max: u64) -> Option<String> {
 
 /// 파일 앞부분(새 파일 diff 용). NUL 이 있으면 바이너리로 본다.
 #[tauri::command]
-pub fn fs_read_head(path: String, max: usize) -> Result<FileHead, String> {
+pub async fn fs_read_head(path: String, max: usize) -> Result<FileHead, String> {
     use std::io::Read;
     let f = std::fs::File::open(&path).map_err(|e| e.to_string())?;
     let size = f.metadata().map(|m| m.len()).unwrap_or(0);
@@ -77,7 +77,7 @@ pub fn fs_read_head(path: String, max: usize) -> Result<FileHead, String> {
 
 /// 임시 파일에 쓰고 바꿔치기(쓰다 끊겨도 원래 파일이 깨지지 않게)
 #[tauri::command]
-pub fn fs_write_text(path: String, content: String) -> Result<(), String> {
+pub async fn fs_write_text(path: String, content: String) -> Result<(), String> {
     let p = PathBuf::from(&path);
     if let Some(parent) = p.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -88,14 +88,14 @@ pub fn fs_write_text(path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn fs_list(path: String) -> Vec<String> {
+pub async fn fs_list(path: String) -> Vec<String> {
     std::fs::read_dir(&path)
         .map(|it| it.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).collect())
         .unwrap_or_default()
 }
 
 #[tauri::command]
-pub fn fs_remove(path: String) {
+pub async fn fs_remove(path: String) {
     let p = Path::new(&path);
     if p.is_dir() {
         let _ = std::fs::remove_dir_all(p);
@@ -105,7 +105,7 @@ pub fn fs_remove(path: String) {
 }
 
 #[tauri::command]
-pub fn fs_mkdirs(path: String) -> Result<(), String> {
+pub async fn fs_mkdirs(path: String) -> Result<(), String> {
     std::fs::create_dir_all(&path).map_err(|e| e.to_string())
 }
 

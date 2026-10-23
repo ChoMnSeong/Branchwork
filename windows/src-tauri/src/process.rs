@@ -50,9 +50,13 @@ pub fn native(p: &str) -> String {
     }
 }
 
+// 명령들은 async 로 둔다: Tauri 는 async 가 아닌 명령을 화면(메인) 스레드에서 돌려, 오래 걸리면 창이 '응답 없음'이 된다
 #[tauri::command]
-pub fn which(program: String) -> Option<String> {
-    find_program(&program).map(|p| p.to_string_lossy().into_owned())
+pub async fn which(program: String) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || find_program(&program).map(|p| p.to_string_lossy().into_owned()))
+        .await
+        .ok()
+        .flatten()
 }
 
 pub fn hide_window(cmd: &mut Command) {

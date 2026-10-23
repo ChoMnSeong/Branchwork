@@ -98,6 +98,14 @@ final class ToolStore {
 
     private init() {
         for id in ToolID.allCases { detect(id) }
+        // 로그인 셸의 PATH 는 셸 설정에 따라 몇 초 걸릴 수 있어 화면 스레드 밖에서 읽고, 못 찾은 도구만 다시 찾는다
+        Task.detached(priority: .utility) {
+            let extra = Self.readLoginPATH()
+            await MainActor.run {
+                Self.loginPATH = extra
+                for id in ToolID.allCases where self.states[id]?.path == nil { self.detect(id) }
+            }
+        }
     }
 
     func detect(_ id: ToolID) {
@@ -116,8 +124,10 @@ final class ToolStore {
         if let p = state.path, !id.versionArgs.isEmpty { readVersion(id, p) }
     }
 
-    /// 로그인 셸의 PATH(앱은 Finder 에서 켜면 PATH 가 짧다)
-    private static let loginPATH: [String] = {
+    /// 로그인 셸의 PATH(앱은 Finder 에서 켜면 PATH 가 짧다). 시작할 때 뒤에서 한 번 읽어 채운다.
+    private static var loginPATH: [String] = []
+
+    nonisolated private static func readLoginPATH() -> [String] {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: TerminalSession.loginShell)
         p.arguments = ["-l", "-c", "printf %s \"$PATH\""]
@@ -131,7 +141,7 @@ final class ToolStore {
         if p.isRunning { p.terminate(); return [] }
         let s = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         return s.split(separator: ":").map(String.init)
-    }()
+    }
 
     private static func pathCandidates(_ id: ToolID) -> [String] {
         guard id != .shell else { return [] }

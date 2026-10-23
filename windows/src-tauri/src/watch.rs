@@ -17,7 +17,7 @@ fn ignored(p: &str) -> bool {
 }
 
 #[tauri::command]
-pub fn watch_start(app: AppHandle, state: tauri::State<'_, Watches>, id: String, path: String) -> Result<(), String> {
+pub async fn watch_start(app: AppHandle, state: tauri::State<'_, Watches>, id: String, path: String) -> Result<(), String> {
     let (tx, rx) = mpsc::channel::<Vec<String>>();
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         if let Ok(ev) = res {
@@ -62,6 +62,7 @@ pub fn watch_start(app: AppHandle, state: tauri::State<'_, Watches>, id: String,
 }
 
 #[tauri::command]
-pub fn watch_stop(state: tauri::State<'_, Watches>, id: String) {
+pub async fn watch_stop(state: tauri::State<'_, Watches>, id: String) -> Result<(), String> {
     state.0.lock().unwrap().remove(&id);
+    Ok(())
 }

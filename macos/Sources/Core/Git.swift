@@ -69,57 +69,109 @@ enum Git {
     }
 }
 
-/// 외부 프로그램(git, gh, claude) 실행기
+/// 외부 프로그램(git, gh, claude) 실행기.
+/// 스레드를 붙잡고 기다리지 않는다: 출력은 readabilityHandler 로, 끝은 terminationHandler 로 받는다.
+/// (예전엔 실행마다 GCD 스레드 두 개가 기다려서, 탭이 많을 때 64개 한도가 차 서로 기다리다 앱이 멈췄다)
 enum Shell {
-    private final class Box { var data = Data() }
+    /// 한 번의 실행 상태(출력 모으기 · 끝났는지)
+    private final class Run: @unchecked Sendable {
+        private let lock = NSLock()
+        private var out = Data(), err = Data()
+        private var outDone = false, errDone = false, exited = false, resumed = false
+        private let finish: (Data, Data) -> Void
+
+        init(finish: @escaping (Data, Data) -> Void) { self.finish = finish }
+
+        func append(_ d: Data, err isErr: Bool) {
+            lock.lock(); if isErr { err.append(d) } else { out.append(d) }; lock.unlock()
+        }
+
+        func close(err isErr: Bool) { mark { if isErr { errDone = true } else { outDone = true } } }
+        func exit() { mark { exited = true } }
+
+        private func mark(_ change: () -> Void) {
+            lock.lock()
+            change()
+            let ready = outDone && errDone && exited && !resumed
+            if ready { resumed = true }
+            let (o, e) = (out, err)
+            lock.unlock()
+            if ready { finish(o, e) }
+        }
+    }
+
+    /// 동시에 띄우는 프로세스 수 제한(파일 감시·여러 탭·아바타가 겹쳐도 git 이 수십 개씩 뜨지 않게)
+    private actor Limiter {
+        private var running = 0
+        private var waiting: [CheckedContinuation<Void, Never>] = []
+        let limit = 16
+
+        func acquire() async {
+            if running < limit { running += 1; return }
+            await withCheckedContinuation { waiting.append($0) }
+        }
+
+        func release() {
+            if waiting.isEmpty { running -= 1 } else { waiting.removeFirst().resume() }
+        }
+    }
+
+    private static let limiter = Limiter()
 
     static func run(_ executable: String, _ args: [String], cwd: URL, env: [String: String]? = nil,
                     input: String? = nil, timeout: TimeInterval = 120) async throws -> GitResult {
-        try await withCheckedThrowingContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let p = Process()
-                p.executableURL = URL(fileURLWithPath: executable)
-                p.arguments = args
-                p.currentDirectoryURL = cwd
-                if let env { p.environment = env }
-                let out = Pipe()
-                let err = Pipe()
-                p.standardOutput = out
-                p.standardError = err
-                let inPipe = input == nil ? nil : Pipe()
-                p.standardInput = inPipe ?? FileHandle.nullDevice
+        await limiter.acquire()
+        defer { Task { await limiter.release() } }
+        return try await withCheckedThrowingContinuation { cont in
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: executable)
+            p.arguments = args
+            p.currentDirectoryURL = cwd
+            if let env { p.environment = env }
+            let out = Pipe()
+            let err = Pipe()
+            p.standardOutput = out
+            p.standardError = err
+            let inPipe = input == nil ? nil : Pipe()
+            p.standardInput = inPipe ?? FileHandle.nullDevice
 
-                // stderr 를 따로 비워야 출력이 많을 때 파이프가 가득 차 멈추지 않는다
-                let errBox = Box()
-                let group = DispatchGroup()
-                group.enter()
-                DispatchQueue.global(qos: .utility).async {
-                    errBox.data = err.fileHandleForReading.readDataToEndOfFile()
-                    group.leave()
+            let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
+            let run = Run { o, e in
+                killer.cancel()
+                cont.resume(returning: GitResult(status: p.terminationStatus, data: o, stderr: String(decoding: e, as: UTF8.self)))
+            }
+            // stdout·stderr 는 둘 다 계속 비워야 한쪽 파이프가 가득 차 멈추지 않는다
+            for (pipe, isErr) in [(out, false), (err, true)] {
+                pipe.fileHandleForReading.readabilityHandler = { h in
+                    let d = h.availableData
+                    if d.isEmpty {
+                        h.readabilityHandler = nil
+                        run.close(err: isErr)
+                    } else {
+                        run.append(d, err: isErr)
+                    }
                 }
+            }
+            p.terminationHandler = { _ in run.exit() }
 
-                do {
-                    try p.run()
-                } catch {
-                    try? err.fileHandleForWriting.close()
-                    group.wait()
-                    let name = (executable as NSString).lastPathComponent
-                    cont.resume(throwing: GitError(command: name, message: String(localized: "Couldn't run \(name): \(error.localizedDescription)")))
-                    return
-                }
-                if let inPipe, let input {
-                    inPipe.fileHandleForWriting.write(Data(input.utf8))
+            do {
+                try p.run()
+            } catch {
+                out.fileHandleForReading.readabilityHandler = nil
+                err.fileHandleForReading.readabilityHandler = nil
+                let name = (executable as NSString).lastPathComponent
+                cont.resume(throwing: GitError(command: name, message: String(localized: "Couldn't run \(name): \(error.localizedDescription)")))
+                return
+            }
+            if let inPipe, let input {
+                // 입력이 파이프 버퍼보다 크면 쓰기가 막힐 수 있어 따로 쓴다(GCD 스레드를 붙잡지 않게 Thread)
+                let data = Data(input.utf8)
+                Thread.detachNewThread {
+                    inPipe.fileHandleForWriting.write(data)
                     try? inPipe.fileHandleForWriting.close()
                 }
-                let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
-                DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
-                let data = out.fileHandleForReading.readDataToEndOfFile()
-                p.waitUntilExit()
-                killer.cancel()
-                group.wait()
-                cont.resume(returning: GitResult(status: p.terminationStatus, data: data,
-                                                 stderr: String(decoding: errBox.data, as: UTF8.self)))
             }
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
         }
     }
 }
