@@ -1,17 +1,30 @@
 name: Windows
 
+# 푸시·PR: 타입 검사·단위 테스트 → 점검용 빌드 한 번 → 실제 앱 자동 점검.
+# 배포(v* 태그)·수동 실행: 위에 더해 서명한 설치 파일 빌드, 자동 업데이트 서명 점검, README 스크린샷.
 on:
   push:
+    branches: [main]
+    tags: ["v*"]
     paths: ["windows/**", "docs/make-demo-repo.sh", ".github/workflows/windows.yml"]
   pull_request:
     paths: ["windows/**", "docs/make-demo-repo.sh", ".github/workflows/windows.yml"]
   workflow_dispatch:
 
+# 같은 브랜치·PR 에 새로 푸시하면 돌던 실행은 취소한다(겹쳐 돌며 줄 서지 않게)
+concurrency:
+  group: windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: 빌드 · 자동 점검
+    # 버전 커밋(Release …)은 함께 푸시하는 v* 태그 실행이 전부 한다
+    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'Release ')
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
+    env:
+      FULL: ${{ github.ref_type == 'tag' || github.event_name == 'workflow_dispatch' }}
     defaults:
       run:
         working-directory: windows
@@ -38,7 +51,12 @@ jobs:
           npx tsc --noEmit
           npx vitest run
 
-      - name: 빌드 (설치 파일 + 업데이트 서명)
+      - name: Git 훅 시험 (Git Bash)
+        shell: bash
+        run: sh ../.githooks/test-rules.sh
+
+      - name: 배포용 빌드 (설치 파일 + 업데이트 서명)
+        if: env.FULL == 'true'
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -52,6 +70,7 @@ jobs:
           fi
 
       - name: 설치 파일 올리기
+        if: env.FULL == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: branchwork-windows
@@ -63,8 +82,8 @@ jobs:
       - name: 점검용 빌드(업데이트 서버 http 허용 — 배포 파일과는 별개)
         shell: bash
         run: |
-          # 가짜 업데이트 서버(http://127.0.0.1)로 서명 확인을 시험하려고 http 허용 + 낮은 버전(0.0.1)으로 다시 빌드한다.
-          # 배포 파일(위에서 올린 설치 파일)은 https 만 쓴다.
+          # 가짜 업데이트 서버(http://127.0.0.1)로 서명 확인을 시험하려고 http 허용 + 낮은 버전(0.0.1)으로 빌드한다.
+          # 배포 파일(위에서 올린 설치 파일)은 https 만 쓴다. 배포용 빌드가 없으면(보통 푸시) 업데이트 점검은 건너뛴다.
           npx tauri build --no-bundle --config '{"version":"0.0.1","bundle":{"createUpdaterArtifacts":false},"plugins":{"updater":{"dangerousInsecureTransportProtocol":true}}}'
 
       - name: 테스트 저장소 만들기
@@ -111,8 +130,8 @@ jobs:
       - name: 자동 점검 (실제 앱 실행)
         shell: pwsh
         run: |
-          # AI 연결·자동 업데이트 점검용 가짜 서버(방금 만든 설치 파일과 서명을 업데이트로 내놓는다)
-          $setup = Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          # AI 연결·자동 업데이트 점검용 가짜 서버(배포용 빌드가 있으면 그 설치 파일과 서명을 업데이트로 내놓는다)
+          $setup = Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           $mockArgs = @("tests/mock-ai-server.mjs", "18080")
           if (Test-Path "$($setup.FullName).sig") { $mockArgs += @("`"$($setup.FullName)`"", "`"$($setup.FullName).sig`"") }
           $mock = Start-Process -FilePath node -ArgumentList $mockArgs -PassThru -WindowStyle Hidden
@@ -139,10 +158,12 @@ jobs:
           if (-not $r.ok) { Write-Error "자동 점검 실패"; exit 1 }
 
       - name: README 스크린샷용 데모 저장소
+        if: env.FULL == 'true'
         shell: bash
         run: bash ../docs/make-demo-repo.sh "$ST_ROOT/demo"
 
       - name: README 스크린샷 (라이트·다크)
+        if: env.FULL == 'true'
         shell: pwsh
         run: |
           # 점검이 끝난 실제 앱을 데모 저장소로 다시 열어 창만 찍는다(docs/images/windows-*.png 로 쓰려고)
@@ -208,6 +229,7 @@ jobs:
           }
 
       - name: README 스크린샷 올리기
+        if: env.FULL == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: readme-shots

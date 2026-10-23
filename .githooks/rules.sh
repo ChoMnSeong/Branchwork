@@ -38,7 +38,7 @@ non_english_lines() {
   printf '%s\n' "$1" |
     LC_ALL=C sed -E -e 's/^[A-Za-z]+(-[A-Za-z]+)+: .*//' -e 's/`[^`]*`//g' \
       -e "s/[$LATIN][$CONT]//g" -e "s/$MIDDOT//g" -e "s/$PUNCT[$CONT]//g" -e "s/$ARROW[$CONT]//g" |
-    LC_ALL=C grep -n "[^$TAB -~]" | cut -d: -f1 | paste -sd, -
+    LC_ALL=C grep -n "[^$TAB -~]" | cut -d: -f1 | tr '\n' ',' | sed 's/,$//'
 }
 
 # $1 = 메시지 파일, $2 = 알림에 붙일 커밋(없으면 지금 쓰는 메시지)
@@ -108,7 +108,7 @@ check_file() {
   size=$(git cat-file -s "$spec" 2>/dev/null) || return
   [ "$size" -le $MAX_BYTES ] || err "$p: File is larger than 2 MB ($size bytes)"
   # 비밀값은 줄 번호만 알린다(값을 로그에 다시 찍지 않게)
-  lines=$(git cat-file -p "$spec" | grep -nIoE -e "$SECRETS" | cut -d: -f1 | paste -sd, -)
+  lines=$(git cat-file -p "$spec" | grep -nIoE -e "$SECRETS" | cut -d: -f1 | tr '\n' ',' | sed 's/,$//')
   [ -z "$lines" ] || err "$p: Looks like a secret (key or token) on line ${lines} — remove it, and revoke it if it was ever pushed"
   case $p in
     macos/Vendor/*) return ;; # 가져온 외부 코드
