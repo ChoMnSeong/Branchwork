@@ -76,6 +76,7 @@ export function ChangeList({
   action,
   onOpen,
   menu,
+  folderMenu,
 }: {
   changes: FileChange[];
   isSelected: (c: FileChange) => boolean;
@@ -83,6 +84,8 @@ export function ChangeList({
   action?: { icon: ReactNode; tip: string; run: (files: FileChange[]) => void };
   onOpen: (c: FileChange) => void;
   menu: (c: FileChange) => MenuItem[];
+  /** 트리의 폴더 줄 우클릭 메뉴(경로는 저장소 기준) */
+  folderMenu?: (path: string) => MenuItem[];
 }) {
   const mode = useFileViewMode();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -138,7 +141,13 @@ export function ChangeList({
     <div className="col">
       {treeRows(changes, collapsed).map((r) =>
         r.kind === "folder" ? (
-          <div key={r.id} className="file-row" style={{ paddingLeft: 6 + r.depth * indent }} onClick={() => toggle(r.path)}>
+          <div
+            key={r.id}
+            className="file-row"
+            style={{ paddingLeft: 6 + r.depth * indent }}
+            onClick={() => toggle(r.path)}
+            onContextMenu={folderMenu ? (e) => showContextMenu(e, folderMenu(r.path)) : undefined}
+          >
             <span className="muted" style={{ display: "inline-flex", width: 12 }}>
               {collapsed.has(r.path) ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
             </span>

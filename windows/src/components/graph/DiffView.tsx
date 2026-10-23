@@ -1,4 +1,4 @@
-import { ChevronLeft, Columns2, CornerDownLeft, Equal, FileArchive, FileText, History, ImageOff, LockOpen, Pencil, Rows3, ScanText, Space, Trash2, TriangleAlert } from "lucide-react";
+import { ChevronLeft, Columns2, CornerDownLeft, Equal, FileArchive, FileText, FolderOpen, History, ImageOff, LockOpen, Pencil, Rows3, ScanText, Space, Trash2, TriangleAlert } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { diffSides, modeSummary, splitRows, type SplitRow } from "../../lib/diff";
 import { short, type DiffDocument, type DiffLine } from "../../lib/models";
@@ -62,6 +62,7 @@ export function DiffView({ store }: { store: RepoStore }) {
             )}
           </>
         )}
+        <IconButton icon={<FolderOpen size={15} />} aria-label={t("Show in Explorer")} tip={t("Show in Explorer")} onClick={() => store.revealFile(c)} />
         <div className="segmented" style={{ flex: "none" }}>
           <button type="button" className={!store.diffSplit ? "on" : ""} data-tip={t("Unified view")} aria-label={t("Unified view")} onClick={() => store.setDiffSplit(false)}>
             <Rows3 size={14} />

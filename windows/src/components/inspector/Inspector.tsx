@@ -82,6 +82,7 @@ function WorkingChanges({ store }: { store: RepoStore }) {
       <div className="panel-scroll">
         <FileSection title={t("Conflict")} color="var(--red)" count={st.conflicted.length} actionTitle={t("Mark all as resolved")} onAction={() => void store.stage(st.conflicted)}>
           <ChangeList
+            folderMenu={(p) => folderMenu(store, p)}
             changes={st.conflicted}
             isSelected={isOpen}
             onOpen={open}
@@ -91,6 +92,7 @@ function WorkingChanges({ store }: { store: RepoStore }) {
         </FileSection>
         <FileSection title={t("Unstaged files")} color="var(--orange)" count={st.unstaged.length} actionTitle={t("Stage all")} onAction={() => void store.stageAll()}>
           <ChangeList
+            folderMenu={(p) => folderMenu(store, p)}
             changes={st.unstaged}
             isSelected={isOpen}
             onOpen={open}
@@ -106,6 +108,7 @@ function WorkingChanges({ store }: { store: RepoStore }) {
         </FileSection>
         <FileSection title={t("Staged files")} color="var(--green)" count={st.staged.length} actionTitle={t("Unstage all")} onAction={() => void store.unstageAll()}>
           <ChangeList
+            folderMenu={(p) => folderMenu(store, p)}
             changes={st.staged}
             isSelected={isOpen}
             onOpen={open}
@@ -341,6 +344,7 @@ function CommitDetailView({ store, sha }: { store: RepoStore; sha: string }) {
             </div>
           )}
           <ChangeList
+            folderMenu={(p) => folderMenu(store, p)}
             changes={store.detailFiles}
             stats={store.detailStats}
             isSelected={(c) => sameDiffSource(store.diffSource, { kind: "commit", sha, change: c, parent: d.parents[0] ?? null })}
@@ -349,6 +353,7 @@ function CommitDetailView({ store, sha }: { store: RepoStore; sha: string }) {
               { label: t("File history"), onClick: () => store.openFileHistory(c.path) },
               { label: t("Show blame at this commit"), disabled: c.kind === "deleted", onClick: () => store.openBlame(c.path, sha) },
               "divider",
+              { label: t("Show in Explorer"), onClick: () => store.revealFile(c) },
               { label: t("Copy path"), onClick: () => store.copy(c.path) },
             ]}
           />
@@ -522,3 +527,12 @@ function PullRequestDetail({ store, number }: { store: RepoStore; number: number
     </div>
   );
 }
+
+/** 변경 목록 트리의 폴더 줄 우클릭 */
+function folderMenu(store: RepoStore, path: string): MenuItem[] {
+  return [
+    { label: t("Show in Explorer"), onClick: () => void store.revealPath(path) },
+    { label: t("Copy path"), onClick: () => store.copy(path) },
+  ];
+}
+

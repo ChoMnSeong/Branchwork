@@ -790,8 +790,17 @@ export abstract class RepoCore extends Observable implements AgentHost {
   // MARK: - 기타
 
   revealFile(c: FileChange) {
-    if (this.path) void ipc.reveal(joinPath(this.path, c.path)).catch((e) => this.fail(e));
+    void this.revealPath(c.path);
   }
+
+  /** 저장소 안 경로를 탐색기에서 고른다. 지워진 파일이면 남아 있는 가장 가까운 폴더를 연다. */
+  async revealPath(rel: string) {
+    if (!this.path) return;
+    let p = rel.replace(/\/+$/, "");
+    while (p && !(await ipc.exists(joinPath(this.path, p)))) p = p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "";
+    await ipc.reveal(p ? joinPath(this.path, p) : this.path).catch((e) => this.fail(e));
+  }
+
 
   copy(text: string) {
     void navigator.clipboard.writeText(text);

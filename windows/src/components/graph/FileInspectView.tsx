@@ -1,11 +1,11 @@
-import { ChevronLeft, Clock, FileArchive, History, ScanText, TriangleAlert } from "lucide-react";
+import { ChevronLeft, Clock, FileArchive, FolderOpen, History, ScanText, TriangleAlert } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { avatars } from "../../lib/avatars";
 import { longDate, shortDate } from "../../lib/format";
 import { isUncommittedLine, short, type BlameLine } from "../../lib/models";
 import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
-import { Avatar, Button, Empty, Segmented, Spinner, tip } from "../shared/ui";
+import { Avatar, Button, Empty, IconButton, Segmented, Spinner, tip } from "../shared/ui";
 import { DiffBody, DiffEmptyState } from "./DiffView";
 import { t } from "../../lib/i18n";
 
@@ -42,6 +42,7 @@ export function FileInspectView({ store }: { store: RepoStore }) {
           </span>
         </div>
         {store.fileInspectLoading && <Spinner size={13} />}
+        <IconButton icon={<FolderOpen size={15} />} aria-label={t("Show in Explorer")} tip={t("Show in Explorer")} onClick={() => void store.revealPath(f.path)} />
         <Segmented
           value={f.mode}
           onChange={(m) => store.setFileInspectMode(m)}
