@@ -22,7 +22,7 @@ import { t } from "./i18n";
 /** git 의 기계용 출력(porcelain, -z, 커스텀 format)을 모델로 바꾼다. (맥 버전 Parsers.swift 와 같은 규칙) */
 
 // 그래프 날짜는 정렬(--date-order) 기준과 같은 커밋 날짜(%ct)
-export const logFormat = "%H%x1f%P%x1f%an%x1f%ae%x1f%ct%x1f%s%x1e";
+export const logFormat = "%H%x1f%P%x1f%an%x1f%ae%x1f%ct%x1f%s%x1f%b%x1e";
 export const refFormat = "%(refname)%1f%(objectname)%1f%(*objectname)%1f%(upstream:short)%1f%(upstream:track,nobracket)%1f%(HEAD)";
 export const detailFormat = "%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%cn%x1f%ce%x1f%ct%x1f%B";
 export const stashFormat = "%gd%x1f%H%x1f%gs";
@@ -40,9 +40,20 @@ export function parseLog(text: string): Commit[] {
     if (!r) continue;
     const f = r.split(US);
     if (f.length < 6) continue;
-    out.push({ id: f[0], parents: words(f[1]), author: f[2], email: f[3], date: Number(f[4]) || 0, subject: f[5] });
+    out.push({ id: f[0], parents: words(f[1]), author: f[2], email: f[3], date: Number(f[4]) || 0, subject: f[5], body: f.length > 6 ? bodyPreview(f.slice(6).join(US)) : "" });
   }
   return out;
+}
+
+/** 본문에서 첫 번째 내용 줄(Co-Authored-By 같은 꼬리말은 빼고, 글머리표는 떼고, 길면 자른다) */
+export function bodyPreview(body: string): string {
+  for (const raw of body.split(/\r?\n/)) {
+    let l = raw.trim();
+    if (!l || /^[A-Za-z][A-Za-z0-9-]*: \S/.test(l)) continue;
+    if (l.startsWith("- ") || l.startsWith("* ")) l = l.slice(2);
+    return l.slice(0, 200);
+  }
+  return "";
 }
 
 export function parseCommitDetail(text: string): CommitDetail | null {

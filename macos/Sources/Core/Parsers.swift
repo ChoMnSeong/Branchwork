@@ -3,7 +3,7 @@ import Foundation
 /// git 의 기계용 출력(porcelain, -z, 커스텀 format)을 모델로 바꾼다.
 enum Parsers {
     /// 그래프 날짜는 정렬(--date-order) 기준과 같은 커밋 날짜(%ct) — 리베이스·cherry-pick 된 커밋도 순서대로 보이게
-    static let logFormat = "%H%x1f%P%x1f%an%x1f%ae%x1f%ct%x1f%s%x1e"
+    static let logFormat = "%H%x1f%P%x1f%an%x1f%ae%x1f%ct%x1f%s%x1f%b%x1e"
     static let refFormat = "%(refname)%1f%(objectname)%1f%(*objectname)%1f%(upstream:short)%1f%(upstream:track,nobracket)%1f%(HEAD)"
     static let detailFormat = "%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%cn%x1f%ce%x1f%ct%x1f%B"
     static let stashFormat = "%gd%x1f%H%x1f%gs"
@@ -28,9 +28,21 @@ enum Parsers {
             guard f.count >= 6 else { continue }
             out.append(Commit(id: f[0],
                               parents: f[1].split(separator: " ").map(String.init),
-                              author: f[2], email: f[3], date: date(f[4]), subject: f[5]))
+                              author: f[2], email: f[3], date: date(f[4]), subject: f[5],
+                              body: f.count > 6 ? bodyPreview(f[6]) : ""))
         }
         return out
+    }
+
+    /// 본문에서 첫 번째 내용 줄(Co-Authored-By 같은 꼬리말은 빼고, 글머리표는 떼고, 길면 자른다)
+    static func bodyPreview(_ body: String) -> String {
+        for line in body.split(whereSeparator: \.isNewline) {
+            var l = line.trimmingCharacters(in: .whitespaces)
+            if l.isEmpty || l.range(of: #"^[A-Za-z][A-Za-z0-9-]*: \S"#, options: .regularExpression) != nil { continue }
+            if l.hasPrefix("- ") || l.hasPrefix("* ") { l = String(l.dropFirst(2)) }
+            return String(l.prefix(200))
+        }
+        return ""
     }
 
     static func commitDetail(_ text: String) -> CommitDetail? {

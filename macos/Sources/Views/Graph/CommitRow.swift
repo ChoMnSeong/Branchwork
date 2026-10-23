@@ -42,7 +42,12 @@ struct CommitRow: View {
                                    startPoint: .leading, endPoint: .trailing)
                 }
                 .background(tint.opacity(groups.isEmpty ? 0.04 : 0.10))
+            // 커밋 메시지: 레인 색 막대 · 제목 · 본문 첫 줄(흐리게) · 오른쪽 끝에 시간. 작성자·SHA 는 마우스를 올리면.
             HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(tint.opacity(c.isWIP ? 0.5 : 0.9))
+                    .frame(width: 3, height: 16)
+                    .padding(.trailing, 4)
                 if c.isWIP {
                     Text("// Uncommitted changes").italic().foregroundStyle(.secondary)
                     Text("\(wipCount) files")
@@ -50,32 +55,38 @@ struct CommitRow: View {
                         .padding(.horizontal, 6).padding(.vertical, 1)
                         .background(Capsule().fill(tint.opacity(0.18)))
                 } else {
-                    Text(c.subject)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .foregroundStyle(c.isMerge ? .secondary : .primary)
-                    if let ci {
-                        CIStatusIcon(status: ci.status, size: 11)
-                            .help("CI: \(ci.status.title) · \(ci.name.isEmpty ? "" : ci.name + " ")#\(ci.number) — click to open in the browser")
-                            .onTapGesture { if let u = URL(string: ci.url) { NSWorkspace.shared.open(u) } }
+                    SubjectAndBody {
+                        Text(c.subject)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .foregroundStyle(c.isMerge ? .secondary : .primary)
+                        if let ci {
+                            CIStatusIcon(status: ci.status, size: 11)
+                                .help("CI: \(ci.status.title) · \(ci.name.isEmpty ? "" : ci.name + " ")#\(ci.number) — click to open in the browser")
+                                .onTapGesture { if let u = URL(string: ci.url) { NSWorkspace.shared.open(u) } }
+                        }
+                        if !c.body.isEmpty {
+                            Text(c.body)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .foregroundStyle(.secondary)
+                                .layoutValue(key: IsCommitBody.self, value: true)
+                        }
                     }
                 }
-            }
-            .padding(.leading, 8)
-            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-            .clipped()
-            Group {
-                if columns.author { Text(c.author).frame(width: 120, alignment: .leading).padding(.leading, 8) }
-                if columns.date { Text(c.isWIP ? "" : Fmt.short(c.date)).frame(width: 90, alignment: .leading).padding(.leading, 8) }
-                if columns.sha {
-                    Text(c.isWIP ? "" : c.short)
-                        .font(.system(.caption, design: .monospaced))
-                        .frame(width: 60, alignment: .leading)
-                        .padding(.leading, 8)
+                Spacer(minLength: 8)
+                if columns.time && !c.isWIP {
+                    Text(Fmt.short(c.date))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
             }
-            .lineLimit(1)
-            .foregroundStyle(.secondary)
+            .padding(.leading, 10)
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .clipped()
+            .help(c.isWIP ? "" : "\(c.author) <\(c.email)>\n\(Fmt.long(c.date)) · \(c.short)")
         }
         .font(.system(size: 12.5))
         .padding(.trailing, 12)
@@ -373,3 +384,30 @@ struct CommitMenu: View {
         }
     }
 }
+
+private struct IsCommitBody: LayoutValueKey { static let defaultValue = false }
+
+/// 제목(과 CI 표시)은 먼저 다 보이게 놓고, 본문 첫 줄은 남는 자리가 넉넉할 때만(조각만 보이면 숨긴다)
+private struct SubjectAndBody: Layout {
+    private let spacing: CGFloat = 6
+    private let bodyMin: CGFloat = 70
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let ideal = sizes.reduce(0) { $0 + $1.width } + spacing * CGFloat(max(0, sizes.count - 1))
+        return CGSize(width: min(proposal.width ?? ideal, ideal), height: sizes.map(\.height).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        for v in subviews {
+            let ideal = v.sizeThatFits(.unspecified)
+            var left = max(0, bounds.maxX - x)
+            if v[IsCommitBody.self] && left < bodyMin { left = 0 }
+            let w = min(ideal.width, left)
+            v.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: w, height: ideal.height))
+            x += w + (w > 0 ? spacing : 0)
+        }
+    }
+}
+

@@ -14,31 +14,22 @@ enum GraphMetrics {
         max(44, CGFloat(min(lanes, maxVisibleLanes)) * laneWidth + leftPad * 2)
     }
 
-    /// 그래프 행의 칸 너비. 좁은 화면에서는 커밋 메시지 칸을 지키려고 다른 칸을 숨기거나 줄인다.
+    /// 그래프 행의 칸: 브랜치·태그, 그래프, 커밋 메시지(제목 + 본문 첫 줄 + 오른쪽 끝에 시간).
+    /// 좁으면 시간을 숨기고, 브랜치 칸, 그래프 칸(오른쪽 레인은 잘림) 순으로 줄여 메시지 칸을 지킨다.
     struct Columns: Equatable {
         var ref = GraphMetrics.refWidth
         var graph: CGFloat
-        var author = true
-        var date = true
-        var sha = true
+        var time = true
     }
 
-    private static let messageMin: CGFloat = 180
+    private static let messageMin: CGFloat = 200
 
-    /// SHA → 날짜 칸을 숨기고, 브랜치 칸을 조금 줄이고, 작성자 칸을 숨기고, 브랜치 칸을 더 줄이고,
-    /// 그래도 모자라면 그래프 칸(오른쪽 레인은 잘림)을 줄인다
     static func columns(width: CGFloat, graph: CGFloat) -> Columns {
         var c = Columns(graph: graph)
-        // 메시지 왼쪽 여백 8, 행 오른쪽 여백 12, 작성자·날짜·SHA 는 왼쪽 여백 8 씩
-        func short() -> CGFloat {
-            messageMin - (width - (c.ref + c.graph + 20 + (c.author ? 128 : 0) + (c.date ? 98 : 0) + (c.sha ? 68 : 0)))
-        }
-        func shrinkRef(_ min: CGFloat) { if short() > 0 { c.ref = max(min, c.ref - short()) } }
-        if short() > 0 { c.sha = false }
-        if short() > 0 { c.date = false }
-        shrinkRef(150)
-        if short() > 0 { c.author = false }
-        shrinkRef(110)
+        // 메시지 앞 막대·여백 20, 행 오른쪽 여백 12, 시간 칸 90
+        func short() -> CGFloat { messageMin - (width - (c.ref + c.graph + 32 + (c.time ? 90 : 0))) }
+        if short() > 0 { c.time = false }
+        if short() > 0 { c.ref = max(110, c.ref - short()) }
         if short() > 0 { c.graph = max(min(graph, 66), c.graph - short()) }
         return c
     }
@@ -235,12 +226,7 @@ private struct GraphHeader: View {
         HStack(spacing: 0) {
             Text("Branch / Tag").padding(.leading, 10).frame(width: columns.ref, alignment: .leading)
             Text("Graph").padding(.leading, 6).frame(width: columns.graph, alignment: .leading)
-            Text("Commit message").padding(.leading, 8).frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-            Group {
-                if columns.author { Text("Author").frame(width: 120, alignment: .leading).padding(.leading, 8) }
-                if columns.date { Text("Date").frame(width: 90, alignment: .leading).padding(.leading, 8) }
-                if columns.sha { Text("SHA").frame(width: 60, alignment: .leading).padding(.leading, 8) }
-            }
+            Text("Commit message").padding(.leading, 20).frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         }
         .lineLimit(1)
         .font(.caption.weight(.semibold))

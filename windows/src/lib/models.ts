@@ -11,6 +11,8 @@ export interface Commit {
   /** 커밋 날짜(초) */
   date: number;
   subject: string;
+  /** 본문 첫 줄(그래프에서 제목 뒤에 흐리게) */
+  body?: string;
 }
 
 export const isWIP = (c: Commit) => c.id === WIP_ID;

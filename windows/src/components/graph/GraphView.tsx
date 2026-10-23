@@ -58,11 +58,9 @@ export function GraphView({ store }: { store: RepoStore }) {
       <div className="graph-header">
         <span style={{ width: cols.ref, paddingLeft: 10 }}>{t("Branch / Tag")}</span>
         <span style={{ width: cols.graph, paddingLeft: 6 }}>{t("Graph")}</span>
-        <span className="grow" style={{ paddingLeft: 8, flex: 1, minWidth: 0 }}>
-          {t("Commit message")}</span>
-        {cols.author && <span style={{ width: 120, paddingLeft: 8 }}>{t("Author")}</span>}
-        {cols.date && <span style={{ width: 90 }}>{t("Date")}</span>}
-        {cols.sha && <span style={{ width: 64 }}>SHA</span>}
+        <span className="grow" style={{ paddingLeft: 20, flex: 1, minWidth: 0 }}>
+          {t("Commit message")}
+        </span>
       </div>
       <div
         ref={scrollRef}

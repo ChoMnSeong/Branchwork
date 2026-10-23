@@ -1,7 +1,7 @@
 import { Check, Cloud, Crosshair, Laptop, Tag as TagIcon } from "lucide-react";
 import { memo, useState } from "react";
 import { drag } from "../../lib/drag";
-import { laneColor, shortDate } from "../../lib/format";
+import { laneColor, longDate, shortDate } from "../../lib/format";
 import { isMerge, isWIP, short, type GraphEntry, type GraphRow, type RefLabel } from "../../lib/models";
 import { useObserve } from "../../lib/observable";
 import { avatars } from "../../lib/avatars";
@@ -103,16 +103,19 @@ export const CommitRow = memo(function CommitRow({
       >
         <GraphCell row={entry.row} width={gw} isWIP={wip} isHead={isHead} isMerge={isMerge(c)} hasRefs={groups.length > 0} author={c.author} email={c.email} />
       </div>
-      <div className="msg" style={{ paddingLeft: 8 }}>
+      {/* 커밋 메시지: 레인 색 막대 · 제목 · 본문 첫 줄(흐리게) · 오른쪽 끝에 시간. 작성자·SHA 는 마우스를 올리면. */}
+      <div className="msg" data-tip={wip ? undefined : `${c.author} <${c.email}>\n${longDate(c.date)} · ${short(c.id)}`}>
+        <span className="msg-bar" style={{ background: tint, opacity: wip ? 0.5 : 0.9 }} />
         {wip ? (
           <>
             <i className="muted">{t("// Uncommitted changes")}</i>
             <span className="wip-chip" style={{ background: `color-mix(in srgb, ${tint} 18%, transparent)` }}>
-              {t("{0} files", wipCount)}</span>
+              {t("{0} files", wipCount)}
+            </span>
           </>
         ) : (
           <>
-            <span className="ellipsis" style={{ color: isMerge(c) ? "var(--text-2)" : undefined }}>
+            <span className="msg-subject" style={{ color: isMerge(c) ? "var(--text-2)" : undefined }}>
               {c.subject}
             </span>
             {ci && (
@@ -125,16 +128,15 @@ export const CommitRow = memo(function CommitRow({
                 <CIStatusIcon status={ci.status} size={12} />
               </span>
             )}
+            {c.body && (
+              <span className="msg-body">
+                <span>{c.body}</span>
+              </span>
+            )}
+            {cols.time && <span className="msg-time">{shortDate(c.date)}</span>}
           </>
         )}
       </div>
-      {cols.author && (
-        <span className="c-author ellipsis muted" style={{ paddingLeft: 8 }}>
-          {c.author}
-        </span>
-      )}
-      {cols.date && <span className="c-date ellipsis muted">{wip ? "" : shortDate(c.date)}</span>}
-      {cols.sha && <span className="c-sha muted">{wip ? "" : short(c.id)}</span>}
     </div>
   );
 });

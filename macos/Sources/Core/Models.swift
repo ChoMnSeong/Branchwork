@@ -12,6 +12,8 @@ struct Commit: Identifiable, Hashable {
     let email: String
     let date: Date
     let subject: String
+    /// 본문 첫 줄(그래프에서 제목 뒤에 흐리게)
+    var body: String = ""
 
     var short: String { String(id.prefix(7)) }
     var isWIP: Bool { id == Commit.wipID }
