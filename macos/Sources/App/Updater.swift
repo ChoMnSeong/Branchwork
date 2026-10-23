@@ -247,37 +247,52 @@ final class UpdateCenter {
 
     /// 관리자 권한으로 지금 바로 dest 를 newApp 으로 바꿔 넣는다. 암호 창을 취소하면 false.
     nonisolated static func replaceAsAdmin(with newApp: URL, at dest: URL) async throws -> Bool {
-        let script = try installScript()
         let prompt = String(localized: "Enter an administrator password to update Branchwork in \(dest.deletingLastPathComponent().path).")
-        // 경로는 AppleScript 글자로 이어 붙이지 않고 인자로 넘겨 quoted form 으로 감싼다
-        let r = try await Shell.run("/usr/bin/osascript", [
-            "-e", "on run argv",
-            "-e", "do shell script \"/bin/sh \" & quoted form of (item 1 of argv) & \" 0 \" & quoted form of (item 2 of argv) & \" \" & quoted form of (item 3 of argv) & \" 0\" with prompt (item 4 of argv) with administrator privileges",
-            "-e", "end run",
-            script.path, newApp.path, dest.path, prompt,
-        ], cwd: script.deletingLastPathComponent(), timeout: 600)
+        let r = try await Shell.run("/usr/bin/osascript", adminSwapArguments(newApp: newApp, dest: dest, prompt: prompt), cwd: URL(fileURLWithPath: "/"), timeout: 600)
         if r.status == 0 { return true }
         if r.stderr.contains("-128") { return false }   // 사용자가 취소
         throw AIError.failed(String(localized: "Update"), String(localized: "Couldn't replace the app: \(r.stderr.trimmingCharacters(in: .whitespacesAndNewlines))"))
     }
 
-    /// 바꿔 넣기 스크립트: $1 기다릴 pid(0 이면 바로) $2 새 앱(- 이면 바꿔 넣지 않음) $3 설치 위치 $4 1 이면 다시 열기.
-    /// 옮기기(mv)부터 실패하면 원래 앱에 손대지 않는다.
+    /// osascript 인자. root 로 돌릴 스크립트는 파일로 두지 않는다 — 암호 창이 떠 있는 동안 같은 사용자의 다른 프로세스가 그 파일을 바꿀 수 있다.
+    /// 본문은 AppleScript 글자 안에, 경로는 인자로 넘겨 quoted form 으로 감싼다.
+    nonisolated static func adminSwapArguments(newApp: URL, dest: URL, prompt: String) -> [String] {
+        let body = appleScriptString(swapFunction + "\nswap \"$1\" \"$2\"")
+        return [
+            "-e", "on run argv",
+            "-e", "do shell script \"/bin/sh -c \" & quoted form of \"\(body)\" & \" sh \" & quoted form of (item 1 of argv) & \" \" & quoted form of (item 2 of argv) with prompt (item 3 of argv) with administrator privileges",
+            "-e", "end run",
+            newApp.path, dest.path, prompt,
+        ]
+    }
+
+    /// sh 함수 swap <새 앱> <설치 위치>: 바꿔 넣고, 넣다가 실패하면 원래 앱을 되돌린다. 옮기기(mv)부터 실패하면 원래 앱에 손대지 않는다.
+    nonisolated static let swapFunction = """
+    swap() {
+        rm -rf "$2.old"
+        mv "$2" "$2.old" || return 1
+        if /usr/bin/ditto "$1" "$2"; then rm -rf "$2.old"; else rm -rf "$2"; mv "$2.old" "$2"; return 1; fi
+        /usr/bin/xattr -dr com.apple.quarantine "$2" 2>/dev/null
+        return 0
+    }
+    """
+
+    /// AppleScript 글자 안에 넣을 수 있게 \ " 줄바꿈을 이스케이프한다
+    nonisolated static func appleScriptString(_ text: String) -> String {
+        text.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+    }
+
+    /// 앱이 끝난 뒤(사용자 권한으로) 돌 스크립트: $1 기다릴 pid $2 새 앱(- 이면 바꿔 넣지 않음) $3 설치 위치 $4 1 이면 다시 열기
     nonisolated private static func installScript() throws -> URL {
         let script = FileManager.default.temporaryDirectory.appendingPathComponent("branchwork-install-\(UUID().uuidString.prefix(8)).sh")
         try """
         #!/bin/sh
+        \(swapFunction)
         pid="$1"; new="$2"; dest="$3"; relaunch="$4"; status=0
-        if [ "$pid" != 0 ]; then while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done; fi
-        if [ "$new" != "-" ]; then
-            rm -rf "$dest.old"
-            if mv "$dest" "$dest.old"; then
-                if /usr/bin/ditto "$new" "$dest"; then rm -rf "$dest.old"; else rm -rf "$dest"; mv "$dest.old" "$dest"; status=1; fi
-            else
-                status=1
-            fi
-            /usr/bin/xattr -dr com.apple.quarantine "$dest" 2>/dev/null
-        fi
+        while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
+        if [ "$new" != "-" ]; then swap "$new" "$dest" || status=1; fi
         [ "$relaunch" = "1" ] && /usr/bin/open "$dest"
         exit $status
         """.write(to: script, atomically: true, encoding: .utf8)
