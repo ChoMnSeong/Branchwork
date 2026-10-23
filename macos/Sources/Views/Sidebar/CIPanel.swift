@@ -6,6 +6,9 @@ struct CIPanel: View {
     @Environment(RepoStore.self) private var store
     @Environment(\.openSettings) private var openSettings
     @ViewState private var expanded: Set<Int> = []
+    /// 보기: 시간순 목록 / 브랜치별(접은 브랜치는 이 창에서만 기억)
+    @AppStorage("ciGroupByBranch") private var byBranch = false
+    @ViewState private var collapsedRefs: Set<String> = []
 
     var body: some View {
         if let target = store.target {
@@ -47,6 +50,21 @@ struct CIPanel: View {
                 .font(.subheadline.weight(.semibold))
             if store.ciState == .loading { ProgressView().controlSize(.mini) }
             Spacer()
+            Menu {
+                Picker("", selection: $byBranch) {
+                    Label("List", systemImage: "list.bullet").tag(false)
+                    Label("By branch", systemImage: "arrow.triangle.branch").tag(true)
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } label: {
+                Image(systemName: byBranch ? "arrow.triangle.branch" : "list.bullet")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Show runs as a list or grouped by branch")
+            .accessibilityLabel("Show runs as a list or grouped by branch")
             Button { store.ciCurrentBranchOnly.toggle() } label: {
                 Image(systemName: store.ciCurrentBranchOnly ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
             }
@@ -89,16 +107,40 @@ struct CIPanel: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         default:
             List {
-                ForEach(store.ciPipelines) { p in
-                    DisclosureGroup(isExpanded: expansion(p)) {
-                        PipelineJobs(pipeline: p)
-                    } label: {
-                        PipelineRow(pipeline: p, provider: target.provider) { expanded.insert(p.id); Task { await store.loadJobs(p) } }
+                if byBranch {
+                    ForEach(CIBranchGroup.group(store.ciPipelines)) { g in
+                        Section(isExpanded: branchExpansion(g.ref)) {
+                            ForEach(g.pipelines) { p in pipelineItem(p, target: target, showRef: false) }
+                        } header: {
+                            HStack(spacing: 6) {
+                                CIStatusIcon(status: g.pipelines[0].status, size: 11)
+                                Text(g.ref).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
+                                Spacer()
+                                Text("\(g.pipelines.count)").font(.caption).foregroundStyle(.secondary)
+                            }
+                            .help("\(g.ref) · \(g.pipelines[0].status.title)")
+                        }
                     }
+                } else {
+                    ForEach(store.ciPipelines) { p in pipelineItem(p, target: target, showRef: true) }
                 }
             }
             .listStyle(.sidebar)
         }
+    }
+
+    private func pipelineItem(_ p: CIPipeline, target: RepoTarget, showRef: Bool) -> some View {
+        DisclosureGroup(isExpanded: expansion(p)) {
+            PipelineJobs(pipeline: p)
+        } label: {
+            PipelineRow(pipeline: p, provider: target.provider, showRef: showRef) { expanded.insert(p.id); Task { await store.loadJobs(p) } }
+        }
+    }
+
+    private func branchExpansion(_ ref: String) -> Binding<Bool> {
+        Binding(get: { !collapsedRefs.contains(ref) }, set: { open in
+            if open { collapsedRefs.remove(ref) } else { collapsedRefs.insert(ref) }
+        })
     }
 
     private func expansion(_ p: CIPipeline) -> Binding<Bool> {
@@ -118,6 +160,8 @@ private struct PipelineRow: View {
     @Environment(RepoStore.self) private var store
     let pipeline: CIPipeline
     let provider: Provider
+    /// 브랜치별 보기에서는 묶음 머리에 브랜치가 있으니 줄마다 다시 적지 않는다
+    var showRef = true
     let expand: () -> Void
 
     private var title: String {
@@ -136,7 +180,7 @@ private struct PipelineRow: View {
                 HStack(spacing: 4) {
                     if provider == .github, !p.name.isEmpty { Text(p.name).lineLimit(1) }
                     Text("#\(p.number)").monospacedDigit()
-                    Text(p.ref).font(.caption.monospaced()).lineLimit(1)
+                    if showRef { Text(p.ref).font(.caption.monospaced()).lineLimit(1) }
                     if let d = p.created { Text(Fmt.short(d)).lineLimit(1) }
                 }
                 .font(.caption)

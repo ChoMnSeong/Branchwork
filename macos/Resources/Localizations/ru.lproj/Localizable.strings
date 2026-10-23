@@ -135,6 +135,7 @@
 "Branchwork update" = "Обновление Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Переносит новые коммиты из удалённого репозитория в текущую ветку. Новых коммитов: %1$lld.";
 "Browser" = "Браузер";
+"By branch" = "По веткам";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — нажмите, чтобы открыть в браузере";
 "Calls Chat Completions with an OpenAI API key." = "Вызывает Chat Completions с ключом API OpenAI.";
 "Calls Gemini with a Google AI Studio API key." = "Вызывает Gemini с ключом API Google AI Studio.";
@@ -301,7 +302,6 @@
 "Current branch only" = "Только текущая ветка";
 "Current version %@ → %@" = "Текущая версия %1$@ → %2$@";
 "Dark" = "Тёмная";
-"Date" = "Дата";
 "Default" = "По умолчанию";
 "Default (ask every time)" = "По умолчанию (спрашивать каждый раз)";
 "Default AI (%@)" = "ИИ по умолчанию (%1$@)";
@@ -716,6 +716,7 @@
 "Show in graph again" = "Снова показать в графе";
 "Show only the current branch" = "Показать только текущую ветку";
 "Show only the current branch (%@)" = "Показать только текущую ветку (%1$@)";
+"Show runs as a list or grouped by branch" = "Показывать запуски списком или по веткам";
 "Show terminal" = "Показать терминал";
 "Show this commit in the graph" = "Показать этот коммит в графе";
 "Show uncommitted changes" = "Показать незакоммиченные изменения";

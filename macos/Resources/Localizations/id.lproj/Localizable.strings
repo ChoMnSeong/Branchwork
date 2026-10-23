@@ -125,6 +125,7 @@
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork dimulai ulang untuk menerapkan perubahan. Jika tidak ada riwayat commit yang bisa diikuti, AI juga menulis dalam bahasa ini.";
 "Branchwork update" = "Pembaruan Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Mengambil %1$lld commit baru dari remote ke branch saat ini.";
+"By branch" = "Per branch";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — klik untuk membuka di browser";
 "Calls Chat Completions with an OpenAI API key." = "Memanggil Chat Completions dengan kunci API OpenAI.";
 "Calls Gemini with a Google AI Studio API key." = "Memanggil Gemini dengan kunci API Google AI Studio.";
@@ -285,7 +286,6 @@
 "Current branch only" = "Hanya branch saat ini";
 "Current version %@ → %@" = "Versi saat ini %1$@ → %2$@";
 "Dark" = "Gelap";
-"Date" = "Tanggal";
 "Default (ask every time)" = "Default (tanya setiap kali)";
 "Default AI (%@)" = "AI default (%1$@)";
 "Delete" = "Hapus";
@@ -676,6 +676,7 @@
 "Show in graph again" = "Tampilkan lagi di grafik";
 "Show only the current branch" = "Tampilkan hanya branch saat ini";
 "Show only the current branch (%@)" = "Tampilkan hanya branch saat ini (%1$@)";
+"Show runs as a list or grouped by branch" = "Tampilkan run sebagai daftar atau dikelompokkan per branch";
 "Show terminal" = "Tampilkan terminal";
 "Show this commit in the graph" = "Tampilkan commit ini di grafik";
 "Show uncommitted changes" = "Tampilkan perubahan yang belum di-commit";

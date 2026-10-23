@@ -124,6 +124,7 @@
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork start opnieuw om de wijziging toe te passen. Als er geen commitgeschiedenis is om te volgen, schrijft de AI ook in deze taal.";
 "Branchwork update" = "Branchwork-update";
 "Brings %lld new commits from the remote into the current branch." = "Haalt nieuwe commits (%1$lld) van de remote binnen in de huidige branch.";
+"By branch" = "Per branch";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — klik om te openen in de browser";
 "Calls Chat Completions with an OpenAI API key." = "Roept Chat Completions aan met een OpenAI API-sleutel.";
 "Calls Gemini with a Google AI Studio API key." = "Roept Gemini aan met een Google AI Studio API-sleutel.";
@@ -282,7 +283,6 @@
 "Current branch only" = "Alleen huidige branch";
 "Current version %@ → %@" = "Huidige versie %1$@ → %2$@";
 "Dark" = "Donker";
-"Date" = "Datum";
 "Default" = "Standaard";
 "Default (ask every time)" = "Standaard (elke keer vragen)";
 "Default AI (%@)" = "Standaard-AI (%1$@)";
@@ -676,6 +676,7 @@
 "Show in graph again" = "Weer tonen in graaf";
 "Show only the current branch" = "Alleen de huidige branch tonen";
 "Show only the current branch (%@)" = "Alleen de huidige branch tonen (%1$@)";
+"Show runs as a list or grouped by branch" = "Runs als lijst of gegroepeerd per branch tonen";
 "Show terminal" = "Terminal tonen";
 "Show this commit in the graph" = "Deze commit tonen in de graaf";
 "Show uncommitted changes" = "Niet-gecommitte wijzigingen tonen";

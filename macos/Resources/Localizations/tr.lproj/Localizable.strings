@@ -130,6 +130,7 @@
 "Branchwork update" = "Branchwork güncellemesi";
 "Brings %lld new commits from the remote into the current branch." = "Uzak depodaki %1$lld yeni commit'i geçerli dala çeker.";
 "Browser" = "Tarayıcı";
+"By branch" = "Dala göre";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — tarayıcıda açmak için tıklayın";
 "Calls Chat Completions with an OpenAI API key." = "OpenAI API anahtarıyla Chat Completions'ı çağırır.";
 "Calls Gemini with a Google AI Studio API key." = "Google AI Studio API anahtarıyla Gemini'yi çağırır.";
@@ -291,7 +292,6 @@
 "Current branch only" = "Yalnızca geçerli dal";
 "Current version %@ → %@" = "Geçerli sürüm %1$@ → %2$@";
 "Dark" = "Koyu";
-"Date" = "Tarih";
 "Default" = "Varsayılan";
 "Default (ask every time)" = "Varsayılan (her seferinde sor)";
 "Default AI (%@)" = "Varsayılan yapay zeka (%1$@)";
@@ -705,6 +705,7 @@
 "Show in graph again" = "Grafikte yeniden göster";
 "Show only the current branch" = "Yalnızca geçerli dalı göster";
 "Show only the current branch (%@)" = "Yalnızca geçerli dalı göster (%1$@)";
+"Show runs as a list or grouped by branch" = "Çalıştırmaları liste olarak veya dala göre gruplayarak göster";
 "Show terminal" = "Terminali göster";
 "Show this commit in the graph" = "Bu commit'i grafikte göster";
 "Show uncommitted changes" = "Commit edilmemiş değişiklikleri göster";

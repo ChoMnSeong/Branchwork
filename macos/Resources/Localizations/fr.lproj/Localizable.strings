@@ -127,6 +127,7 @@
 "Branchwork update" = "Mise à jour de Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Intègre à la branche actuelle les nouveaux commits du dépôt distant (%1$lld).";
 "Browser" = "Navigateur";
+"By branch" = "Par branche";
 "CI: %@ · #%lld" = "CI : %1$@ · #%2$lld";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI : %1$@ · %2$@#%3$lld — cliquer pour ouvrir dans le navigateur";
 "Calls Chat Completions with an OpenAI API key." = "Appelle Chat Completions avec une clé API OpenAI.";
@@ -695,6 +696,7 @@
 "Show in graph again" = "Réafficher dans le graphe";
 "Show only the current branch" = "Afficher uniquement la branche actuelle";
 "Show only the current branch (%@)" = "Afficher uniquement la branche actuelle (%1$@)";
+"Show runs as a list or grouped by branch" = "Afficher les exécutions en liste ou regroupées par branche";
 "Show terminal" = "Afficher le terminal";
 "Show this commit in the graph" = "Afficher ce commit dans le graphe";
 "Show uncommitted changes" = "Afficher les modifications non validées";

@@ -135,6 +135,7 @@
 "Branchwork update" = "Branchwork 更新";
 "Brings %lld new commits from the remote into the current branch." = "将远程的 %1$lld 个新提交拉取到当前分支。";
 "Browser" = "浏览器";
+"By branch" = "按分支";
 "CI: %@ · #%lld" = "CI：%1$@ · #%2$lld";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI：%1$@ · %2$@#%3$lld — 点击在浏览器中打开";
 "Calls Chat Completions with an OpenAI API key." = "使用 OpenAI API 密钥调用 Chat Completions。";
@@ -303,7 +304,6 @@
 "Current branch only" = "仅当前分支";
 "Current version %@ → %@" = "当前版本 %1$@ → %2$@";
 "Dark" = "深色";
-"Date" = "日期";
 "Default" = "默认";
 "Default (ask every time)" = "默认（每次询问）";
 "Default AI (%@)" = "默认 AI（%1$@）";
@@ -719,6 +719,7 @@
 "Show in graph again" = "在提交图中重新显示";
 "Show only the current branch" = "仅显示当前分支";
 "Show only the current branch (%@)" = "仅显示当前分支（%1$@）";
+"Show runs as a list or grouped by branch" = "以列表显示运行记录，或按分支分组";
 "Show terminal" = "显示终端";
 "Show this commit in the graph" = "在提交图中显示此提交";
 "Show uncommitted changes" = "显示未提交的更改";

@@ -129,6 +129,7 @@
 "Branchwork update" = "Bản cập nhật Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Đưa %1$lld commit mới từ remote vào nhánh hiện tại.";
 "Browser" = "Trình duyệt";
+"By branch" = "Theo nhánh";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — nhấp để mở trong trình duyệt";
 "Calls Chat Completions with an OpenAI API key." = "Gọi Chat Completions bằng khóa API OpenAI.";
 "Calls Gemini with a Google AI Studio API key." = "Gọi Gemini bằng khóa API Google AI Studio.";
@@ -288,7 +289,6 @@
 "Current branch only" = "Chỉ nhánh hiện tại";
 "Current version %@ → %@" = "Phiên bản hiện tại %1$@ → %2$@";
 "Dark" = "Tối";
-"Date" = "Ngày";
 "Default" = "Mặc định";
 "Default (ask every time)" = "Mặc định (hỏi mỗi lần)";
 "Default AI (%@)" = "AI mặc định (%1$@)";
@@ -683,6 +683,7 @@
 "Show in graph again" = "Hiện lại trên đồ thị";
 "Show only the current branch" = "Chỉ hiện nhánh hiện tại";
 "Show only the current branch (%@)" = "Chỉ hiện nhánh hiện tại (%1$@)";
+"Show runs as a list or grouped by branch" = "Hiển thị các lần chạy dạng danh sách hoặc nhóm theo nhánh";
 "Show terminal" = "Hiện terminal";
 "Show this commit in the graph" = "Hiện commit này trên đồ thị";
 "Show uncommitted changes" = "Hiện thay đổi chưa commit";

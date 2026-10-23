@@ -1144,6 +1144,20 @@ select {
 .diff-line.empty-cell {
   background: color-mix(in srgb, var(--text) 4%, transparent);
 }
+/* CI/CD 브랜치별 보기 */
+.ci-branch-head {
+  gap: 6px;
+  font-weight: 600;
+}
+.ci-branch-head .chev {
+  transition: transform 0.12s;
+  transform: rotate(90deg);
+  flex: none;
+  color: var(--text-3);
+}
+.ci-branch-head.collapsed .chev {
+  transform: none;
+}
 /* 커밋 정리(인터랙티브 리베이스) */
 .rebase-list {
   gap: 6px;

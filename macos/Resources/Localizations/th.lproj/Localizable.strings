@@ -134,6 +134,7 @@
 "Branchwork update" = "อัปเดต Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "ดึงคอมมิตใหม่ %1$lld รายการจากรีโมตเข้ามาในแบรนช์ปัจจุบัน";
 "Browser" = "เบราว์เซอร์";
+"By branch" = "ตามแบรนช์";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — คลิกเพื่อเปิดในเบราว์เซอร์";
 "Calls Chat Completions with an OpenAI API key." = "เรียก Chat Completions ด้วยคีย์ API ของ OpenAI";
 "Calls Gemini with a Google AI Studio API key." = "เรียก Gemini ด้วยคีย์ API ของ Google AI Studio";
@@ -300,7 +301,6 @@
 "Current branch only" = "เฉพาะแบรนช์ปัจจุบัน";
 "Current version %@ → %@" = "เวอร์ชันปัจจุบัน %1$@ → %2$@";
 "Dark" = "มืด";
-"Date" = "วันที่";
 "Default" = "ค่าเริ่มต้น";
 "Default (ask every time)" = "ค่าเริ่มต้น (ถามทุกครั้ง)";
 "Default AI (%@)" = "AI เริ่มต้น (%1$@)";
@@ -712,6 +712,7 @@
 "Show in graph again" = "แสดงในกราฟอีกครั้ง";
 "Show only the current branch" = "แสดงเฉพาะแบรนช์ปัจจุบัน";
 "Show only the current branch (%@)" = "แสดงเฉพาะแบรนช์ปัจจุบัน (%1$@)";
+"Show runs as a list or grouped by branch" = "แสดงการรันเป็นรายการหรือจัดกลุ่มตามแบรนช์";
 "Show terminal" = "แสดงเทอร์มินัล";
 "Show this commit in the graph" = "แสดงคอมมิตนี้ในกราฟ";
 "Show uncommitted changes" = "แสดงการเปลี่ยนแปลงที่ยังไม่ได้คอมมิต";

@@ -130,6 +130,7 @@
 "Branchwork update" = "Aktualizacja Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Ściąga nowe commity ze zdalnego repozytorium do bieżącej gałęzi. Nowe commity: %1$lld.";
 "Browser" = "Przeglądarka";
+"By branch" = "Według gałęzi";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — kliknij, aby otworzyć w przeglądarce";
 "Calls Chat Completions with an OpenAI API key." = "Wywołuje Chat Completions z kluczem API OpenAI.";
 "Calls Gemini with a Google AI Studio API key." = "Wywołuje Gemini z kluczem API Google AI Studio.";
@@ -290,7 +291,6 @@
 "Current branch only" = "Tylko bieżąca gałąź";
 "Current version %@ → %@" = "Bieżąca wersja %1$@ → %2$@";
 "Dark" = "Ciemny";
-"Date" = "Data";
 "Default" = "Domyślny";
 "Default (ask every time)" = "Domyślny (pytaj za każdym razem)";
 "Default AI (%@)" = "Domyślne AI (%1$@)";
@@ -702,6 +702,7 @@
 "Show in graph again" = "Pokaż ponownie w grafie";
 "Show only the current branch" = "Pokaż tylko bieżącą gałąź";
 "Show only the current branch (%@)" = "Pokaż tylko bieżącą gałąź (%1$@)";
+"Show runs as a list or grouped by branch" = "Pokaż uruchomienia jako listę lub pogrupowane według gałęzi";
 "Show terminal" = "Pokaż terminal";
 "Show this commit in the graph" = "Pokaż ten commit w grafie";
 "Show uncommitted changes" = "Pokaż niezatwierdzone zmiany";

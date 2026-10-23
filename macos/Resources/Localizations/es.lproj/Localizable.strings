@@ -130,6 +130,7 @@
 "Branchwork update" = "Actualización de Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Trae a la rama actual los commits nuevos del remoto (%1$lld).";
 "Browser" = "Navegador";
+"By branch" = "Por rama";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — haz clic para abrirlo en el navegador";
 "Calls Chat Completions with an OpenAI API key." = "Llama a Chat Completions con una clave de API de OpenAI.";
 "Calls Gemini with a Google AI Studio API key." = "Llama a Gemini con una clave de API de Google AI Studio.";
@@ -290,7 +291,6 @@
 "Current branch only" = "Solo la rama actual";
 "Current version %@ → %@" = "Versión actual %1$@ → %2$@";
 "Dark" = "Oscuro";
-"Date" = "Fecha";
 "Default" = "Predeterminado";
 "Default (ask every time)" = "Predeterminado (preguntar siempre)";
 "Default AI (%@)" = "IA predeterminada (%1$@)";
@@ -697,6 +697,7 @@
 "Show in graph again" = "Volver a mostrar en el grafo";
 "Show only the current branch" = "Mostrar solo la rama actual";
 "Show only the current branch (%@)" = "Mostrar solo la rama actual (%1$@)";
+"Show runs as a list or grouped by branch" = "Mostrar las ejecuciones en lista o agrupadas por rama";
 "Show terminal" = "Mostrar terminal";
 "Show this commit in the graph" = "Mostrar este commit en el grafo";
 "Show uncommitted changes" = "Mostrar cambios sin commit";

@@ -132,6 +132,7 @@
 "Branchwork update" = "Branchwork-frissítés";
 "Brings %lld new commits from the remote into the current branch." = "Lehúzza a távoli tároló új commitjait (%1$lld) az aktuális ágba.";
 "Browser" = "Böngésző";
+"By branch" = "Áganként";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — kattintással megnyitható a böngészőben";
 "Calls Chat Completions with an OpenAI API key." = "A Chat Completions API-t hívja OpenAI API-kulccsal.";
 "Calls Gemini with a Google AI Studio API key." = "A Geminit hívja Google AI Studio API-kulccsal.";
@@ -295,7 +296,6 @@
 "Current branch only" = "Csak az aktuális ág";
 "Current version %@ → %@" = "Jelenlegi verzió: %1$@ → %2$@";
 "Dark" = "Sötét";
-"Date" = "Dátum";
 "Default" = "Alapértelmezett";
 "Default (ask every time)" = "Alapértelmezett (mindig kérdez)";
 "Default AI (%@)" = "Alapértelmezett AI (%1$@)";
@@ -703,6 +703,7 @@
 "Show in graph again" = "Újbóli megjelenítés a gráfon";
 "Show only the current branch" = "Csak az aktuális ág megjelenítése";
 "Show only the current branch (%@)" = "Csak az aktuális ág megjelenítése (%1$@)";
+"Show runs as a list or grouped by branch" = "Futások listaként vagy áganként csoportosítva";
 "Show terminal" = "Terminál megjelenítése";
 "Show this commit in the graph" = "Commit megjelenítése a gráfon";
 "Show uncommitted changes" = "Nem commitolt módosítások megjelenítése";

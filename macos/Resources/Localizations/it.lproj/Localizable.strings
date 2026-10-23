@@ -126,6 +126,7 @@
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork si riavvia per applicare la modifica. Se non c'è una cronologia dei commit da seguire, anche l'AI scrive in questa lingua.";
 "Branchwork update" = "Aggiornamento di Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Porta nel branch corrente i nuovi commit dal remoto (%1$lld).";
+"By branch" = "Per branch";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — fai clic per aprire nel browser";
 "Calls Chat Completions with an OpenAI API key." = "Chiama Chat Completions con una chiave API OpenAI.";
 "Calls Gemini with a Google AI Studio API key." = "Chiama Gemini con una chiave API di Google AI Studio.";
@@ -286,7 +287,6 @@
 "Current branch only" = "Solo il branch corrente";
 "Current version %@ → %@" = "Versione attuale %1$@ → %2$@";
 "Dark" = "Scuro";
-"Date" = "Data";
 "Default" = "Predefinito";
 "Default (ask every time)" = "Predefinito (chiedi ogni volta)";
 "Default AI (%@)" = "AI predefinita (%1$@)";
@@ -693,6 +693,7 @@
 "Show in graph again" = "Mostra di nuovo nel grafico";
 "Show only the current branch" = "Mostra solo il branch corrente";
 "Show only the current branch (%@)" = "Mostra solo il branch corrente (%1$@)";
+"Show runs as a list or grouped by branch" = "Mostra le esecuzioni come elenco o raggruppate per branch";
 "Show terminal" = "Mostra terminale";
 "Show this commit in the graph" = "Mostra questo commit nel grafico";
 "Show uncommitted changes" = "Mostra le modifiche non sottoposte a commit";

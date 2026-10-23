@@ -1,12 +1,13 @@
-import { ChevronRight, Circle, CircleCheck, CircleDashed, CirclePause, CirclePlay, CircleSlash, CircleStop, CircleX, Clock, Hand, ListFilter, Play, RefreshCw, RotateCw, SkipForward, TriangleAlert, Zap } from "lucide-react";
+import { ChevronRight, Circle, CircleCheck, CircleDashed, CirclePause, CirclePlay, CircleSlash, CircleStop, CircleX, Clock, GitBranch, Hand, List, ListFilter, Play, RefreshCw, RotateCw, SkipForward, TriangleAlert, Zap } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { accounts } from "../../lib/accounts";
-import { canPlay, eventTitle, isActiveCI, isFinishedCI, statusInfo, type CIDeployment, type CIJob, type CIPipeline, type CIStatus } from "../../lib/ci/models";
+import { canPlay, eventTitle, groupByBranch, isActiveCI, isFinishedCI, statusInfo, type CIDeployment, type CIJob, type CIPipeline, type CIStatus } from "../../lib/ci/models";
 import { shortDate } from "../../lib/format";
 import type { Provider } from "../../lib/models";
 import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
-import { Button, IconButton, showContextMenu, Spinner } from "../shared/ui";
+import { settings } from "../../lib/settings";
+import { Button, IconButton, showContextMenu, showMenuBelow, Spinner } from "../shared/ui";
 import { t } from "../../lib/i18n";
 
 /** 사이드바 'CI/CD' 탭: GitLab 파이프라인·GitHub Actions 실행. 수동 작업 ▶ 실행, 다시 실행, 취소, 배포 승인. */
@@ -15,7 +16,11 @@ export function CIPanel({ store, openSettings }: { store: RepoStore; openSetting
   const ci = useObserve(store.ci);
   useObserve(accounts);
   const target = store.target;
+  useObserve(settings);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  // 보기: 시간순 목록 / 브랜치별(접은 브랜치는 이 창에서만 기억)
+  const byBranch = settings.get<boolean>("ciGroupByBranch", false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
   const key = target ? `${target.host}/${target.path}/${ci.currentBranchOnly}/${accounts.revision}` : "";
@@ -73,6 +78,18 @@ export function CIPanel({ store, openSettings }: { store: RepoStore; openSetting
         <span className="spacer" />
         <IconButton
           small
+          icon={byBranch ? <GitBranch size={13} /> : <List size={13} />}
+          tip={t("Show runs as a list or grouped by branch")}
+          aria-label={t("Show runs as a list or grouped by branch")}
+          onClick={(e) =>
+            showMenuBelow(e.currentTarget, [
+              { label: t("List"), checked: !byBranch, onClick: () => settings.set("ciGroupByBranch", false) },
+              { label: t("By branch"), checked: byBranch, onClick: () => settings.set("ciGroupByBranch", true) },
+            ])
+          }
+        />
+        <IconButton
+          small
           className={ci.currentBranchOnly ? "on" : ""}
           icon={<ListFilter size={13} />}
           tip={ci.currentBranchOnly ? t("Show all branches") : t("Show only the current branch ({0})", ci.currentRef ?? "-")}
@@ -110,12 +127,44 @@ export function CIPanel({ store, openSettings }: { store: RepoStore; openSetting
         {st.kind === "loaded" && !ci.pipelines.length && <div className="muted" style={{ padding: 8 }}>{ci.currentBranchOnly ? t("No runs for this branch.") : t("No runs yet.")}</div>}
         {st.kind !== "needsAccount" &&
           st.kind !== "failed" &&
-          ci.pipelines.map((p) => (
-            <div key={p.id}>
-              <PipelineRow store={store} pipeline={p} provider={target.provider} open={expanded.has(p.id)} toggle={(o) => toggle(p, o)} />
-              {expanded.has(p.id) && <PipelineJobs store={store} pipeline={p} />}
-            </div>
-          ))}
+          (byBranch
+            ? groupByBranch(ci.pipelines).map((g) => {
+                const closed = collapsed.has(g.ref);
+                return (
+                  <div key={g.ref} className="ci-branch">
+                    <div
+                      className={`side-row ci-branch-head ${closed ? "collapsed" : ""}`}
+                      onClick={() => {
+                        const next = new Set(collapsed);
+                        if (closed) next.delete(g.ref);
+                        else next.add(g.ref);
+                        setCollapsed(next);
+                      }}
+                      data-tip={`${g.ref} · ${statusInfo[g.pipelines[0].status].title}`}
+                    >
+                      <ChevronRight size={12} className="chev" />
+                      <CIStatusIcon status={g.pipelines[0].status} size={13} />
+                      <span className="mono ellipsis grow">{g.ref}</span>
+                      <span className="muted" style={{ fontSize: 11 }}>
+                        {g.pipelines.length}
+                      </span>
+                    </div>
+                    {!closed &&
+                      g.pipelines.map((p) => (
+                        <div key={p.id} style={{ paddingLeft: 12 }}>
+                          <PipelineRow store={store} pipeline={p} provider={target.provider} open={expanded.has(p.id)} toggle={(o) => toggle(p, o)} showRef={false} />
+                          {expanded.has(p.id) && <PipelineJobs store={store} pipeline={p} />}
+                        </div>
+                      ))}
+                  </div>
+                );
+              })
+            : ci.pipelines.map((p) => (
+                <div key={p.id}>
+                  <PipelineRow store={store} pipeline={p} provider={target.provider} open={expanded.has(p.id)} toggle={(o) => toggle(p, o)} />
+                  {expanded.has(p.id) && <PipelineJobs store={store} pipeline={p} />}
+                </div>
+              )))}
       </div>
     </div>
   );
@@ -167,7 +216,22 @@ export function CIStatusIcon({ status, size = 14 }: { status: CIStatus; size?: n
   );
 }
 
-function PipelineRow({ store, pipeline: p, provider, open, toggle }: { store: RepoStore; pipeline: CIPipeline; provider: Provider; open: boolean; toggle: (open?: boolean) => void }) {
+function PipelineRow({
+  store,
+  pipeline: p,
+  provider,
+  open,
+  toggle,
+  showRef = true,
+}: {
+  store: RepoStore;
+  pipeline: CIPipeline;
+  provider: Provider;
+  open: boolean;
+  toggle: (open?: boolean) => void;
+  /** 브랜치별 보기에서는 묶음 머리에 브랜치가 있으니 줄마다 다시 적지 않는다 */
+  showRef?: boolean;
+}) {
   const ci = store.ci;
   const title = p.title || ci.subject(p.sha) || p.name || p.sha.slice(0, 8);
   const manual = (ci.jobs.get(p.id) ?? []).filter(canPlay).length;
@@ -203,9 +267,11 @@ function PipelineRow({ store, pipeline: p, provider, open, toggle }: { store: Re
         <span className="side-sub row" style={{ gap: 4, minWidth: 0 }}>
           {provider === "github" && p.name && <span className="ellipsis" style={{ flex: "0 1 auto" }}>{p.name}</span>}
           <span style={{ flex: "none" }}>#{p.number}</span>
-          <span className="mono ellipsis" style={{ flex: "0 1 auto" }}>
-            {p.ref}
-          </span>
+          {showRef && (
+            <span className="mono ellipsis" style={{ flex: "0 1 auto" }}>
+              {p.ref}
+            </span>
+          )}
           {p.created != null && <span style={{ flex: "none" }}>{shortDate(p.created)}</span>}
           {p.event && p.event !== "push" && <span style={{ flex: "none" }}>· {eventTitle(p.event)}</span>}
         </span>

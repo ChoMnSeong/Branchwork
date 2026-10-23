@@ -135,6 +135,7 @@
 "Branchwork update" = "Оновлення Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Підтягує нові коміти з віддаленого репозиторію в поточну гілку (нових комітів: %1$lld).";
 "Browser" = "Браузер";
+"By branch" = "За гілками";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — клацніть, щоб відкрити в браузері";
 "Calls Chat Completions with an OpenAI API key." = "Викликає Chat Completions із ключем API OpenAI.";
 "Calls Gemini with a Google AI Studio API key." = "Викликає Gemini з ключем API Google AI Studio.";
@@ -301,7 +302,6 @@
 "Current branch only" = "Лише поточна гілка";
 "Current version %@ → %@" = "Поточна версія %1$@ → %2$@";
 "Dark" = "Темна";
-"Date" = "Дата";
 "Default" = "За замовчуванням";
 "Default (ask every time)" = "За замовчуванням (питати щоразу)";
 "Default AI (%@)" = "AI за замовчуванням (%1$@)";
@@ -716,6 +716,7 @@
 "Show in graph again" = "Знову показати в графі";
 "Show only the current branch" = "Показати лише поточну гілку";
 "Show only the current branch (%@)" = "Показати лише поточну гілку (%1$@)";
+"Show runs as a list or grouped by branch" = "Показувати запуски списком або за гілками";
 "Show terminal" = "Показати термінал";
 "Show this commit in the graph" = "Показати цей коміт у графі";
 "Show uncommitted changes" = "Показати незакомічені зміни";

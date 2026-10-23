@@ -135,6 +135,7 @@
 "Branchwork update" = "Branchwork 更新";
 "Brings %lld new commits from the remote into the current branch." = "將遠端的 %1$lld 個新提交帶入目前分支。";
 "Browser" = "瀏覽器";
+"By branch" = "依分支";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — 按一下以在瀏覽器中開啟";
 "Calls Chat Completions with an OpenAI API key." = "使用 OpenAI API 金鑰呼叫 Chat Completions。";
 "Calls Gemini with a Google AI Studio API key." = "使用 Google AI Studio API 金鑰呼叫 Gemini。";
@@ -302,7 +303,6 @@
 "Current branch only" = "僅目前分支";
 "Current version %@ → %@" = "目前版本 %1$@ → %2$@";
 "Dark" = "深色";
-"Date" = "日期";
 "Default" = "預設";
 "Default (ask every time)" = "預設（每次詢問）";
 "Default AI (%@)" = "預設 AI (%1$@)";
@@ -718,6 +718,7 @@
 "Show in graph again" = "重新在圖表中顯示";
 "Show only the current branch" = "僅顯示目前分支";
 "Show only the current branch (%@)" = "僅顯示目前分支 (%1$@)";
+"Show runs as a list or grouped by branch" = "以清單顯示執行記錄，或依分支分組";
 "Show terminal" = "顯示終端機";
 "Show this commit in the graph" = "在圖表中顯示此提交";
 "Show uncommitted changes" = "顯示未提交的變更";

@@ -159,3 +159,21 @@ export const eventTitle = (e: string) =>
     pipeline: t("Connect"),
     workflow_run: t("Connect"),
   })[e] ?? e;
+
+/** 브랜치별로 묶은 실행 기록(가장 최근에 돈 브랜치가 위) */
+export interface CIBranchGroup {
+  ref: string;
+  pipelines: CIPipeline[];
+}
+
+/** 실행 기록을 브랜치(ref)별로 묶는다. 목록이 최신순이면 묶음도 가장 최근 실행 순서가 된다. */
+export function groupByBranch(pipelines: CIPipeline[]): CIBranchGroup[] {
+  const groups = new Map<string, CIBranchGroup>();
+  for (const p of pipelines) {
+    let g = groups.get(p.ref);
+    if (!g) groups.set(p.ref, (g = { ref: p.ref, pipelines: [] }));
+    g.pipelines.push(p);
+  }
+  return [...groups.values()];
+}
+

@@ -86,3 +86,14 @@ describe("상태", () => {
     expect(githubStatus("completed", "action_required")).toBe("manual");
   });
 });
+
+describe("브랜치별 보기", () => {
+  it("가장 최근에 돈 브랜치부터, 브랜치 안은 원래 순서대로", async () => {
+    const { groupByBranch } = await import("../src/lib/ci/models");
+    const p = (id: number, ref: string) => ({ id, ref }) as never;
+    const g = groupByBranch([p(5, "main"), p(4, "feature/a"), p(3, "main"), p(2, "fix/b"), p(1, "feature/a")]);
+    expect(g.map((x) => x.ref)).toEqual(["main", "feature/a", "fix/b"]);
+    expect(g[0].pipelines.map((x) => x.id)).toEqual([5, 3]);
+    expect(g[1].pipelines.map((x) => x.id)).toEqual([4, 1]);
+  });
+});

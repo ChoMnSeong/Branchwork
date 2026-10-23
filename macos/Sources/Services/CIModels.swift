@@ -160,3 +160,22 @@ struct CIInput: Identifiable, Hashable {
     let options: [String]
     var id: String { name }
 }
+
+/// 브랜치별로 묶은 실행 기록(가장 최근에 돈 브랜치가 위)
+struct CIBranchGroup: Identifiable {
+    let ref: String
+    var pipelines: [CIPipeline]
+    var id: String { ref }
+
+    /// 목록이 최신순이면 묶음도 가장 최근 실행 순서가 된다
+    static func group(_ pipelines: [CIPipeline]) -> [CIBranchGroup] {
+        var order: [String] = []
+        var groups: [String: [CIPipeline]] = [:]
+        for p in pipelines {
+            if groups[p.ref] == nil { order.append(p.ref) }
+            groups[p.ref, default: []].append(p)
+        }
+        return order.map { CIBranchGroup(ref: $0, pipelines: groups[$0] ?? []) }
+    }
+}
+
