@@ -7,7 +7,7 @@ import { accounts } from "@/entities/hosting";
 import { workspace } from "@/entities/workspace";
 import { ipc } from "@/shared/api";
 import { env, settings } from "@/shared/config";
-import { gitAvailable, tools, updater } from "@/shared/platform";
+import { appIcon, gitAvailable, tools, updater } from "@/shared/platform";
 import { theme } from "@/shared/ui";
 import { runSelfTest } from "./selftest";
 import { App } from "./ui/App";
@@ -28,6 +28,8 @@ export async function start() {
   // 숨긴 창에서는 requestAnimationFrame 이 돌지 않으므로 타이머로 부른다.
   setTimeout(() => void ipc.appReady(), 30);
   updater.start();
+  // 고른 앱 아이콘을 창에 다시 걸고, 다시 설치되어 바로 가기 아이콘이 기본으로 돌아갔으면 맞춘다(뒤에서)
+  if (!env.selftest) void appIcon.restore();
   // 윈도에서 못 찾은 AI CLI 는 WSL 에서 한 번 찾아 둔다(WSL 을 깨우느라 몇 초 걸릴 수 있어 뒤에서)
   if (!env.selftest) setTimeout(() => void tools.probeWsl(), 6000);
   window.addEventListener("beforeunload", () => void settings.flush());
