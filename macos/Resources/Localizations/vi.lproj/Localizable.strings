@@ -1,4 +1,4 @@
-/* Branchwork — vi. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
+/* Branchwork — vi. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork được mở trực tiếp từ nơi tải về nên đang chạy từ một vị trí tạm thời và không thể tự thay thế. Hãy chuyển nó vào thư mục Ứng dụng, mở lại rồi cập nhật.";
 "Couldn't replace the app: %@" = "Không thể thay thế ứng dụng: %1$@";

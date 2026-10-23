@@ -1,4 +1,4 @@
-/* Branchwork — zh-Hant. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
+/* Branchwork — zh-Hant. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork 是直接從下載位置開啟的，正在暫時位置執行，無法替換自身。請將它移到「應用程式」資料夾，重新開啟後再更新。";
 "Couldn't replace the app: %@" = "無法替換 App：%1$@";

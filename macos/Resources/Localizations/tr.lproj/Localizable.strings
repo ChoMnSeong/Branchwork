@@ -1,4 +1,4 @@
-/* Branchwork — tr. 소스의 영어 글자가 키. 직접 고치지 말고 번역 원본에서 다시 만든다. */
+/* Branchwork — tr. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork doğrudan indirilenler konumundan açıldığı için geçici bir konumdan çalışıyor ve kendini değiştiremiyor. Uygulamalar klasörüne taşıyın, yeniden açın ve ardından güncelleyin.";
 "Couldn't replace the app: %@" = "Uygulama değiştirilemedi: %1$@";
