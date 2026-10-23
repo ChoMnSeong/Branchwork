@@ -73,6 +73,9 @@ mkdir -p "$CONTENTS/Resources/AppIcons"
 cp "$REPO/assets/app-icons/"*.png "$CONTENTS/Resources/AppIcons/"
 # 화면 번역(한국어 글자가 키, <언어>.lproj/Localizable.strings)
 cp -R "$ROOT/Resources/Localizations/"*.lproj "$CONTENTS/Resources/"
+# gitsw: 여러 Git 계정을 섞이지 않게 쓰는 셸 도구(설정 > 도구에서 ~/bin/gitsw 로 설치)
+cp "$REPO/tools/gitsw/gitsw" "$CONTENTS/Resources/gitsw"
+chmod 755 "$CONTENTS/Resources/gitsw"
 cp "$REPO/LICENSE" "$CONTENTS/Resources/LICENSE.txt"
 cp "$ROOT/Vendor/SwiftTerm/LICENSE" "$CONTENTS/Resources/SwiftTerm-LICENSE.txt"
 

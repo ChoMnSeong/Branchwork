@@ -76,6 +76,13 @@ final class RepoStore: Identifiable {
     var unstagedStats: [String: LineStat] = [:]
     var me: Identity?
 
+    // MARK: gitsw(설정 > 도구에서 설치) — 이 저장소의 계정과 커밋·push 전 점검. gitsw 계정이 없으면 nil
+    var gitswStatus: Gitsw.Status?
+    var gitswPreflight: Gitsw.Preflight?
+    var gitswChecking = false
+    /// 브랜치·참조가 바뀔 때만 다시 점검하려고(파일 저장마다 돌지 않게)
+    var gitswKey = ""
+
     // MARK: 검색
     var searchText = ""
     var searchScope: SearchScope = .commits
@@ -455,6 +462,11 @@ final class RepoStore: Identifiable {
             }
             update(\.refsByCommit, buildRefMap(head: head))
             update(\.repoState, detectState())
+            let key = (newStatus.branch ?? "") + "\n" + rf.output
+            if key != gitswKey {
+                gitswKey = key
+                Task { await refreshGitsw() }
+            }
             prefillMergeMessage()
             fixSelection()
             if !searchMatchSet.isEmpty {

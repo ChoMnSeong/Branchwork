@@ -29,6 +29,7 @@
 "%@\nThe folder is deleted; the branch and commits stay. git refuses if there are uncommitted changes." = "%1$@\nフォルダーは削除されますが、ブランチとコミットは残ります。未コミットの変更がある場合、git は削除を拒否します。";
 "%@\nUncommitted changes are deleted too." = "%1$@\n未コミットの変更も削除されます。";
 "%@  (opened here)" = "%1$@  (ここで開いています)";
+"%@ (chosen by a gitsw rule)" = "%1$@（gitsw のルールで選択）";
 "%@ (current)" = "%1$@ (現在)";
 "%@ (none)" = "%1$@ (なし)";
 "%@ declined this request. Try changing the content and try again." = "%1$@ がこのリクエストを拒否しました。内容を変えてもう一度お試しください。";
@@ -74,6 +75,8 @@
 "Accounts" = "アカウント";
 "Add account" = "アカウントを追加";
 "Add account…" = "アカウントを追加…";
+"Add an account first: gitsw add asks for the account's name, email and server and makes an SSH key for it. Then install." = "まずアカウントを追加してください。gitsw add がアカウント名・メール・サーバーを尋ね、SSH キーを作成します。その後でインストールします。";
+"Add an account in Terminal…" = "ターミナルでアカウントを追加…";
 "Add variable" = "変数を追加";
 "Added" = "追加";
 "After" = "変更後";
@@ -120,6 +123,7 @@
 "Binary or too large — view it in the browser" = "バイナリまたはサイズが大きすぎます — ブラウザーで表示してください";
 "Blame" = "行ごとの作成者";
 "Blame — who changed each line and when" = "行ごとの作成者 (blame) — 各行を誰がいつ変更したか";
+"Blocked" = "ブロック";
 "Both" = "両方";
 "Both (mine first)" = "両方 (自分側を先に)";
 "Both (theirs first)" = "両方 (相手側を先に)";
@@ -133,6 +137,7 @@
 "Branches pinned to the top" = "上部に固定したブランチ";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ は最新バージョンです。";
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "ダウンロードした場所から直接開いたため、Branchwork は一時的な場所で実行されており、自分自身を置き換えられません。アプリケーションフォルダに移動して開き直してから、アップデートしてください。";
+"Branchwork is running from a temporary location. Move it to the Applications folder, open it again, then install gitsw." = "Branchwork は一時的な場所で実行されています。アプリケーションフォルダに移動して開き直してから、gitsw をインストールしてください。";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "変更を適用するため Branchwork を再起動します。参考にするコミット履歴がない場合は、AI もこの言語で書きます。";
 "Branchwork update" = "Branchwork のアップデート";
 "Brings %lld new commits from the remote into the current branch." = "リモートの新しいコミット %1$lld 件を現在のブランチに取り込みます。";
@@ -155,6 +160,7 @@
 "Changes requested: " = "変更要求: ";
 "Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Dock、Finder、Launchpad のアイコンが変わります。新しいアイコンはアップデートで追加されます。";
 "Change…" = "変更…";
+"Check again with fetch" = "fetch して再チェック";
 "Check failed: %@" = "確認に失敗しました: %1$@";
 "Check for new versions at launch and once a day" = "起動時と 1 日 1 回、新しいバージョンを確認";
 "Check for updates…" = "アップデートを確認…";
@@ -261,6 +267,7 @@
 "Couldn't download the file." = "ファイルをダウンロードできませんでした。";
 "Couldn't extract: %@" = "展開できませんでした: %1$@";
 "Couldn't find %@. Locate the executable in Settings > Tools or install it." = "%1$@ が見つかりません。設定 > ツールで実行ファイルの場所を指定するか、インストールしてください。";
+"Couldn't find gitsw inside Branchwork." = "Branchwork 内に gitsw が見つかりませんでした。";
 "Couldn't find the %@ executable. Locate it in Settings (⌘,) > Tools or install it." = "%1$@ の実行ファイルが見つかりません。設定 (⌘,) > ツールで場所を指定するか、インストールしてください。";
 "Couldn't find the Terminal app." = "ターミナルアプリが見つかりません。";
 "Couldn't find the gh CLI." = "gh CLI が見つかりません。";
@@ -443,8 +450,12 @@
 "Includes commits already pushed to the remote. You'll need to force push after cleaning up." = "リモートにプッシュ済みのコミットが含まれています。整理後は強制プッシュが必要です。";
 "Incoming commit" = "取り込むコミット";
 "Install" = "インストール";
+"Install gitsw?" = "gitsw をインストールしますか？";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "インストール場所は人によって異なります。ツールが自動で見つからない場合は、**場所を指定** から実行ファイルを直接選んでください。選んだパスは保存され、次回以降も使われます。";
+"Installed" = "インストール済み";
+"Installed from another copy" = "別のコピーがインストール済み";
 "Installing… Branchwork restarts when done" = "インストールしています… 完了すると Branchwork が再起動します";
+"Install…" = "インストール…";
 "Invalid address: %@" = "無効なアドレス: %1$@";
 "It was closed or hasn't been loaded yet." = "閉じられたか、まだ読み込まれていません。";
 "Keep at least one commit." = "コミットを 1 つ以上残してください。";
@@ -466,6 +477,7 @@
 "Locate" = "場所を指定";
 "Locate…" = "場所を指定…";
 "Location" = "場所";
+"Locked to %@" = "%1$@ にロック";
 "Locked worktree" = "ロックされたワークツリー";
 "Looks for a GitHub profile, then a connected self-hosted GitLab profile, then Gravatar, and uses initials if none is found. An email hash is sent to Gravatar." = "GitHub のプロフィール、接続したセルフホスト GitLab のプロフィール、Gravatar の順に探し、見つからなければイニシャルを使います。Gravatar にはメールアドレスのハッシュが送信されます。";
 "Manual" = "手動";
@@ -515,6 +527,7 @@
 "New worktree…" = "新しいワークツリー…";
 "Next result (⌘G · Enter)" = "次の結果 (⌘G · Enter)";
 "Next search result" = "次の検索結果";
+"No account" = "アカウントなし";
 "No changes" = "変更なし";
 "No changes to show" = "表示する変更はありません";
 "No commit selected" = "コミットが選択されていません";
@@ -542,10 +555,13 @@
 "No staged changes. Stage files first." = "ステージされた変更がありません。先にファイルをステージしてください。";
 "No staged files" = "ステージされたファイルはありません";
 "None" = "なし";
+"None yet" = "まだありません";
 "Not a Git repository" = "Git リポジトリではありません";
 "Not committed" = "未コミット";
 "Not found (404). Check that the token has access to the repository." = "見つかりません (404)。トークンにリポジトリへのアクセス権があるか確認してください。";
 "Not found — locate it in the Tools tab" = "見つかりません — ツールタブで場所を指定してください";
+"Not installed" = "未インストール";
+"Not managed by gitsw" = "gitsw の管理対象外";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "元に戻せる操作はありません。コミット、マージ、リベース、チェックアウト、ブランチの削除などの操作は、ここで元に戻せます。";
 "Off" = "オフ";
 "On" = "オン";
@@ -562,6 +578,7 @@
 "Only the panel is hidden; shells keep running." = "パネルを隠すだけで、シェルは実行されたままです。";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "空白のみ変更されています (「空白を無視」をオフにすると表示されます)。";
 "Open" = "開く";
+"Open a new terminal window to start using gitsw." = "新しいターミナルウィンドウを開くと gitsw を使えます。";
 "Open in Branchwork" = "Branchwork で開く";
 "Open in Terminal" = "ターミナルで開く";
 "Open in browser" = "ブラウザーで開く";
@@ -609,6 +626,7 @@
 "Push" = "プッシュ";
 "Push tag" = "タグをプッシュ";
 "Pushes %lld unpushed commits to the remote." = "プッシュしていない %1$lld 件のコミットをリモートにプッシュします。";
+"Pushes as %@" = "push アカウント: %1$@";
 "Pushes the current branch to %@ before creating." = "作成する前に、現在のブランチを %1$@ にプッシュします。";
 "Pushes the current branch to the remote (no commits to push right now)." = "現在のブランチをリモートにプッシュします (今はプッシュするコミットはありません)。";
 "Pushes the current branch to the remote for the first time and sets up tracking." = "現在のブランチを初めてリモートにプッシュし、追跡を設定します。";
@@ -631,6 +649,7 @@
 "Refresh" = "更新";
 "Refresh conversation and approvals" = "会話と承認を更新";
 "Refresh list" = "一覧を更新";
+"Reinstall…" = "再インストール…";
 "Reject" = "却下";
 "Reject the '%@' deployment?" = "'%1$@' のデプロイを却下しますか？";
 "Release notes" = "リリースノート";
@@ -679,6 +698,7 @@
 "Run again" = "再実行";
 "Run agent (%@)" = "エージェントを実行 (%1$@)";
 "Run an agent in a worktree" = "ワークツリーでエージェントを実行";
+"Run doctor in Terminal" = "ターミナルで doctor を実行";
 "Run manual job" = "手動ジョブを実行";
 "Run new pipeline (branch, variables)" = "新しいパイプラインを実行 (ブランチ・変数)";
 "Run now (don't wait for the schedule)" = "今すぐ実行 (スケジュールを待たない)";
@@ -709,7 +729,9 @@
 "Server error %lld: %@" = "サーバーエラー %1$lld: %2$@";
 "Sessions in other folders" = "他のフォルダーのセッション";
 "Set manually" = "手動で指定";
+"Set up" = "設定済み";
 "Shadow" = "シャドウ";
+"Shell command" = "シェルコマンド";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "下のターミナルパネルで開くシェル (zsh, bash, fish など)";
 "Show all" = "すべて表示";
 "Show all %lld hidden branches" = "非表示のブランチ %1$lld 個をすべて表示";
@@ -815,6 +837,7 @@
 "This account can't approve." = "このアカウントには承認権限がありません。";
 "This branch has no remote tracking branch to pull from (push it first to create one)." = "このブランチにはプル元となるリモート追跡ブランチがありません (先にプッシュすると作成されます)。";
 "This branch has no workflow with 'Run workflow' (workflow_dispatch)." = "このブランチには 'Run workflow' (workflow_dispatch) に対応したワークフローがありません。";
+"This changes files outside Branchwork, backing them up first:\n• ~/bin/gitsw: links to the gitsw inside Branchwork\n• ~/.zshrc: adds a gitsw block\n• ~/.gitconfig: global hooks that check authors, secrets, big files and force pushes, and rules that pick the account\n• ~/.claude and ~/.codex: rules, skills and a hook for AI agents\nRemove it later with gitsw uninstall." = "Branchwork の外にあるファイルを変更します（変更前にバックアップします）:\n• ~/bin/gitsw: Branchwork 内の gitsw にリンク\n• ~/.zshrc: gitsw ブロックを追加\n• ~/.gitconfig: 作成者・秘密情報・大きなファイル・強制 push を検査するグローバルフックと、アカウントを選ぶルール\n• ~/.claude と ~/.codex: AI エージェント用のルール・スキル・フック\nあとで gitsw uninstall で削除できます。";
 "This commit is in history that isn't shown in the graph." = "このコミットは、グラフに表示されていない履歴にあります。";
 "This file hasn't been committed yet." = "このファイルはまだコミットされていません。";
 "This file was deleted." = "このファイルは削除されました。";
@@ -867,12 +890,14 @@
 "Variables" = "変数";
 "Version %@ is available" = "バージョン %1$@ が利用可能です";
 "Version %@ is out" = "バージョン %1$@ がリリースされました";
+"Version in Branchwork" = "Branchwork 同梱のバージョン";
 "View commit" = "コミットを表示";
 "View log (browser)" = "ログを表示 (ブラウザー)";
 "Waiting" = "待機中";
 "Waiting for deployment approval: %@" = "デプロイの承認待ち: %1$@";
 "Waiting for input" = "入力待ち";
 "Waiting to be run manually" = "手動実行待ち";
+"Warning" = "警告";
 "What to do with this commit" = "このコミットの扱い";
 "What would you like to do?" = "どうしますか？";
 "What would you like to do? If there are conflicts, you can resolve them on the right." = "どうしますか？競合が発生した場合は、右側で解決できます。";
@@ -911,6 +936,9 @@
 "ghp_… token" = "ghp_… トークン";
 "git %@ failed" = "git %1$@ に失敗しました";
 "git refuses to delete a branch with unmerged commits. Use 'Force delete' in that case." = "マージされていないコミットがあるブランチは、git が削除を拒否します。その場合は「強制削除」を使ってください。";
+"gitsw checks before commit and push" = "コミット・push 前の gitsw チェック";
+"gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw はこのリポジトリのアカウントを把握していません。gitsw use <アカウント> でロックしてください。";
+"gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw は複数の Git アカウントが混ざらないようにします。リポジトリごとにアカウントをロックし、フォルダや組織のルールでアカウントを選び、誤った作成者・秘密情報・強制 push を git フックで防ぎます。ターミナル、AI エージェント、Branchwork のすべてに適用されます。";
 "tag" = "タグ";
 "… The diff is too long; only the beginning is shown" = "… 差分が長すぎるため、先頭部分だけを表示しています";
 "… show %lld more lines" = "… さらに %1$lld 行を表示";

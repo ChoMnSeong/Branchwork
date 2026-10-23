@@ -29,6 +29,7 @@
 "%@\nThe folder is deleted; the branch and commits stay. git refuses if there are uncommitted changes." = "%1$@\nПапку буде видалено; гілка й коміти залишаться. Якщо є незакомічені зміни, git відмовиться це робити.";
 "%@\nUncommitted changes are deleted too." = "%1$@\nНезакомічені зміни теж буде видалено.";
 "%@  (opened here)" = "%1$@  (відкрито тут)";
+"%@ (chosen by a gitsw rule)" = "%1$@ (вибрано правилом gitsw)";
 "%@ (current)" = "%1$@ (поточна)";
 "%@ (none)" = "%1$@ (немає)";
 "%@ declined this request. Try changing the content and try again." = "%1$@ відхилив цей запит. Змініть вміст і спробуйте ще раз.";
@@ -74,6 +75,8 @@
 "Accounts" = "Облікові записи";
 "Add account" = "Додати обліковий запис";
 "Add account…" = "Додати обліковий запис…";
+"Add an account first: gitsw add asks for the account's name, email and server and makes an SSH key for it. Then install." = "Спершу додайте обліковий запис: gitsw add запитає ім’я, пошту й сервер облікового запису та створить для нього SSH-ключ. Потім установіть.";
+"Add an account in Terminal…" = "Додати обліковий запис у Терміналі…";
 "Add variable" = "Додати змінну";
 "Added" = "Додано";
 "After" = "Після";
@@ -120,6 +123,7 @@
 "Binary or too large — view it in the browser" = "Двійковий або завеликий — перегляньте в браузері";
 "Blame" = "Авторство рядків";
 "Blame — who changed each line and when" = "Авторство рядків — хто і коли змінював кожен рядок";
+"Blocked" = "Зупинено";
 "Both" = "Обидва";
 "Both (mine first)" = "Обидва (спершу моє)";
 "Both (theirs first)" = "Обидва (спершу їхнє)";
@@ -133,6 +137,7 @@
 "Branches pinned to the top" = "Гілки, закріплені вгорі";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ — найновіша версія.";
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork відкрито просто із завантажень, і він працює з тимчасового розташування, тому не може замінити сам себе. Перемістіть його в папку «Програми», відкрийте знову, а потім оновіть.";
+"Branchwork is running from a temporary location. Move it to the Applications folder, open it again, then install gitsw." = "Branchwork запущено з тимчасового розташування. Перемістіть його в папку «Програми», відкрийте знову, а потім установіть gitsw.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Щоб застосувати зміну, Branchwork перезапуститься. Якщо немає історії комітів, на яку можна орієнтуватися, AI також писатиме цією мовою.";
 "Branchwork update" = "Оновлення Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Підтягує нові коміти з віддаленого репозиторію в поточну гілку (нових комітів: %1$lld).";
@@ -155,6 +160,7 @@
 "Changes requested: " = "Запитано зміни: ";
 "Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Змінює піктограму в Dock, Finder і Launchpad. Нові піктограми з’являються з оновленнями.";
 "Change…" = "Змінити…";
+"Check again with fetch" = "Перевірити знову з fetch";
 "Check failed: %@" = "Не вдалося перевірити: %1$@";
 "Check for new versions at launch and once a day" = "Перевіряти наявність нових версій під час запуску й раз на день";
 "Check for updates…" = "Перевірити оновлення…";
@@ -260,6 +266,7 @@
 "Couldn't download the file." = "Не вдалося завантажити файл.";
 "Couldn't extract: %@" = "Не вдалося розпакувати: %1$@";
 "Couldn't find %@. Locate the executable in Settings > Tools or install it." = "Не вдалося знайти %1$@. Вкажіть виконуваний файл у Налаштуваннях > Інструменти або встановіть його.";
+"Couldn't find gitsw inside Branchwork." = "Не вдалося знайти gitsw у Branchwork.";
 "Couldn't find the %@ executable. Locate it in Settings (⌘,) > Tools or install it." = "Не вдалося знайти виконуваний файл %1$@. Вкажіть його в Налаштуваннях (⌘,) > Інструменти або встановіть.";
 "Couldn't find the Terminal app." = "Не вдалося знайти програму Термінал.";
 "Couldn't find the gh CLI." = "Не вдалося знайти gh CLI.";
@@ -442,8 +449,12 @@
 "Includes commits already pushed to the remote. You'll need to force push after cleaning up." = "Містить коміти, уже надіслані до віддаленого репозиторію. Після впорядкування доведеться виконати примусове надсилання.";
 "Incoming commit" = "Вхідний коміт";
 "Install" = "Установити";
+"Install gitsw?" = "Установити gitsw?";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Розташування встановлення в усіх різні. Якщо інструмент не знайдено автоматично, натисніть **Вказати** і виберіть виконуваний файл самостійно. Вибраний шлях буде збережено й використано наступного разу.";
+"Installed" = "Установлено";
+"Installed from another copy" = "Установлено іншу копію";
 "Installing… Branchwork restarts when done" = "Установлення… Після завершення Branchwork перезапуститься";
+"Install…" = "Установити…";
 "Invalid address: %@" = "Недійсна адреса: %1$@";
 "It was closed or hasn't been loaded yet." = "Закрито або ще не завантажено.";
 "Keep at least one commit." = "Залиште принаймні один коміт.";
@@ -465,6 +476,7 @@
 "Locate" = "Вказати";
 "Locate…" = "Вказати…";
 "Location" = "Розташування";
+"Locked to %@" = "Закріплено за %1$@";
 "Locked worktree" = "Заблоковане робоче дерево";
 "Looks for a GitHub profile, then a connected self-hosted GitLab profile, then Gravatar, and uses initials if none is found. An email hash is sent to Gravatar." = "Шукає профіль GitHub, потім профіль у підключеному GitLab на власному сервері, потім Gravatar; якщо нічого не знайдено, показує ініціали. До Gravatar надсилається хеш email.";
 "Manual" = "Вручну";
@@ -514,6 +526,7 @@
 "New worktree…" = "Нове робоче дерево…";
 "Next result (⌘G · Enter)" = "Наступний результат (⌘G · Enter)";
 "Next search result" = "Наступний результат пошуку";
+"No account" = "Немає облікового запису";
 "No changes" = "Немає змін";
 "No changes to show" = "Немає змін для показу";
 "No commit selected" = "Коміт не вибрано";
@@ -541,10 +554,13 @@
 "No staged changes. Stage files first." = "Немає індексованих змін. Спершу індексуйте файли.";
 "No staged files" = "Немає індексованих файлів";
 "None" = "Немає";
+"None yet" = "Ще немає";
 "Not a Git repository" = "Не репозиторій Git";
 "Not committed" = "Не закомічено";
 "Not found (404). Check that the token has access to the repository." = "Не знайдено (404). Переконайтеся, що токен має доступ до репозиторію.";
 "Not found — locate it in the Tools tab" = "Не знайдено — вкажіть його на вкладці «Інструменти»";
+"Not installed" = "Не встановлено";
+"Not managed by gitsw" = "Не керується gitsw";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Нічого відміняти. Тут можна відмінити такі операції, як коміт, злиття, перебазування, перехід на гілку й видалення гілки.";
 "Off" = "Вимк.";
 "On" = "Увімк.";
@@ -561,6 +577,7 @@
 "Only the panel is hidden; shells keep running." = "Приховано лише панель; оболонки продовжують працювати.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Змінилися лише пробіли (вимкніть «Ігнорувати пробіли», щоб їх побачити).";
 "Open" = "Відкрити";
+"Open a new terminal window to start using gitsw." = "Відкрийте нове вікно термінала, щоб почати користуватися gitsw.";
 "Open in Branchwork" = "Відкрити в Branchwork";
 "Open in Terminal" = "Відкрити в Терміналі";
 "Open in browser" = "Відкрити в браузері";
@@ -608,6 +625,7 @@
 "Push" = "Надіслати";
 "Push tag" = "Надіслати тег";
 "Pushes %lld unpushed commits to the remote." = "Надсилає до віддаленого репозиторію ще не надіслані коміти (кількість: %1$lld).";
+"Pushes as %@" = "Push від імені %1$@";
 "Pushes the current branch to %@ before creating." = "Перед створенням надсилає поточну гілку до %1$@.";
 "Pushes the current branch to the remote (no commits to push right now)." = "Надсилає поточну гілку до віддаленого репозиторію (зараз немає комітів для надсилання).";
 "Pushes the current branch to the remote for the first time and sets up tracking." = "Уперше надсилає поточну гілку до віддаленого репозиторію й налаштовує відстеження.";
@@ -630,6 +648,7 @@
 "Refresh" = "Оновити";
 "Refresh conversation and approvals" = "Оновити обговорення й схвалення";
 "Refresh list" = "Оновити список";
+"Reinstall…" = "Перевстановити…";
 "Reject" = "Відхилити";
 "Reject the '%@' deployment?" = "Відхилити розгортання '%1$@'?";
 "Release notes" = "Примітки до випуску";
@@ -678,6 +697,7 @@
 "Run again" = "Запустити знову";
 "Run agent (%@)" = "Запустити агента (%1$@)";
 "Run an agent in a worktree" = "Запустити агента в робочому дереві";
+"Run doctor in Terminal" = "Запустити doctor у Терміналі";
 "Run manual job" = "Запустити ручне завдання";
 "Run new pipeline (branch, variables)" = "Запустити новий конвеєр (гілка, змінні)";
 "Run now (don't wait for the schedule)" = "Запустити зараз (не чекати розкладу)";
@@ -708,7 +728,9 @@
 "Server error %lld: %@" = "Помилка сервера %1$lld: %2$@";
 "Sessions in other folders" = "Сеанси в інших папках";
 "Set manually" = "Задати вручну";
+"Set up" = "Налаштовано";
 "Shadow" = "Тінь";
+"Shell command" = "Команда оболонки";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Оболонка, що відкривається в панелі термінала внизу (zsh, bash, fish тощо)";
 "Show all" = "Показати все";
 "Show all %lld hidden branches" = "Показати всі приховані гілки (%1$lld)";
@@ -814,6 +836,7 @@
 "This account can't approve." = "Цей обліковий запис не може схвалювати.";
 "This branch has no remote tracking branch to pull from (push it first to create one)." = "Ця гілка не має віддаленої гілки відстеження, з якої можна підтягнути (спершу надішліть її, щоб створити таку гілку).";
 "This branch has no workflow with 'Run workflow' (workflow_dispatch)." = "Ця гілка не має робочого процесу з «Run workflow» (workflow_dispatch).";
+"This changes files outside Branchwork, backing them up first:\n• ~/bin/gitsw: links to the gitsw inside Branchwork\n• ~/.zshrc: adds a gitsw block\n• ~/.gitconfig: global hooks that check authors, secrets, big files and force pushes, and rules that pick the account\n• ~/.claude and ~/.codex: rules, skills and a hook for AI agents\nRemove it later with gitsw uninstall." = "Це змінить файли поза Branchwork, спершу зберігши копії:\n• ~/bin/gitsw: посилання на gitsw у Branchwork\n• ~/.zshrc: додає блок gitsw\n• ~/.gitconfig: глобальні хуки, що перевіряють автора, секрети, великі файли й примусовий push, і правила вибору облікового запису\n• ~/.claude і ~/.codex: правила, навички й хук для ШІ-агентів\nВидалити пізніше: gitsw uninstall.";
 "This commit is in history that isn't shown in the graph." = "Цей коміт належить до історії, яку не показано в графі.";
 "This file hasn't been committed yet." = "Цей файл ще не закомічено.";
 "This file was deleted." = "Цей файл видалено.";
@@ -866,12 +889,14 @@
 "Variables" = "Змінні";
 "Version %@ is available" = "Доступна версія %1$@";
 "Version %@ is out" = "Вийшла версія %1$@";
+"Version in Branchwork" = "Версія в Branchwork";
 "View commit" = "Переглянути коміт";
 "View log (browser)" = "Переглянути журнал (браузер)";
 "Waiting" = "Очікування";
 "Waiting for deployment approval: %@" = "Очікує схвалення розгортання: %1$@";
 "Waiting for input" = "Очікує введення";
 "Waiting to be run manually" = "Очікує ручного запуску";
+"Warning" = "Попередження";
 "What to do with this commit" = "Що зробити з цим комітом";
 "What would you like to do?" = "Що ви хочете зробити?";
 "What would you like to do? If there are conflicts, you can resolve them on the right." = "Що ви хочете зробити? Якщо виникнуть конфлікти, їх можна розв’язати праворуч.";
@@ -910,6 +935,9 @@
 "ghp_… token" = "токен ghp_…";
 "git %@ failed" = "Помилка git %1$@";
 "git refuses to delete a branch with unmerged commits. Use 'Force delete' in that case." = "git відмовляється видаляти гілку з незлитими комітами. У такому разі скористайтеся «Примусово видалити».";
+"gitsw checks before commit and push" = "Перевірки gitsw перед комітом і push";
+"gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw не знає, який обліковий запис використовує цей репозиторій. Закріпіть його командою gitsw use <обліковий запис>.";
+"gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw не дає змішуватися кільком обліковим записам Git: закріплює за кожним репозиторієм обліковий запис, вибирає його за правилами папок чи організацій і в хуках Git зупиняє хибного автора, секрети й примусовий push — у терміналі, для ШІ-агентів і в Branchwork.";
 "tag" = "тег";
 "… The diff is too long; only the beginning is shown" = "… Зміни задовгі; показано лише початок";
 "… show %lld more lines" = "… показати ще рядки (%1$lld)";

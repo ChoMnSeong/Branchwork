@@ -28,6 +28,7 @@
 "%@\nThe folder is deleted; the branch and commits stay. git refuses if there are uncommitted changes." = "%1$@\nDe map wordt verwijderd; de branch en commits blijven bestaan. git weigert als er niet-gecommitte wijzigingen zijn.";
 "%@\nUncommitted changes are deleted too." = "%1$@\nNiet-gecommitte wijzigingen worden ook verwijderd.";
 "%@  (opened here)" = "%1$@  (hier geopend)";
+"%@ (chosen by a gitsw rule)" = "%1$@ (gekozen via een gitsw-regel)";
 "%@ (current)" = "%1$@ (huidige)";
 "%@ (none)" = "%1$@ (geen)";
 "%@ declined this request. Try changing the content and try again." = "%1$@ heeft dit verzoek geweigerd. Pas de inhoud aan en probeer het opnieuw.";
@@ -69,6 +70,8 @@
 "Account for this repository" = "Account voor deze repository";
 "Add account" = "Account toevoegen";
 "Add account…" = "Account toevoegen…";
+"Add an account first: gitsw add asks for the account's name, email and server and makes an SSH key for it. Then install." = "Voeg eerst een account toe: gitsw add vraagt naar de naam, het e-mailadres en de server van het account en maakt er een SSH-sleutel voor. Installeer daarna.";
+"Add an account in Terminal…" = "Account toevoegen in Terminal…";
 "Add variable" = "Variabele toevoegen";
 "Added" = "Toegevoegd";
 "After" = "Na";
@@ -112,6 +115,7 @@
 "Binary file" = "Binair bestand";
 "Binary or too large — view it in the browser" = "Binair of te groot — bekijk het in de browser";
 "Blame — who changed each line and when" = "Blame — wie elke regel wanneer heeft gewijzigd";
+"Blocked" = "Geblokkeerd";
 "Both" = "Beide";
 "Both (mine first)" = "Beide (eerst mijn versie)";
 "Both (theirs first)" = "Beide (eerst hun versie)";
@@ -123,6 +127,7 @@
 "Branches pinned to the top" = "Bovenaan vastgezette branches";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ is de nieuwste versie.";
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork is rechtstreeks vanuit de download geopend en draait vanaf een tijdelijke locatie, dus het kan zichzelf niet vervangen. Verplaats het naar de map Apps, open het opnieuw en werk het daarna bij.";
+"Branchwork is running from a temporary location. Move it to the Applications folder, open it again, then install gitsw." = "Branchwork draait vanaf een tijdelijke locatie. Verplaats het naar de map Apps, open het opnieuw en installeer daarna gitsw.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork start opnieuw om de wijziging toe te passen. Als er geen commitgeschiedenis is om te volgen, schrijft de AI ook in deze taal.";
 "Branchwork update" = "Branchwork-update";
 "Brings %lld new commits from the remote into the current branch." = "Haalt nieuwe commits (%1$lld) van de remote binnen in de huidige branch.";
@@ -144,6 +149,7 @@
 "Changes requested: " = "Wijzigingen gevraagd: ";
 "Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Wijzigt het symbool in het Dock, de Finder en Launchpad. Nieuwe symbolen komen met updates.";
 "Change…" = "Wijzigen…";
+"Check again with fetch" = "Opnieuw controleren met fetch";
 "Check failed: %@" = "Controle mislukt: %1$@";
 "Check for new versions at launch and once a day" = "Bij het starten en eenmaal per dag op nieuwe versies controleren";
 "Check for updates…" = "Controleren op updates…";
@@ -241,6 +247,7 @@
 "Couldn't download the file." = "Kan het bestand niet downloaden.";
 "Couldn't extract: %@" = "Kan niet uitpakken: %1$@";
 "Couldn't find %@. Locate the executable in Settings > Tools or install it." = "%1$@ niet gevonden. Wijs het uitvoerbare bestand aan in Instellingen > Tools of installeer het.";
+"Couldn't find gitsw inside Branchwork." = "gitsw niet gevonden in Branchwork.";
 "Couldn't find the %@ executable. Locate it in Settings (⌘,) > Tools or install it." = "Uitvoerbaar bestand van %1$@ niet gevonden. Wijs het aan in Instellingen (⌘,) > Tools of installeer het.";
 "Couldn't find the Terminal app." = "De app Terminal is niet gevonden.";
 "Couldn't find the gh CLI." = "De gh CLI is niet gevonden.";
@@ -417,8 +424,12 @@
 "Includes commits already pushed to the remote. You'll need to force push after cleaning up." = "Bevat commits die al naar de remote zijn gepusht. Na het opschonen moet je een force push doen.";
 "Incoming commit" = "Inkomende commit";
 "Install" = "Installeren";
+"Install gitsw?" = "gitsw installeren?";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Installatielocaties verschillen per persoon. Als een tool niet automatisch wordt gevonden, gebruik dan **Aanwijzen** om het uitvoerbare bestand zelf te kiezen. Het gekozen pad wordt opgeslagen en de volgende keer weer gebruikt.";
+"Installed" = "Geïnstalleerd";
+"Installed from another copy" = "Andere kopie geïnstalleerd";
 "Installing… Branchwork restarts when done" = "Bezig met installeren… Branchwork start daarna opnieuw";
+"Install…" = "Installeren…";
 "Invalid address: %@" = "Ongeldig adres: %1$@";
 "It was closed or hasn't been loaded yet." = "Het is gesloten of nog niet geladen.";
 "Keep at least one commit." = "Houd minstens één commit over.";
@@ -439,6 +450,7 @@
 "Locate" = "Aanwijzen";
 "Locate…" = "Aanwijzen…";
 "Location" = "Locatie";
+"Locked to %@" = "Vergrendeld op %1$@";
 "Locked worktree" = "Vergrendelde worktree";
 "Looks for a GitHub profile, then a connected self-hosted GitLab profile, then Gravatar, and uses initials if none is found. An email hash is sent to Gravatar." = "Zoekt eerst een GitHub-profiel, dan een profiel op een gekoppelde self-hosted GitLab, dan Gravatar, en gebruikt initialen als er niets wordt gevonden. Er wordt een hash van het e-mailadres naar Gravatar gestuurd.";
 "Manual" = "Handmatig";
@@ -487,6 +499,7 @@
 "New worktree…" = "Nieuwe worktree…";
 "Next result (⌘G · Enter)" = "Volgend resultaat (⌘G · Enter)";
 "Next search result" = "Volgend zoekresultaat";
+"No account" = "Geen account";
 "No changes" = "Geen wijzigingen";
 "No changes to show" = "Geen wijzigingen om te tonen";
 "No commit selected" = "Geen commit geselecteerd";
@@ -514,10 +527,13 @@
 "No staged changes. Stage files first." = "Geen gestagede wijzigingen. Stage eerst bestanden.";
 "No staged files" = "Geen gestagede bestanden";
 "None" = "Geen";
+"None yet" = "Nog geen";
 "Not a Git repository" = "Geen Git-repository";
 "Not committed" = "Niet gecommit";
 "Not found (404). Check that the token has access to the repository." = "Niet gevonden (404). Controleer of het token toegang heeft tot de repository.";
 "Not found — locate it in the Tools tab" = "Niet gevonden — wijs het aan op het tabblad Tools";
+"Not installed" = "Niet geïnstalleerd";
+"Not managed by gitsw" = "Niet beheerd door gitsw";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Niets om ongedaan te maken. Bewerkingen zoals commit, merge, rebase, checkout en het verwijderen van een branch kun je hier ongedaan maken.";
 "Off" = "Uit";
 "On" = "Aan";
@@ -534,6 +550,7 @@
 "Only the panel is hidden; shells keep running." = "Alleen het paneel wordt verborgen; shells blijven actief.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Alleen witruimte gewijzigd (zet Witruimte negeren uit om het te zien).";
 "Open" = "Openen";
+"Open a new terminal window to start using gitsw." = "Open een nieuw terminalvenster om gitsw te gebruiken.";
 "Open in Branchwork" = "Openen in Branchwork";
 "Open in Terminal" = "Openen in Terminal";
 "Open in browser" = "Openen in browser";
@@ -575,6 +592,7 @@
 "Pulling…" = "Bezig met pullen…";
 "Push tag" = "Tag pushen";
 "Pushes %lld unpushed commits to the remote." = "Pusht nog niet gepushte commits (%1$lld) naar de remote.";
+"Pushes as %@" = "Pusht als %1$@";
 "Pushes the current branch to %@ before creating." = "Pusht de huidige branch eerst naar %1$@.";
 "Pushes the current branch to the remote (no commits to push right now)." = "Pusht de huidige branch naar de remote (er zijn nu geen commits om te pushen).";
 "Pushes the current branch to the remote for the first time and sets up tracking." = "Pusht de huidige branch voor het eerst naar de remote en stelt tracking in.";
@@ -597,6 +615,7 @@
 "Refresh" = "Vernieuwen";
 "Refresh conversation and approvals" = "Gesprek en goedkeuringen vernieuwen";
 "Refresh list" = "Lijst vernieuwen";
+"Reinstall…" = "Opnieuw installeren…";
 "Reject" = "Afwijzen";
 "Reject the '%@' deployment?" = "Deployment '%1$@' afwijzen?";
 "Release notes" = "Releasenotes";
@@ -640,6 +659,7 @@
 "Run again" = "Opnieuw uitvoeren";
 "Run agent (%@)" = "Agent starten (%1$@)";
 "Run an agent in a worktree" = "Een agent starten in een worktree";
+"Run doctor in Terminal" = "doctor uitvoeren in Terminal";
 "Run manual job" = "Handmatige job uitvoeren";
 "Run new pipeline (branch, variables)" = "Nieuwe pipeline uitvoeren (branch, variabelen)";
 "Run now (don't wait for the schedule)" = "Nu uitvoeren (niet wachten op de planning)";
@@ -668,7 +688,9 @@
 "Server error %lld: %@" = "Serverfout %1$lld: %2$@";
 "Sessions in other folders" = "Sessies in andere mappen";
 "Set manually" = "Handmatig ingesteld";
+"Set up" = "Ingesteld";
 "Shadow" = "Schaduw";
+"Shell command" = "Shell-opdracht";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell die in het terminalpaneel onderaan wordt geopend (zsh, bash, fish, enz.)";
 "Show all" = "Alles tonen";
 "Show all %lld hidden branches" = "Alle verborgen branches tonen (%1$lld)";
@@ -768,6 +790,7 @@
 "This account can't approve." = "Dit account kan niet goedkeuren.";
 "This branch has no remote tracking branch to pull from (push it first to create one)." = "Deze branch heeft geen remote tracking-branch om van te pullen (push hem eerst om er een te maken).";
 "This branch has no workflow with 'Run workflow' (workflow_dispatch)." = "Deze branch heeft geen workflow met 'Run workflow' (workflow_dispatch).";
+"This changes files outside Branchwork, backing them up first:\n• ~/bin/gitsw: links to the gitsw inside Branchwork\n• ~/.zshrc: adds a gitsw block\n• ~/.gitconfig: global hooks that check authors, secrets, big files and force pushes, and rules that pick the account\n• ~/.claude and ~/.codex: rules, skills and a hook for AI agents\nRemove it later with gitsw uninstall." = "Dit wijzigt bestanden buiten Branchwork en maakt eerst een back-up:\n• ~/bin/gitsw: koppeling naar de gitsw in Branchwork\n• ~/.zshrc: voegt een gitsw-blok toe\n• ~/.gitconfig: globale hooks die auteurs, geheimen, grote bestanden en force-pushes controleren, en regels die het account kiezen\n• ~/.claude en ~/.codex: regels, skills en een hook voor AI-agents\nLater verwijderen met gitsw uninstall.";
 "This commit is in history that isn't shown in the graph." = "Deze commit zit in geschiedenis die niet in de graaf wordt getoond.";
 "This file hasn't been committed yet." = "Dit bestand is nog niet gecommit.";
 "This file was deleted." = "Dit bestand is verwijderd.";
@@ -817,12 +840,14 @@
 "Variables" = "Variabelen";
 "Version %@ is available" = "Versie %1$@ is beschikbaar";
 "Version %@ is out" = "Versie %1$@ is uit";
+"Version in Branchwork" = "Versie in Branchwork";
 "View commit" = "Commit bekijken";
 "View log (browser)" = "Log bekijken (browser)";
 "Waiting" = "Wachtend";
 "Waiting for deployment approval: %@" = "Wacht op goedkeuring van deployment: %1$@";
 "Waiting for input" = "Wacht op invoer";
 "Waiting to be run manually" = "Wacht op handmatige uitvoering";
+"Warning" = "Waarschuwing";
 "What to do with this commit" = "Wat te doen met deze commit";
 "What would you like to do?" = "Wat wil je doen?";
 "What would you like to do? If there are conflicts, you can resolve them on the right." = "Wat wil je doen? Als er conflicten zijn, kun je die rechts oplossen.";
@@ -856,6 +881,9 @@
 "e.g. add password recovery to the login screen" = "bijv. wachtwoordherstel toevoegen aan het inlogscherm";
 "git %@ failed" = "git %1$@ mislukt";
 "git refuses to delete a branch with unmerged commits. Use 'Force delete' in that case." = "git weigert een branch met niet-gemergede commits te verwijderen. Gebruik in dat geval 'Geforceerd verwijderen'.";
+"gitsw checks before commit and push" = "gitsw-controles vóór commit en push";
+"gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw weet niet welk account deze repository gebruikt. Vergrendel het met gitsw use <account>.";
+"gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw houdt meerdere Git-accounts gescheiden: het vergrendelt elke repository op één account, kiest het account via map- of organisatieregels en blokkeert in Git-hooks verkeerde auteurs, geheimen en force-pushes, in de terminal, voor AI-agents en in Branchwork.";
 "… The diff is too long; only the beginning is shown" = "… De diff is te lang; alleen het begin wordt getoond";
 "… show %lld more lines" = "… nog %1$lld regel(s) tonen";
 "✅ Response: %@" = "✅ Antwoord: %1$@";

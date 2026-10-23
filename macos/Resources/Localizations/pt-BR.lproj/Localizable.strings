@@ -28,6 +28,7 @@
 "%@\nThe folder is deleted; the branch and commits stay. git refuses if there are uncommitted changes." = "%1$@\nA pasta é excluída; o branch e os commits permanecem. O git recusa se houver alterações sem commit.";
 "%@\nUncommitted changes are deleted too." = "%1$@\nAs alterações sem commit também são excluídas.";
 "%@  (opened here)" = "%1$@  (aberto aqui)";
+"%@ (chosen by a gitsw rule)" = "%1$@ (escolhida por uma regra do gitsw)";
 "%@ (current)" = "%1$@ (atual)";
 "%@ (none)" = "%1$@ (nenhum)";
 "%@ declined this request. Try changing the content and try again." = "%1$@ recusou esta solicitação. Altere o conteúdo e tente novamente.";
@@ -70,6 +71,8 @@
 "Accounts" = "Contas";
 "Add account" = "Adicionar conta";
 "Add account…" = "Adicionar conta…";
+"Add an account first: gitsw add asks for the account's name, email and server and makes an SSH key for it. Then install." = "Adicione uma conta primeiro: o gitsw add pergunta o nome, o e-mail e o servidor da conta e cria uma chave SSH para ela. Depois, instale.";
+"Add an account in Terminal…" = "Adicionar uma conta no Terminal…";
 "Add variable" = "Adicionar variável";
 "Added" = "Adicionado";
 "After" = "Depois";
@@ -115,6 +118,7 @@
 "Binary file" = "Arquivo binário";
 "Binary or too large — view it in the browser" = "Binário ou grande demais — veja no navegador";
 "Blame — who changed each line and when" = "Blame — quem alterou cada linha e quando";
+"Blocked" = "Bloqueado";
 "Both" = "Ambos";
 "Both (mine first)" = "Ambos (meu primeiro)";
 "Both (theirs first)" = "Ambos (deles primeiro)";
@@ -125,6 +129,7 @@
 "Branches pinned to the top" = "Branches fixados no topo";
 "Branchwork %@ is the latest version." = "O Branchwork %1$@ é a versão mais recente.";
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "O Branchwork foi aberto direto do download e está sendo executado de um local temporário, por isso não consegue se substituir. Mova-o para a pasta Aplicativos, abra-o de novo e depois atualize.";
+"Branchwork is running from a temporary location. Move it to the Applications folder, open it again, then install gitsw." = "O Branchwork está sendo executado de um local temporário. Mova-o para a pasta Aplicativos, abra-o de novo e depois instale o gitsw.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "O Branchwork reinicia para aplicar a alteração. Quando não há histórico de commits para seguir, a IA também escreve neste idioma.";
 "Branchwork update" = "Atualização do Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Traz para o branch atual os novos commits do remoto (%1$lld).";
@@ -147,6 +152,7 @@
 "Changes requested: " = "Alterações solicitadas por: ";
 "Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Muda o ícone no Dock, no Finder e no Launchpad. Novos ícones chegam com as atualizações.";
 "Change…" = "Alterar…";
+"Check again with fetch" = "Verificar de novo com fetch";
 "Check failed: %@" = "Falha na verificação: %1$@";
 "Check for new versions at launch and once a day" = "Verificar novas versões ao abrir e uma vez por dia";
 "Check for updates…" = "Verificar atualizações…";
@@ -246,6 +252,7 @@
 "Couldn't download the file." = "Não foi possível baixar o arquivo.";
 "Couldn't extract: %@" = "Não foi possível extrair: %1$@";
 "Couldn't find %@. Locate the executable in Settings > Tools or install it." = "Não foi possível encontrar %1$@. Localize o executável em Configurações > Ferramentas ou instale-o.";
+"Couldn't find gitsw inside Branchwork." = "Não foi possível encontrar o gitsw dentro do Branchwork.";
 "Couldn't find the %@ executable. Locate it in Settings (⌘,) > Tools or install it." = "Não foi possível encontrar o executável do %1$@. Localize-o em Configurações (⌘,) > Ferramentas ou instale-o.";
 "Couldn't find the Terminal app." = "Não foi possível encontrar o app Terminal.";
 "Couldn't find the gh CLI." = "Não foi possível encontrar a CLI gh.";
@@ -426,8 +433,12 @@
 "Includes commits already pushed to the remote. You'll need to force push after cleaning up." = "Inclui commits que já foram enviados ao remoto. Será preciso fazer push forçado depois de organizar.";
 "Incoming commit" = "Commit recebido";
 "Install" = "Instalar";
+"Install gitsw?" = "Instalar o gitsw?";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Os locais de instalação variam de pessoa para pessoa. Se uma ferramenta não for encontrada automaticamente, use **Localizar** para escolher o executável manualmente. O caminho escolhido é salvo e usado nas próximas vezes.";
+"Installed" = "Instalado";
+"Installed from another copy" = "Outra cópia instalada";
 "Installing… Branchwork restarts when done" = "Instalando… O Branchwork reinicia ao terminar";
+"Install…" = "Instalar…";
 "Invalid address: %@" = "Endereço inválido: %1$@";
 "It was closed or hasn't been loaded yet." = "Foi fechado ou ainda não foi carregado.";
 "Keep at least one commit." = "Mantenha pelo menos um commit.";
@@ -448,6 +459,7 @@
 "Locate" = "Localizar";
 "Locate…" = "Localizar…";
 "Location" = "Local";
+"Locked to %@" = "Travado em %1$@";
 "Locked worktree" = "Worktree bloqueado";
 "Looks for a GitHub profile, then a connected self-hosted GitLab profile, then Gravatar, and uses initials if none is found. An email hash is sent to Gravatar." = "Procura um perfil do GitHub, depois um perfil de GitLab auto-hospedado conectado e então o Gravatar; se nada for encontrado, usa as iniciais. Um hash do e-mail é enviado ao Gravatar.";
 "Mark all as resolved" = "Marcar tudo como resolvido";
@@ -496,6 +508,7 @@
 "New worktree…" = "Novo worktree…";
 "Next result (⌘G · Enter)" = "Próximo resultado (⌘G · Enter)";
 "Next search result" = "Próximo resultado da pesquisa";
+"No account" = "Sem conta";
 "No changes" = "Nenhuma alteração";
 "No changes to show" = "Nenhuma alteração para mostrar";
 "No commit selected" = "Nenhum commit selecionado";
@@ -523,10 +536,13 @@
 "No staged changes. Stage files first." = "Nenhuma alteração no stage. Adicione arquivos ao stage primeiro.";
 "No staged files" = "Nenhum arquivo no stage";
 "None" = "Nenhum";
+"None yet" = "Nenhuma ainda";
 "Not a Git repository" = "Não é um repositório Git";
 "Not committed" = "Sem commit";
 "Not found (404). Check that the token has access to the repository." = "Não encontrado (404). Verifique se o token tem acesso ao repositório.";
 "Not found — locate it in the Tools tab" = "Não encontrado — localize-o na aba Ferramentas";
+"Not installed" = "Não instalado";
+"Not managed by gitsw" = "Não gerenciado pelo gitsw";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Nada para desfazer. Operações como commit, merge, rebase, checkout e exclusão de branch podem ser desfeitas aqui.";
 "Off" = "Desativado";
 "On" = "Ativado";
@@ -543,6 +559,7 @@
 "Only the panel is hidden; shells keep running." = "Só o painel fica oculto; os shells continuam em execução.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Só os espaços em branco mudaram (desative Ignorar espaços em branco para ver).";
 "Open" = "Abrir";
+"Open a new terminal window to start using gitsw." = "Abra uma nova janela do terminal para começar a usar o gitsw.";
 "Open in Branchwork" = "Abrir no Branchwork";
 "Open in Terminal" = "Abrir no Terminal";
 "Open in browser" = "Abrir no navegador";
@@ -584,6 +601,7 @@
 "Pulling…" = "Fazendo pull…";
 "Push tag" = "Fazer push da tag";
 "Pushes %lld unpushed commits to the remote." = "Envia ao remoto os commits ainda não enviados (%1$lld).";
+"Pushes as %@" = "Faz push como %1$@";
 "Pushes the current branch to %@ before creating." = "Envia o branch atual para %1$@ antes de criar.";
 "Pushes the current branch to the remote (no commits to push right now)." = "Envia o branch atual para o remoto (não há commits para enviar agora).";
 "Pushes the current branch to the remote for the first time and sets up tracking." = "Envia o branch atual para o remoto pela primeira vez e configura o rastreamento.";
@@ -606,6 +624,7 @@
 "Refresh" = "Atualizar";
 "Refresh conversation and approvals" = "Atualizar conversa e aprovações";
 "Refresh list" = "Atualizar lista";
+"Reinstall…" = "Reinstalar…";
 "Reject" = "Rejeitar";
 "Reject the '%@' deployment?" = "Rejeitar o deploy '%1$@'?";
 "Release notes" = "Notas da versão";
@@ -654,6 +673,7 @@
 "Run again" = "Executar novamente";
 "Run agent (%@)" = "Executar agente (%1$@)";
 "Run an agent in a worktree" = "Executar um agente em um worktree";
+"Run doctor in Terminal" = "Executar doctor no Terminal";
 "Run manual job" = "Executar job manual";
 "Run new pipeline (branch, variables)" = "Executar novo pipeline (branch, variáveis)";
 "Run now (don't wait for the schedule)" = "Executar agora (sem esperar o agendamento)";
@@ -684,7 +704,9 @@
 "Server error %lld: %@" = "Erro do servidor %1$lld: %2$@";
 "Sessions in other folders" = "Sessões em outras pastas";
 "Set manually" = "Definido manualmente";
+"Set up" = "Configurado";
 "Shadow" = "Sombra";
+"Shell command" = "Comando de shell";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell aberto no painel do terminal abaixo (zsh, bash, fish etc.)";
 "Show all" = "Mostrar tudo";
 "Show all %lld hidden branches" = "Mostrar todos os branches ocultos (%1$lld)";
@@ -784,6 +806,7 @@
 "This account can't approve." = "Esta conta não pode aprovar.";
 "This branch has no remote tracking branch to pull from (push it first to create one)." = "Este branch não tem um branch remoto rastreado para fazer pull (faça push primeiro para criar um).";
 "This branch has no workflow with 'Run workflow' (workflow_dispatch)." = "Este branch não tem nenhum workflow com 'Run workflow' (workflow_dispatch).";
+"This changes files outside Branchwork, backing them up first:\n• ~/bin/gitsw: links to the gitsw inside Branchwork\n• ~/.zshrc: adds a gitsw block\n• ~/.gitconfig: global hooks that check authors, secrets, big files and force pushes, and rules that pick the account\n• ~/.claude and ~/.codex: rules, skills and a hook for AI agents\nRemove it later with gitsw uninstall." = "Isto altera arquivos fora do Branchwork, fazendo backup antes:\n• ~/bin/gitsw: aponta para o gitsw dentro do Branchwork\n• ~/.zshrc: adiciona um bloco do gitsw\n• ~/.gitconfig: hooks globais que verificam autores, segredos, arquivos grandes e push forçados, e regras que escolhem a conta\n• ~/.claude e ~/.codex: regras, skills e um hook para agentes de IA\nRemova depois com gitsw uninstall.";
 "This commit is in history that isn't shown in the graph." = "Este commit está em uma parte do histórico que não aparece no grafo.";
 "This file hasn't been committed yet." = "Este arquivo ainda não tem commit.";
 "This file was deleted." = "Este arquivo foi excluído.";
@@ -836,12 +859,14 @@
 "Variables" = "Variáveis";
 "Version %@ is available" = "A versão %1$@ está disponível";
 "Version %@ is out" = "A versão %1$@ foi lançada";
+"Version in Branchwork" = "Versão incluída no Branchwork";
 "View commit" = "Ver commit";
 "View log (browser)" = "Ver log (navegador)";
 "Waiting" = "Aguardando";
 "Waiting for deployment approval: %@" = "Aguardando aprovação do deploy: %1$@";
 "Waiting for input" = "Aguardando entrada";
 "Waiting to be run manually" = "Aguardando execução manual";
+"Warning" = "Aviso";
 "What to do with this commit" = "O que fazer com este commit";
 "What would you like to do?" = "O que você deseja fazer?";
 "What would you like to do? If there are conflicts, you can resolve them on the right." = "O que você deseja fazer? Se houver conflitos, você pode resolvê-los à direita.";
@@ -876,6 +901,9 @@
 "ghp_… token" = "token ghp_…";
 "git %@ failed" = "git %1$@ falhou";
 "git refuses to delete a branch with unmerged commits. Use 'Force delete' in that case." = "O git se recusa a excluir um branch com commits sem merge. Nesse caso, use 'Forçar exclusão'.";
+"gitsw checks before commit and push" = "Verificações do gitsw antes de commit e push";
+"gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "O gitsw não sabe qual conta este repositório usa. Trave-o com gitsw use <conta>.";
+"gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "O gitsw mantém várias contas do Git separadas: trava cada repositório em uma conta, escolhe a conta por regras de pasta ou organização e, com hooks do Git, bloqueia autores errados, segredos e push forçados, no terminal, para agentes de IA e no Branchwork.";
 "… The diff is too long; only the beginning is shown" = "… O diff é longo demais; só o início é exibido";
 "… show %lld more lines" = "… mostrar mais linhas (%1$lld)";
 "✅ Response: %@" = "✅ Resposta: %1$@";

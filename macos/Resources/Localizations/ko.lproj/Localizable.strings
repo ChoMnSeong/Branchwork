@@ -29,6 +29,7 @@
 "%@\nThe folder is deleted; the branch and commits stay. git refuses if there are uncommitted changes." = "%1$@\n폴더가 지워지고, 브랜치와 커밋은 그대로 남습니다. 커밋하지 않은 변경이 있으면 git 이 거부합니다.";
 "%@\nUncommitted changes are deleted too." = "%1$@\n커밋하지 않은 변경도 함께 지워집니다.";
 "%@  (opened here)" = "%1$@  (지금 연 곳)";
+"%@ (chosen by a gitsw rule)" = "%1$@ (gitsw 규칙으로 고름)";
 "%@ (current)" = "%1$@ (현재)";
 "%@ (none)" = "%1$@ (없음)";
 "%@ declined this request. Try changing the content and try again." = "%1$@ 가 이 요청을 거절했습니다. 내용을 바꿔 다시 시도해 보세요.";
@@ -74,6 +75,8 @@
 "Accounts" = "계정";
 "Add account" = "계정 추가";
 "Add account…" = "계정 추가…";
+"Add an account first: gitsw add asks for the account's name, email and server and makes an SSH key for it. Then install." = "먼저 계정을 추가하세요. gitsw add 가 계정 이름·이메일·서버를 묻고 SSH 키를 만듭니다. 그다음 설치합니다.";
+"Add an account in Terminal…" = "Terminal 에서 계정 추가…";
 "Add variable" = "변수 추가";
 "Added" = "추가됨";
 "After" = "이후";
@@ -120,6 +123,7 @@
 "Binary or too large — view it in the browser" = "바이너리이거나 너무 커서 브라우저에서 보세요";
 "Blame" = "줄별 작성자";
 "Blame — who changed each line and when" = "줄별 작성자(blame) — 줄마다 누가 언제 바꿨는지";
+"Blocked" = "막힘";
 "Both" = "둘 다";
 "Both (mine first)" = "둘 다(내 것 먼저)";
 "Both (theirs first)" = "둘 다(상대 것 먼저)";
@@ -133,6 +137,7 @@
 "Branches pinned to the top" = "맨 위에 고정한 브랜치";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ 이(가) 가장 새 버전입니다.";
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "다운로드한 곳에서 바로 열어서 macOS 가 임시 위치에서 실행하고 있어, 스스로 바꿔 넣을 수 없습니다. 응용 프로그램 폴더로 옮겨 다시 연 뒤 업데이트하세요.";
+"Branchwork is running from a temporary location. Move it to the Applications folder, open it again, then install gitsw." = "Branchwork 가 임시 위치에서 실행 중입니다. 응용 프로그램 폴더로 옮겨 다시 연 뒤 gitsw 를 설치하세요.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "바꾸면 앱을 다시 시작해 적용합니다. AI 가 쓰는 글도 커밋 기록이 없으면 이 언어로 씁니다.";
 "Branchwork update" = "Branchwork 업데이트";
 "Brings %lld new commits from the remote into the current branch." = "원격의 새 커밋 %1$lld개를 현재 브랜치로 가져옵니다.";
@@ -155,6 +160,7 @@
 "Changes requested: " = "변경 요청: ";
 "Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Dock·Finder·Launchpad 의 아이콘이 바뀝니다. 새 아이콘은 업데이트로 추가됩니다.";
 "Change…" = "변경…";
+"Check again with fetch" = "fetch 하고 다시 점검";
 "Check failed: %@" = "확인 실패: %1$@";
 "Check for new versions at launch and once a day" = "켤 때와 하루에 한 번 새 버전 확인";
 "Check for updates…" = "업데이트 확인…";
@@ -260,6 +266,7 @@
 "Couldn't download the file." = "파일을 받지 못했습니다.";
 "Couldn't extract: %@" = "압축을 풀지 못했습니다: %1$@";
 "Couldn't find %@. Locate the executable in Settings > Tools or install it." = "%1$@ 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 설치하세요.";
+"Couldn't find gitsw inside Branchwork." = "Branchwork 안에서 gitsw 를 찾지 못했습니다.";
 "Couldn't find the %@ executable. Locate it in Settings (⌘,) > Tools or install it." = "%1$@ 실행 파일을 찾지 못했습니다. 설정(⌘,) > 도구에서 불러오거나 설치하세요.";
 "Couldn't find the Terminal app." = "Terminal 앱을 찾지 못했습니다.";
 "Couldn't find the gh CLI." = "gh CLI 를 찾지 못했습니다.";
@@ -439,8 +446,12 @@
 "Includes commits already pushed to the remote. You'll need to force push after cleaning up." = "이미 원격에 올린 커밋이 들어 있습니다. 정리한 뒤에는 강제 푸시가 필요합니다.";
 "Incoming commit" = "가져오는 커밋";
 "Install" = "설치";
+"Install gitsw?" = "gitsw 를 설치할까요?";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "사람마다 설치 위치가 달라 자동으로 못 찾으면 **불러오기**로 실행 파일을 직접 고르세요. 고른 경로는 저장되어 다음에도 그대로 씁니다.";
+"Installed" = "설치됨";
+"Installed from another copy" = "다른 사본으로 설치됨";
 "Installing… Branchwork restarts when done" = "설치하는 중… 끝나면 다시 시작합니다";
+"Install…" = "설치…";
 "Invalid address: %@" = "잘못된 주소: %1$@";
 "It was closed or hasn't been loaded yet." = "닫혔거나 아직 불러오지 않았습니다.";
 "Keep at least one commit." = "커밋을 하나 이상 남겨야 합니다.";
@@ -462,6 +473,7 @@
 "Locate" = "불러오기";
 "Locate…" = "불러오기…";
 "Location" = "위치";
+"Locked to %@" = "%1$@ 계정으로 잠김";
 "Locked worktree" = "잠긴 워크트리";
 "Looks for a GitHub profile, then a connected self-hosted GitLab profile, then Gravatar, and uses initials if none is found. An email hash is sent to Gravatar." = "GitHub 프로필 → 연결한 사내 GitLab 프로필 → Gravatar 순으로 찾고, 없으면 이니셜을 씁니다. Gravatar 에는 이메일 해시가 전송됩니다.";
 "Manual" = "수동";
@@ -511,6 +523,7 @@
 "New worktree…" = "새 워크트리…";
 "Next result (⌘G · Enter)" = "다음 결과 (⌘G · Enter)";
 "Next search result" = "다음 검색 결과";
+"No account" = "계정 없음";
 "No changes" = "변경 없음";
 "No changes to show" = "표시할 변경 없음";
 "No commit selected" = "선택된 커밋 없음";
@@ -538,10 +551,13 @@
 "No staged changes. Stage files first." = "스테이지된 변경이 없습니다. 먼저 파일을 스테이지하세요.";
 "No staged files" = "스테이지된 파일 없음";
 "None" = "없음";
+"None yet" = "아직 없음";
 "Not a Git repository" = "Git 저장소가 아닙니다";
 "Not committed" = "커밋하지 않음";
 "Not found (404). Check that the token has access to the repository." = "찾을 수 없습니다(404). 저장소에 접근할 권한이 있는 토큰인지 확인하세요.";
 "Not found — locate it in the Tools tab" = "찾지 못함 — 도구 탭에서 불러오세요";
+"Not installed" = "설치 안 됨";
+"Not managed by gitsw" = "gitsw 관리 제외";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "되돌릴 작업이 없습니다. 커밋·머지·리베이스·체크아웃·브랜치 삭제 같은 작업을 하면 여기서 되돌릴 수 있습니다.";
 "OK" = "확인";
 "Off" = "끔";
@@ -559,6 +575,7 @@
 "Only the panel is hidden; shells keep running." = "패널만 숨기고 셸은 계속 실행됩니다.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "공백만 바뀌었습니다(공백 무시를 끄면 보입니다).";
 "Open" = "열기";
+"Open a new terminal window to start using gitsw." = "새 터미널 창을 열면 gitsw 를 쓸 수 있습니다.";
 "Open in Branchwork" = "Branchwork 에서 열기";
 "Open in Terminal" = "Terminal 앱에서 열기";
 "Open in browser" = "브라우저에서 열기";
@@ -601,6 +618,7 @@
 "Pulling…" = "Pull 중…";
 "Push tag" = "태그 Push";
 "Pushes %lld unpushed commits to the remote." = "올리지 않은 커밋 %1$lld개를 원격에 올립니다.";
+"Pushes as %@" = "push 계정: %1$@";
 "Pushes the current branch to %@ before creating." = "만들기 전에 현재 브랜치를 %1$@에 Push 합니다.";
 "Pushes the current branch to the remote (no commits to push right now)." = "현재 브랜치를 원격에 올립니다(지금은 올릴 커밋 없음).";
 "Pushes the current branch to the remote for the first time and sets up tracking." = "현재 브랜치를 원격에 처음 올리고 추적을 연결합니다.";
@@ -623,6 +641,7 @@
 "Refresh" = "새로 고침";
 "Refresh conversation and approvals" = "대화·승인 새로 고침";
 "Refresh list" = "목록 새로 고침";
+"Reinstall…" = "다시 설치…";
 "Reject" = "거부";
 "Reject the '%@' deployment?" = "'%1$@' 배포를 거부할까요?";
 "Release notes" = "릴리스 노트";
@@ -671,6 +690,7 @@
 "Run again" = "다시 실행";
 "Run agent (%@)" = "에이전트 실행 (%1$@)";
 "Run an agent in a worktree" = "워크트리에서 에이전트 실행";
+"Run doctor in Terminal" = "Terminal 에서 진단(doctor)";
 "Run manual job" = "수동 작업 실행";
 "Run new pipeline (branch, variables)" = "새 파이프라인 실행(브랜치·변수)";
 "Run now (don't wait for the schedule)" = "지금 실행(예약 기다리지 않음)";
@@ -701,7 +721,9 @@
 "Server error %lld: %@" = "서버 오류 %1$lld: %2$@";
 "Sessions in other folders" = "다른 폴더의 세션";
 "Set manually" = "직접 지정";
+"Set up" = "설정됨";
 "Shadow" = "그림자";
+"Shell command" = "셸 명령";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "아래 터미널 패널에서 여는 셸(zsh·bash·fish 등)";
 "Show all" = "전체 보기";
 "Show all %lld hidden branches" = "숨긴 브랜치 %1$lld개 모두 보이기";
@@ -805,6 +827,7 @@
 "This account can't approve." = "이 계정에는 승인 권한이 없습니다.";
 "This branch has no remote tracking branch to pull from (push it first to create one)." = "이 브랜치는 원격 추적 브랜치가 없어 Pull 할 곳이 없습니다(먼저 Push 하면 생깁니다).";
 "This branch has no workflow with 'Run workflow' (workflow_dispatch)." = "이 브랜치에는 'Run workflow'(workflow_dispatch)가 있는 워크플로가 없습니다.";
+"This changes files outside Branchwork, backing them up first:\n• ~/bin/gitsw: links to the gitsw inside Branchwork\n• ~/.zshrc: adds a gitsw block\n• ~/.gitconfig: global hooks that check authors, secrets, big files and force pushes, and rules that pick the account\n• ~/.claude and ~/.codex: rules, skills and a hook for AI agents\nRemove it later with gitsw uninstall." = "Branchwork 밖의 파일을 바꿉니다(바꾸기 전에 백업):\n• ~/bin/gitsw: Branchwork 안의 gitsw 로 연결\n• ~/.zshrc: gitsw 블록 추가\n• ~/.gitconfig: 작성자·비밀값·큰 파일·강제 push 를 검사하는 전역 훅과 계정을 고르는 규칙\n• ~/.claude, ~/.codex: AI 에이전트용 규칙·스킬·훅\n나중에 gitsw uninstall 로 지울 수 있습니다.";
 "This commit is in history that isn't shown in the graph." = "이 커밋은 그래프에 포함되지 않는 기록에 있습니다.";
 "This file hasn't been committed yet." = "아직 커밋되지 않은 파일입니다.";
 "This file was deleted." = "지운 파일입니다.";
@@ -857,12 +880,14 @@
 "Variables" = "변수";
 "Version %@ is available" = "새 버전 %1$@ 이(가) 있습니다";
 "Version %@ is out" = "새 버전 %1$@ 이(가) 나왔습니다";
+"Version in Branchwork" = "Branchwork 에 든 버전";
 "View commit" = "커밋 보기";
 "View log (browser)" = "로그 보기(브라우저)";
 "Waiting" = "대기 중";
 "Waiting for deployment approval: %@" = "배포 승인 대기: %1$@";
 "Waiting for input" = "입력 대기";
 "Waiting to be run manually" = "수동 실행 대기";
+"Warning" = "경고";
 "What to do with this commit" = "이 커밋을 어떻게 할지";
 "What would you like to do?" = "무엇을 할까요?";
 "What would you like to do? If there are conflicts, you can resolve them on the right." = "무엇을 할까요? 충돌이 나면 오른쪽에서 해결할 수 있습니다.";
@@ -904,6 +929,9 @@
 "ghp_… token" = "ghp_… 토큰";
 "git %@ failed" = "git %1$@ 실패";
 "git refuses to delete a branch with unmerged commits. Use 'Force delete' in that case." = "머지되지 않은 커밋이 있으면 git 이 삭제를 거부합니다. 그때는 '강제 삭제'를 쓰세요.";
+"gitsw checks before commit and push" = "커밋·push 전 gitsw 점검";
+"gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw 가 이 저장소의 계정을 모릅니다. gitsw use <계정> 으로 잠그세요.";
+"gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw 는 여러 Git 계정을 섞이지 않게 해 줍니다. 저장소마다 계정을 잠그고, 폴더·조직 규칙으로 계정을 고르고, 잘못된 작성자·비밀값·강제 push 를 git 훅에서 막습니다. 터미널, AI 에이전트, Branchwork 모두에 적용됩니다.";
 "tag" = "태그";
 "… The diff is too long; only the beginning is shown" = "… 변경이 너무 길어 앞부분만 표시합니다";
 "… show %lld more lines" = "… %1$lld줄 더 보기";

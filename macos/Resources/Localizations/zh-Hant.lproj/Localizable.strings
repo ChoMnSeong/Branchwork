@@ -29,6 +29,7 @@
 "%@\nThe folder is deleted; the branch and commits stay. git refuses if there are uncommitted changes." = "%1$@\n資料夾會被刪除，分支與提交則會保留。若有未提交的變更，git 會拒絕執行。";
 "%@\nUncommitted changes are deleted too." = "%1$@\n未提交的變更也會一併刪除。";
 "%@  (opened here)" = "%1$@  (在此開啟)";
+"%@ (chosen by a gitsw rule)" = "%1$@（依 gitsw 規則選擇）";
 "%@ (current)" = "%1$@ (目前)";
 "%@ (none)" = "%1$@ (無)";
 "%@ declined this request. Try changing the content and try again." = "%1$@ 拒絕了此要求。請修改內容後再試一次。";
@@ -74,6 +75,8 @@
 "Accounts" = "帳號";
 "Add account" = "新增帳號";
 "Add account…" = "新增帳號…";
+"Add an account first: gitsw add asks for the account's name, email and server and makes an SSH key for it. Then install." = "請先新增帳號：gitsw add 會詢問帳號名稱、電子郵件與伺服器，並為其建立 SSH 金鑰。之後再安裝。";
+"Add an account in Terminal…" = "在終端機中新增帳號…";
 "Add variable" = "新增變數";
 "Added" = "已新增";
 "After" = "之後";
@@ -120,6 +123,7 @@
 "Binary or too large — view it in the browser" = "二進位檔案或檔案過大 — 請在瀏覽器中檢視";
 "Blame" = "逐行追溯";
 "Blame — who changed each line and when" = "逐行追溯 — 每一行由誰在何時修改";
+"Blocked" = "已阻擋";
 "Both" = "兩者";
 "Both (mine first)" = "兩者（我方在前）";
 "Both (theirs first)" = "兩者（對方在前）";
@@ -133,6 +137,7 @@
 "Branches pinned to the top" = "釘選在最上方的分支";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ 已是最新版本。";
 "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork 是直接從下載位置開啟的，正在暫時位置執行，無法替換自身。請將它移到「應用程式」資料夾，重新開啟後再更新。";
+"Branchwork is running from a temporary location. Move it to the Applications folder, open it again, then install gitsw." = "Branchwork 正在暫時位置執行。請將它移到「應用程式」資料夾，重新開啟後再安裝 gitsw。";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork 會重新啟動以套用變更。沒有可參考的提交記錄時，AI 也會以此語言撰寫。";
 "Branchwork update" = "Branchwork 更新";
 "Brings %lld new commits from the remote into the current branch." = "將遠端的 %1$lld 個新提交帶入目前分支。";
@@ -155,6 +160,7 @@
 "Changes requested: " = "要求變更: ";
 "Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "更改 Dock、Finder 和 Launchpad 中的圖像。新圖像會隨更新提供。";
 "Change…" = "變更…";
+"Check again with fetch" = "擷取後重新檢查";
 "Check failed: %@" = "檢查失敗：%1$@";
 "Check for new versions at launch and once a day" = "啟動時及每天檢查一次新版本";
 "Check for updates…" = "檢查更新…";
@@ -261,6 +267,7 @@
 "Couldn't download the file." = "無法下載檔案。";
 "Couldn't extract: %@" = "無法解壓縮：%1$@";
 "Couldn't find %@. Locate the executable in Settings > Tools or install it." = "找不到 %1$@。請在「設定 > 工具」中手動指定執行檔，或進行安裝。";
+"Couldn't find gitsw inside Branchwork." = "在 Branchwork 中找不到 gitsw。";
 "Couldn't find the %@ executable. Locate it in Settings (⌘,) > Tools or install it." = "找不到 %1$@ 執行檔。請在「設定 (⌘,) > 工具」中手動指定，或進行安裝。";
 "Couldn't find the Terminal app." = "找不到終端機應用程式。";
 "Couldn't find the gh CLI." = "找不到 gh CLI。";
@@ -443,8 +450,12 @@
 "Includes commits already pushed to the remote. You'll need to force push after cleaning up." = "包含已推送到遠端的提交。整理後需要強制推送。";
 "Incoming commit" = "傳入的提交";
 "Install" = "安裝";
+"Install gitsw?" = "要安裝 gitsw 嗎？";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "每個人的安裝位置不同。若無法自動找到工具，請使用 **手動指定** 自行選擇執行檔。選擇的路徑會儲存起來，下次繼續使用。";
+"Installed" = "已安裝";
+"Installed from another copy" = "已安裝其他副本";
 "Installing… Branchwork restarts when done" = "正在安裝… 完成後 Branchwork 會重新啟動";
+"Install…" = "安裝…";
 "Invalid address: %@" = "無效的位址：%1$@";
 "It was closed or hasn't been loaded yet." = "已關閉，或尚未載入。";
 "Keep at least one commit." = "至少要保留一個提交。";
@@ -466,6 +477,7 @@
 "Locate" = "手動指定";
 "Locate…" = "手動指定…";
 "Location" = "位置";
+"Locked to %@" = "已鎖定為 %1$@";
 "Locked worktree" = "已鎖定的工作樹";
 "Looks for a GitHub profile, then a connected self-hosted GitLab profile, then Gravatar, and uses initials if none is found. An email hash is sent to Gravatar." = "依序尋找 GitHub 個人檔案、已連結的自架 GitLab 個人檔案、Gravatar，都找不到時則使用姓名縮寫。電子郵件的雜湊值會傳送給 Gravatar。";
 "Manual" = "手動";
@@ -515,6 +527,7 @@
 "New worktree…" = "新工作樹…";
 "Next result (⌘G · Enter)" = "下一個結果 (⌘G · Enter)";
 "Next search result" = "下一個搜尋結果";
+"No account" = "沒有帳號";
 "No changes" = "沒有變更";
 "No changes to show" = "沒有可顯示的變更";
 "No commit selected" = "未選取提交";
@@ -542,10 +555,13 @@
 "No staged changes. Stage files first." = "沒有已暫存的變更。請先暫存檔案。";
 "No staged files" = "沒有已暫存的檔案";
 "None" = "無";
+"None yet" = "尚未設定";
 "Not a Git repository" = "不是 Git 存放庫";
 "Not committed" = "未提交";
 "Not found (404). Check that the token has access to the repository." = "找不到 (404)。請確認權杖有權存取此存放庫。";
 "Not found — locate it in the Tools tab" = "找不到 — 請在「工具」分頁中手動指定";
+"Not installed" = "未安裝";
+"Not managed by gitsw" = "不受 gitsw 管理";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "沒有可復原的操作。提交、合併、重訂基底、簽出、刪除分支等操作都可以在這裡復原。";
 "OK" = "確定";
 "Off" = "關閉";
@@ -563,6 +579,7 @@
 "Only the panel is hidden; shells keep running." = "只會隱藏面板，Shell 會繼續執行。";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "僅空白字元有變更（關閉「忽略空白字元」即可查看）。";
 "Open" = "開啟";
+"Open a new terminal window to start using gitsw." = "開啟新的終端機視窗即可使用 gitsw。";
 "Open in Branchwork" = "在 Branchwork 中開啟";
 "Open in Terminal" = "在終端機中開啟";
 "Open in browser" = "在瀏覽器中開啟";
@@ -610,6 +627,7 @@
 "Push" = "推送";
 "Push tag" = "推送標籤";
 "Pushes %lld unpushed commits to the remote." = "將 %1$lld 個尚未推送的提交推送到遠端。";
+"Pushes as %@" = "推送帳號：%1$@";
 "Pushes the current branch to %@ before creating." = "建立前先將目前分支推送到 %1$@。";
 "Pushes the current branch to the remote (no commits to push right now)." = "將目前分支推送到遠端（目前沒有要推送的提交）。";
 "Pushes the current branch to the remote for the first time and sets up tracking." = "首次將目前分支推送到遠端，並設定追蹤。";
@@ -632,6 +650,7 @@
 "Refresh" = "重新整理";
 "Refresh conversation and approvals" = "重新整理對話與核准";
 "Refresh list" = "重新整理清單";
+"Reinstall…" = "重新安裝…";
 "Reject" = "拒絕";
 "Reject the '%@' deployment?" = "要拒絕「%1$@」部署嗎？";
 "Release notes" = "版本資訊";
@@ -680,6 +699,7 @@
 "Run again" = "重新執行";
 "Run agent (%@)" = "執行代理程式 (%1$@)";
 "Run an agent in a worktree" = "在工作樹中執行代理程式";
+"Run doctor in Terminal" = "在終端機中執行 doctor";
 "Run manual job" = "執行手動作業";
 "Run new pipeline (branch, variables)" = "執行新管線（分支、變數）";
 "Run now (don't wait for the schedule)" = "立即執行（不等待排程）";
@@ -710,7 +730,9 @@
 "Server error %lld: %@" = "伺服器錯誤 %1$lld：%2$@";
 "Sessions in other folders" = "其他資料夾中的工作階段";
 "Set manually" = "手動設定";
+"Set up" = "已設定";
 "Shadow" = "暗影";
+"Shell command" = "Shell 指令";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "在下方終端機面板中開啟的 Shell（zsh、bash、fish 等）";
 "Show all" = "全部顯示";
 "Show all %lld hidden branches" = "顯示全部 %1$lld 個隱藏的分支";
@@ -816,6 +838,7 @@
 "This account can't approve." = "此帳號無法核准。";
 "This branch has no remote tracking branch to pull from (push it first to create one)." = "此分支沒有可提取的遠端追蹤分支（先推送即可建立）。";
 "This branch has no workflow with 'Run workflow' (workflow_dispatch)." = "此分支沒有含「Run workflow」(workflow_dispatch) 的工作流程。";
+"This changes files outside Branchwork, backing them up first:\n• ~/bin/gitsw: links to the gitsw inside Branchwork\n• ~/.zshrc: adds a gitsw block\n• ~/.gitconfig: global hooks that check authors, secrets, big files and force pushes, and rules that pick the account\n• ~/.claude and ~/.codex: rules, skills and a hook for AI agents\nRemove it later with gitsw uninstall." = "這會變更 Branchwork 以外的檔案（變更前先備份）：\n• ~/bin/gitsw：連結到 Branchwork 內的 gitsw\n• ~/.zshrc：加入 gitsw 區塊\n• ~/.gitconfig：檢查作者、機密資訊、大型檔案與強制推送的全域掛鉤，以及選擇帳號的規則\n• ~/.claude 與 ~/.codex：給 AI 代理用的規則、技能與掛鉤\n之後可用 gitsw uninstall 移除。";
 "This commit is in history that isn't shown in the graph." = "此提交位於圖表中未顯示的歷程記錄中。";
 "This file hasn't been committed yet." = "此檔案尚未提交。";
 "This file was deleted." = "此檔案已被刪除。";
@@ -868,12 +891,14 @@
 "Variables" = "變數";
 "Version %@ is available" = "有新版本 %1$@ 可用";
 "Version %@ is out" = "新版本 %1$@ 已推出";
+"Version in Branchwork" = "Branchwork 內建版本";
 "View commit" = "檢視提交";
 "View log (browser)" = "檢視記錄（瀏覽器）";
 "Waiting" = "等待中";
 "Waiting for deployment approval: %@" = "等待部署核准：%1$@";
 "Waiting for input" = "等待輸入";
 "Waiting to be run manually" = "等待手動執行";
+"Warning" = "警告";
 "What to do with this commit" = "要如何處理此提交";
 "What would you like to do?" = "要執行什麼操作？";
 "What would you like to do? If there are conflicts, you can resolve them on the right." = "要執行什麼操作？若發生衝突，可以在右側解決。";
@@ -912,6 +937,9 @@
 "ghp_… token" = "ghp_… 權杖";
 "git %@ failed" = "git %1$@ 失敗";
 "git refuses to delete a branch with unmerged commits. Use 'Force delete' in that case." = "git 會拒絕刪除含有尚未合併提交的分支。此時請使用「強制刪除」。";
+"gitsw checks before commit and push" = "提交與推送前的 gitsw 檢查";
+"gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw 不知道此儲存庫使用哪個帳號。請用 gitsw use <帳號> 鎖定。";
+"gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw 讓多個 Git 帳號互不混用：為每個儲存庫鎖定帳號，依資料夾或組織規則選擇帳號，並在 git 掛鉤中阻擋錯誤的作者、機密資訊與強制推送。適用於終端機、AI 代理與 Branchwork。";
 "tag" = "標籤";
 "… The diff is too long; only the beginning is shown" = "… 差異內容過長，僅顯示開頭部分";
 "… show %lld more lines" = "… 再顯示 %1$lld 行";
