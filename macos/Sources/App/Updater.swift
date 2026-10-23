@@ -10,7 +10,7 @@ import Observation
 final class UpdateCenter {
     static let shared = UpdateCenter()
 
-    static let repo = "ChoMnSeong/Gitrochi"
+    static let repo = "Gitrochi/Gitrochi"
 
     /// 릴리스 zip 서명을 확인할 Ed25519 공개키(Info.plist GitrochiUpdatePublicKey, base64). 없으면 SHA-256 만 본다 — 만들기: macos/Tools/updatekey.sh new
     static let publicKey: String? = {

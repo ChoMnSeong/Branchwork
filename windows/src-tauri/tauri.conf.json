@@ -64,7 +64,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc5NDM1NjRENkZGQzE5RjkKUldUNUdmeHZUVlpEZWNqRzZqdTFKTmRSUmZVc3hKTkYxanB2Y09xQTJ0OVU1Q3lYVGxlNW5LOGsK",
       "endpoints": [
-        "https://github.com/ChoMnSeong/Gitrochi/releases/latest/download/latest.json"
+        "https://github.com/Gitrochi/Gitrochi/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

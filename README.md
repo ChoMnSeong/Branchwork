@@ -10,15 +10,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ChoMnSeong/Gitrochi/releases/latest"><img src="https://img.shields.io/github/v/release/ChoMnSeong/Gitrochi?label=%EC%B5%9C%EC%8B%A0%20%EB%B2%84%EC%A0%84&color=2f6fec" alt="최신 버전"></a>
-  <a href="https://github.com/ChoMnSeong/Gitrochi/releases"><img src="https://img.shields.io/github/downloads/ChoMnSeong/Gitrochi/total?label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C&color=2a9a55" alt="다운로드"></a>
+  <a href="https://github.com/Gitrochi/Gitrochi/releases/latest"><img src="https://img.shields.io/github/v/release/Gitrochi/Gitrochi?label=%EC%B5%9C%EC%8B%A0%20%EB%B2%84%EC%A0%84&color=2f6fec" alt="최신 버전"></a>
+  <a href="https://github.com/Gitrochi/Gitrochi/releases"><img src="https://img.shields.io/github/downloads/Gitrochi/Gitrochi/total?label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C&color=2a9a55" alt="다운로드"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-111?logo=apple&logoColor=white" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Windows-10%20%C2%B7%2011-0078d4?logo=windows&logoColor=white" alt="Windows 10 · 11">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/ChoMnSeong/Gitrochi?color=6b6b72" alt="MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Gitrochi/Gitrochi?color=6b6b72" alt="MIT"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ChoMnSeong/Gitrochi/releases/latest"><b>⬇&nbsp; 내려받기</b></a>
+  <a href="https://github.com/Gitrochi/Gitrochi/releases/latest"><b>⬇&nbsp; 내려받기</b></a>
   &nbsp;·&nbsp; <a href="#설치">설치</a>
   &nbsp;·&nbsp; <a href="#사용법">사용법</a>
   &nbsp;·&nbsp; <a href="#기능-자세히">기능 자세히</a>
@@ -79,7 +79,7 @@
 
 ### macOS (15 이상, Apple Silicon · Intel)
 
-1. [최신 릴리스](https://github.com/ChoMnSeong/Gitrochi/releases/latest)에서 `Gitrochi-<버전>-macOS.dmg` 를 받아 `Gitrochi.app` 을 응용 프로그램 폴더로 옮깁니다.
+1. [최신 릴리스](https://github.com/Gitrochi/Gitrochi/releases/latest)에서 `Gitrochi-<버전>-macOS.dmg` 를 받아 `Gitrochi.app` 을 응용 프로그램 폴더로 옮깁니다.
 2. 아직 Apple 공증을 받지 않은 빌드라 처음 열 때 "확인되지 않은 개발자" 경고가 뜹니다. 둘 중 하나로 여세요.
    - **시스템 설정 → 개인정보 보호 및 보안** 아래쪽의 **그래도 열기**
    - 또는 터미널에서 `xattr -dr com.apple.quarantine /Applications/Gitrochi.app`
@@ -88,7 +88,7 @@
 
 ### Windows (10 1809 이상 · 11, x64)
 
-1. [최신 릴리스](https://github.com/ChoMnSeong/Gitrochi/releases/latest)에서 `Gitrochi_<버전>_x64-setup.exe` 를 받아 실행합니다(설치 없이 쓰려면 `_portable.zip`).
+1. [최신 릴리스](https://github.com/Gitrochi/Gitrochi/releases/latest)에서 `Gitrochi_<버전>_x64-setup.exe` 를 받아 실행합니다(설치 없이 쓰려면 `_portable.zip`).
 2. 코드 서명을 하지 않은 빌드라 SmartScreen 이 막으면 **추가 정보 → 실행**.
 
 필요: [Git for Windows](https://git-scm.com/download/win). WSL 에 설치한 Claude Code · Codex · Gemini CLI 도 쓸 수 있습니다.
@@ -221,7 +221,7 @@ npx vitest run       # 파서·그래프·CI 단위 테스트
 
 ## 기여
 
-- 🐞 [버그 제보](https://github.com/ChoMnSeong/Gitrochi/issues/new?template=bug_report.yml) · ✨ [기능 요청](https://github.com/ChoMnSeong/Gitrochi/issues/new?template=feature_request.yml) · 💬 [질문](https://github.com/ChoMnSeong/Gitrochi/issues/new?template=question.yml)
+- 🐞 [버그 제보](https://github.com/Gitrochi/Gitrochi/issues/new?template=bug_report.yml) · ✨ [기능 요청](https://github.com/Gitrochi/Gitrochi/issues/new?template=feature_request.yml) · 💬 [질문](https://github.com/Gitrochi/Gitrochi/issues/new?template=question.yml)
 - 코드 규칙 · 빌드 · 테스트 · 커밋 메시지: [CONTRIBUTING.md](CONTRIBUTING.md)
 - 보안 문제는 이슈 대신 [비공개로](SECURITY.md)
 

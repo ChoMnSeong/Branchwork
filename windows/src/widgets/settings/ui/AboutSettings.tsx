@@ -29,7 +29,7 @@ export function AboutSettings() {
             <span style={{ fontSize: 16, fontWeight: 600 }}>Gitrochi {env.version}</span>
             <span className="hint">{t("An app for viewing and working with Git repositories as a graph · MIT")}</span>
           </div>
-          <button className="link" onClick={() => void ipc.openUrl("https://github.com/ChoMnSeong/Gitrochi/releases")}>
+          <button className="link" onClick={() => void ipc.openUrl("https://github.com/Gitrochi/Gitrochi/releases")}>
             {t("Release notes")}</button>
         </div>
       </div>
