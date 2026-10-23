@@ -1,4 +1,4 @@
-# shellcheck shell=bash
+# shellcheck shell=bash disable=SC2088  # 화면 표시용 ~ 문자열
 # gitch 로 이름을 바꾼 뒤에도 예전 이름(gitsw)으로 쓰던 것이 그대로 되는지
 
 test_install_links_gitch_and_gitsw_shim() {

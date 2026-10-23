@@ -295,7 +295,7 @@ test_backups_skip_identical_and_rules_have_no_case_duplicates() {
   git config -f "$HOME/.config/gitsw/config" org.github.com/TeamX.account bob
   install_quiet; install_quiet; install_quiet
   local n
-  n=$(ls -1d "$HOME/.local/state/gitsw/backups"/*/ 2>/dev/null | grep -c .)
+  n=$(count_dirs "$HOME/.local/state/gitsw/backups"/*/)
   [ "$n" -le 2 ] || fail "같은 내용인데도 백업이 계속 쌓임 ($n 개)"
   git config --global --list --name-only | grep -q 'url.git@github-bob:teamx/' && fail "대소문자만 다른 규칙이 또 생김"
   git config --global --list --name-only | grep -q 'url.git@github-bob:TeamX/' || fail "조직 규칙 없음"
@@ -303,7 +303,7 @@ test_backups_skip_identical_and_rules_have_no_case_duplicates() {
   for i in $(seq 1 32); do mkdir -p "$HOME/.local/state/gitsw/backups/2026010$((i % 9))-0000$i-1"; done
   echo "# change" >> "$HOME/.zshrc"; install_quiet
   [ -d "$HOME/.local/state/gitsw/backups/v1-원본" ] || fail "보관용 폴더는 정리 대상이 아님"
-  n=$(ls -1d "$HOME/.local/state/gitsw/backups"/[0-9]*-[0-9]*-[0-9]*/ | grep -c .)
+  n=$(count_dirs "$HOME/.local/state/gitsw/backups"/[0-9]*-[0-9]*-[0-9]*/)
   [ "$n" -le 30 ] || fail "백업 폴더가 30개를 넘음 ($n)"
 }
 

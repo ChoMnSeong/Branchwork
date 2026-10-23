@@ -51,6 +51,17 @@ jobs:
       - name: 테스트
         run: tools/gitch/tests/run.sh
 
+      # 정적 검사(경고 이상) — 로컬과 같은 최신 shellcheck. 테스트가 실패해도 따로 결과를 보인다
+      - name: shellcheck
+        if: ${{ !cancelled() }}
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          command -v shellcheck >/dev/null || brew install shellcheck
+          shellcheck --version | sed -n 2p
+          shellcheck -S warning tools/gitch/gitch tools/gitch/tests/*.sh
+
   # 릴리스에 파일을 올려야 해서 쓰기 권한은 태그 실행에만 준다.
   # 앱의 업데이트 확인은 초안을 보지 않으므로, 관리자가 노트를 쓰고 '게시'해야 사용자에게 간다.
   release:
