@@ -126,6 +126,19 @@ Area: Imperative summary of the change
 - 버전 커밋 `Release 0.3.5 (summary)` 와 태그 `v0.3.5` 는 관리자가 만듭니다.
 - 이 규칙 전의 기록(한국어 메시지)은 그대로 둡니다.
 
+### 검사에 걸린 PR 고치기
+
+코드는 그대로 두고 커밋 메시지만 다시 쓴 뒤 같은 브랜치에 강제 푸시합니다. PR 은 그대로 이어집니다.
+
+```sh
+git remote add upstream https://github.com/ChoMnSeong/Branchwork.git   # 포크라면 처음 한 번
+git fetch upstream
+git rebase -i upstream/main        # 고칠 커밋의 pick 을 reword(r) 로 → 열리는 편집기에서 영어로
+git push --force-with-lease
+```
+
+커밋이 하나뿐이면 `git commit --amend` 후 `git push --force-with-lease`. 기여자가 고치기 어려우면 관리자가 **Squash and merge** 로 합치면서 영어 메시지를 새로 씁니다.
+
 ### 올리지 않는 것
 
 검사가 막는 것:

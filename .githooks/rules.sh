@@ -155,12 +155,14 @@ EOF
       check_message "$tmp" "$(git log -1 --format=%h "$c")"
     done
     rm -f "$tmp"
+    # 파일은 갈라진 곳부터 비교한다 — PR 브랜치가 main 보다 뒤처져 있어도 그 브랜치가 바꾼 것만 보게
+    from=$(git merge-base "$base" "$head" 2>/dev/null || echo "$base")
     while IFS= read -r p; do
       [ -n "$p" ] && check_file "$p" "$head"
     done <<EOF
-$(git -c core.quotePath=false diff --name-only --diff-filter=ACMR "$base" "$head")
+$(git -c core.quotePath=false diff --name-only --diff-filter=ACMR "$from" "$head")
 EOF
-    check_whitespace "$base" "$head"
+    check_whitespace "$from" "$head"
     ;;
   *)
     echo "usage: rules.sh message <file> | staged | range <base> <head>" >&2
