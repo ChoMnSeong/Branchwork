@@ -1,6 +1,6 @@
 # 기여 안내
 
-Gitrochi 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 요청은 [이슈](https://github.com/ChoMnSeong/Gitrochi/issues/new/choose)로, 코드는 PR 로 보내 주세요.
+Gitrochi 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 요청은 [이슈](https://github.com/Gitrochi/Gitrochi/issues/new/choose)로, 코드는 PR 로 보내 주세요.
 
 > **English** — Issues and PRs are welcome in English too. UI text in the code is English (translated into 20 languages), **commit messages are English** (`Area: Imperative summary`), and code comments are in Korean. Run `git config core.hooksPath .githooks` once — the hooks check the Git rules below, and so does CI.
 
@@ -134,7 +134,7 @@ Area: Imperative summary of the change
 코드는 그대로 두고 커밋 메시지만 다시 쓴 뒤 같은 브랜치에 강제 푸시합니다. PR 은 그대로 이어집니다.
 
 ```sh
-git remote add upstream https://github.com/ChoMnSeong/Gitrochi.git   # 포크라면 처음 한 번
+git remote add upstream https://github.com/Gitrochi/Gitrochi.git   # 포크라면 처음 한 번
 git fetch upstream
 git rebase -i upstream/main        # 고칠 커밋의 pick 을 reword(r) 로 → 열리는 편집기에서 영어로
 git push --force-with-lease
