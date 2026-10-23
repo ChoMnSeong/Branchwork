@@ -4098,13 +4098,47 @@ setopt PROMPT_SUBST
 # <<< gitsw <<<
 EOF
 
+on_disk_image() {   # $1 이 붙여 둔 디스크 이미지(.dmg) 안이면 참 — 맥만 (hdiutil info 의 마운트 위치와 비교)
+  local mp
+  command -v hdiutil >/dev/null 2>&1 || return 1
+  while IFS= read -r mp; do
+    case "$1" in "$mp"/*) return 0 ;; esac
+  done < <(hdiutil info 2>/dev/null | awk -F'\t' '/^\/dev\/disk/ && $3 != "" { print $3 }')
+  return 1
+}
+
+install_location_ok() {   # $1 연결할 gitch — 디스크를 꺼내거나 앱을 옮기면 끊길 곳이면 이유와 할 일을 알리고 거짓
+  local p="$1" app="" why=""
+  case "$p" in *.app/Contents/*) app="${p%%.app/Contents/*}.app" ;; esac
+  case "$p" in
+    */AppTranslocation/*) why="임시 위치(App Translocation)" ;;
+    *)
+      if on_disk_image "$p"; then why="디스크 이미지"
+      elif [ -n "$app" ]; then
+        case "$(lower "$app")" in /applications/*|"$(lower "$HOME")"/applications/*) ;; *) why="응용 프로그램 폴더 밖의 앱" ;; esac
+      fi ;;
+  esac
+  [ -z "$why" ] && return 0
+  err "gitch 를 연결하지 않았습니다: ${why}에서 실행 중이라, 디스크를 꺼내거나 앱을 옮기면 ~/bin/gitch 와 검사 훅이 끊깁니다."
+  err "  지금: $(tilde "$p")"
+  if [ -n "$app" ]; then
+    err "  앱을 응용 프로그램 폴더로 옮겨 연 뒤 설정 > CLI 에서 설치하거나, 터미널에서:"
+    err "    /Applications/${app##*/}/Contents/Resources/gitch install"
+  else
+    err "  gitch 파일을 디스크 이미지 밖(예: ~/.local/share/gitch/)에 복사한 뒤 그 복사본으로 install 하세요."
+  fi
+  return 1
+}
+
 install_cmd() {
+  local self n=0 d fancy=""
+  self=$(self_path)
+  install_location_ok "$self" || exit 1
   git_version_ok || die "git 2.36 이상이 필요합니다. 지금: git ${GIT_VER:-?} (brew install git)"
   load_config || die "설정 파일이 없습니다: $(tilde "$CFG") → 먼저 gitch migrate (v1 에서 옮기기) 또는 gitch add"
   need_config
-  local self n=0 d fancy=""
   fancy_out && { fancy=1; banner; }
-  self=$(self_path); chmod +x "$self"
+  chmod +x "$self"
   step 1 "명령" 5
   mkdir -p "$HOME/bin"
   [ "$(resolve_link "$BIN_LINK" 2>/dev/null)" != "$self" ] && ln -sfn "$self" "$BIN_LINK"

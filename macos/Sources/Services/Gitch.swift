@@ -178,8 +178,10 @@ enum Gitch {
     /// 앱에 든 gitch 로 `gitch install`: ~/bin/gitch(와 예전 이름 ~/bin/gitsw) 연결, ~/.zshrc, git 전역 훅·규칙, AI 도구 규칙
     static func install() async throws -> String {
         guard let exe = bundled else { throw Failure(message: String(localized: "Couldn't find gitch inside Gitrochi.")) }
-        // 다운로드 폴더에서 바로 연 앱은 임시 위치에서 돌아, 거기에 연결하면 다음에 켤 때 끊긴다
-        guard !exe.contains("/AppTranslocation/") else {
+        // 응용 프로그램 폴더 밖(디스크 이미지 · 다운로드 폴더 · 임시 위치)의 앱에 연결하면 디스크를 꺼내거나 앱을 옮길 때 끊긴다
+        // (gitch install 도 같은 곳을 거부하지만, 번역된 안내를 보이려고 먼저 확인한다)
+        let app = Bundle.main.bundleURL.resolvingSymlinksInPath().path.lowercased()
+        guard ["/Applications/", NSHomeDirectory() + "/Applications/"].contains(where: { app.hasPrefix($0.lowercased()) }) else {
             throw Failure(message: String(localized: "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch."))
         }
         let r = try await Shell.run("/bin/bash", [exe, "install"], cwd: URL(fileURLWithPath: NSHomeDirectory()), env: environment, timeout: 180)

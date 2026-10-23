@@ -14,7 +14,7 @@ Gitrochi 맥 앱에 함께 들어 있다(`Gitrochi.app/Contents/Resources/gitch`
 
 **Gitrochi 에서** — 설정 > CLI
 1. 계정이 없으면 **Terminal 에서 계정 추가** → `gitch add` 가 아이디·이메일·서버를 묻고 SSH 키를 만든다.
-2. **설치** → 무엇이 바뀌는지 보여 준 뒤 `gitch install` 을 실행한다(`~/bin/gitch` 가 앱 안의 gitch 를 가리키므로 앱을 업데이트하면 gitch 도 같이 바뀐다).
+2. **설치** → 무엇이 바뀌는지 보여 준 뒤 `gitch install` 을 실행한다(`~/bin/gitch` 가 앱 안의 gitch 를 가리키므로 앱을 업데이트하면 gitch 도 같이 바뀐다). 앱이 응용 프로그램 폴더(`/Applications` 또는 `~/Applications`)에 있어야 한다 — 디스크 이미지 · 다운로드 폴더 · 임시 위치(App Translocation)의 앱에 연결하면 디스크를 꺼내거나 앱을 옮길 때 끊기므로, 앱도 `gitch install` 도 거부하고 옮길 곳을 알려 준다.
 3. 새 터미널을 연다. 저장소 화면의 커밋 칸 위에 이 저장소의 계정(잠금)과 커밋·push 전 점검(`gitch preflight`)이 보이고, 계정 이름을 눌러 이 저장소의 계정을 바꾼다(`gitch use`).
 
 **직접**
