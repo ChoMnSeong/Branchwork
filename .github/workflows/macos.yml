@@ -42,6 +42,7 @@ jobs:
   release:
     name: 배포 파일
     if: github.ref_type == 'tag'
+    environment: release
     runs-on: macos-26
     timeout-minutes: 40
     permissions:

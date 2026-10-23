@@ -18,6 +18,8 @@ concurrency:
 jobs:
   build:
     name: 빌드 · 자동 점검
+    # Signing keys live in the release environment (v* tags and main only); PR runs build without them
+    environment: ${{ (github.ref_type == 'tag' || github.event_name == 'workflow_dispatch') && 'release' || '' }}
     runs-on: windows-latest
     timeout-minutes: 30
     env:

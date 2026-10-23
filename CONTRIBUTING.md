@@ -105,6 +105,7 @@ Windows 폴더 규칙(어기면 `windows/tests/architecture.test.ts` 가 실패�
 - 이름은 `종류/내용`, 영문 소문자·숫자·`-` 로: `feature/ci-branch-view`, `fix/narrow-graph`, `refactor/…`, `docs/…`, `ci/…`, 버전은 `release/0.3.5`.
 - 한 브랜치에 한 주제. 오래 두지 말고 `git fetch && git rebase origin/main` 으로 최신을 따라갑니다(`main` 을 merge 해 들여오지 않습니다).
 - **`main` 은 PR 로만 바뀝니다.** GitHub 규칙(ruleset)으로 직접 푸시·force push·삭제가 막혀 있고(관리자 포함), `Git 규칙` 검사가 통과해야 합칠 수 있습니다. 로컬 pre-push 훅도 `main` 으로의 푸시를 미리 막습니다.
+- **공동 작업자**(저장소 쓰기 권한)는 이 저장소에 브랜치를 만들고 PR 을 합칠 수 있습니다. 공동 작업자의 PR 은 **다른 사람의 승인 1개**가 있어야 합쳐지고(새로 푸시하면 승인이 풀림), 관리자는 자기 PR 을 승인 없이 합칩니다.
 - 자기 PR 브랜치는 `git push --force-with-lease` 로 고쳐도 됩니다.
 
 ### 커밋 메시지
@@ -162,7 +163,7 @@ git push --force-with-lease
 
 ## 릴리스
 
-관리자가 합니다. `main` 이 PR 로만 바뀌므로 버전도 PR 로 올리고, 합친 뒤 태그를 답니다.
+관리자가 합니다. `v*` 태그는 관리자만 만들 수 있고, 업데이트 서명 열쇠(`BRANCHWORK_UPDATE_KEY`·`TAURI_SIGNING_PRIVATE_KEY`)는 `v*` 태그와 `main` 에서만 쓸 수 있는 `release` 환경에 있어 PR 의 실행에서는 읽을 수 없습니다. `main` 이 PR 로만 바뀌므로 버전도 PR 로 올리고, 합친 뒤 태그를 답니다.
 
 ```sh
 git switch -c release/0.3.5            # 버전 올리기(Info.plist · tauri.conf.json · package.json …)
