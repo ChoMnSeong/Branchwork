@@ -29,6 +29,20 @@ gitch doctor
 
 새 컴퓨터: `gitch import <내보낸 설정>` → `gitch install` → `gitch setup` (SSH 키 생성·등록).
 
+## Gitrochi 앱에서
+
+터미널에서 하는 일을 앱에서도 한다(앱은 같은 gitch 를 실행한다). 아직 앱에 없는 명령은 터미널에서.
+
+| gitch | 앱 |
+|---|---|
+| `install` · `list` · `doctor` | 설정 > 도구 > gitch |
+| `add` · `setup` | 설정 > 도구 > gitch 에서 Terminal 로 연다(묻는 것이 있어서) |
+| `status` · `preflight` | 커밋 칸 위 — 계정(잠금)과 점검 결과, 누르면 점검 항목 · fetch 하고 다시 점검 |
+| `use` · `unlock` | 커밋 칸 위 계정 이름 |
+| `up` · `sync` · `fix` · `rescue` · `ignore` | 커밋 칸 위 ⋯ 메뉴 |
+| `protect` | 사이드바 브랜치 우클릭 — 보호된 브랜치에는 방패 표시 |
+| `c` · `p` · `pl` · `b` · `wt` · `pr` · `ci` · `continue` · `abort` | 앱의 커밋 · push · pull · 브랜치 · 워크트리 · PR · CI 화면(앱도 시스템 git 을 써서 gitch 훅이 그대로 걸린다) |
+
 ## 예전 이름 gitsw
 
 gitch 는 gitsw 의 새 이름이다. 이미 gitsw 를 쓰던 컴퓨터는 `gitch install` 한 번이면 그대로 이어진다.
