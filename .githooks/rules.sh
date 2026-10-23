@@ -3,6 +3,7 @@
 #   rules.sh message <파일>        커밋 메시지(commit-msg 훅)
 #   rules.sh staged                스테이지한 파일(pre-commit 훅)
 #   rules.sh range <base> <head>   그 사이의 커밋과 바뀐 파일(GitHub Actions)
+#   rules.sh push                  푸시할 ref(pre-push 훅, 표준 입력): main 으로는 보내지 않는다
 # POSIX sh 로 쓴다(맥 · 리눅스 · Windows 의 Git Bash 에서 같이 돈다).
 # 기여자가 여러 나라 사람이라 알림은 영어로 낸다.
 set -u
@@ -164,8 +165,15 @@ $(git -c core.quotePath=false diff --name-only --diff-filter=ACMR "$from" "$head
 EOF
     check_whitespace "$from" "$head"
     ;;
+  push)
+    # main 은 GitHub 에서도 막혀 있다(PR 로만). 서버까지 가기 전에 이유와 할 일을 알려 준다
+    while read -r _ _ remote_ref _; do
+      [ "$remote_ref" = refs/heads/main ] &&
+        err "Don't push to main — push a branch and open a pull request (git switch -c feature/…; git push -u origin HEAD; gh pr create)"
+    done
+    ;;
   *)
-    echo "usage: rules.sh message <file> | staged | range <base> <head>" >&2
+    echo "usage: rules.sh message <file> | staged | range <base> <head> | push" >&2
     exit 2
     ;;
 esac

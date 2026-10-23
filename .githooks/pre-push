@@ -1,0 +1,3 @@
+#!/bin/sh
+# main 으로 바로 푸시하지 않기 — 브랜치와 PR 로(CONTRIBUTING.md 「Git 규칙」)
+exec sh "$(dirname "$0")/rules.sh" push "$@"

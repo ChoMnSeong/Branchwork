@@ -38,6 +38,22 @@ expect fail '# only a comment\n'
 expect fail "A: $(printf '%098d' 0 | tr 0 a)\n"
 expect pass "A: $(printf '%097d' 0 | tr 0 a)\n"
 
+# pre-push: main 으로는 막고 다른 브랜치는 통과(임시 저장소에 훅을 복사해 상대 경로로 — Git Bash 경로 변환을 피해서)
+work=$(mktemp -d)
+git init -q --bare "$work/remote.git"
+git init -q -b main "$work/clone"
+mkdir "$work/clone/.githooks"
+cp "$here/pre-push" "$here/rules.sh" "$work/clone/.githooks/"
+(
+  cd "$work/clone" || exit 1
+  git config core.hooksPath .githooks
+  git -c user.name=t -c user.email=t@example.com commit -q --allow-empty -m "Test: Seed the repository"
+  git remote add origin ../remote.git
+  if git push -q origin main 2>/dev/null; then echo "expected the push to main to be blocked" >&2 && exit 1; fi
+  git push -q origin main:refs/heads/feature/x 2>/dev/null || { echo "expected the push to a branch to pass" >&2 && exit 1; }
+) || bad=1
+rm -rf "$work"
+
 rm -f "$tmp"
 [ $bad -eq 0 ] && echo "rules.sh: all checks behave as expected"
 exit $bad

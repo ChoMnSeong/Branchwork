@@ -19,8 +19,8 @@ concurrency:
 jobs:
   build:
     name: 빌드 · 자동 점검
-    # 버전 커밋(Release …)은 함께 푸시하는 v* 태그 실행이 전부 한다
-    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'Release ')
+    # 버전 커밋(Release …, release/… 브랜치를 합친 커밋)은 뒤따르는 v* 태그 실행이 전부 한다
+    if: github.ref_type == 'tag' || !(startsWith(github.event.head_commit.message, 'Release ') || contains(github.event.head_commit.message, '/release/'))
     runs-on: windows-latest
     timeout-minutes: 30
     env:
