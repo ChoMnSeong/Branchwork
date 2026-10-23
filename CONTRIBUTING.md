@@ -97,14 +97,15 @@ Windows 폴더 규칙(어기면 `windows/tests/architecture.test.ts` 가 실패�
 
 ## Git 규칙
 
-처음 한 번 `git config core.hooksPath .githooks` 를 해 두면 커밋할 때 아래 규칙을 검사합니다. 같은 검사([`.githooks/rules.sh`](.githooks/rules.sh))가 GitHub Actions 「Git 규칙」에서도 돌아, 어긋난 PR·푸시는 통과하지 못합니다.
+처음 한 번 `git config core.hooksPath .githooks` 를 해 두면 커밋·푸시할 때 아래 규칙을 검사합니다. 같은 검사([`.githooks/rules.sh`](.githooks/rules.sh))가 GitHub Actions 「Git 규칙」에서도 돌아, 어긋난 PR·푸시는 통과하지 못합니다.
 
 ### 브랜치
 
 - `main` 은 언제나 빌드되고 배포할 수 있는 상태입니다. 작업은 `main` 에서 딴 브랜치에서 합니다.
-- 이름은 `종류/내용`, 영문 소문자·숫자·`-` 로: `feature/ci-branch-view`, `fix/narrow-graph`, `refactor/…`, `docs/…`, `ci/…`.
+- 이름은 `종류/내용`, 영문 소문자·숫자·`-` 로: `feature/ci-branch-view`, `fix/narrow-graph`, `refactor/…`, `docs/…`, `ci/…`, 버전은 `release/0.3.5`.
 - 한 브랜치에 한 주제. 오래 두지 말고 `git fetch && git rebase origin/main` 으로 최신을 따라갑니다(`main` 을 merge 해 들여오지 않습니다).
-- `main` 에는 force push 하지 않고, 이미 올라간 기록을 고쳐 쓰지 않습니다. 자기 PR 브랜치는 `git push --force-with-lease` 로 고쳐도 됩니다.
+- **`main` 은 PR 로만 바뀝니다.** GitHub 규칙(ruleset)으로 직접 푸시·force push·삭제가 막혀 있고(관리자 포함), `Git 규칙` 검사가 통과해야 합칠 수 있습니다. 로컬 pre-push 훅도 `main` 으로의 푸시를 미리 막습니다.
+- 자기 PR 브랜치는 `git push --force-with-lease` 로 고쳐도 됩니다.
 
 ### 커밋 메시지
 
@@ -123,7 +124,7 @@ Area: Imperative summary of the change
 - 검사하는 것: 영어(라틴 문자·문장 부호) · 제목 100자 이내 · 끝에 마침표 없음 · 콜론 뒤 한 칸 · 명령형 · 제목 다음 줄은 빈 줄 · `wip`·`fix`·`update` 처럼 내용 없는 제목 금지.
 - `fixup!`·`squash!` 커밋은 PR 을 올리기 전에 `git rebase -i --autosquash origin/main` 으로 합칩니다.
 - 한 커밋에는 한 가지 주제. 정리(파일 이동)와 동작 변경은 나누고, 커밋마다 빌드가 되게 합니다(`git bisect` 가 쓸 수 있게).
-- 버전 커밋 `Release 0.3.5 (summary)` 와 태그 `v0.3.5` 는 관리자가 만듭니다.
+- 버전 커밋 `Release 0.3.5 (summary)` 와 태그 `v0.3.5` 는 관리자가 만듭니다(아래 「릴리스」).
 - 이 규칙 전의 기록(한국어 메시지)은 그대로 둡니다.
 
 ### 검사에 걸린 PR 고치기
@@ -137,7 +138,7 @@ git rebase -i upstream/main        # 고칠 커밋의 pick 을 reword(r) 로 →
 git push --force-with-lease
 ```
 
-커밋이 하나뿐이면 `git commit --amend` 후 `git push --force-with-lease`. 기여자가 고치기 어려우면 관리자가 **Squash and merge** 로 합치면서 영어 메시지를 새로 씁니다.
+커밋이 하나뿐이면 `git commit --amend` 후 `git push --force-with-lease`. 검사가 통과해야 합칠 수 있으므로, 기여자가 고치기 어려우면 PR 의 「Allow edits by maintainers」가 켜져 있을 때 관리자가 기여자에게 알리고 같은 방법으로 그 브랜치를 고칩니다.
 
 ### 올리지 않는 것
 
@@ -157,6 +158,17 @@ git push --force-with-lease
 3. PR 설명의 체크리스트를 채워 주세요. CI(Windows 자동 점검 · Git 규칙)가 통과해야 합칩니다.
    - Windows CI 는 푸시·PR 마다 점검용 빌드 한 번 + 실제 앱 자동 점검을 합니다(7분 안팎, 새로 푸시하면 이전 실행은 취소).
    - 서명한 설치 파일·자동 업데이트 서명 점검·README 스크린샷은 `v*` 태그와 수동 실행(Actions › Windows › Run workflow)에서만.
-4. 합칠 때는 merge commit 으로(PR 단위 기록이 남게). 합친 브랜치는 지웁니다.
+4. 합칠 때는 merge commit 으로(PR 단위 기록이 남게). `gh pr merge --auto --merge` 를 걸어 두면 검사가 통과하는 대로 합쳐지고, 합친 브랜치는 자동으로 지워집니다.
 
-릴리스(버전 올리기·서명·배포)는 관리자가 합니다.
+## 릴리스
+
+관리자가 합니다. `main` 이 PR 로만 바뀌므로 버전도 PR 로 올리고, 합친 뒤 태그를 답니다.
+
+```sh
+git switch -c release/0.3.5            # 버전 올리기(Info.plist · tauri.conf.json · package.json …)
+git commit -m "Release 0.3.5 (summary)"
+git push -u origin HEAD && gh pr create --fill && gh pr merge --auto --merge
+# 합쳐지면
+git switch main && git pull --ff-only
+git tag v0.3.5 && git push origin v0.3.5   # 태그 실행이 서명한 설치 파일을 만든다
+```
