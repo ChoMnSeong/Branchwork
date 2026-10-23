@@ -70,6 +70,7 @@ struct GitrochiMark: View {
                 Image(nsImage: Self.icon)
                     .resizable()
                     .interpolation(.high)
+                    .frame(width: s, height: s)
                     .overlay {
                         Circle()
                             .fill(RadialGradient(colors: [Self.green.opacity(0.55 * breath), .clear], center: .center, startRadius: 0, endRadius: s * 0.14))
