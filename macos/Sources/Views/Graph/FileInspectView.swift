@@ -19,6 +19,10 @@ struct FileInspectView: View {
                 }
                 Spacer()
                 if store.fileInspectLoading { ProgressView().controlSize(.small) }
+                Button { store.revealInFinder(path: inspect.path) } label: { Image(systemName: "folder") }
+                    .buttonStyle(.borderless)
+                    .help("Show in Finder")
+                    .accessibilityLabel("Show in Finder")
                 Picker("", selection: Binding(get: { inspect.mode }, set: { store.setFileInspectMode($0) })) {
                     Text("History").tag(FileInspect.Mode.history)
                     Text("Blame").tag(FileInspect.Mode.blame)
