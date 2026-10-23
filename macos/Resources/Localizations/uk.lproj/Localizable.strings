@@ -206,6 +206,7 @@
 "Click to go to the Terminal window" = "Клацніть, щоб перейти до вікна Терміналу";
 "Click to see the diff in the center" = "Клацніть, щоб побачити зміни в центрі";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "Клацніть, щоб вибрати цей рядок (Shift — діапазон): можна індексувати лише вибрані рядки";
+"Click to use another gitsw account for this repository." = "Натисніть, щоб вибрати для цього репозиторію інший обліковий запис gitsw.";
 "Clone" = "Клонувати";
 "Clone repository" = "Клонувати репозиторій";
 "Clone repository…" = "Клонувати репозиторій…";
@@ -728,7 +729,7 @@
 "Server error %lld: %@" = "Помилка сервера %1$lld: %2$@";
 "Sessions in other folders" = "Сеанси в інших папках";
 "Set manually" = "Задати вручну";
-"Set up" = "Налаштовано";
+"Set up SSH key in Terminal…" = "Налаштувати SSH-ключ у Терміналі…";
 "Shadow" = "Тінь";
 "Shell command" = "Команда оболонки";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Оболонка, що відкривається в панелі термінала внизу (zsh, bash, fish тощо)";
@@ -878,11 +879,13 @@
 "Update" = "Оновити";
 "Update now" = "Оновити зараз";
 "Usage limit reached (429). Try again in a moment. %@" = "Досягнуто ліміту використання (429). Спробуйте трохи згодом. %1$@";
+"Use %@ for this repository?" = "Використовувати %1$@ для цього репозиторію?";
 "Use mine (%@)" = "Взяти моє (%1$@)";
 "Use the imperative mood" = "Наказовий спосіб";
 "Use theirs (%@)" = "Взяти їхнє (%1$@)";
 "Use this" = "Використати це";
 "Use this AI" = "Використовувати цей AI";
+"Use this account" = "Використовувати цей обліковий запис";
 "Used for all repository operations." = "Використовується для всіх операцій із репозиторієм.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "Використовує Claude Code, у якому ви ввійшли на цьому Mac, як є. Усі інструменти вимкнено; лише генерує текст.";
 "Value" = "Значення";
@@ -938,6 +941,7 @@
 "gitsw checks before commit and push" = "Перевірки gitsw перед комітом і push";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw не знає, який обліковий запис використовує цей репозиторій. Закріпіть його командою gitsw use <обліковий запис>.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw не дає змішуватися кільком обліковим записам Git: закріплює за кожним репозиторієм обліковий запис, вибирає його за правилами папок чи організацій і в хуках Git зупиняє хибного автора, секрети й примусовий push — у терміналі, для ШІ-агентів і в Branchwork.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw зробить автором комітів %1$@, спрямує origin (і upstream) на SSH-псевдонім %2$@ і закріпить репозиторій за цим обліковим записом.";
 "tag" = "тег";
 "… The diff is too long; only the beginning is shown" = "… Зміни задовгі; показано лише початок";
 "… show %lld more lines" = "… показати ще рядки (%1$lld)";

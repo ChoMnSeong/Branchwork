@@ -201,6 +201,7 @@
 "Click to go to the Terminal window" = "Terminal penceresine gitmek için tıklayın";
 "Click to see the diff in the center" = "Diff'i ortada görmek için tıklayın";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "Bu satırı seçmek için tıklayın (Shift: aralık) — yalnızca seçili satırları hazırlayabilirsiniz";
+"Click to use another gitsw account for this repository." = "Bu depo için başka bir gitsw hesabı kullanmak üzere tıklayın.";
 "Clone" = "Klonla";
 "Clone repository" = "Depoyu klonla";
 "Clone repository…" = "Depo klonla…";
@@ -717,7 +718,7 @@
 "Server error %lld: %@" = "Sunucu hatası %1$lld: %2$@";
 "Sessions in other folders" = "Diğer klasörlerdeki oturumlar";
 "Set manually" = "Elle belirlendi";
-"Set up" = "Ayarlandı";
+"Set up SSH key in Terminal…" = "Terminal'de SSH anahtarı ayarla…";
 "Shadow" = "Gölge";
 "Shell command" = "Kabuk komutu";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Alttaki terminal panelinde açılan kabuk (zsh, bash, fish vb.)";
@@ -864,11 +865,13 @@
 "Update" = "Güncelle";
 "Update now" = "Şimdi güncelle";
 "Usage limit reached (429). Try again in a moment. %@" = "Kullanım sınırına ulaşıldı (429). Biraz sonra tekrar deneyin. %1$@";
+"Use %@ for this repository?" = "Bu depo için %1$@ kullanılsın mı?";
 "Use mine (%@)" = "Benimkini kullan (%1$@)";
 "Use the imperative mood" = "Emir kipini kullan";
 "Use theirs (%@)" = "Onlarınkini kullan (%1$@)";
 "Use this" = "Bunu kullan";
 "Use this AI" = "Bu yapay zekayı kullan";
+"Use this account" = "Bu hesabı kullan";
 "Used for all repository operations." = "Tüm depo işlemlerinde kullanılır.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "Bu Mac'te oturum açılmış Claude Code'u olduğu gibi kullanır. Tüm araçlar kapalıdır; yalnızca metin üretir.";
 "Value" = "Değer";
@@ -926,6 +929,7 @@
 "gitsw checks before commit and push" = "Commit ve push öncesi gitsw denetimleri";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw bu deponun hangi hesabı kullandığını bilmiyor. gitsw use <hesap> ile kilitleyin.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw birden çok Git hesabını birbirinden ayrı tutar: her depoyu bir hesaba kilitler, hesabı klasör veya kuruluş kurallarına göre seçer ve Git kancalarıyla yanlış yazarı, gizli bilgileri ve zorla push'u durdurur; terminalde, yapay zeka ajanlarında ve Branchwork'te.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw commit yazarını %1$@ yapar, origin'i (ve upstream'i) %2$@ hesabının SSH takma adına yönlendirir ve depoyu bu hesaba kilitler.";
 "tag" = "etiket";
 "… The diff is too long; only the beginning is shown" = "… Diff çok uzun; yalnızca baş kısmı gösteriliyor";
 "… show %lld more lines" = "… %1$lld satır daha göster";

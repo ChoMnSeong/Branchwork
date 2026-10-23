@@ -197,6 +197,7 @@
 "Click to go to the Terminal window" = "Fai clic per andare alla finestra di Terminale";
 "Click to see the diff in the center" = "Fai clic per vedere il diff al centro";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "Fai clic per selezionare questa riga (Maiusc: intervallo) — puoi mettere in stage solo le righe selezionate";
+"Click to use another gitsw account for this repository." = "Fai clic per usare un altro account gitsw per questo repository.";
 "Clone" = "Clona";
 "Clone repository" = "Clona repository";
 "Clone repository…" = "Clona repository…";
@@ -705,7 +706,7 @@
 "Server error %lld: %@" = "Errore del server %1$lld: %2$@";
 "Sessions in other folders" = "Sessioni in altre cartelle";
 "Set manually" = "Impostato manualmente";
-"Set up" = "Configurato";
+"Set up SSH key in Terminal…" = "Configura la chiave SSH nel Terminale…";
 "Shadow" = "Ombra";
 "Shell command" = "Comando shell";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell aperta nel pannello del terminale in basso (zsh, bash, fish, ecc.)";
@@ -851,11 +852,13 @@
 "Update" = "Aggiorna";
 "Update now" = "Aggiorna ora";
 "Usage limit reached (429). Try again in a moment. %@" = "Limite di utilizzo raggiunto (429). Riprova tra poco. %1$@";
+"Use %@ for this repository?" = "Usare %1$@ per questo repository?";
 "Use mine (%@)" = "Usa la mia (%1$@)";
 "Use the imperative mood" = "Usa l'imperativo";
 "Use theirs (%@)" = "Usa la loro (%1$@)";
 "Use this" = "Usa questo testo";
 "Use this AI" = "Usa questa AI";
+"Use this account" = "Usa questo account";
 "Used for all repository operations." = "Usato per tutte le operazioni sui repository.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "Usa Claude Code così com'è, con l'accesso già effettuato su questo Mac. Tutti gli strumenti sono disattivati; genera solo testo.";
 "Value" = "Valore";
@@ -912,6 +915,7 @@
 "gitsw checks before commit and push" = "Controlli gitsw prima di commit e push";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw non sa quale account usa questo repository. Bloccalo con gitsw use <account>.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw tiene separati più account Git: blocca ogni repository su un account, sceglie l'account in base a regole di cartella o organizzazione e, con gli hook di Git, ferma autori sbagliati, segreti e push forzati, nel terminale, per gli agenti IA e in Branchwork.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw imposta %1$@ come autore dei commit, punta origin (e upstream) all'alias SSH di %2$@ e poi blocca il repository su quell'account.";
 "… The diff is too long; only the beginning is shown" = "… Il diff è troppo lungo; viene mostrata solo la parte iniziale";
 "… show %lld more lines" = "… mostra altre righe (%1$lld)";
 "✅ Response: %@" = "✅ Risposta: %1$@";

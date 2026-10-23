@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// 커밋 칸 위: gitsw 가 보는 이 저장소의 계정과 커밋·push 전 점검(gitsw 계정을 만들어 두었을 때만)
+/// 커밋 칸 위: gitsw 가 보는 이 저장소의 계정과 커밋·push 전 점검(gitsw 계정을 만들어 두었을 때만).
+/// 계정 이름을 눌러 이 저장소에 쓸 계정을 바꾼다(gitsw use).
 struct GitswBar: View {
     @Environment(RepoStore.self) private var store
     @ViewState private var showChecks = false
+    /// 바꾸기 전에 확인받을 계정
+    @ViewState private var switching: Gitsw.Account?
 
     var body: some View {
         if let s = store.gitswStatus {
@@ -12,9 +15,26 @@ struct GitswBar: View {
                 Image(systemName: s.account == nil ? "exclamationmark.triangle.fill" : s.lockedAccount != nil ? "lock.fill" : "person.fill")
                     .font(.caption2)
                     .foregroundStyle(s.account == nil ? Color.orange : Color.secondary)
-                Text(s.account ?? String(localized: "No account"))
-                    .font(.caption.weight(.medium))
-                    .lineLimit(1)
+                Menu {
+                    ForEach(store.gitswAccounts) { a in
+                        Button { switching = a } label: {
+                            if a.id == s.lockedAccount {
+                                Label { Text(verbatim: "\(a.id) · \(a.email)") } icon: { Image(systemName: "checkmark") }
+                            } else {
+                                Text(verbatim: "\(a.id) · \(a.email)")
+                            }
+                        }
+                        .disabled(a.id == s.lockedAccount)
+                    }
+                } label: {
+                    Text(s.account ?? String(localized: "No account"))
+                        .font(.caption.weight(.medium))
+                        .lineLimit(1)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .disabled(store.gitswAccounts.isEmpty)
+                .help(summary(s) + "\n" + String(localized: "Click to use another gitsw account for this repository."))
                 if s.ignored == true {
                     Text("Not managed by gitsw").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -27,7 +47,14 @@ struct GitswBar: View {
                         .popover(isPresented: $showChecks, arrowEdge: .bottom) { GitswChecks() }
                 }
             }
-            .help(summary(s))
+            .alert(Text("Use \(switching?.id ?? "") for this repository?"),
+                   isPresented: Binding(get: { switching != nil }, set: { if !$0 { switching = nil } }),
+                   presenting: switching) { a in
+                Button("Cancel", role: .cancel) {}
+                Button("Use this account") { Task { await store.useGitswAccount(a.id) } }
+            } message: { a in
+                Text("gitsw sets the commit author to \(a.email) and points origin (and upstream) at \(a.id)'s SSH alias, then locks the repository to it.")
+            }
         }
     }
 

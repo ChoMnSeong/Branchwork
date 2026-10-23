@@ -208,6 +208,7 @@
 "Click to go to the Terminal window" = "点击转到“终端”窗口";
 "Click to see the diff in the center" = "点击在中间查看差异";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "点击选择此行（Shift：选择范围）— 可以只暂存所选行";
+"Click to use another gitsw account for this repository." = "点击可更改此仓库使用的 gitsw 账户。";
 "Clone" = "克隆";
 "Clone repository" = "克隆仓库";
 "Clone repository…" = "克隆仓库…";
@@ -731,7 +732,7 @@
 "Server error %lld: %@" = "服务器错误 %1$lld：%2$@";
 "Sessions in other folders" = "其他文件夹中的会话";
 "Set manually" = "手动设置";
-"Set up" = "已设置";
+"Set up SSH key in Terminal…" = "在终端中设置 SSH 密钥…";
 "Shadow" = "暗影";
 "Shell command" = "Shell 命令";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "在下方终端面板中打开的 Shell（zsh、bash、fish 等）";
@@ -881,11 +882,13 @@
 "Update" = "更新";
 "Update now" = "立即更新";
 "Usage limit reached (429). Try again in a moment. %@" = "已达到使用限额 (429)。请稍后重试。%1$@";
+"Use %@ for this repository?" = "要在此仓库使用 %1$@ 吗？";
 "Use mine (%@)" = "使用我的 (%1$@)";
 "Use the imperative mood" = "使用祈使语气";
 "Use theirs (%@)" = "使用对方的 (%1$@)";
 "Use this" = "使用此项";
 "Use this AI" = "使用此 AI";
+"Use this account" = "使用此账户";
 "Used for all repository operations." = "用于所有仓库操作。";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "直接使用此 Mac 上已登录的 Claude Code。所有工具均已关闭，仅生成文本。";
 "Value" = "值";
@@ -941,6 +944,7 @@
 "gitsw checks before commit and push" = "提交和推送前的 gitsw 检查";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw 不知道此仓库使用哪个账户。请用 gitsw use <账户> 锁定。";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw 让多个 Git 账户互不混用：为每个仓库锁定账户，按文件夹或组织规则选择账户，并在 git 钩子中阻止错误的作者、机密信息和强制推送。适用于终端、AI 代理和 Branchwork。";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw 会将提交作者设为 %1$@，把 origin（和 upstream）指向 %2$@ 的 SSH 别名，然后将仓库锁定到该账户。";
 "tag" = "标签";
 "… The diff is too long; only the beginning is shown" = "… 差异过长，仅显示开头部分";
 "… show %lld more lines" = "… 再显示 %1$lld 行";

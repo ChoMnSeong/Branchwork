@@ -194,6 +194,7 @@
 "Click to go to the Terminal window" = "Klik om naar het Terminal-venster te gaan";
 "Click to see the diff in the center" = "Klik om de diff in het midden te zien";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "Klik om deze regel te selecteren (Shift: bereik) — je kunt alleen de geselecteerde regels stagen";
+"Click to use another gitsw account for this repository." = "Klik om een ander gitsw-account voor deze repository te gebruiken.";
 "Clone" = "Klonen";
 "Clone repository" = "Repository klonen";
 "Clone repository…" = "Repository klonen…";
@@ -688,7 +689,7 @@
 "Server error %lld: %@" = "Serverfout %1$lld: %2$@";
 "Sessions in other folders" = "Sessies in andere mappen";
 "Set manually" = "Handmatig ingesteld";
-"Set up" = "Ingesteld";
+"Set up SSH key in Terminal…" = "SSH-sleutel instellen in Terminal…";
 "Shadow" = "Schaduw";
 "Shell command" = "Shell-opdracht";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell die in het terminalpaneel onderaan wordt geopend (zsh, bash, fish, enz.)";
@@ -829,11 +830,13 @@
 "Up (later)" = "Omhoog (later)";
 "Update now" = "Nu bijwerken";
 "Usage limit reached (429). Try again in a moment. %@" = "Gebruikslimiet bereikt (429). Probeer het zo opnieuw. %1$@";
+"Use %@ for this repository?" = "%1$@ gebruiken voor deze repository?";
 "Use mine (%@)" = "Mijn versie gebruiken (%1$@)";
 "Use the imperative mood" = "Gebruik de gebiedende wijs";
 "Use theirs (%@)" = "Hun versie gebruiken (%1$@)";
 "Use this" = "Dit gebruiken";
 "Use this AI" = "Deze AI gebruiken";
+"Use this account" = "Dit account gebruiken";
 "Used for all repository operations." = "Wordt gebruikt voor alle repositorybewerkingen.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "Gebruikt Claude Code zoals het op deze Mac is ingelogd. Alle tools staan uit; het genereert alleen tekst.";
 "Value" = "Waarde";
@@ -884,6 +887,7 @@
 "gitsw checks before commit and push" = "gitsw-controles vóór commit en push";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw weet niet welk account deze repository gebruikt. Vergrendel het met gitsw use <account>.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw houdt meerdere Git-accounts gescheiden: het vergrendelt elke repository op één account, kiest het account via map- of organisatieregels en blokkeert in Git-hooks verkeerde auteurs, geheimen en force-pushes, in de terminal, voor AI-agents en in Branchwork.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw stelt de commit-auteur in op %1$@, laat origin (en upstream) naar de SSH-alias van %2$@ wijzen en vergrendelt de repository daarna op dat account.";
 "… The diff is too long; only the beginning is shown" = "… De diff is te lang; alleen het begin wordt getoond";
 "… show %lld more lines" = "… nog %1$lld regel(s) tonen";
 "✅ Response: %@" = "✅ Antwoord: %1$@";

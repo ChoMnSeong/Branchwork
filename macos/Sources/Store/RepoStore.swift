@@ -79,6 +79,8 @@ final class RepoStore: Identifiable {
     // MARK: gitsw(설정 > 도구에서 설치) — 이 저장소의 계정과 커밋·push 전 점검. gitsw 계정이 없으면 nil
     var gitswStatus: Gitsw.Status?
     var gitswPreflight: Gitsw.Preflight?
+    /// 커밋 칸에서 고를 수 있는 gitsw 계정
+    var gitswAccounts: [Gitsw.Account] = []
     var gitswChecking = false
     /// 브랜치·참조가 바뀔 때만 다시 점검하려고(파일 저장마다 돌지 않게)
     var gitswKey = ""
@@ -272,7 +274,7 @@ final class RepoStore: Identifiable {
     }
 
     /// 그래프를 읽는 동안 나란히: 내 이름·이메일, 저장소의 해시 방식(빈 트리 SHA 가 SHA-1 / SHA-256 에 따라 다르다)
-    private func loadRepoInfo(in top: URL) async {
+    func loadRepoInfo(in top: URL) async {
         async let configR = Git.raw(["config", "--get-regexp", "^user\\.(name|email)$"], in: top)
         async let formatR = Git.raw(["rev-parse", "--show-object-format"], in: top)
         let (config, format) = (try? await configR, try? await formatR)

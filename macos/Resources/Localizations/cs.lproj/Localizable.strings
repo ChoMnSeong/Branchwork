@@ -201,6 +201,7 @@
 "Click to go to the Terminal window" = "Kliknutím přejdete do okna Terminálu";
 "Click to see the diff in the center" = "Kliknutím zobrazíte rozdíly uprostřed";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "Kliknutím vyberete tento řádek (Shift: rozsah) — připravit k commitu můžete jen vybrané řádky";
+"Click to use another gitsw account for this repository." = "Kliknutím použijete pro tento repozitář jiný účet gitsw.";
 "Clone" = "Klonovat";
 "Clone repository" = "Klonovat repozitář";
 "Clone repository…" = "Klonovat repozitář…";
@@ -710,7 +711,7 @@
 "Server error %lld: %@" = "Chyba serveru %1$lld: %2$@";
 "Sessions in other folders" = "Relace v jiných složkách";
 "Set manually" = "Nastaveno ručně";
-"Set up" = "Nastaveno";
+"Set up SSH key in Terminal…" = "Nastavit klíč SSH v Terminálu…";
 "Shadow" = "Stín";
 "Shell command" = "Příkaz shellu";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell otevřený v panelu terminálu dole (zsh, bash, fish atd.)";
@@ -857,11 +858,13 @@
 "Update" = "Aktualizovat";
 "Update now" = "Aktualizovat nyní";
 "Usage limit reached (429). Try again in a moment. %@" = "Dosažen limit využití (429). Zkuste to za chvíli znovu. %1$@";
+"Use %@ for this repository?" = "Použít %1$@ pro tento repozitář?";
 "Use mine (%@)" = "Použít moje (%1$@)";
 "Use the imperative mood" = "Používej rozkazovací způsob";
 "Use theirs (%@)" = "Použít jejich (%1$@)";
 "Use this" = "Použít toto";
 "Use this AI" = "Použít tuto AI";
+"Use this account" = "Použít tento účet";
 "Used for all repository operations." = "Používá se pro všechny operace s repozitářem.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "Použije Claude Code přihlášený na tomto Macu tak, jak je. Všechny nástroje jsou vypnuté; pouze generuje text.";
 "Value" = "Hodnota";
@@ -919,6 +922,7 @@
 "gitsw checks before commit and push" = "Kontroly gitsw před commitem a push";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw neví, jaký účet tento repozitář používá. Zamkněte ho příkazem gitsw use <účet>.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw drží několik účtů Git odděleně: každý repozitář zamkne na jeden účet, vybírá účet podle pravidel složky nebo organizace a v hácích Git zastaví špatné autory, tajné údaje a vynucené push, v terminálu, pro agenty AI i v Branchwork.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw nastaví autora commitů na %1$@, nasměruje origin (a upstream) na alias SSH účtu %2$@ a pak repozitář zamkne na tento účet.";
 "… The diff is too long; only the beginning is shown" = "… Změny jsou příliš dlouhé; zobrazuje se jen začátek";
 "… show %lld more lines" = "… zobrazit další řádky (%1$lld)";
 "✅ Response: %@" = "✅ Odpověď: %1$@";

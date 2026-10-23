@@ -205,6 +205,7 @@
 "Click to go to the Terminal window" = "คลิกเพื่อไปยังหน้าต่างเทอร์มินัล";
 "Click to see the diff in the center" = "คลิกเพื่อดู diff ตรงกลาง";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "คลิกเพื่อเลือกบรรทัดนี้ (Shift: เลือกเป็นช่วง) — สเตจเฉพาะบรรทัดที่เลือกได้";
+"Click to use another gitsw account for this repository." = "คลิกเพื่อเปลี่ยนบัญชี gitsw ที่ใช้กับรีโพซิทอรีนี้";
 "Clone" = "โคลน";
 "Clone repository" = "โคลนรีโพสิทอรี";
 "Clone repository…" = "โคลนรีโพสิทอรี…";
@@ -724,7 +725,7 @@
 "Server error %lld: %@" = "ข้อผิดพลาดของเซิร์ฟเวอร์ %1$lld: %2$@";
 "Sessions in other folders" = "เซสชันในโฟลเดอร์อื่น";
 "Set manually" = "กำหนดเอง";
-"Set up" = "ตั้งค่าแล้ว";
+"Set up SSH key in Terminal…" = "ตั้งค่าคีย์ SSH ใน Terminal…";
 "Shadow" = "เงา";
 "Shell command" = "คำสั่งเชลล์";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "เชลล์ที่เปิดในแผงเทอร์มินัลด้านล่าง (zsh, bash, fish ฯลฯ)";
@@ -874,11 +875,13 @@
 "Update" = "อัปเดต";
 "Update now" = "อัปเดตเดี๋ยวนี้";
 "Usage limit reached (429). Try again in a moment. %@" = "ถึงขีดจำกัดการใช้งานแล้ว (429) โปรดลองอีกครั้งในอีกสักครู่ %1$@";
+"Use %@ for this repository?" = "ใช้ %1$@ กับรีโพซิทอรีนี้หรือไม่";
 "Use mine (%@)" = "ใช้ของฉัน (%1$@)";
 "Use the imperative mood" = "ใช้รูปประโยคคำสั่ง (imperative)";
 "Use theirs (%@)" = "ใช้ของอีกฝั่ง (%1$@)";
 "Use this" = "ใช้แบบนี้";
 "Use this AI" = "ใช้ AI นี้";
+"Use this account" = "ใช้บัญชีนี้";
 "Used for all repository operations." = "ใช้สำหรับการดำเนินการทั้งหมดกับรีโพสิทอรี";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "ใช้ Claude Code ที่เข้าสู่ระบบไว้บน Mac เครื่องนี้ตามเดิม เครื่องมือทั้งหมดถูกปิด และสร้างเฉพาะข้อความเท่านั้น";
 "Value" = "ค่า";
@@ -934,6 +937,7 @@
 "gitsw checks before commit and push" = "การตรวจของ gitsw ก่อนคอมมิตและ push";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw ไม่รู้ว่ารีโพซิทอรีนี้ใช้บัญชีใด ล็อกด้วย gitsw use <บัญชี>";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw แยกบัญชี Git หลายบัญชีไม่ให้ปนกัน: ล็อกแต่ละรีโพซิทอรีไว้กับบัญชีเดียว เลือกบัญชีตามกฎโฟลเดอร์หรือองค์กร และใช้ฮุกของ Git กันผู้เขียนผิดคน ข้อมูลลับ และ force push ทั้งในเทอร์มินัล สำหรับเอเจนต์ AI และใน Branchwork";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw จะตั้งผู้เขียนคอมมิตเป็น %1$@ ชี้ origin (และ upstream) ไปที่นามแฝง SSH ของ %2$@ แล้วล็อกรีโพซิทอรีไว้กับบัญชีนั้น";
 "tag" = "แท็ก";
 "… The diff is too long; only the beginning is shown" = "… diff ยาวเกินไป จึงแสดงเฉพาะส่วนต้น";
 "… show %lld more lines" = "… แสดงอีก %1$lld บรรทัด";

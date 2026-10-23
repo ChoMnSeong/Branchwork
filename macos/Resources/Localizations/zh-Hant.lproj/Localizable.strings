@@ -207,6 +207,7 @@
 "Click to go to the Terminal window" = "按一下以前往終端機視窗";
 "Click to see the diff in the center" = "按一下以在中央檢視差異";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "按一下以選取此行（Shift：選取範圍）— 可以只暫存選取的行";
+"Click to use another gitsw account for this repository." = "按一下可變更此儲存庫使用的 gitsw 帳號。";
 "Clone" = "複製";
 "Clone repository" = "複製存放庫";
 "Clone repository…" = "複製存放庫…";
@@ -730,7 +731,7 @@
 "Server error %lld: %@" = "伺服器錯誤 %1$lld：%2$@";
 "Sessions in other folders" = "其他資料夾中的工作階段";
 "Set manually" = "手動設定";
-"Set up" = "已設定";
+"Set up SSH key in Terminal…" = "在終端機中設定 SSH 金鑰…";
 "Shadow" = "暗影";
 "Shell command" = "Shell 指令";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "在下方終端機面板中開啟的 Shell（zsh、bash、fish 等）";
@@ -880,11 +881,13 @@
 "Update" = "更新";
 "Update now" = "立即更新";
 "Usage limit reached (429). Try again in a moment. %@" = "已達使用量上限 (429)。請稍後再試。%1$@";
+"Use %@ for this repository?" = "要在此儲存庫使用 %1$@ 嗎？";
 "Use mine (%@)" = "採用我方 (%1$@)";
 "Use the imperative mood" = "使用祈使語氣";
 "Use theirs (%@)" = "採用對方 (%1$@)";
 "Use this" = "使用此項";
 "Use this AI" = "使用此 AI";
+"Use this account" = "使用此帳號";
 "Used for all repository operations." = "用於所有存放庫操作。";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "直接使用這台 Mac 上已登入的 Claude Code。所有工具皆會關閉，僅產生文字。";
 "Value" = "值";
@@ -940,6 +943,7 @@
 "gitsw checks before commit and push" = "提交與推送前的 gitsw 檢查";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw 不知道此儲存庫使用哪個帳號。請用 gitsw use <帳號> 鎖定。";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw 讓多個 Git 帳號互不混用：為每個儲存庫鎖定帳號，依資料夾或組織規則選擇帳號，並在 git 掛鉤中阻擋錯誤的作者、機密資訊與強制推送。適用於終端機、AI 代理與 Branchwork。";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw 會將提交作者設為 %1$@，把 origin（與 upstream）指向 %2$@ 的 SSH 別名，然後將儲存庫鎖定到該帳號。";
 "tag" = "標籤";
 "… The diff is too long; only the beginning is shown" = "… 差異內容過長，僅顯示開頭部分";
 "… show %lld more lines" = "… 再顯示 %1$lld 行";

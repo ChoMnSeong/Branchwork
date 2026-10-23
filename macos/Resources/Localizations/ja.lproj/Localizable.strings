@@ -207,6 +207,7 @@
 "Click to go to the Terminal window" = "クリックしてターミナルのウィンドウへ移動";
 "Click to see the diff in the center" = "クリックして中央に差分を表示";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "クリックしてこの行を選択 (Shift: 範囲選択) — 選択した行だけをステージできます";
+"Click to use another gitsw account for this repository." = "クリックすると、このリポジトリで使う gitsw アカウントを変更できます。";
 "Clone" = "クローン";
 "Clone repository" = "リポジトリをクローン";
 "Clone repository…" = "リポジトリをクローン…";
@@ -729,7 +730,7 @@
 "Server error %lld: %@" = "サーバーエラー %1$lld: %2$@";
 "Sessions in other folders" = "他のフォルダーのセッション";
 "Set manually" = "手動で指定";
-"Set up" = "設定済み";
+"Set up SSH key in Terminal…" = "ターミナルで SSH キーを設定…";
 "Shadow" = "シャドウ";
 "Shell command" = "シェルコマンド";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "下のターミナルパネルで開くシェル (zsh, bash, fish など)";
@@ -879,11 +880,13 @@
 "Update" = "アップデート";
 "Update now" = "今すぐアップデート";
 "Usage limit reached (429). Try again in a moment. %@" = "利用上限に達しました (429)。しばらくしてからもう一度お試しください。%1$@";
+"Use %@ for this repository?" = "このリポジトリで %1$@ を使いますか？";
 "Use mine (%@)" = "自分側を使う (%1$@)";
 "Use the imperative mood" = "命令形で";
 "Use theirs (%@)" = "相手側を使う (%1$@)";
 "Use this" = "これを使う";
 "Use this AI" = "この AI を使う";
+"Use this account" = "このアカウントを使う";
 "Used for all repository operations." = "すべてのリポジトリ操作に使います。";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "この Mac でログインしている Claude Code をそのまま使います。ツールはすべてオフにし、テキストの生成だけを行います。";
 "Value" = "値";
@@ -939,6 +942,7 @@
 "gitsw checks before commit and push" = "コミット・push 前の gitsw チェック";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw はこのリポジトリのアカウントを把握していません。gitsw use <アカウント> でロックしてください。";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw は複数の Git アカウントが混ざらないようにします。リポジトリごとにアカウントをロックし、フォルダや組織のルールでアカウントを選び、誤った作成者・秘密情報・強制 push を git フックで防ぎます。ターミナル、AI エージェント、Branchwork のすべてに適用されます。";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw はコミット作成者を %1$@ に設定し、origin（と upstream）を %2$@ の SSH エイリアスに向けてから、リポジトリをそのアカウントにロックします。";
 "tag" = "タグ";
 "… The diff is too long; only the beginning is shown" = "… 差分が長すぎるため、先頭部分だけを表示しています";
 "… show %lld more lines" = "… さらに %1$lld 行を表示";

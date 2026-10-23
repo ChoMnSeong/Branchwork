@@ -206,6 +206,7 @@
 "Click to go to the Terminal window" = "눌러서 Terminal 창으로 이동";
 "Click to see the diff in the center" = "눌러서 가운데에 diff 보기";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "눌러서 이 줄 고르기(Shift: 범위) — 고른 줄만 스테이지할 수 있습니다";
+"Click to use another gitsw account for this repository." = "눌러서 이 저장소에 쓸 gitsw 계정을 바꿉니다.";
 "Clone" = "복제";
 "Clone repository" = "저장소 복제";
 "Clone repository…" = "저장소 복제…";
@@ -721,7 +722,7 @@
 "Server error %lld: %@" = "서버 오류 %1$lld: %2$@";
 "Sessions in other folders" = "다른 폴더의 세션";
 "Set manually" = "직접 지정";
-"Set up" = "설정됨";
+"Set up SSH key in Terminal…" = "Terminal 에서 SSH 키 만들기…";
 "Shadow" = "그림자";
 "Shell command" = "셸 명령";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "아래 터미널 패널에서 여는 셸(zsh·bash·fish 등)";
@@ -869,11 +870,13 @@
 "Update" = "업데이트";
 "Update now" = "지금 업데이트";
 "Usage limit reached (429). Try again in a moment. %@" = "사용 한도에 걸렸습니다(429). 잠시 뒤 다시 시도하세요. %1$@";
+"Use %@ for this repository?" = "이 저장소에 %1$@ 계정을 쓸까요?";
 "Use mine (%@)" = "내 것으로(%1$@)";
 "Use the imperative mood" = "명령형으로";
 "Use theirs (%@)" = "상대 것으로(%1$@)";
 "Use this" = "이렇게 쓰기";
 "Use this AI" = "이 AI 쓰기";
+"Use this account" = "이 계정 쓰기";
 "Used for all repository operations." = "모든 저장소 작업에 씁니다.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "이 맥에서 로그인한 Claude Code 를 그대로 씁니다. 도구는 모두 끈 채 글만 생성합니다.";
 "Value" = "값";
@@ -932,6 +935,7 @@
 "gitsw checks before commit and push" = "커밋·push 전 gitsw 점검";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw 가 이 저장소의 계정을 모릅니다. gitsw use <계정> 으로 잠그세요.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw 는 여러 Git 계정을 섞이지 않게 해 줍니다. 저장소마다 계정을 잠그고, 폴더·조직 규칙으로 계정을 고르고, 잘못된 작성자·비밀값·강제 push 를 git 훅에서 막습니다. 터미널, AI 에이전트, Branchwork 모두에 적용됩니다.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw 가 커밋 작성자를 %1$@ 로 바꾸고, origin(과 upstream)을 %2$@ 의 SSH 별칭 주소로 바꾼 뒤 저장소를 그 계정으로 잠급니다.";
 "tag" = "태그";
 "… The diff is too long; only the beginning is shown" = "… 변경이 너무 길어 앞부분만 표시합니다";
 "… show %lld more lines" = "… %1$lld줄 더 보기";

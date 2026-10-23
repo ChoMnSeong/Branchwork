@@ -200,6 +200,7 @@
 "Click to go to the Terminal window" = "Nhấp để chuyển đến cửa sổ Terminal";
 "Click to see the diff in the center" = "Nhấp để xem diff ở khung giữa";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "Nhấp để chọn dòng này (Shift: chọn khoảng) — bạn có thể chỉ stage các dòng đã chọn";
+"Click to use another gitsw account for this repository." = "Nhấp để dùng tài khoản gitsw khác cho kho này.";
 "Clone repository" = "Clone kho lưu trữ";
 "Clone repository…" = "Clone kho lưu trữ…";
 "Cloning %@" = "Đang clone %1$@";
@@ -695,7 +696,7 @@
 "Server error %lld: %@" = "Lỗi máy chủ %1$lld: %2$@";
 "Sessions in other folders" = "Phiên ở thư mục khác";
 "Set manually" = "Đặt thủ công";
-"Set up" = "Đã thiết lập";
+"Set up SSH key in Terminal…" = "Thiết lập khóa SSH trong Terminal…";
 "Shadow" = "Bóng tối";
 "Shell command" = "Lệnh shell";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell được mở trong bảng terminal bên dưới (zsh, bash, fish, v.v.)";
@@ -837,11 +838,13 @@
 "Update" = "Cập nhật";
 "Update now" = "Cập nhật ngay";
 "Usage limit reached (429). Try again in a moment. %@" = "Đã đạt giới hạn sử dụng (429). Hãy thử lại sau giây lát. %1$@";
+"Use %@ for this repository?" = "Dùng %1$@ cho kho này?";
 "Use mine (%@)" = "Dùng của tôi (%1$@)";
 "Use the imperative mood" = "Dùng thể mệnh lệnh";
 "Use theirs (%@)" = "Dùng của họ (%1$@)";
 "Use this" = "Dùng cái này";
 "Use this AI" = "Dùng AI này";
+"Use this account" = "Dùng tài khoản này";
 "Used for all repository operations." = "Dùng cho mọi thao tác với kho lưu trữ.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "Dùng Claude Code đã đăng nhập trên máy Mac này. Mọi công cụ đều bị tắt; chỉ tạo văn bản.";
 "Value" = "Giá trị";
@@ -895,6 +898,7 @@
 "gitsw checks before commit and push" = "Kiểm tra của gitsw trước khi commit và push";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw không biết kho này dùng tài khoản nào. Khóa nó bằng gitsw use <tài khoản>.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw giữ nhiều tài khoản Git tách biệt: khóa mỗi kho với một tài khoản, chọn tài khoản theo quy tắc thư mục hoặc tổ chức, và dùng hook của Git để chặn sai tác giả, dữ liệu bí mật và force push, trong terminal, cho tác tử AI và trong Branchwork.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw đặt tác giả commit là %1$@, trỏ origin (và upstream) tới bí danh SSH của %2$@, rồi khóa kho với tài khoản đó.";
 "… The diff is too long; only the beginning is shown" = "… Diff quá dài; chỉ hiển thị phần đầu";
 "… show %lld more lines" = "… hiện thêm %1$lld dòng";
 "✅ Response: %@" = "✅ Phản hồi: %1$@";

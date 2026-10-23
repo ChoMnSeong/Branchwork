@@ -196,6 +196,7 @@
 "Click to go to the Terminal window" = "Klik untuk membuka jendela Terminal";
 "Click to see the diff in the center" = "Klik untuk melihat diff di tengah";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "Klik untuk memilih baris ini (Shift: rentang) — Anda dapat melakukan stage hanya pada baris yang dipilih";
+"Click to use another gitsw account for this repository." = "Klik untuk memakai akun gitsw lain di repositori ini.";
 "Clone" = "Klon";
 "Clone repository" = "Klon repositori";
 "Clone repository…" = "Klon repositori…";
@@ -688,7 +689,7 @@
 "Server error %lld: %@" = "Kesalahan server %1$lld: %2$@";
 "Sessions in other folders" = "Sesi di folder lain";
 "Set manually" = "Atur manual";
-"Set up" = "Sudah diatur";
+"Set up SSH key in Terminal…" = "Atur kunci SSH di Terminal…";
 "Shadow" = "Bayangan";
 "Shell command" = "Perintah shell";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell yang dibuka di panel terminal di bawah (zsh, bash, fish, dll.)";
@@ -830,11 +831,13 @@
 "Update" = "Perbarui";
 "Update now" = "Perbarui sekarang";
 "Usage limit reached (429). Try again in a moment. %@" = "Batas penggunaan tercapai (429). Coba lagi sebentar lagi. %1$@";
+"Use %@ for this repository?" = "Gunakan %1$@ untuk repositori ini?";
 "Use mine (%@)" = "Pakai milik saya (%1$@)";
 "Use the imperative mood" = "Gunakan bentuk perintah (imperatif)";
 "Use theirs (%@)" = "Pakai milik mereka (%1$@)";
 "Use this" = "Pakai ini";
 "Use this AI" = "Pakai AI ini";
+"Use this account" = "Gunakan akun ini";
 "Used for all repository operations." = "Dipakai untuk semua operasi repositori.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "Memakai Claude Code yang login di Mac ini apa adanya. Semua alat dimatikan; hanya menghasilkan teks.";
 "Value" = "Nilai";
@@ -890,6 +893,7 @@
 "gitsw checks before commit and push" = "Pemeriksaan gitsw sebelum commit dan push";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw tidak tahu akun mana yang dipakai repositori ini. Kunci dengan gitsw use <akun>.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw memisahkan beberapa akun Git: mengunci setiap repositori ke satu akun, memilih akun berdasarkan aturan folder atau organisasi, dan memblokir penulis yang salah, rahasia, serta force push lewat hook Git, di terminal, untuk agen AI, dan di Branchwork.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw menetapkan penulis commit ke %1$@, mengarahkan origin (dan upstream) ke alias SSH %2$@, lalu mengunci repositori ke akun itu.";
 "… The diff is too long; only the beginning is shown" = "… Diff terlalu panjang; hanya bagian awal yang ditampilkan";
 "… show %lld more lines" = "… tampilkan %1$lld baris lagi";
 "✅ Response: %@" = "✅ Respons: %1$@";

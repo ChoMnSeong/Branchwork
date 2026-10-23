@@ -9,6 +9,7 @@ struct GitswSection: View {
     @ViewState private var busy = false
     @ViewState private var result: String?
     @ViewState private var error: String?
+    @ViewState private var accounts: [Gitsw.Account] = []
 
     var body: some View {
         let _ = generation
@@ -24,11 +25,12 @@ struct GitswSection: View {
                     .lineLimit(1).truncationMode(.head)
                     .textSelection(.enabled)
             }
-            LabeledContent("Accounts") { Text(Gitsw.hasConfig ? String(localized: "Set up") : String(localized: "None yet")) }
+            LabeledContent("Accounts") {
+                if accounts.isEmpty { Text("None yet") } else { Text(verbatim: "\(accounts.count)") }
+            }
+            ForEach(accounts) { a in accountRow(a) }
             HStack {
-                if !Gitsw.hasConfig {
-                    Button("Add an account in Terminal…") { run { try Gitsw.openInTerminal(["add"]) } }
-                }
+                Button("Add an account in Terminal…") { run { try Gitsw.openInTerminal(["add"]) } }
                 Button(Gitsw.installedIsBundled ? "Reinstall…" : "Install…") { confirmInstall = true }
                     .disabled(!Gitsw.hasConfig || busy || bundledVersion == nil)
                 Button("Run doctor in Terminal") { run { try Gitsw.openInTerminal(["doctor"]) } }
@@ -61,11 +63,32 @@ struct GitswSection: View {
                 .font(.caption).foregroundStyle(.secondary)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in generation += 1 }
+        .task(id: generation) { accounts = await Gitsw.accounts() }
         .alert("Install gitsw?", isPresented: $confirmInstall) {
             Button("Cancel", role: .cancel) {}
             Button("Install") { install() }
         } message: {
             Text("This changes files outside Branchwork, backing them up first:\n• ~/bin/gitsw: links to the gitsw inside Branchwork\n• ~/.zshrc: adds a gitsw block\n• ~/.gitconfig: global hooks that check authors, secrets, big files and force pushes, and rules that pick the account\n• ~/.claude and ~/.codex: rules, skills and a hook for AI agents\nRemove it later with gitsw uninstall.")
+        }
+    }
+
+    /// 계정 하나: 아이디 · 이메일, 서버 · 규칙(gitsw 문구 그대로), SSH 키가 없으면 만들기
+    private func accountRow(_ a: Gitsw.Account) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(verbatim: a.id).font(.callout.weight(.semibold))
+                    Text(verbatim: a.email).font(.callout).foregroundStyle(.secondary)
+                }
+                Text(verbatim: [a.hosts, a.rules ?? ""].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer()
+            if a.sshKey == false {
+                Button("Set up SSH key in Terminal…") { run { try Gitsw.openInTerminal(["setup", a.id]) } }
+                    .controlSize(.small)
+            }
         }
     }
 

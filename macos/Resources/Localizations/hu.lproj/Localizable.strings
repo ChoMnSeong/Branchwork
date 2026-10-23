@@ -203,6 +203,7 @@
 "Click to go to the Terminal window" = "Kattintással a Terminál-ablakra ugorhat";
 "Click to see the diff in the center" = "Kattintással középen megtekintheti a diffet";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "Kattintással kijelölheti a sort (Shift: tartomány) — csak a kijelölt sorokat is előkészítheti";
+"Click to use another gitsw account for this repository." = "Kattintson, ha másik gitsw-fiókot használna ehhez a tárolóhoz.";
 "Clone" = "Klónozás";
 "Clone repository" = "Tároló klónozása";
 "Clone repository…" = "Tároló klónozása…";
@@ -715,7 +716,7 @@
 "Server error %lld: %@" = "Szerverhiba %1$lld: %2$@";
 "Sessions in other folders" = "Munkamenetek más mappákban";
 "Set manually" = "Kézzel megadva";
-"Set up" = "Beállítva";
+"Set up SSH key in Terminal…" = "SSH-kulcs beállítása a Terminálban…";
 "Shadow" = "Árnyék";
 "Shell command" = "Parancssori parancs";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Az alsó terminálpanelen megnyíló shell (zsh, bash, fish stb.)";
@@ -863,11 +864,13 @@
 "Update" = "Frissítés";
 "Update now" = "Frissítés most";
 "Usage limit reached (429). Try again in a moment. %@" = "Elérte a használati korlátot (429). Próbálja újra kicsit később. %1$@";
+"Use %@ for this repository?" = "A(z) %1$@ fiókot használja ehhez a tárolóhoz?";
 "Use mine (%@)" = "Saját használata (%1$@)";
 "Use the imperative mood" = "Felszólító módban";
 "Use theirs (%@)" = "Másik használata (%1$@)";
 "Use this" = "Ennek használata";
 "Use this AI" = "AI kiválasztása";
+"Use this account" = "E fiók használata";
 "Used for all repository operations." = "Minden tárolóművelethez ezt használja.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "Változtatás nélkül használja az ezen a Macen bejelentkezett Claude Code programot. Minden eszköz ki van kapcsolva; csak szöveget generál.";
 "Value" = "Érték";
@@ -921,6 +924,7 @@
 "gitsw checks before commit and push" = "gitsw-ellenőrzések commit és push előtt";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "A gitsw nem tudja, melyik fiókot használja ez a tároló. Zárolja a gitsw use <fiók> paranccsal.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "A gitsw külön tartja a Git-fiókokat: minden tárolót egy fiókhoz zárol, mappa- vagy szervezeti szabály alapján választ fiókot, és Git-hookokkal megállítja a rossz szerzőt, a titkos adatokat és a kényszerített pusht, a terminálban, az AI-ügynököknél és a Branchworkben is.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "A gitsw a commitok szerzőjét %1$@ értékre állítja, az origin (és upstream) címet a(z) %2$@ SSH-aliasára irányítja, majd a tárolót ehhez a fiókhoz zárolja.";
 "tag" = "címke";
 "… The diff is too long; only the beginning is shown" = "… A diff túl hosszú; csak az eleje látható";
 "… show %lld more lines" = "… további %1$lld sor megjelenítése";

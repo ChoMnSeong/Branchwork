@@ -206,6 +206,7 @@
 "Click to go to the Terminal window" = "Нажмите, чтобы перейти к окну Терминала";
 "Click to see the diff in the center" = "Нажмите, чтобы увидеть diff в центре";
 "Click to select this line (Shift: range) — you can stage only the selected lines" = "Нажмите, чтобы выбрать строку (Shift — диапазон); можно индексировать только выбранные строки";
+"Click to use another gitsw account for this repository." = "Нажмите, чтобы выбрать для этого репозитория другой аккаунт gitsw.";
 "Clone" = "Клонировать";
 "Clone repository" = "Клонировать репозиторий";
 "Clone repository…" = "Клонировать репозиторий…";
@@ -728,7 +729,7 @@
 "Server error %lld: %@" = "Ошибка сервера %1$lld: %2$@";
 "Sessions in other folders" = "Сеансы в других папках";
 "Set manually" = "Задан вручную";
-"Set up" = "Настроено";
+"Set up SSH key in Terminal…" = "Настроить SSH-ключ в Терминале…";
 "Shadow" = "Тень";
 "Shell command" = "Команда оболочки";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Оболочка, открываемая в панели терминала внизу (zsh, bash, fish и др.)";
@@ -878,11 +879,13 @@
 "Update" = "Обновление";
 "Update now" = "Обновить сейчас";
 "Usage limit reached (429). Try again in a moment. %@" = "Достигнут лимит использования (429). Повторите попытку чуть позже. %1$@";
+"Use %@ for this repository?" = "Использовать %1$@ для этого репозитория?";
 "Use mine (%@)" = "Взять моё (%1$@)";
 "Use the imperative mood" = "Использовать повелительное наклонение";
 "Use theirs (%@)" = "Взять их (%1$@)";
 "Use this" = "Использовать это";
 "Use this AI" = "Использовать этот ИИ";
+"Use this account" = "Использовать этот аккаунт";
 "Used for all repository operations." = "Используется для всех операций с репозиторием.";
 "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text." = "Использует Claude Code, в котором выполнен вход на этом Mac, как есть. Все инструменты отключены; он только генерирует текст.";
 "Value" = "Значение";
@@ -938,6 +941,7 @@
 "gitsw checks before commit and push" = "Проверки gitsw перед коммитом и push";
 "gitsw doesn't know which account this repository uses. Lock it with gitsw use <account>." = "gitsw не знает, какой аккаунт использует этот репозиторий. Закрепите его командой gitsw use <аккаунт>.";
 "gitsw keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Branchwork." = "gitsw не даёт смешиваться нескольким аккаунтам Git: закрепляет за каждым репозиторием аккаунт, выбирает аккаунт по правилам папок или организаций и в хуках Git останавливает неверного автора, секреты и принудительный push — в терминале, у ИИ-агентов и в Branchwork.";
+"gitsw sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitsw сделает автором коммитов %1$@, направит origin (и upstream) на SSH-псевдоним %2$@ и закрепит репозиторий за этим аккаунтом.";
 "tag" = "тег";
 "… The diff is too long; only the beginning is shown" = "… Diff слишком длинный; показано только начало";
 "… show %lld more lines" = "… показать ещё строки (%1$lld)";

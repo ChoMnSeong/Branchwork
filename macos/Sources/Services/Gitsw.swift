@@ -31,6 +31,15 @@ enum Gitsw {
         let checks: [Check]
     }
 
+    /// gitsw list --json 의 계정(rules 는 gitsw 가 낸 문구 그대로)
+    struct Account: Decodable, Identifiable, Equatable {
+        let id: String
+        let email: String
+        let hosts: String
+        let rules: String?
+        let sshKey: Bool?
+    }
+
     /// 앱에 든 gitsw
     static var bundled: String? { Bundle.main.path(forResource: "gitsw", ofType: nil) }
     /// gitsw install 이 만드는 셸 명령
@@ -79,6 +88,22 @@ enum Gitsw {
     /// fetch 면 원격을 받아 받을 커밋까지 본다(몇 초). 아니면 지금 있는 원격 정보로만(0.2초 안팎).
     static func preflight(in repo: URL, fetch: Bool) async -> Preflight? {
         await json(["preflight", "--json"] + (fetch ? [] : ["--no-fetch"]), in: repo)
+    }
+
+    static func accounts() async -> [Account] {
+        struct List: Decodable { let accounts: [Account] }
+        let list: List? = await json(["list", "--json"], in: URL(fileURLWithPath: NSHomeDirectory()))
+        return list?.accounts ?? []
+    }
+
+    /// gitsw use <계정>: 이 저장소의 커밋 작성자와 원격 주소(그 계정의 SSH 별칭)를 바꾸고 그 계정으로 잠근다
+    static func use(_ account: String, in repo: URL) async throws {
+        guard let exe = executable else { throw Failure(message: String(localized: "Couldn't find gitsw inside Branchwork.")) }
+        let r = try await Shell.run("/bin/bash", [exe, "use", account], cwd: repo, env: environment, timeout: 60)
+        guard r.status == 0 else {
+            let out = plain(r.stderr.isEmpty ? r.output : r.stderr)
+            throw Failure(message: out.isEmpty ? "exit \(r.status)" : out)
+        }
     }
 
     /// 앱에 든 gitsw 로 `gitsw install`: ~/bin/gitsw 연결, ~/.zshrc, git 전역 훅·규칙, AI 도구 규칙. 출력을 돌려준다.
