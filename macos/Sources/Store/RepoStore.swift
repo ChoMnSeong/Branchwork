@@ -76,7 +76,7 @@ final class RepoStore: Identifiable {
     var unstagedStats: [String: LineStat] = [:]
     var me: Identity?
 
-    // MARK: gitch(설정 > 도구에서 설치) — 이 저장소의 계정과 커밋·push 전 점검. gitch 계정이 없으면 nil
+    // MARK: gitch(설정 > CLI 에서 설치) — 이 저장소의 계정과 커밋·push 전 점검. gitch 계정이 없으면 nil
     var gitchStatus: Gitch.Status?
     var gitchPreflight: Gitch.Preflight?
     /// 커밋 칸에서 고를 수 있는 gitch 계정

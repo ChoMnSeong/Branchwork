@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// 설정 > 도구의 gitch(예전 이름 gitsw): 앱에 든 gitch 를 셸 명령으로 설치한다. 계정 더하기·진단은 묻는 것이 있어 Terminal 에서.
+/// 설정 > CLI 의 gitch(예전 이름 gitsw): 앱에 든 gitch 를 셸 명령으로 설치한다. 계정 더하기·진단은 묻는 것이 있어 Terminal 에서.
 struct GitchSection: View {
     /// Terminal 에서 계정을 더하고 돌아오면 다시 읽으려고
     @ViewState private var generation = 0

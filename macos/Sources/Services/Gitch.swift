@@ -1,7 +1,7 @@
 import Foundation
 
 /// gitch — 여러 Git 계정을 섞이지 않게 쓰는 셸 도구(tools/gitch, 예전 이름 gitsw).
-/// 앱 안(Contents/Resources/gitch)에 함께 들어 있고 설정 > 도구에서 셸 명령으로 설치한다.
+/// 앱 안(Contents/Resources/gitch)에 함께 들어 있고 설정 > CLI 에서 셸 명령으로 설치한다.
 /// 저장소 화면은 gitch 가 보는 이 저장소의 계정(잠금)과 커밋·push 전 점검을 보여 주고, 계정을 바꿀 수 있다.
 enum Gitch {
     struct Failure: LocalizedError {
