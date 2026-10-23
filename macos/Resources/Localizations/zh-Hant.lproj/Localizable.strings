@@ -1,4 +1,4 @@
-/* Branchwork — zh-Hant. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — zh-Hant. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n（變更內容較長，僅依開頭部分說明。）";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n需要驗證。請在終端機中執行一次 push/pull 來儲存認證資訊（鑰匙圈或 SSH 金鑰），然後再試一次。";
@@ -130,10 +130,10 @@
 "Branch to check out" = "要簽出的分支";
 "Branches hidden from the graph — right-click to show again" = "已從圖表隱藏的分支 — 按右鍵可重新顯示";
 "Branches pinned to the top" = "釘選在最上方的分支";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ 已是最新版本。";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork 是直接從下載位置開啟的，正在暫時位置執行，無法替換自身。請將它移到「應用程式」資料夾，重新開啟後再更新。";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork 會重新啟動以套用變更。沒有可參考的提交記錄時，AI 也會以此語言撰寫。";
-"Branchwork update" = "Branchwork 更新";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ 已是最新版本。";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi 是直接從下載位置開啟的，正在暫時位置執行，無法替換自身。請將它移到「應用程式」資料夾，重新開啟後再更新。";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi 會重新啟動以套用變更。沒有可參考的提交記錄時，AI 也會以此語言撰寫。";
+"Gitrochi update" = "Gitrochi 更新";
 "Brings %lld new commits from the remote into the current branch." = "將遠端的 %1$lld 個新提交帶入目前分支。";
 "Browser" = "瀏覽器";
 "By branch" = "依分支";
@@ -369,7 +369,7 @@
 "End the %@ session?" = "要結束 %1$@ 工作階段嗎？";
 "Ended" = "已結束";
 "Ended sessions" = "已結束的工作階段";
-"Enter an administrator password to update Branchwork in %@." = "輸入管理者密碼以更新 %1$@ 中的 Branchwork。";
+"Enter an administrator password to update Gitrochi in %@." = "輸入管理者密碼以更新 %1$@ 中的 Gitrochi。";
 "Enter the server address." = "請輸入伺服器位址。";
 "Enter your %@ key in Settings > AI." = "請在「設定 > AI」中輸入你的 %1$@ 金鑰。";
 "Environment %lld" = "環境 %1$lld";
@@ -441,7 +441,7 @@
 "Incoming commit" = "傳入的提交";
 "Install" = "安裝";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "每個人的安裝位置不同。若無法自動找到工具，請使用 **手動指定** 自行選擇執行檔。選擇的路徑會儲存起來，下次繼續使用。";
-"Installing… Branchwork restarts when done" = "正在安裝… 完成後 Branchwork 會重新啟動";
+"Installing… Gitrochi restarts when done" = "正在安裝… 完成後 Gitrochi 會重新啟動";
 "Invalid address: %@" = "無效的位址：%1$@";
 "It was closed or hasn't been loaded yet." = "已關閉，或尚未載入。";
 "Keep at least one commit." = "至少要保留一個提交。";
@@ -560,7 +560,7 @@
 "Only the panel is hidden; shells keep running." = "只會隱藏面板，Shell 會繼續執行。";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "僅空白字元有變更（關閉「忽略空白字元」即可查看）。";
 "Open" = "開啟";
-"Open in Branchwork" = "在 Branchwork 中開啟";
+"Open in Gitrochi" = "在 Gitrochi 中開啟";
 "Open in Terminal" = "在終端機中開啟";
 "Open in browser" = "在瀏覽器中開啟";
 "Open in the terminal below" = "在下方終端機中開啟";
@@ -789,10 +789,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "差異內容較長，僅將開頭部分傳送給 %1$@（已省略 %2$lldK 個字元）。";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "差異內容較長，僅依開頭部分進行拆分（已省略 %1$lldK 個字元）。";
 "The downloaded app's signature is invalid: %@" = "下載的應用程式簽章無效：%1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "下載的檔案不是 Branchwork，因此未安裝。";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "下載的檔案不是 Gitrochi，因此未安裝。";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "下載檔案的 SHA-256 與發行版本不符，因此未安裝。";
 "The file is empty or not committed yet." = "檔案是空的，或尚未提交。";
-"The language changes when Branchwork restarts." = "語言會在 Branchwork 重新啟動後變更。";
+"The language changes when Gitrochi restarts." = "語言會在 Gitrochi 重新啟動後變更。";
 "The new message is empty." = "新的訊息是空的。";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "前綴為 Feature、Fix、Hotfix、Refactoring、Style、Chore、Remove 其中之一";
 "The release has no SHA-256 file. It wasn't installed." = "發行版本中沒有 SHA-256 檔案，因此未安裝。";

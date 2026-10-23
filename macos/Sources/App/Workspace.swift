@@ -142,7 +142,7 @@ final class Workspace {
 /// 창이 만들어지는 순간(화면에 뜨기 전)에 탭 묶음 설정을 해 두고, 창이 정말 닫힐 때를 알려 준다.
 /// 뒤로 간 탭은 창이 숨겨질 뿐이라 onDisappear 대신 willClose 로만 정리한다.
 struct WindowTabbing: NSViewRepresentable {
-    static let identifier = "BranchworkRepository"
+    static let identifier = "GitrochiRepository"
     let onAttach: (NSWindow) -> Void
     let onClose: () -> Void
 
@@ -307,7 +307,7 @@ final class Splash {
 
 private struct SplashView: View {
     var body: some View {
-        LoadingView(title: "Branchwork", step: RestoreState.shared.step)
+        LoadingView(title: "Gitrochi", step: RestoreState.shared.step)
             .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Color.white.opacity(0.12)))
     }

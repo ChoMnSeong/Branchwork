@@ -76,7 +76,7 @@ function WorktreeCard({ store, worktree: w, stats, sessions, isCurrent }: { stor
               store.changed();
             },
           },
-          { label: t("Open in Branchwork"), disabled: isCurrent, onClick: () => void store.openOrReport(w.path) },
+          { label: t("Open in Gitrochi"), disabled: isCurrent, onClick: () => void store.openOrReport(w.path) },
           { label: t("Show in Explorer"), onClick: () => void ipc.reveal(w.path) },
           { label: t("Open in the terminal below"), onClick: () => store.newTerminal(w.path) },
           { label: t("Open in external terminal"), onClick: () => void ipc.openTerminal(w.path) },

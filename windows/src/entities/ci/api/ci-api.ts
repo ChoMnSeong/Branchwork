@@ -138,7 +138,7 @@ export const CIAPI = {
     Hosting.sendRaw("github", `${repoBase(c)}/actions/runs/${run}/pending_deployments`, c.token, "POST", {
       environment_ids: environments,
       state: approve ? "approved" : "rejected",
-      comment: "Branchwork",
+      comment: "Gitrochi",
     }),
 };
 

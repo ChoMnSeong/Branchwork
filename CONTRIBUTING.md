@@ -1,6 +1,6 @@
 # 기여 안내
 
-Branchwork 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 요청은 [이슈](https://github.com/ChoMnSeong/Branchwork/issues/new/choose)로, 코드는 PR 로 보내 주세요.
+Gitrochi 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 요청은 [이슈](https://github.com/ChoMnSeong/Gitrochi/issues/new/choose)로, 코드는 PR 로 보내 주세요.
 
 > **English** — Issues and PRs are welcome in English too. UI text in the code is English (translated into 20 languages), **commit messages are English** (`Area: Imperative summary`), and code comments are in Korean. Run `git config core.hooksPath .githooks` once — the hooks check the Git rules below, and so does CI.
 
@@ -15,7 +15,7 @@ Branchwork 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 �
 
 - 받은 뒤 한 번 `git config core.hooksPath .githooks` — 커밋할 때 [Git 규칙](#git-규칙)을 검사합니다.
 - 맥은 SwiftPM 없이 `swiftc` 로 바로 빌드합니다. 새 파일은 `macos/Sources/` 아래 알맞은 폴더에 두면 자동으로 포함됩니다.
-- Windows 는 맥에서도 `npx tauri dev` 로 띄워 볼 수 있습니다(데이터 폴더는 `Branchwork (Tauri)` 로 분리).
+- Windows 는 맥에서도 `npx tauri dev` 로 띄워 볼 수 있습니다(데이터 폴더는 `Gitrochi (Tauri)` 로 분리).
 - 화면을 바꿨다면 [데모 저장소](docs/make-demo-repo.sh)(`docs/make-demo-repo.sh <폴더>`)로 확인하고 스크린샷을 PR 에 붙여 주세요.
 
 ## 구조
@@ -69,7 +69,7 @@ Windows 폴더 규칙(어기면 `windows/tests/architecture.test.ts` 가 실패�
   - 큰따옴표, 세미콜론, 화살표 함수 위주. 한 파일이 400줄을 넘으면 나눌 때가 됐다는 신호입니다.
 - **Rust**: `cargo fmt`. Windows 에서 띄우는 프로세스는 콘솔 창이 뜨지 않게(`CREATE_NO_WINDOW`).
 - **주석**: 한국어로, **왜** 그렇게 하는지를 씁니다. 무엇을 하는지는 코드가 말하게. 공개 타입·함수는 `///`(Swift) · `/** */`(TS) 한 줄 설명.
-- **성능**: 파일 감시로 불리는 코드는 큰 저장소(커밋 수만 개)를 생각합니다. 같은 값을 다시 넣어 화면을 다시 그리게 하지 않고, git 프로세스 수를 줄입니다. 맥은 `BRANCHWORK_TRACE=1` 로 새로 고침 시간을 볼 수 있습니다.
+- **성능**: 파일 감시로 불리는 코드는 큰 저장소(커밋 수만 개)를 생각합니다. 같은 값을 다시 넣어 화면을 다시 그리게 하지 않고, git 프로세스 수를 줄입니다. 맥은 `GITROCHI_TRACE=1` 로 새로 고침 시간을 볼 수 있습니다.
 
 ### 화면과 글
 
@@ -133,7 +133,7 @@ Area: Imperative summary of the change
 코드는 그대로 두고 커밋 메시지만 다시 쓴 뒤 같은 브랜치에 강제 푸시합니다. PR 은 그대로 이어집니다.
 
 ```sh
-git remote add upstream https://github.com/ChoMnSeong/Branchwork.git   # 포크라면 처음 한 번
+git remote add upstream https://github.com/ChoMnSeong/Gitrochi.git   # 포크라면 처음 한 번
 git fetch upstream
 git rebase -i upstream/main        # 고칠 커밋의 pick 을 reword(r) 로 → 열리는 편집기에서 영어로
 git push --force-with-lease
@@ -163,7 +163,7 @@ git push --force-with-lease
 
 ## 릴리스
 
-관리자가 합니다. `v*` 태그는 관리자만 만들 수 있고, 업데이트 서명 열쇠(`BRANCHWORK_UPDATE_KEY`·`TAURI_SIGNING_PRIVATE_KEY`)는 `v*` 태그와 `main` 에서만 쓸 수 있는 `release` 환경에 있어 PR 의 실행에서는 읽을 수 없습니다. `main` 이 PR 로만 바뀌므로 버전도 PR 로 올리고, 합친 뒤 태그를 답니다.
+관리자가 합니다. `v*` 태그는 관리자만 만들 수 있고, 업데이트 서명 열쇠(`GITROCHI_UPDATE_KEY`·`TAURI_SIGNING_PRIVATE_KEY`)는 `v*` 태그와 `main` 에서만 쓸 수 있는 `release` 환경에 있어 PR 의 실행에서는 읽을 수 없습니다. `main` 이 PR 로만 바뀌므로 버전도 PR 로 올리고, 합친 뒤 태그를 답니다.
 
 ```sh
 git switch -c release/0.3.5            # 버전 올리기(Info.plist · tauri.conf.json · package.json …)

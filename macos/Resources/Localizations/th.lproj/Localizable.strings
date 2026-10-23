@@ -1,4 +1,4 @@
-/* Branchwork — th. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — th. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(diff ยาวเกินไป จึงอธิบายเฉพาะส่วนต้นเท่านั้น)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nต้องยืนยันตัวตน พุช/พูลในเทอร์มินัลหนึ่งครั้งเพื่อบันทึกข้อมูลประจำตัว (พวงกุญแจหรือคีย์ SSH) แล้วลองอีกครั้ง";
@@ -129,10 +129,10 @@
 "Branch to check out" = "แบรนช์ที่จะเช็กเอาต์";
 "Branches hidden from the graph — right-click to show again" = "แบรนช์ที่ซ่อนจากกราฟ — คลิกขวาเพื่อแสดงอีกครั้ง";
 "Branches pinned to the top" = "แบรนช์ที่ปักหมุดไว้ด้านบน";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ เป็นเวอร์ชันล่าสุดแล้ว";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork ถูกเปิดจากไฟล์ที่ดาวน์โหลดโดยตรงและกำลังทำงานจากตำแหน่งชั่วคราว จึงแทนที่ตัวเองไม่ได้ ให้ย้ายไปไว้ในโฟลเดอร์แอปพลิเคชัน เปิดใหม่ แล้วจึงอัปเดต";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork จะรีสตาร์ทเพื่อใช้การเปลี่ยนแปลง เมื่อไม่มีประวัติคอมมิตให้อ้างอิง AI จะเขียนเป็นภาษานี้ด้วย";
-"Branchwork update" = "อัปเดต Branchwork";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ เป็นเวอร์ชันล่าสุดแล้ว";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi ถูกเปิดจากไฟล์ที่ดาวน์โหลดโดยตรงและกำลังทำงานจากตำแหน่งชั่วคราว จึงแทนที่ตัวเองไม่ได้ ให้ย้ายไปไว้ในโฟลเดอร์แอปพลิเคชัน เปิดใหม่ แล้วจึงอัปเดต";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi จะรีสตาร์ทเพื่อใช้การเปลี่ยนแปลง เมื่อไม่มีประวัติคอมมิตให้อ้างอิง AI จะเขียนเป็นภาษานี้ด้วย";
+"Gitrochi update" = "อัปเดต Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "ดึงคอมมิตใหม่ %1$lld รายการจากรีโมตเข้ามาในแบรนช์ปัจจุบัน";
 "Browser" = "เบราว์เซอร์";
 "By branch" = "ตามแบรนช์";
@@ -364,7 +364,7 @@
 "End the %@ session?" = "สิ้นสุดเซสชัน %1$@ หรือไม่";
 "Ended" = "สิ้นสุดแล้ว";
 "Ended sessions" = "เซสชันที่สิ้นสุดแล้ว";
-"Enter an administrator password to update Branchwork in %@." = "ป้อนรหัสผ่านผู้ดูแลระบบเพื่ออัปเดต Branchwork ใน %1$@";
+"Enter an administrator password to update Gitrochi in %@." = "ป้อนรหัสผ่านผู้ดูแลระบบเพื่ออัปเดต Gitrochi ใน %1$@";
 "Enter the server address." = "ป้อนที่อยู่เซิร์ฟเวอร์";
 "Enter your %@ key in Settings > AI." = "ป้อนคีย์ %1$@ ในการตั้งค่า > AI";
 "Environment %lld" = "สภาพแวดล้อม %1$lld";
@@ -435,7 +435,7 @@
 "Incoming commit" = "คอมมิตที่เข้ามา";
 "Install" = "ติดตั้ง";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "ตำแหน่งติดตั้งแตกต่างกันในแต่ละคน หากไม่พบเครื่องมือโดยอัตโนมัติ ให้ใช้ **ระบุตำแหน่ง** เพื่อเลือกไฟล์ปฏิบัติการเอง พาธที่เลือกจะถูกบันทึกไว้ใช้ในครั้งถัดไป";
-"Installing… Branchwork restarts when done" = "กำลังติดตั้ง… Branchwork จะรีสตาร์ทเมื่อเสร็จ";
+"Installing… Gitrochi restarts when done" = "กำลังติดตั้ง… Gitrochi จะรีสตาร์ทเมื่อเสร็จ";
 "Invalid address: %@" = "ที่อยู่ไม่ถูกต้อง: %1$@";
 "It was closed or hasn't been loaded yet." = "ถูกปิดไปแล้วหรือยังไม่ได้โหลด";
 "Keep at least one commit." = "ต้องเหลืออย่างน้อยหนึ่งคอมมิต";
@@ -554,7 +554,7 @@
 "Only the panel is hidden; shells keep running." = "ซ่อนเฉพาะแผงเท่านั้น เชลล์ยังทำงานต่อ";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "เปลี่ยนเฉพาะช่องว่าง (ปิด 'ละเว้นช่องว่าง' เพื่อดู)";
 "Open" = "เปิด";
-"Open in Branchwork" = "เปิดใน Branchwork";
+"Open in Gitrochi" = "เปิดใน Gitrochi";
 "Open in Terminal" = "เปิดในเทอร์มินัล";
 "Open in browser" = "เปิดในเบราว์เซอร์";
 "Open in the terminal below" = "เปิดในเทอร์มินัลด้านล่าง";
@@ -783,10 +783,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "diff ยาวเกินไป จึงส่งเฉพาะส่วนต้นไปยัง %1$@ (ละไว้ %2$lldK ตัวอักษร)";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "diff ยาวเกินไป จึงใช้เฉพาะส่วนต้นในการแบ่ง (ละไว้ %1$lldK ตัวอักษร)";
 "The downloaded app's signature is invalid: %@" = "ลายเซ็นของแอปที่ดาวน์โหลดไม่ถูกต้อง: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "ไฟล์ที่ดาวน์โหลดไม่ใช่ Branchwork จึงไม่ได้ติดตั้ง";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "ไฟล์ที่ดาวน์โหลดไม่ใช่ Gitrochi จึงไม่ได้ติดตั้ง";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "SHA-256 ของไฟล์ที่ดาวน์โหลดไม่ตรงกับรีลีส จึงไม่ได้ติดตั้ง";
 "The file is empty or not committed yet." = "ไฟล์ว่างเปล่าหรือยังไม่ได้คอมมิต";
-"The language changes when Branchwork restarts." = "ภาษาจะเปลี่ยนเมื่อ Branchwork รีสตาร์ท";
+"The language changes when Gitrochi restarts." = "ภาษาจะเปลี่ยนเมื่อ Gitrochi รีสตาร์ท";
 "The new message is empty." = "ข้อความใหม่ว่างเปล่า";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "คำนำหน้าเป็นหนึ่งใน Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
 "The release has no SHA-256 file. It wasn't installed." = "รีลีสไม่มีไฟล์ SHA-256 จึงไม่ได้ติดตั้ง";

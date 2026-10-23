@@ -24,7 +24,7 @@ final class AvatarStore {
 
     private let directory: URL = {
         let d = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Branchwork/avatars", isDirectory: true)
+            .appendingPathComponent("Gitrochi/avatars", isDirectory: true)
         try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
         return d
     }()
@@ -117,7 +117,7 @@ final class AvatarStore {
     nonisolated private static func get(_ url: String, headers: [String: String] = [:]) async -> (Int, Data)? {
         guard let u = URL(string: url) else { return nil }
         var req = URLRequest(url: u, timeoutInterval: 15)
-        req.setValue("Branchwork", forHTTPHeaderField: "User-Agent")
+        req.setValue("Gitrochi", forHTTPHeaderField: "User-Agent")
         for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
         guard let (data, resp) = try? await URLSession.shared.data(for: req) else { return nil }
         return ((resp as? HTTPURLResponse)?.statusCode ?? 0, data)

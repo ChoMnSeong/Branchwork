@@ -12,7 +12,7 @@ struct WelcomeView: View {
                 Image(nsImage: NSApp.applicationIconImage)
                     .resizable()
                     .frame(width: 112, height: 112)
-                Text("Branchwork").font(.largeTitle.weight(.bold))
+                Text("Gitrochi").font(.largeTitle.weight(.bold))
                 Text("A Mac app for viewing and working with Git repositories as a graph")
                     .foregroundStyle(.secondary)
                 VStack(spacing: 8) {

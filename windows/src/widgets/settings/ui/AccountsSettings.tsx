@@ -29,7 +29,7 @@ export function AccountsSettings() {
     setWorking(null);
   };
   const count = (p: Provider) => (accounts.accountsFor(p).length ? t(" · {0}", accounts.accountsFor(p).length) : "");
-  const gitlabTokenURL = gitlabServer.trim() ? AccountStore.normalizeServer(gitlabServer) + "/-/user_settings/personal_access_tokens?name=Branchwork&scopes=api" : null;
+  const gitlabTokenURL = gitlabServer.trim() ? AccountStore.normalizeServer(gitlabServer) + "/-/user_settings/personal_access_tokens?name=Gitrochi&scopes=api" : null;
 
   return (
     <div className="col" style={{ gap: 14 }}>
@@ -63,7 +63,7 @@ export function AccountsSettings() {
           )}
           {working === "github" && <Spinner />}
           <span className="spacer" />
-          <button className="link" onClick={() => void ipc.openUrl("https://github.com/settings/tokens/new?scopes=repo,read:org,workflow&description=Branchwork")}>
+          <button className="link" onClick={() => void ipc.openUrl("https://github.com/settings/tokens/new?scopes=repo,read:org,workflow&description=Gitrochi")}>
             {t("Create token")}</button>
         </div>
         <span className="hint">{t("If you connect several accounts, you can choose which one to use above the PR list for repositories on the same server.")}</span>

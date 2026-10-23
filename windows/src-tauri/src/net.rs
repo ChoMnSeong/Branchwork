@@ -16,7 +16,7 @@ fn client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
-            .user_agent("Branchwork")
+            .user_agent("Gitrochi")
             .connect_timeout(Duration::from_secs(15))
             .build()
             .expect("HTTP client")

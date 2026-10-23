@@ -1,4 +1,4 @@
-//! Branchwork 백엔드: 화면(웹)은 여기 명령으로 git·셸·파일·네트워크·자격 증명을 다룬다.
+//! Gitrochi 백엔드: 화면(웹)은 여기 명령으로 git·셸·파일·네트워크·자격 증명을 다룬다.
 //! git 동작은 새로 구현하지 않고 시스템 git 을 그대로 실행한다.
 
 pub mod helper;
@@ -91,5 +91,5 @@ pub fn run() {
             update::app_restart,
         ])
         .run(tauri::generate_context!())
-        .expect("Couldn't start Branchwork");
+        .expect("Couldn't start Gitrochi");
 }

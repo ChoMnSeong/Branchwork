@@ -15,7 +15,7 @@ struct AppearanceSettings: View {
                     Divider()
                     ForEach(AppLanguage.options) { Text(verbatim: $0.name).tag($0.code) }
                 }
-                Text("Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language.")
+                Text("Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Theme") {
@@ -37,7 +37,7 @@ struct AppearanceSettings: View {
             Button("Later", role: .cancel) {}
             Button("Restart now") { AppLanguage.relaunch() }
         } message: {
-            Text("The language changes when Branchwork restarts.")
+            Text("The language changes when Gitrochi restarts.")
         }
     }
 }

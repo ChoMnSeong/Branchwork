@@ -10,11 +10,11 @@ import Observation
 final class UpdateCenter {
     static let shared = UpdateCenter()
 
-    static let repo = "ChoMnSeong/Branchwork"
+    static let repo = "ChoMnSeong/Gitrochi"
 
-    /// 릴리스 zip 서명을 확인할 Ed25519 공개키(Info.plist BWUpdatePublicKey, base64). 없으면 SHA-256 만 본다 — 만들기: macos/Tools/updatekey.sh new
+    /// 릴리스 zip 서명을 확인할 Ed25519 공개키(Info.plist GitrochiUpdatePublicKey, base64). 없으면 SHA-256 만 본다 — 만들기: macos/Tools/updatekey.sh new
     static let publicKey: String? = {
-        let key = (Bundle.main.object(forInfoDictionaryKey: "BWUpdatePublicKey") as? String)?
+        let key = (Bundle.main.object(forInfoDictionaryKey: "GitrochiUpdatePublicKey") as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return key.isEmpty ? nil : key
     }()
@@ -95,7 +95,7 @@ final class UpdateCenter {
             // 최근 릴리스 중 맥 파일이 있는 가장 새 것(Windows 만 고친 릴리스가 'latest' 일 수 있어서)
             var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(Self.repo)/releases?per_page=20")!, timeoutInterval: 20)
             req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-            req.setValue("Branchwork", forHTTPHeaderField: "User-Agent")
+            req.setValue("Gitrochi", forHTTPHeaderField: "User-Agent")
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard (resp as? HTTPURLResponse)?.statusCode == 200,
                   let list = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
@@ -157,7 +157,7 @@ final class UpdateCenter {
         let dest = Bundle.main.bundleURL
         // 다운로드 폴더에서 바로 연 앱은 macOS 가 읽기 전용 임시 위치에서 띄워서 바꿔 넣을 수 없다
         guard !Self.isTranslocated(dest) else {
-            phase = .failed(String(localized: "Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update."))
+            phase = .failed(String(localized: "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update."))
             return
         }
         phase = .downloading
@@ -196,9 +196,10 @@ final class UpdateCenter {
 
     nonisolated static func isTranslocated(_ app: URL) -> Bool { app.path.contains("/AppTranslocation/") }
 
+
     /// 받아서 확인까지: SHA-256(공개키가 있으면 Ed25519 서명도)이 릴리스와 맞고, 같은 앱(번들 ID)이며, 서명이 온전한 새 앱의 위치
     func prepare(_ r: Release, bundleID: String?) async throws -> URL {
-        let work = FileManager.default.temporaryDirectory.appendingPathComponent("branchwork-update-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        let work = FileManager.default.temporaryDirectory.appendingPathComponent("gitrochi-update-\(UUID().uuidString.prefix(8))", isDirectory: true)
         try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
         let zipFile = work.appendingPathComponent(r.zipName.isEmpty ? "update.zip" : r.zipName)
         try await Self.download(r.zipURL, to: zipFile) { [weak self] p in Task { @MainActor in self?.progress = p } }
@@ -226,9 +227,9 @@ final class UpdateCenter {
         }
         let unzip = try await Shell.run("/usr/bin/ditto", ["-x", "-k", zipFile.path, work.path], cwd: work, timeout: 120)
         guard unzip.status == 0 else { throw AIError.failed(String(localized: "Update"), String(localized: "Couldn't extract: \(unzip.stderr)")) }
-        let newApp = work.appendingPathComponent("Branchwork.app")
+        let newApp = work.appendingPathComponent("Gitrochi.app")
         guard let newID = Bundle(url: newApp)?.bundleIdentifier, newID == bundleID else {
-            throw AIError.failed(String(localized: "Update"), String(localized: "The downloaded file isn't Branchwork. It wasn't installed."))
+            throw AIError.failed(String(localized: "Update"), String(localized: "The downloaded file isn't Gitrochi. It wasn't installed."))
         }
         let verify = try await Shell.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", newApp.path], cwd: work, timeout: 120)
         guard verify.status == 0 else { throw AIError.failed(String(localized: "Update"), String(localized: "The downloaded app's signature is invalid: \(verify.stderr)")) }
@@ -247,7 +248,7 @@ final class UpdateCenter {
 
     /// 관리자 권한으로 지금 바로 dest 를 newApp 으로 바꿔 넣는다. 암호 창을 취소하면 false.
     nonisolated static func replaceAsAdmin(with newApp: URL, at dest: URL) async throws -> Bool {
-        let prompt = String(localized: "Enter an administrator password to update Branchwork in \(dest.deletingLastPathComponent().path).")
+        let prompt = String(localized: "Enter an administrator password to update Gitrochi in \(dest.deletingLastPathComponent().path).")
         let r = try await Shell.run("/usr/bin/osascript", adminSwapArguments(newApp: newApp, dest: dest, prompt: prompt), cwd: URL(fileURLWithPath: "/"), timeout: 600)
         if r.status == 0 { return true }
         if r.stderr.contains("-128") { return false }   // 사용자가 취소
@@ -286,7 +287,7 @@ final class UpdateCenter {
 
     /// 앱이 끝난 뒤(사용자 권한으로) 돌 스크립트: $1 기다릴 pid $2 새 앱(- 이면 바꿔 넣지 않음) $3 설치 위치 $4 1 이면 다시 열기
     nonisolated private static func installScript() throws -> URL {
-        let script = FileManager.default.temporaryDirectory.appendingPathComponent("branchwork-install-\(UUID().uuidString.prefix(8)).sh")
+        let script = FileManager.default.temporaryDirectory.appendingPathComponent("gitrochi-install-\(UUID().uuidString.prefix(8)).sh")
         try """
         #!/bin/sh
         \(swapFunction)
@@ -329,7 +330,7 @@ final class UpdateCenter {
         if let window { window.makeKeyAndOrderFront(nil); NSApp.activate(); return }
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 300),
                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        w.title = String(localized: "Branchwork update")
+        w.title = String(localized: "Gitrochi update")
         w.isReleasedWhenClosed = false
         w.contentViewController = NSHostingController(rootView: UpdateView())
         w.center()
@@ -357,7 +358,7 @@ struct UpdateView: View {
             case .checking:
                 HStack { ProgressView().controlSize(.small); Text("Checking for a new version…") }
             case .upToDate, .idle:
-                Label("Branchwork \(UpdateCenter.currentVersion) is the latest version.", systemImage: "checkmark.circle.fill")
+                Label("Gitrochi \(UpdateCenter.currentVersion) is the latest version.", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                 HStack { Spacer(); Button("OK") { center.closeWindow() }.keyboardShortcut(.defaultAction) }
             case .failed(let m):
@@ -397,7 +398,7 @@ struct UpdateView: View {
                         }
                     } else {
                         ProgressView(value: center.progress ?? 0)
-                        Text(center.phase == .installing ? "Installing… Branchwork restarts when done" : "Downloading…")
+                        Text(center.phase == .installing ? "Installing… Gitrochi restarts when done" : "Downloading…")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Text("A downloaded file is installed only if its SHA-256 and signature match the release. After updating, you may be asked again for Keychain access on first launch.")

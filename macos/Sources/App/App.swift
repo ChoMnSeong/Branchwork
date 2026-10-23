@@ -27,10 +27,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct BranchworkApp: App {
+struct GitrochiApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     init() {
+        LegacyData.migrate()
         // 화면 언어(기본 영어): 번역 묶음을 고르기 전에 정해 둔다
         AppLanguage.applyChoice()
         // 커밋 메시지를 stdin 으로 넘기는 중 git 이 먼저 끝나도 SIGPIPE 로 앱이 죽지 않게
@@ -43,7 +44,7 @@ struct BranchworkApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Branchwork", id: "repo", for: String.self) { $path in
+        WindowGroup("Gitrochi", id: "repo", for: String.self) { $path in
             RepoWindow(path: $path)
                 .frame(minWidth: 1080, minHeight: 640)
         }
@@ -73,7 +74,7 @@ struct RepoWindow: View {
                 store.close()
             }))
             .focusedSceneValue(\.repoStore, store)
-            .navigationTitle(store.url == nil ? "Branchwork" : store.name)
+            .navigationTitle(store.url == nil ? "Gitrochi" : store.name)
             .task {
                 // 탭을 오가며 화면이 다시 나타나도 한 번만 연다
                 guard !started else { return }
@@ -224,7 +225,7 @@ struct RepoContainer: View {
                 WelcomeView()
             }
             if showLoading {
-                LoadingView(title: store.loading?.title ?? "Branchwork",
+                LoadingView(title: store.loading?.title ?? "Gitrochi",
                             step: store.loading?.step ?? String(localized: "Preparing…"))
                     .transition(.opacity)
                     .zIndex(1)

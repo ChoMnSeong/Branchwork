@@ -132,7 +132,7 @@ private struct WorktreeCard: View {
         }
         .contextMenu {
             Button("Start agent session…") { store.sheet = .startAgent(path: worktree.path) }
-            Button("Open in Branchwork") {
+            Button("Open in Gitrochi") {
                 Task { await store.openOrReport(URL(fileURLWithPath: worktree.path, isDirectory: true)) }
             }
             .disabled(isCurrent)

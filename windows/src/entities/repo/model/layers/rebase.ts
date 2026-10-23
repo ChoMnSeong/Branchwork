@@ -40,7 +40,7 @@ export abstract class RepoRebase extends RepoDrop {
   /** 계획대로 git rebase -i 를 돌린다(할 일 목록은 미리 만들어 편집기 대신 복사해 넣는다) */
   async runInteractiveRebase(plan: RebasePlan) {
     if (!this.gitDir || planProblem(plan)) return;
-    const dir = joinPath(this.gitDir, "branchwork-rebase");
+    const dir = joinPath(this.gitDir, "gitrochi-rebase");
     const file = (name: string) => slash(joinPath(dir, name));
     try {
       await ipc.remove(dir);

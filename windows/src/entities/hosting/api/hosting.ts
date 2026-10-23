@@ -77,7 +77,7 @@ export function findTarget(remotes: string[], urls: Record<string, string>, gitl
 }
 
 function headers(p: Provider, token: string, json: boolean): Record<string, string> {
-  const h: Record<string, string> = { "User-Agent": "Branchwork" };
+  const h: Record<string, string> = { "User-Agent": "Gitrochi" };
   if (p === "github") {
     h["Authorization"] = `Bearer ${token}`;
     h["Accept"] = "application/vnd.github+json";

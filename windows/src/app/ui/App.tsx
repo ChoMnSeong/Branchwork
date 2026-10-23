@@ -19,8 +19,8 @@ export function App({ gitMissing }: { gitMissing: boolean }) {
       setSettingsTab(((e as CustomEvent).detail as SettingsTab) ?? "accounts");
       setSettingsOpen(true);
     };
-    window.addEventListener("bw-open-settings", open);
-    return () => window.removeEventListener("bw-open-settings", open);
+    window.addEventListener("gitrochi-open-settings", open);
+    return () => window.removeEventListener("gitrochi-open-settings", open);
   }, []);
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export function App({ gitMissing }: { gitMissing: boolean }) {
         {workspace.tabs.map((tab) => (
           <RepoTab key={tab.id} store={tab} visible={tab === active} gitMissing={gitMissing} openSettings={() => setSettingsOpen(true)} />
         ))}
-        {!workspace.tabs.length && <LoadingView title="Branchwork" step={workspace.restoreStep} />}
+        {!workspace.tabs.length && <LoadingView title="Gitrochi" step={workspace.restoreStep} />}
       </div>
       {settingsOpen && (
         <SettingsDialog

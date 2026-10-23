@@ -25,7 +25,7 @@ struct AccountsSettings: View {
                     }
                     if working == .github { ProgressView().controlSize(.small) }
                     Spacer()
-                    Link("Create token", destination: URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org,workflow&description=Branchwork")!)
+                    Link("Create token", destination: URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org,workflow&description=Gitrochi")!)
                 }
             } header: {
                 Text("GitHub \(countText(.github))")
@@ -46,7 +46,7 @@ struct AccountsSettings: View {
                     if working == .gitlab { ProgressView().controlSize(.small) }
                     Spacer()
                     if !gitlabServer.trimmed.isEmpty,
-                       let u = URL(string: AccountStore.normalizeServer(gitlabServer) + "/-/user_settings/personal_access_tokens?name=Branchwork&scopes=api") {
+                       let u = URL(string: AccountStore.normalizeServer(gitlabServer) + "/-/user_settings/personal_access_tokens?name=Gitrochi&scopes=api") {
                         Link("Create token", destination: u)
                     }
                 }

@@ -14,7 +14,7 @@ export function RepoTab({ store, visible, gitMissing, openSettings }: { store: R
   return (
     <div style={{ position: "absolute", inset: 0, display: visible ? "block" : "none" }}>
       {store.path ? <RepoPage store={store} openSettings={openSettings} /> : store.booted && !store.loading ? <WelcomePage store={store} gitMissing={gitMissing} /> : null}
-      <FadingLoading show={showLoading} title={store.loading?.title ?? "Branchwork"} step={store.loading?.step ?? t("Preparing…")} />
+      <FadingLoading show={showLoading} title={store.loading?.title ?? "Gitrochi"} step={store.loading?.step ?? t("Preparing…")} />
       {visible && <DialogHost store={store} />}
     </div>
   );

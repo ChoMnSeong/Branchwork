@@ -25,7 +25,7 @@ export function UpdateDialog() {
   if (!u) {
     return (
       <Modal title={t("You're up to date")} onClose={close} footer={<Button kind="primary" onClick={close}>{t("OK")}</Button>}>
-        <div className="modal-message">{t("Branchwork {0} is the latest version.", env.version)}</div>
+        <div className="modal-message">{t("Gitrochi {0} is the latest version.", env.version)}</div>
       </Modal>
     );
   }
@@ -38,7 +38,7 @@ export function UpdateDialog() {
       footer={
         busy ? (
           <span className="row muted">
-            <Spinner size={13} /> {updater.state === "installing" ? t("Installing… Branchwork restarts when done") : t("Downloading…")}
+            <Spinner size={13} /> {updater.state === "installing" ? t("Installing… Gitrochi restarts when done") : t("Downloading…")}
           </span>
         ) : (
           <>
@@ -68,7 +68,7 @@ export function UpdateDialog() {
         </div>
       )}
       {updater.state === "error" && <span className="error-text">{updater.error}</span>}
-      <span className="hint">{t("The installer runs only if its Branchwork signature is valid. The window closes briefly and reopens during installation.")}</span>
+      <span className="hint">{t("The installer runs only if its Gitrochi signature is valid. The window closes briefly and reopens during installation.")}</span>
     </Modal>
   );
 }

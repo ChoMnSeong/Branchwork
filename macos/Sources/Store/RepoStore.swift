@@ -13,7 +13,7 @@ final class RepoStore: Identifiable {
     // MARK: 저장소
     private(set) var url: URL?
     private(set) var gitDir: URL?
-    var name: String { url?.lastPathComponent ?? "Branchwork" }
+    var name: String { url?.lastPathComponent ?? "Gitrochi" }
 
     // MARK: 데이터
     private(set) var entries: [GraphEntry] = []
@@ -361,10 +361,10 @@ final class RepoStore: Identifiable {
 
     private static let statusArgs = ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"]
 
-    /// BRANCHWORK_TRACE=1 이면 새로 고침 종류와 걸린 시간을 표준 오류로(성능 확인용)
-    static let tracing = ProcessInfo.processInfo.environment["BRANCHWORK_TRACE"] == "1"
+    /// GITROCHI_TRACE=1 이면 새로 고침 종류와 걸린 시간을 표준 오류로(성능 확인용)
+    static let tracing = ProcessInfo.processInfo.environment["GITROCHI_TRACE"] == "1"
     static func trace(_ s: @autoclosure () -> String) {
-        if tracing { FileHandle.standardError.write(Data("[branchwork] \(s())\n".utf8)) }
+        if tracing { FileHandle.standardError.write(Data("[gitrochi] \(s())\n".utf8)) }
     }
 
     /// 바뀐 값만 넣는다(같은 값을 다시 넣어도 화면이 다시 그려져서, 큰 저장소에서 2,000줄 그래프가 매번 다시 계산된다)

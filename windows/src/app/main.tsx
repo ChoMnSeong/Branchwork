@@ -14,7 +14,7 @@ async function boot() {
 void boot().catch((e) => {
   const pre = document.createElement("pre");
   pre.style.cssText = "padding:20px;white-space:pre-wrap";
-  pre.textContent = `${t("Couldn't start Branchwork")}\n\n${String(e?.stack ?? e)}`;
+  pre.textContent = `${t("Couldn't start Gitrochi")}\n\n${String(e?.stack ?? e)}`;
   document.body.replaceChildren(pre);
   void ipc.appReady();
 });

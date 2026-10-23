@@ -13,7 +13,7 @@ import { gitRaw, listDistros, tools } from "@/shared/platform";
 import { theme } from "@/shared/ui";
 
 /**
- * 자동 점검(CI 의 Windows 서버에서): BRANCHWORK_SELFTEST=<테스트 저장소> 로 켜면
+ * 자동 점검(CI 의 Windows 서버에서): GITROCHI_SELFTEST=<테스트 저장소> 로 켜면
  * 실제 화면·백엔드로 주요 기능을 차례로 해 보고 결과를 <저장소 옆>/selftest-result.json 에 남긴다.
  */
 interface Check {
@@ -63,7 +63,7 @@ export async function runSelfTest(): Promise<boolean> {
 
   const file = joinPath(repo, "selftest-새파일.txt");
   await step("파일 감시 → 새 파일 표시", async () => {
-    await ipc.writeText(file, "안녕하세요 Branchwork\nline 2\n");
+    await ipc.writeText(file, "안녕하세요 Gitrochi\nline 2\n");
     return [await until(() => s.status.unstaged.some((c) => c.path.startsWith("selftest-")), 10000), JSON.stringify(s.status.unstaged.map((c) => c.path))];
   });
   await step("새 파일 diff", async () => {
@@ -150,18 +150,18 @@ export async function runSelfTest(): Promise<boolean> {
   // 도우미 모드(같은 실행 파일): git 자격 증명 응답, Claude Code 훅
   await step("GIT_ASKPASS 도우미", async () => {
     const r = await ipc.run(env.exe, ["Username for 'https://example.com': "], {
-      env: { BRANCHWORK_ASKPASS: "1", BRANCHWORK_ASKPASS_COUNT: "1", BRANCHWORK_ASKPASS_HOST_1: "example.com", BRANCHWORK_ASKPASS_USER_1: "x-access-token", BRANCHWORK_ASKPASS_PASS_1: "secret" },
+      env: { GITROCHI_ASKPASS: "1", GITROCHI_ASKPASS_COUNT: "1", GITROCHI_ASKPASS_HOST_1: "example.com", GITROCHI_ASKPASS_USER_1: "x-access-token", GITROCHI_ASKPASS_PASS_1: "secret" },
       timeoutMs: 15000,
     });
     const r2 = await ipc.run(env.exe, ["Password for 'https://x-access-token@example.com': "], {
-      env: { BRANCHWORK_ASKPASS: "1", BRANCHWORK_ASKPASS_COUNT: "1", BRANCHWORK_ASKPASS_HOST_1: "example.com", BRANCHWORK_ASKPASS_USER_1: "x-access-token", BRANCHWORK_ASKPASS_PASS_1: "secret" },
+      env: { GITROCHI_ASKPASS: "1", GITROCHI_ASKPASS_COUNT: "1", GITROCHI_ASKPASS_HOST_1: "example.com", GITROCHI_ASKPASS_USER_1: "x-access-token", GITROCHI_ASKPASS_PASS_1: "secret" },
       timeoutMs: 15000,
     });
     return [r.stdout.trim() === "x-access-token" && r2.stdout.trim() === "secret", `${r.status} [${r.stdout.trim()}] [${r2.stdout.trim()}] ${r.stderr}`];
   });
   await step("Claude Code 훅 도우미", async () => {
     const id = "selftest-" + Date.now();
-    await ipc.run(env.exe, ["--agent-hook", "Stop"], { stdin: '{"session_id":"x"}', env: { BRANCHWORK_AGENT_ID: id }, timeoutMs: 15000 });
+    await ipc.run(env.exe, ["--agent-hook", "Stop"], { stdin: '{"session_id":"x"}', env: { GITROCHI_AGENT_ID: id }, timeoutMs: 15000 });
     const text = await ipc.readText(joinPath(env.dataDir, "agents", id + ".state"));
     await ipc.remove(joinPath(env.dataDir, "agents", id + ".state"));
     return [!!text && text.includes('"event":"Stop"'), text];
@@ -174,7 +174,7 @@ export async function runSelfTest(): Promise<boolean> {
     return [v === "값-123" && gone === null, `${v} / ${gone}`];
   });
   await step("HTTPS 요청", async () => {
-    const r = await ipc.http("GET", "https://api.github.com/zen", { "User-Agent": "Branchwork" });
+    const r = await ipc.http("GET", "https://api.github.com/zen", { "User-Agent": "Gitrochi" });
     return [r.status === 200 || r.status === 403, r.status];
   });
   await step("DNS 조회", async () => {
@@ -635,7 +635,7 @@ export async function runSelfTest(): Promise<boolean> {
   s.select({ kind: "commit", sha: s.headHash! });
   const result = { ok: checks.every((c) => c.ok), os: env.os, windows: isWindows(), checks };
   await ipc.writeText(out, JSON.stringify(result, null, 2));
-  if (env.selftestOpen) window.dispatchEvent(new CustomEvent("bw-open-settings", { detail: env.selftestOpen }));
+  if (env.selftestOpen) window.dispatchEvent(new CustomEvent("gitrochi-open-settings", { detail: env.selftestOpen }));
   return true;
 }
 

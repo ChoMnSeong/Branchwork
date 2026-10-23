@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/images/icon.png" width="112" alt="Branchwork 아이콘">
+  <img src="docs/images/icon.png" width="112" alt="Gitrochi 아이콘">
 </p>
 
-<h1 align="center">Branchwork</h1>
+<h1 align="center">Gitrochi</h1>
 
 <p align="center">
   <b>커밋 그래프로 보고, 클릭으로 다루는 Git 클라이언트</b><br>
@@ -10,15 +10,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ChoMnSeong/Branchwork/releases/latest"><img src="https://img.shields.io/github/v/release/ChoMnSeong/Branchwork?label=%EC%B5%9C%EC%8B%A0%20%EB%B2%84%EC%A0%84&color=2f6fec" alt="최신 버전"></a>
-  <a href="https://github.com/ChoMnSeong/Branchwork/releases"><img src="https://img.shields.io/github/downloads/ChoMnSeong/Branchwork/total?label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C&color=2a9a55" alt="다운로드"></a>
+  <a href="https://github.com/ChoMnSeong/Gitrochi/releases/latest"><img src="https://img.shields.io/github/v/release/ChoMnSeong/Gitrochi?label=%EC%B5%9C%EC%8B%A0%20%EB%B2%84%EC%A0%84&color=2f6fec" alt="최신 버전"></a>
+  <a href="https://github.com/ChoMnSeong/Gitrochi/releases"><img src="https://img.shields.io/github/downloads/ChoMnSeong/Gitrochi/total?label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C&color=2a9a55" alt="다운로드"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-111?logo=apple&logoColor=white" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Windows-10%20%C2%B7%2011-0078d4?logo=windows&logoColor=white" alt="Windows 10 · 11">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/ChoMnSeong/Branchwork?color=6b6b72" alt="MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ChoMnSeong/Gitrochi?color=6b6b72" alt="MIT"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ChoMnSeong/Branchwork/releases/latest"><b>⬇&nbsp; 내려받기</b></a>
+  <a href="https://github.com/ChoMnSeong/Gitrochi/releases/latest"><b>⬇&nbsp; 내려받기</b></a>
   &nbsp;·&nbsp; <a href="#설치">설치</a>
   &nbsp;·&nbsp; <a href="#사용법">사용법</a>
   &nbsp;·&nbsp; <a href="#기능-자세히">기능 자세히</a>
@@ -27,11 +27,11 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png">
-    <img src="docs/images/hero-light.png" alt="Branchwork 메인 화면 — 왼쪽 브랜치·태그, 가운데 커밋 그래프, 오른쪽 작업 중인 변경과 커밋 입력">
+    <img src="docs/images/hero-light.png" alt="Gitrochi 메인 화면 — 왼쪽 브랜치·태그, 가운데 커밋 그래프, 오른쪽 작업 중인 변경과 커밋 입력">
   </picture>
 </p>
 
-> **English** — A native Git client for macOS and Windows: a readable commit graph, staging and commits, GitHub / GitLab pull requests, CI/CD pipelines you can trigger, AI-written commit messages, Claude Code · Codex · Gemini agents in worktrees, and a built-in terminal. Git itself does the work — Branchwork calls your system `git`.
+> **English** — A native Git client for macOS and Windows: a readable commit graph, staging and commits, GitHub / GitLab pull requests, CI/CD pipelines you can trigger, AI-written commit messages, Claude Code · Codex · Gemini agents in worktrees, and a built-in terminal. Git itself does the work — Gitrochi calls your system `git`.
 
 ## 한눈에
 
@@ -79,16 +79,16 @@
 
 ### macOS (15 이상, Apple Silicon · Intel)
 
-1. [최신 릴리스](https://github.com/ChoMnSeong/Branchwork/releases/latest)에서 `Branchwork-<버전>-macOS.dmg` 를 받아 `Branchwork.app` 을 응용 프로그램 폴더로 옮깁니다.
+1. [최신 릴리스](https://github.com/ChoMnSeong/Gitrochi/releases/latest)에서 `Gitrochi-<버전>-macOS.dmg` 를 받아 `Gitrochi.app` 을 응용 프로그램 폴더로 옮깁니다.
 2. 아직 Apple 공증을 받지 않은 빌드라 처음 열 때 "확인되지 않은 개발자" 경고가 뜹니다. 둘 중 하나로 여세요.
    - **시스템 설정 → 개인정보 보호 및 보안** 아래쪽의 **그래도 열기**
-   - 또는 터미널에서 `xattr -dr com.apple.quarantine /Applications/Branchwork.app`
+   - 또는 터미널에서 `xattr -dr com.apple.quarantine /Applications/Gitrochi.app`
 
 필요: `git`(Xcode 또는 `xcode-select --install`). 선택: [Claude Code](https://claude.com/claude-code) · [GitHub CLI](https://cli.github.com).
 
 ### Windows (10 1809 이상 · 11, x64)
 
-1. [최신 릴리스](https://github.com/ChoMnSeong/Branchwork/releases/latest)에서 `Branchwork_<버전>_x64-setup.exe` 를 받아 실행합니다(설치 없이 쓰려면 `_portable.zip`).
+1. [최신 릴리스](https://github.com/ChoMnSeong/Gitrochi/releases/latest)에서 `Gitrochi_<버전>_x64-setup.exe` 를 받아 실행합니다(설치 없이 쓰려면 `_portable.zip`).
 2. 코드 서명을 하지 않은 빌드라 SmartScreen 이 막으면 **추가 정보 → 실행**.
 
 필요: [Git for Windows](https://git-scm.com/download/win). WSL 에 설치한 Claude Code · Codex · Gemini CLI 도 쓸 수 있습니다.
@@ -164,7 +164,7 @@
 <details>
 <summary><b>에이전트 · 터미널 · 도구 · 기타</b></summary>
 
-- **에이전트 탭**: 워크트리 카드(새 파일·수정·삭제 수, 원격 대비 ↑↓)와 그 안의 Claude Code · Codex · Gemini CLI 세션 상태(작업 중 · 권한 요청 · 입력 대기 · 종료). 세션 시작(워크트리 선택 또는 새 워크트리, 맡길 작업, 권한 모드). 상태는 Branchwork 가 띄운 세션에 `--settings` 로 더한 훅이 남기는 파일로 판단하며, 사용자 설정·훅은 그대로
+- **에이전트 탭**: 워크트리 카드(새 파일·수정·삭제 수, 원격 대비 ↑↓)와 그 안의 Claude Code · Codex · Gemini CLI 세션 상태(작업 중 · 권한 요청 · 입력 대기 · 종료). 세션 시작(워크트리 선택 또는 새 워크트리, 맡길 작업, 권한 모드). 상태는 Gitrochi 가 띄운 세션에 `--settings` 로 더한 훅이 남기는 파일로 판단하며, 사용자 설정·훅은 그대로
 - **터미널**: 그래프 아래 패널에서 저장소 폴더의 셸(맥 zsh · Windows PowerShell/WSL). 탭 여러 개, 높이 조절, 숨겨도 계속 실행. 맥은 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm), Windows 는 [xterm.js](https://xtermjs.org)
 - **도구**(설정 > 도구): git · Claude Code · Codex · Gemini CLI · gh · 터미널 셸을 자동으로 찾고, 못 찾으면 **불러오기**로 직접 지정. Windows 는 WSL 안의 도구도
 - **탭**: 맥은 기본 창 탭(탭을 끌어 새 창으로), Windows 는 창 안의 탭. 다시 켜면 탭 복원
@@ -193,16 +193,16 @@ docs/      README 이미지와 데모 저장소 스크립트
 **맥** — Swift 6 이상(Xcode 또는 Command Line Tools)만 있으면 됩니다. 외부 패키지를 내려받지 않습니다.
 
 ```sh
-macos/build.sh           # macos/build/Branchwork.app (이 맥의 아키텍처)
+macos/build.sh           # macos/build/Gitrochi.app (이 맥의 아키텍처)
 macos/build.sh install   # 빌드 후 /Applications 에 설치
 macos/build.sh release   # macos/dist/ 에 배포용 dmg·zip·sha256 (arm64 + x86_64 유니버설, ad-hoc 서명, 업데이트 서명)
 ```
 
 - SwiftPM 없이 `swiftc` 로 직접 컴파일합니다(일부 Command Line Tools 에서 SwiftPM 이 동작하지 않아서). 같은 이유로 `@State` 매크로 대신 `ViewState` 별칭(`Views/Shared/Theme.swift`)
 - SwiftTerm 은 아키텍처별 정적 라이브러리(`macos/.build/swiftterm/<arch>/`)로 따로 컴파일(처음 한 번 1분쯤)
-- 이 맥에 Apple Development 인증서가 있으면 그걸로 서명(키체인 허용을 빌드마다 다시 묻지 않게, `BRANCHWORK_SIGN_IDENTITY` 로 변경)
-- `BRANCHWORK_TRACE=1` 로 실행하면 새로 고침 종류와 걸린 시간을 표준 오류로
-- **업데이트 서명**: `macos/Tools/updatekey.sh new` 로 Ed25519 열쇠를 만들면 비밀키는 로그인 키체인에, 공개키는 `Info.plist`(`BWUpdatePublicKey`)에 들어갑니다. 그 뒤 `build.sh release` 는 zip 을 서명(`<zip>.sig`, 비밀키는 `BRANCHWORK_UPDATE_KEY` 또는 키체인)하고, 앱은 SHA-256 과 이 서명이 맞을 때만 설치
+- 이 맥에 Apple Development 인증서가 있으면 그걸로 서명(키체인 허용을 빌드마다 다시 묻지 않게, `GITROCHI_SIGN_IDENTITY` 로 변경)
+- `GITROCHI_TRACE=1` 로 실행하면 새로 고침 종류와 걸린 시간을 표준 오류로
+- **업데이트 서명**: `macos/Tools/updatekey.sh new` 로 Ed25519 열쇠를 만들면 비밀키는 로그인 키체인에, 공개키는 `Info.plist`(`GitrochiUpdatePublicKey`)에 들어갑니다. 그 뒤 `build.sh release` 는 zip 을 서명(`<zip>.sig`, 비밀키는 `GITROCHI_UPDATE_KEY` 또는 키체인)하고, 앱은 SHA-256 과 이 서명이 맞을 때만 설치
 - **배포**: `v*` 태그를 push 하면 Actions(`.github/workflows/macos.yml`)가 태그와 `Info.plist` 버전이 같은지 보고 유니버설로 빌드·서명해 그 태그의 릴리스(없으면 초안)에 올립니다. 앱은 초안을 보지 않으니 노트를 쓰고 게시하면 사용자에게 갑니다
 
 **Windows** — Node.js 22 와 Rust(stable).
@@ -214,14 +214,14 @@ npx tauri build      # src-tauri/target/release/bundle/nsis/*-setup.exe
 npx vitest run       # 파서·그래프·CI 단위 테스트
 ```
 
-- **자동 점검**: `BRANCHWORK_SELFTEST=<테스트 저장소>` 로 실행하면 열기 · 스테이지 · 커밋 · 브랜치 · 머지 · 검색 · stash · 터미널 · 자격 증명 · 도구 · AI · 나눠서 커밋 · 업데이트 서명 · CI/CD · WSL · diff · 줄 단위 스테이지 · 충돌 해결 · 커밋 정리 · 되돌리기 · PR 리뷰 · 탭 메뉴 · 테마를 실제 앱에서 차례로 해 보고 결과를 남깁니다(가짜 서버 `tests/mock-ai-server.mjs`). GitHub Actions 의 Windows 서버에서 푸시마다 돌고, README 의 Windows 스크린샷도 거기서 찍습니다(`.github/workflows/windows.yml`)
+- **자동 점검**: `GITROCHI_SELFTEST=<테스트 저장소>` 로 실행하면 열기 · 스테이지 · 커밋 · 브랜치 · 머지 · 검색 · stash · 터미널 · 자격 증명 · 도구 · AI · 나눠서 커밋 · 업데이트 서명 · CI/CD · WSL · diff · 줄 단위 스테이지 · 충돌 해결 · 커밋 정리 · 되돌리기 · PR 리뷰 · 탭 메뉴 · 테마를 실제 앱에서 차례로 해 보고 결과를 남깁니다(가짜 서버 `tests/mock-ai-server.mjs`). GitHub Actions 의 Windows 서버에서 푸시마다 돌고, README 의 Windows 스크린샷도 거기서 찍습니다(`.github/workflows/windows.yml`)
 - **업데이트 서명**: 릴리스 빌드는 `TAURI_SIGNING_PRIVATE_KEY`(Actions 비밀 값)로 서명하고, 앱은 `tauri.conf.json` 의 공개 키로 확인한 뒤에만 설치. 릴리스에 `latest.json`(`windows/scripts/latest-json.mjs`)
 
 </details>
 
 ## 기여
 
-- 🐞 [버그 제보](https://github.com/ChoMnSeong/Branchwork/issues/new?template=bug_report.yml) · ✨ [기능 요청](https://github.com/ChoMnSeong/Branchwork/issues/new?template=feature_request.yml) · 💬 [질문](https://github.com/ChoMnSeong/Branchwork/issues/new?template=question.yml)
+- 🐞 [버그 제보](https://github.com/ChoMnSeong/Gitrochi/issues/new?template=bug_report.yml) · ✨ [기능 요청](https://github.com/ChoMnSeong/Gitrochi/issues/new?template=feature_request.yml) · 💬 [질문](https://github.com/ChoMnSeong/Gitrochi/issues/new?template=question.yml)
 - 코드 규칙 · 빌드 · 테스트 · 커밋 메시지: [CONTRIBUTING.md](CONTRIBUTING.md)
 - 보안 문제는 이슈 대신 [비공개로](SECURITY.md)
 

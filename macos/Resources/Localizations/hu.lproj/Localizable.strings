@@ -1,4 +1,4 @@
-/* Branchwork — hu. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — hu. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(A diff hosszú volt, ezért csak az eleje kapott magyarázatot.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nHitelesítés szükséges. Futtasson egyszer push/pull parancsot egy terminálban a hitelesítő adatok mentéséhez (kulcskarika vagy SSH-kulcs), majd próbálja újra.";
@@ -127,10 +127,10 @@
 "Branch to check out" = "Ág, amelyre átvált";
 "Branches hidden from the graph — right-click to show again" = "A gráfból elrejtett ágak — jobb kattintással újra megjeleníthetők";
 "Branches pinned to the top" = "Felülre rögzített ágak";
-"Branchwork %@ is the latest version." = "A Branchwork %1$@ a legújabb verzió.";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "A Branchwork közvetlenül a letöltésből lett megnyitva, és ideiglenes helyről fut, ezért nem tudja lecserélni önmagát. Helyezze át az Alkalmazások mappába, nyissa meg újra, majd frissítsen.";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "A módosítás alkalmazásához a Branchwork újraindul. Ha nincs követendő commitelőzmény, az AI is ezen a nyelven ír.";
-"Branchwork update" = "Branchwork-frissítés";
+"Gitrochi %@ is the latest version." = "A Gitrochi %1$@ a legújabb verzió.";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "A Gitrochi közvetlenül a letöltésből lett megnyitva, és ideiglenes helyről fut, ezért nem tudja lecserélni önmagát. Helyezze át az Alkalmazások mappába, nyissa meg újra, majd frissítsen.";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "A módosítás alkalmazásához a Gitrochi újraindul. Ha nincs követendő commitelőzmény, az AI is ezen a nyelven ír.";
+"Gitrochi update" = "Gitrochi-frissítés";
 "Brings %lld new commits from the remote into the current branch." = "Lehúzza a távoli tároló új commitjait (%1$lld) az aktuális ágba.";
 "Browser" = "Böngésző";
 "By branch" = "Áganként";
@@ -362,7 +362,7 @@
 "End the %@ session?" = "Befejezi a munkamenetet (%1$@)?";
 "Ended" = "Befejeződött";
 "Ended sessions" = "Befejezett munkamenetek";
-"Enter an administrator password to update Branchwork in %@." = "Adjon meg egy rendszergazdai jelszót a(z) %1$@ helyen lévő Branchwork frissítéséhez.";
+"Enter an administrator password to update Gitrochi in %@." = "Adjon meg egy rendszergazdai jelszót a(z) %1$@ helyen lévő Gitrochi frissítéséhez.";
 "Enter the server address." = "Adja meg a szerver címét.";
 "Enter your %@ key in Settings > AI." = "Adja meg az API-kulcsot (%1$@) a Beállítások > AI alatt.";
 "Environment %lld" = "Környezet %1$lld";
@@ -431,7 +431,7 @@
 "Incoming commit" = "Bejövő commit";
 "Install" = "Telepítés";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "A telepítési hely mindenkinél más. Ha egy eszköz nem található automatikusan, használja a **Tallózás** gombot a futtatható fájl kézi kiválasztásához. A kiválasztott útvonalat a program megjegyzi, és legközelebb is azt használja.";
-"Installing… Branchwork restarts when done" = "Telepítés… A Branchwork a végén újraindul";
+"Installing… Gitrochi restarts when done" = "Telepítés… A Gitrochi a végén újraindul";
 "Invalid address: %@" = "Érvénytelen cím: %1$@";
 "It was closed or hasn't been loaded yet." = "Lezárták, vagy még nincs betöltve.";
 "Keep at least one commit." = "Legalább egy commitot meg kell tartani.";
@@ -549,7 +549,7 @@
 "Only the panel is hidden; shells keep running." = "Csak a panel rejtődik el; a shellek tovább futnak.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Csak térközök változtak (a megtekintéshez kapcsolja ki a Térközök figyelmen kívül hagyása beállítást).";
 "Open" = "Megnyitás";
-"Open in Branchwork" = "Megnyitás a Branchworkben";
+"Open in Gitrochi" = "Megnyitás a Gitrochiben";
 "Open in Terminal" = "Megnyitás a Terminálban";
 "Open in browser" = "Megnyitás böngészőben";
 "Open in the terminal below" = "Megnyitás az alsó terminálban";
@@ -772,10 +772,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "A diff hosszú volt, ezért csak az eleje ment el ide: %1$@ (%2$lldK karakter kihagyva).";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "A diff hosszú volt, ezért csak az eleje alapján történt a felosztás (%1$lldK karakter kihagyva).";
 "The downloaded app's signature is invalid: %@" = "A letöltött alkalmazás aláírása érvénytelen: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "A letöltött fájl nem a Branchwork, ezért nem történt telepítés.";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "A letöltött fájl nem a Gitrochi, ezért nem történt telepítés.";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "A letöltött fájl SHA-256 értéke nem egyezik a kiadáséval, ezért nem történt telepítés.";
 "The file is empty or not committed yet." = "A fájl üres, vagy még nincs commitolva.";
-"The language changes when Branchwork restarts." = "A nyelv a Branchwork újraindításakor változik meg.";
+"The language changes when Gitrochi restarts." = "A nyelv a Gitrochi újraindításakor változik meg.";
 "The new message is empty." = "Az új üzenet üres.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Az előtag a Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove egyike";
 "The release has no SHA-256 file. It wasn't installed." = "A kiadásban nincs SHA-256 fájl, ezért nem történt telepítés.";

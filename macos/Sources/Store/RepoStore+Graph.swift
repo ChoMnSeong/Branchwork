@@ -17,8 +17,8 @@ struct DropRequest: Identifiable {
 
 /// 그래프에서 바로 하는 브랜치 작업: 끌어다 놓기(머지·리베이스·빨리 감기·cherry-pick)
 extension RepoStore {
-    static let branchPayload = "branchwork-branch:"
-    static let commitPayload = "branchwork-commit:"
+    static let branchPayload = "gitrochi-branch:"
+    static let commitPayload = "gitrochi-commit:"
 
     func branch(named name: String) -> Branch? {
         localBranches.first { $0.name == name } ?? remoteBranches.first { $0.name == name }

@@ -86,10 +86,10 @@ export interface AgentHost {
 const events = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PermissionRequest", "Notification", "Stop", "SessionEnd"];
 
 /**
- * Branchwork 가 띄운 에이전트(Claude Code·Codex·Gemini CLI) 세션 추적. (맥 버전 AgentCenter)
+ * Gitrochi 가 띄운 에이전트(Claude Code·Codex·Gemini CLI) 세션 추적. (맥 버전 AgentCenter)
  *
  * 세션은 아래 터미널 패널의 탭에서 돈다. 띄울 때 `--settings` 로 훅을 더해 두면(사용자 설정·훅은 그대로 유지)
- * 각 이벤트마다 Branchwork 실행 파일이 `--agent-hook` 으로 불려 <데이터>/agents/<id>.state 에 마지막 상태를 쓴다.
+ * 각 이벤트마다 Gitrochi 실행 파일이 `--agent-hook` 으로 불려 <데이터>/agents/<id>.state 에 마지막 상태를 쓴다.
  */
 class AgentCenter extends Observable {
   sessions: AgentSession[] = [];
@@ -233,7 +233,7 @@ class AgentCenter extends Observable {
     const title = info.title.split(" (")[0];
     let term: TerminalSession;
     if (cmd.kind === "native") {
-      term = host.newTerminal(path, { program: cmd.exe, args, env: { BRANCHWORK_AGENT_ID: id }, title });
+      term = host.newTerminal(path, { program: cmd.exe, args, env: { GITROCHI_AGENT_ID: id }, title });
     } else {
       // WSL: 작업 폴더를 리눅스 경로로 바꾸고, 훅이 부르는 윈도 실행 파일까지 세션 ID 가 넘어가게(WSLENV)
       const mapped: string[] = [];
@@ -244,7 +244,7 @@ class AgentCenter extends Observable {
       term = host.newTerminal(path, {
         program: "wsl.exe",
         args: wslArgs(cmd.distro, cmd.path, mapped, { cwd: path, interactive: true }),
-        env: withWslEnv({ BRANCHWORK_AGENT_ID: id }),
+        env: withWslEnv({ GITROCHI_AGENT_ID: id }),
         cwd: wslDistroOf(path) ? env.home : undefined,
         title: `${title} · WSL`,
       });

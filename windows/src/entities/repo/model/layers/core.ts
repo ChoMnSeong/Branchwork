@@ -15,10 +15,10 @@ import type { UndoPoint } from "../../lib/undo-model";
 
 export const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
-/** 개발자 도구에서 localStorage.branchworkTrace = "1" 이면 새로 고침 종류와 걸린 시간을 콘솔에(성능 확인용) */
+/** 개발자 도구에서 localStorage.gitrochiTrace = "1" 이면 새로 고침 종류와 걸린 시간을 콘솔에(성능 확인용) */
 function trace(s: string) {
   try {
-    if (localStorage.getItem("branchworkTrace") === "1") console.debug("[branchwork]", s);
+    if (localStorage.getItem("gitrochiTrace") === "1") console.debug("[gitrochi]", s);
   } catch {
     /* 무시 */
   }
@@ -48,7 +48,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
   path: string | null = null;
   gitDir: string | null = null;
   get name() {
-    return this.path ? basename(this.path) : "Branchwork";
+    return this.path ? basename(this.path) : "Gitrochi";
   }
 
   // 데이터

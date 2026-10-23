@@ -1,4 +1,4 @@
-/* Branchwork — ja. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — ja. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(差分が長いため、先頭部分だけを見て説明しました。)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n認証が必要です。ターミナルで一度 push/pull を実行して資格情報 (キーチェーンまたは SSH キー) を保存してから、もう一度お試しください。";
@@ -130,10 +130,10 @@
 "Branch to check out" = "チェックアウトするブランチ";
 "Branches hidden from the graph — right-click to show again" = "グラフで非表示にしたブランチ — 右クリックで再表示";
 "Branches pinned to the top" = "上部に固定したブランチ";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ は最新バージョンです。";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "ダウンロードした場所から直接開いたため、Branchwork は一時的な場所で実行されており、自分自身を置き換えられません。アプリケーションフォルダに移動して開き直してから、アップデートしてください。";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "変更を適用するため Branchwork を再起動します。参考にするコミット履歴がない場合は、AI もこの言語で書きます。";
-"Branchwork update" = "Branchwork のアップデート";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ は最新バージョンです。";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "ダウンロードした場所から直接開いたため、Gitrochi は一時的な場所で実行されており、自分自身を置き換えられません。アプリケーションフォルダに移動して開き直してから、アップデートしてください。";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "変更を適用するため Gitrochi を再起動します。参考にするコミット履歴がない場合は、AI もこの言語で書きます。";
+"Gitrochi update" = "Gitrochi のアップデート";
 "Brings %lld new commits from the remote into the current branch." = "リモートの新しいコミット %1$lld 件を現在のブランチに取り込みます。";
 "Browser" = "ブラウザー";
 "By branch" = "ブランチ別";
@@ -369,7 +369,7 @@
 "End the %@ session?" = "%1$@ のセッションを終了しますか？";
 "Ended" = "終了済み";
 "Ended sessions" = "終了したセッション";
-"Enter an administrator password to update Branchwork in %@." = "%1$@ の Branchwork をアップデートするには、管理者パスワードを入力してください。";
+"Enter an administrator password to update Gitrochi in %@." = "%1$@ の Gitrochi をアップデートするには、管理者パスワードを入力してください。";
 "Enter the server address." = "サーバーのアドレスを入力してください。";
 "Enter your %@ key in Settings > AI." = "設定 > AI で %1$@ のキーを入力してください。";
 "Environment %lld" = "環境 %1$lld";
@@ -441,7 +441,7 @@
 "Incoming commit" = "取り込むコミット";
 "Install" = "インストール";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "インストール場所は人によって異なります。ツールが自動で見つからない場合は、**場所を指定** から実行ファイルを直接選んでください。選んだパスは保存され、次回以降も使われます。";
-"Installing… Branchwork restarts when done" = "インストールしています… 完了すると Branchwork が再起動します";
+"Installing… Gitrochi restarts when done" = "インストールしています… 完了すると Gitrochi が再起動します";
 "Invalid address: %@" = "無効なアドレス: %1$@";
 "It was closed or hasn't been loaded yet." = "閉じられたか、まだ読み込まれていません。";
 "Keep at least one commit." = "コミットを 1 つ以上残してください。";
@@ -559,7 +559,7 @@
 "Only the panel is hidden; shells keep running." = "パネルを隠すだけで、シェルは実行されたままです。";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "空白のみ変更されています (「空白を無視」をオフにすると表示されます)。";
 "Open" = "開く";
-"Open in Branchwork" = "Branchwork で開く";
+"Open in Gitrochi" = "Gitrochi で開く";
 "Open in Terminal" = "ターミナルで開く";
 "Open in browser" = "ブラウザーで開く";
 "Open in the terminal below" = "下のターミナルで開く";
@@ -788,10 +788,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "差分が長いため、先頭部分だけを %1$@ に送信しました (%2$lldK 文字を省略)。";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "差分が長いため、先頭部分だけを使って分割しました (%1$lldK 文字を省略)。";
 "The downloaded app's signature is invalid: %@" = "ダウンロードしたアプリの署名が無効です: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "ダウンロードしたファイルは Branchwork ではありません。インストールしませんでした。";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "ダウンロードしたファイルは Gitrochi ではありません。インストールしませんでした。";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "ダウンロードしたファイルの SHA-256 がリリースと一致しません。インストールしませんでした。";
 "The file is empty or not committed yet." = "空のファイルか、まだコミットされていません。";
-"The language changes when Branchwork restarts." = "言語は Branchwork の再起動後に切り替わります。";
+"The language changes when Gitrochi restarts." = "言語は Gitrochi の再起動後に切り替わります。";
 "The new message is empty." = "新しいメッセージが空です。";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "プレフィックスは Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove のいずれか";
 "The release has no SHA-256 file. It wasn't installed." = "リリースに SHA-256 ファイルがありません。インストールしませんでした。";
