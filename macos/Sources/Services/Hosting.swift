@@ -87,7 +87,7 @@ enum Hosting {
         guard let u = URL(string: url) else { throw HostingError(status: 0, body: Data(String(localized: "Invalid address: \(url)").utf8)) }
         var r = URLRequest(url: u, timeoutInterval: 30)
         r.httpMethod = method
-        r.setValue("Branchwork", forHTTPHeaderField: "User-Agent")
+        r.setValue("Gitrochi", forHTTPHeaderField: "User-Agent")
         switch p {
         case .github:
             r.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

@@ -76,10 +76,10 @@ struct AgentSession: Identifiable, Hashable {
     var updated: Date
 }
 
-/// Branchwork 가 띄운 에이전트(Claude Code·Codex·Gemini CLI) 세션 추적. 상태는 Claude Code 만 훅으로 자세히 본다.
+/// Gitrochi 가 띄운 에이전트(Claude Code·Codex·Gemini CLI) 세션 추적. 상태는 Claude Code 만 훅으로 자세히 본다.
 ///
 /// 세션을 띄울 때 `--settings` 로 훅을 더해 두면(사용자 설정·훅은 그대로 유지) 각 이벤트마다
-/// hook.sh 가 ~/Library/Application Support/Branchwork/agents/<id>.state 에 마지막 상태를 쓴다.
+/// hook.sh 가 ~/Library/Application Support/Gitrochi/agents/<id>.state 에 마지막 상태를 쓴다.
 /// 이 폴더를 지켜보다가 상태를 읽고, 프로세스가 사라졌으면 종료로 본다.
 @MainActor @Observable
 final class AgentCenter {
@@ -96,7 +96,7 @@ final class AgentCenter {
 
     private init() {
         directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Branchwork/agents", isDirectory: true)
+            .appendingPathComponent("Gitrochi/agents", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         installHooks()
         load()
@@ -123,13 +123,13 @@ final class AgentCenter {
     private func installHooks() {
         let script = """
         #!/bin/sh
-        # Branchwork: Claude Code 훅 이벤트를 세션 상태 파일로 남긴다(Branchwork 가 띄운 세션만).
-        [ -n "$BRANCHWORK_AGENT_ID" ] || exit 0
-        dir="$HOME/Library/Application Support/Branchwork/agents"
+        # Gitrochi: Claude Code 훅 이벤트를 세션 상태 파일로 남긴다(Gitrochi 가 띄운 세션만).
+        [ -n "$GITROCHI_AGENT_ID" ] || exit 0
+        dir="$HOME/Library/Application Support/Gitrochi/agents"
         payload=$(cat)
         [ -n "$payload" ] || payload=null
-        tmp="$dir/$BRANCHWORK_AGENT_ID.state.tmp"
-        printf '{"event":"%s","time":%s,"payload":%s}\\n' "$1" "$(date +%s)" "$payload" > "$tmp" && mv -f "$tmp" "$dir/$BRANCHWORK_AGENT_ID.state"
+        tmp="$dir/$GITROCHI_AGENT_ID.state.tmp"
+        printf '{"event":"%s","time":%s,"payload":%s}\\n' "$1" "$(date +%s)" "$payload" > "$tmp" && mv -f "$tmp" "$dir/$GITROCHI_AGENT_ID.state"
         exit 0
 
         """
@@ -234,7 +234,7 @@ final class AgentCenter {
         let meta: [String: Any] = ["id": id, "kind": kind.rawValue, "path": path, "task": task.trimmed, "created": Date().timeIntervalSince1970]
         try JSONSerialization.data(withJSONObject: meta).write(to: file(id + ".meta"))
         try Launcher.run(exe, args: kind.arguments(hooks: hooksFile.path, task: task.trimmed, mode: permissionMode), in: path,
-                         env: ["BRANCHWORK_AGENT_ID": id], pidFile: file(id + ".pid").path)
+                         env: ["GITROCHI_AGENT_ID": id], pidFile: file(id + ".pid").path)
         load()
     }
 

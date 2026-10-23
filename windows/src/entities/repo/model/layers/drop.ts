@@ -3,8 +3,8 @@ import { t } from "@/shared/i18n";
 import { gitRaw } from "@/shared/platform";
 import { RepoUndo } from "./undo";
 
-export const branchPayload = "branchwork-branch:";
-export const commitPayload = "branchwork-commit:";
+export const branchPayload = "gitrochi-branch:";
+export const commitPayload = "gitrochi-commit:";
 
 /** 그래프 끌어다 놓기: 머지·리베이스·빨리 감기·cherry-pick */
 export abstract class RepoDrop extends RepoUndo {

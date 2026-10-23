@@ -12,7 +12,7 @@ struct UpdateSettings: View {
                 HStack(spacing: 12) {
                     Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 48, height: 48)
                     VStack(alignment: .leading) {
-                        Text("Branchwork \(UpdateCenter.currentVersion)").font(.headline)
+                        Text("Gitrochi \(UpdateCenter.currentVersion)").font(.headline)
                         Text("An app for viewing and working with Git repositories as a graph · MIT").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()

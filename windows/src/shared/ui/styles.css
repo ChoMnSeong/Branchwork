@@ -568,8 +568,8 @@
   justify-content: center;
   flex-direction: column;
   gap: 26px;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1), transparent 320px),
-    linear-gradient(135deg, rgb(20, 26, 61), rgb(10, 84, 99));
+  background: radial-gradient(circle at center, rgba(60, 90, 255, 0.16), transparent 340px),
+    linear-gradient(135deg, rgb(18, 20, 43), rgb(8, 10, 20));
   color: #fff;
   transition: opacity 0.4s ease;
 }

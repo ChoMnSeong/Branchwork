@@ -1,4 +1,4 @@
-/* Branchwork — vi. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — vi. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff quá dài nên chỉ phần đầu được giải thích.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nCần xác thực. Hãy chạy push/pull một lần trong terminal để lưu thông tin đăng nhập (Chuỗi khóa hoặc khóa SSH), rồi thử lại.";
@@ -86,7 +86,6 @@
 "An empty file was deleted" = "Đã xóa một tệp trống";
 "Another account's token" = "Token của tài khoản khác";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Dùng được với mọi máy chủ chấp nhận định dạng OpenAI (/chat/completions). Ví dụ: Ollama http://localhost:11434/v1";
-"App icon" = "Biểu tượng ứng dụng";
 "Appearance" = "Giao diện";
 "Applies the most recently stashed changes (Pop)." = "Áp dụng các thay đổi được stash gần nhất (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Áp dụng cho mọi tính năng AI, cùng với các quy tắc viết riêng cho từng tính năng bên dưới.";
@@ -125,10 +124,10 @@
 "Branch to check out" = "Nhánh cần checkout";
 "Branches hidden from the graph — right-click to show again" = "Các nhánh đã ẩn khỏi đồ thị — nhấp chuột phải để hiện lại";
 "Branches pinned to the top" = "Các nhánh được ghim lên đầu";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ là phiên bản mới nhất.";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork được mở trực tiếp từ nơi tải về nên đang chạy từ một vị trí tạm thời và không thể tự thay thế. Hãy chuyển nó vào thư mục Ứng dụng, mở lại rồi cập nhật.";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork sẽ khởi động lại để áp dụng thay đổi. Khi không có lịch sử commit để làm theo, AI cũng viết bằng ngôn ngữ này.";
-"Branchwork update" = "Bản cập nhật Branchwork";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ là phiên bản mới nhất.";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi được mở trực tiếp từ nơi tải về nên đang chạy từ một vị trí tạm thời và không thể tự thay thế. Hãy chuyển nó vào thư mục Ứng dụng, mở lại rồi cập nhật.";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi sẽ khởi động lại để áp dụng thay đổi. Khi không có lịch sử commit để làm theo, AI cũng viết bằng ngôn ngữ này.";
+"Gitrochi update" = "Bản cập nhật Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Đưa %1$lld commit mới từ remote vào nhánh hiện tại.";
 "Browser" = "Trình duyệt";
 "By branch" = "Theo nhánh";
@@ -147,7 +146,6 @@
 "Changes" = "Thay đổi";
 "Changes %lld" = "Thay đổi %1$lld";
 "Changes requested: " = "Yêu cầu thay đổi: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Thay đổi biểu tượng trong Dock, Finder và Launchpad. Biểu tượng mới sẽ có trong các bản cập nhật.";
 "Change…" = "Thay đổi…";
 "Check failed: %@" = "Kiểm tra thất bại: %1$@";
 "Check for new versions at launch and once a day" = "Kiểm tra phiên bản mới khi khởi động và mỗi ngày một lần";
@@ -242,7 +240,6 @@
 "Copy message" = "Sao chép thông điệp";
 "Copy name" = "Sao chép tên";
 "Copy path" = "Sao chép đường dẫn";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Không thể đổi biểu tượng trong Finder vì không có quyền ghi vào thư mục của Branchwork. Biểu tượng trong Dock vẫn thay đổi khi Branchwork đang chạy.";
 "Couldn't complete the operation" = "Không thể hoàn tất thao tác";
 "Couldn't download the file." = "Không thể tải tệp xuống.";
 "Couldn't extract: %@" = "Không thể giải nén: %1$@";
@@ -353,7 +350,7 @@
 "End the %@ session?" = "Kết thúc phiên %1$@?";
 "Ended" = "Đã kết thúc";
 "Ended sessions" = "Phiên đã kết thúc";
-"Enter an administrator password to update Branchwork in %@." = "Nhập mật khẩu quản trị viên để cập nhật Branchwork trong %1$@.";
+"Enter an administrator password to update Gitrochi in %@." = "Nhập mật khẩu quản trị viên để cập nhật Gitrochi trong %1$@.";
 "Enter the server address." = "Hãy nhập địa chỉ máy chủ.";
 "Enter your %@ key in Settings > AI." = "Hãy nhập khóa %1$@ của bạn trong Cài đặt > AI.";
 "Environment %lld" = "Môi trường %1$lld";
@@ -421,7 +418,7 @@
 "Incoming commit" = "Commit đưa vào";
 "Install" = "Cài đặt";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Vị trí cài đặt khác nhau tùy người dùng. Nếu không tự tìm thấy công cụ, hãy dùng **Chỉ định** để tự chọn tệp thực thi. Đường dẫn đã chọn sẽ được lưu và dùng cho lần sau.";
-"Installing… Branchwork restarts when done" = "Đang cài đặt… Branchwork sẽ khởi động lại khi xong";
+"Installing… Gitrochi restarts when done" = "Đang cài đặt… Gitrochi sẽ khởi động lại khi xong";
 "Invalid address: %@" = "Địa chỉ không hợp lệ: %1$@";
 "It was closed or hasn't been loaded yet." = "Đã bị đóng hoặc chưa được tải.";
 "Keep at least one commit." = "Hãy giữ lại ít nhất một commit.";
@@ -538,7 +535,7 @@
 "Only the panel is hidden; shells keep running." = "Chỉ ẩn bảng; các shell vẫn tiếp tục chạy.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Chỉ thay đổi khoảng trắng (tắt Bỏ qua khoảng trắng để xem).";
 "Open" = "Mở";
-"Open in Branchwork" = "Mở trong Branchwork";
+"Open in Gitrochi" = "Mở trong Gitrochi";
 "Open in Terminal" = "Mở trong Terminal";
 "Open in browser" = "Mở trong trình duyệt";
 "Open in the terminal below" = "Mở trong terminal bên dưới";
@@ -675,7 +672,6 @@
 "Server error %lld: %@" = "Lỗi máy chủ %1$lld: %2$@";
 "Sessions in other folders" = "Phiên ở thư mục khác";
 "Set manually" = "Đặt thủ công";
-"Shadow" = "Bóng tối";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell được mở trong bảng terminal bên dưới (zsh, bash, fish, v.v.)";
 "Show all" = "Hiện tất cả";
 "Show all %lld hidden branches" = "Hiện tất cả %1$lld nhánh đã ẩn";
@@ -752,10 +748,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "Diff quá dài nên chỉ phần đầu được gửi tới %1$@ (đã lược bỏ %2$lldK ký tự).";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "Diff quá dài nên chỉ phần đầu được dùng để chia (đã lược bỏ %1$lldK ký tự).";
 "The downloaded app's signature is invalid: %@" = "Chữ ký của ứng dụng tải về không hợp lệ: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "Tệp tải về không phải Branchwork. Đã không cài đặt.";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "Tệp tải về không phải Gitrochi. Đã không cài đặt.";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "SHA-256 của tệp tải về không khớp với bản phát hành. Đã không cài đặt.";
 "The file is empty or not committed yet." = "Tệp trống hoặc chưa được commit.";
-"The language changes when Branchwork restarts." = "Ngôn ngữ sẽ thay đổi khi Branchwork khởi động lại.";
+"The language changes when Gitrochi restarts." = "Ngôn ngữ sẽ thay đổi khi Gitrochi khởi động lại.";
 "The new message is empty." = "Thông điệp mới đang trống.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Tiền tố là một trong Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
 "The release has no SHA-256 file. It wasn't installed." = "Bản phát hành không có tệp SHA-256. Đã không cài đặt.";

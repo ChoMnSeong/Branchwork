@@ -169,7 +169,7 @@ class AccountStore extends Observable {
   /**
    * 네트워크 git 명령에 붙일 환경: 서버마다 계정 하나씩(이 저장소에 고른 계정 우선) 토큰으로 HTTPS 인증에 답한다.
    * 자격 증명 관리자·도우미가 먼저 답하면 그것이 쓰이고, 비어 있을 때만 이 토큰이 쓰인다.
-   * 답하는 프로그램은 Branchwork 실행 파일 자신이다(BRANCHWORK_ASKPASS=1 로 불리면 창 없이 답만 한다).
+   * 답하는 프로그램은 Gitrochi 실행 파일 자신이다(GITROCHI_ASKPASS=1 로 불리면 창 없이 답만 한다).
    */
   async gitEnvironment(target: RepoTarget | null, repoPath: string | null): Promise<Record<string, string>> {
     const byHost = new Map<string, HostAccount>();
@@ -182,18 +182,18 @@ class AccountStore extends Observable {
       const a = this.accountFor(target, repoPath);
       if (a) byHost.set(target.host, a);
     }
-    const out: Record<string, string> = { GIT_ASKPASS: env.exe, BRANCHWORK_ASKPASS: "1" };
+    const out: Record<string, string> = { GIT_ASKPASS: env.exe, GITROCHI_ASKPASS: "1" };
     let i = 0;
     for (const [host, a] of [...byHost.entries()].sort(([x], [y]) => x.localeCompare(y))) {
       const tok = await this.token(a);
       if (!tok) continue;
       i++;
-      out[`BRANCHWORK_ASKPASS_HOST_${i}`] = host;
-      out[`BRANCHWORK_ASKPASS_USER_${i}`] = a.provider === "github" ? "x-access-token" : "oauth2";
-      out[`BRANCHWORK_ASKPASS_PASS_${i}`] = tok;
+      out[`GITROCHI_ASKPASS_HOST_${i}`] = host;
+      out[`GITROCHI_ASKPASS_USER_${i}`] = a.provider === "github" ? "x-access-token" : "oauth2";
+      out[`GITROCHI_ASKPASS_PASS_${i}`] = tok;
     }
     if (!i) return {};
-    out["BRANCHWORK_ASKPASS_COUNT"] = String(i);
+    out["GITROCHI_ASKPASS_COUNT"] = String(i);
     return out;
   }
 }

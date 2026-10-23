@@ -7,17 +7,30 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
-const SERVICE: &str = "Branchwork";
+const SERVICE: &str = "Gitrochi";
+/// Credentials saved before the rename (Branchwork, up to 0.3.5) move to SERVICE when first read
+const LEGACY_SERVICE: &str = "Branchwork";
 
 // MARK: 자격 증명(Windows 자격 증명 관리자 / macOS 키체인)
 
 #[tauri::command]
 pub async fn secret_get(name: String) -> Option<String> {
-    keyring::Entry::new(SERVICE, &name).ok()?.get_password().ok()
+    if let Some(value) = keyring::Entry::new(SERVICE, &name).ok().and_then(|e| e.get_password().ok()) {
+        return Some(value);
+    }
+    let old = keyring::Entry::new(LEGACY_SERVICE, &name).ok()?;
+    let value = old.get_password().ok()?;
+    if keyring::Entry::new(SERVICE, &name).and_then(|e| e.set_password(&value)).is_ok() {
+        let _ = old.delete_credential();
+    }
+    Some(value)
 }
 
 #[tauri::command]
 pub async fn secret_set(name: String, value: Option<String>) -> Result<(), String> {
+    if let Ok(old) = keyring::Entry::new(LEGACY_SERVICE, &name) {
+        let _ = old.delete_credential();
+    }
     let entry = keyring::Entry::new(SERVICE, &name).map_err(|e| e.to_string())?;
     match value.filter(|v| !v.is_empty()) {
         Some(v) => entry.set_password(&v).map_err(|e| e.to_string()),
@@ -148,8 +161,8 @@ pub fn env_info(app: AppHandle) -> EnvInfo {
         temp: std::env::temp_dir().to_string_lossy().into_owned(),
         shell,
         version: app.package_info().version.to_string(),
-        selftest: std::env::var("BRANCHWORK_SELFTEST").ok().filter(|s| !s.is_empty()),
-        selftest_open: std::env::var("BRANCHWORK_SELFTEST_OPEN").ok().filter(|s| !s.is_empty()),
+        selftest: std::env::var("GITROCHI_SELFTEST").ok().filter(|s| !s.is_empty()),
+        selftest_open: std::env::var("GITROCHI_SELFTEST_OPEN").ok().filter(|s| !s.is_empty()),
         app_data: dirs::data_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
         local_app_data: dirs::data_local_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
     }
@@ -236,9 +249,9 @@ pub fn app_ready(app: AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         // 자동 점검 중에는 다른 작업을 방해하지 않게 앞으로 가져오지 않는다
-        if std::env::var("BRANCHWORK_SELFTEST").is_err() {
+        if std::env::var("GITROCHI_SELFTEST").is_err() {
             let _ = w.set_focus();
-        } else if std::env::var("BRANCHWORK_SELFTEST_ON_TOP").is_ok() {
+        } else if std::env::var("GITROCHI_SELFTEST_ON_TOP").is_ok() {
             // 개발 중 화면 캡처용: 포커스는 가져오지 않고 맨 위에만 띄운다
             let _ = w.set_always_on_top(true);
             // 맥은 비활성 앱의 창을 화면에 올리지 않으므로 강제로 올린다

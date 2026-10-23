@@ -1,4 +1,4 @@
-/* Branchwork — pt-BR. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — pt-BR. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(O diff era longo, então só o início foi explicado.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nÉ necessário autenticar. Faça push/pull uma vez em um terminal para salvar suas credenciais (Chaves do macOS ou chave SSH) e tente novamente.";
@@ -87,7 +87,6 @@
 "An empty file was deleted" = "Um arquivo vazio foi excluído";
 "Another account's token" = "Token de outra conta";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Funciona com qualquer servidor que aceite o formato da OpenAI (/chat/completions). Exemplo: Ollama http://localhost:11434/v1";
-"App icon" = "Ícone do app";
 "Appearance" = "Aparência";
 "Applies the most recently stashed changes (Pop)." = "Aplica as alterações guardadas mais recentemente no stash (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Vale para todos os recursos de IA, junto com as regras escritas para cada recurso abaixo.";
@@ -123,10 +122,10 @@
 "Branch to check out" = "Branch para checkout";
 "Branches hidden from the graph — right-click to show again" = "Branches ocultos no grafo — clique com o botão direito para mostrar de novo";
 "Branches pinned to the top" = "Branches fixados no topo";
-"Branchwork %@ is the latest version." = "O Branchwork %1$@ é a versão mais recente.";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "O Branchwork foi aberto direto do download e está sendo executado de um local temporário, por isso não consegue se substituir. Mova-o para a pasta Aplicativos, abra-o de novo e depois atualize.";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "O Branchwork reinicia para aplicar a alteração. Quando não há histórico de commits para seguir, a IA também escreve neste idioma.";
-"Branchwork update" = "Atualização do Branchwork";
+"Gitrochi %@ is the latest version." = "O Gitrochi %1$@ é a versão mais recente.";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "O Gitrochi foi aberto direto do download e está sendo executado de um local temporário, por isso não consegue se substituir. Mova-o para a pasta Aplicativos, abra-o de novo e depois atualize.";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "O Gitrochi reinicia para aplicar a alteração. Quando não há histórico de commits para seguir, a IA também escreve neste idioma.";
+"Gitrochi update" = "Atualização do Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Traz para o branch atual os novos commits do remoto (%1$lld).";
 "Browser" = "Navegador";
 "By branch" = "Por branch";
@@ -145,7 +144,6 @@
 "Changes" = "Alterações";
 "Changes %lld" = "Alterações %1$lld";
 "Changes requested: " = "Alterações solicitadas por: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Muda o ícone no Dock, no Finder e no Launchpad. Novos ícones chegam com as atualizações.";
 "Change…" = "Alterar…";
 "Check failed: %@" = "Falha na verificação: %1$@";
 "Check for new versions at launch and once a day" = "Verificar novas versões ao abrir e uma vez por dia";
@@ -241,7 +239,6 @@
 "Copy message" = "Copiar mensagem";
 "Copy name" = "Copiar nome";
 "Copy path" = "Copiar caminho";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Não foi possível mudar o ícone no Finder porque a pasta do Branchwork não permite gravação. O ícone do Dock ainda muda enquanto o Branchwork está aberto.";
 "Couldn't complete the operation" = "Não foi possível concluir a operação";
 "Couldn't download the file." = "Não foi possível baixar o arquivo.";
 "Couldn't extract: %@" = "Não foi possível extrair: %1$@";
@@ -357,7 +354,7 @@
 "End the %@ session?" = "Encerrar a sessão do %1$@?";
 "Ended" = "Encerrada";
 "Ended sessions" = "Sessões encerradas";
-"Enter an administrator password to update Branchwork in %@." = "Digite uma senha de administrador para atualizar o Branchwork em %1$@.";
+"Enter an administrator password to update Gitrochi in %@." = "Digite uma senha de administrador para atualizar o Gitrochi em %1$@.";
 "Enter the server address." = "Informe o endereço do servidor.";
 "Enter your %@ key in Settings > AI." = "Informe sua chave do %1$@ em Configurações > AI.";
 "Environment %lld" = "Ambiente %1$lld";
@@ -427,7 +424,7 @@
 "Incoming commit" = "Commit recebido";
 "Install" = "Instalar";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Os locais de instalação variam de pessoa para pessoa. Se uma ferramenta não for encontrada automaticamente, use **Localizar** para escolher o executável manualmente. O caminho escolhido é salvo e usado nas próximas vezes.";
-"Installing… Branchwork restarts when done" = "Instalando… O Branchwork reinicia ao terminar";
+"Installing… Gitrochi restarts when done" = "Instalando… O Gitrochi reinicia ao terminar";
 "Invalid address: %@" = "Endereço inválido: %1$@";
 "It was closed or hasn't been loaded yet." = "Foi fechado ou ainda não foi carregado.";
 "Keep at least one commit." = "Mantenha pelo menos um commit.";
@@ -543,7 +540,7 @@
 "Only the panel is hidden; shells keep running." = "Só o painel fica oculto; os shells continuam em execução.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Só os espaços em branco mudaram (desative Ignorar espaços em branco para ver).";
 "Open" = "Abrir";
-"Open in Branchwork" = "Abrir no Branchwork";
+"Open in Gitrochi" = "Abrir no Gitrochi";
 "Open in Terminal" = "Abrir no Terminal";
 "Open in browser" = "Abrir no navegador";
 "Open in the terminal below" = "Abrir no terminal abaixo";
@@ -684,7 +681,6 @@
 "Server error %lld: %@" = "Erro do servidor %1$lld: %2$@";
 "Sessions in other folders" = "Sessões em outras pastas";
 "Set manually" = "Definido manualmente";
-"Shadow" = "Sombra";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell aberto no painel do terminal abaixo (zsh, bash, fish etc.)";
 "Show all" = "Mostrar tudo";
 "Show all %lld hidden branches" = "Mostrar todos os branches ocultos (%1$lld)";
@@ -761,10 +757,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "O diff era longo, então só o início foi enviado para %1$@ (%2$lldK caracteres omitidos).";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "O diff era longo, então só o início foi usado na divisão (%1$lldK caracteres omitidos).";
 "The downloaded app's signature is invalid: %@" = "A assinatura do app baixado é inválida: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "O arquivo baixado não é o Branchwork. Ele não foi instalado.";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "O arquivo baixado não é o Gitrochi. Ele não foi instalado.";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "O SHA-256 do arquivo baixado não corresponde ao da release. Ele não foi instalado.";
 "The file is empty or not committed yet." = "O arquivo está vazio ou ainda não tem commit.";
-"The language changes when Branchwork restarts." = "O idioma muda quando o Branchwork reiniciar.";
+"The language changes when Gitrochi restarts." = "O idioma muda quando o Gitrochi reiniciar.";
 "The new message is empty." = "A nova mensagem está vazia.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "O prefixo deve ser Feature, Fix, Hotfix, Refactoring, Style, Chore ou Remove";
 "The release has no SHA-256 file. It wasn't installed." = "A release não tem arquivo SHA-256. A atualização não foi instalada.";

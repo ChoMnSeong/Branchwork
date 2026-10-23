@@ -1,8 +1,9 @@
 import { ipc } from "@/shared/api";
+import icon from "@/shared/assets/icon.png";
 import { env, settings } from "@/shared/config";
 import { t } from "@/shared/i18n";
 import { useObserve } from "@/shared/lib";
-import { appIcon, updater } from "@/shared/platform";
+import { updater } from "@/shared/platform";
 import { Button, Checkbox, Spinner } from "@/shared/ui";
 
 /** 버전과 자동 업데이트 */
@@ -23,12 +24,12 @@ export function AboutSettings() {
     <div className="col" style={{ gap: 14 }}>
       <div className="form-section">
         <div className="row">
-          <img src={appIcon.current.image} width={48} height={48} alt="" />
+          <img src={icon} width={48} height={48} alt="" />
           <div className="col grow">
-            <span style={{ fontSize: 16, fontWeight: 600 }}>Branchwork {env.version}</span>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>Gitrochi {env.version}</span>
             <span className="hint">{t("An app for viewing and working with Git repositories as a graph · MIT")}</span>
           </div>
-          <button className="link" onClick={() => void ipc.openUrl("https://github.com/ChoMnSeong/Branchwork/releases")}>
+          <button className="link" onClick={() => void ipc.openUrl("https://github.com/ChoMnSeong/Gitrochi/releases")}>
             {t("Release notes")}</button>
         </div>
       </div>
@@ -41,7 +42,7 @@ export function AboutSettings() {
           {updater.state === "checking" && <Spinner />}
           <span className="hint grow">{status}</span>
         </div>
-        <span className="hint">{t("Tells you when a new version is available; click to download, install and restart. The installer runs only if its Branchwork signature is valid.")}</span>
+        <span className="hint">{t("Tells you when a new version is available; click to download, install and restart. The installer runs only if its Gitrochi signature is valid.")}</span>
       </div>
     </div>
   );

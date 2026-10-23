@@ -68,15 +68,40 @@ jobs:
             npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
           fi
 
+      - name: Branchwork 0.3.5 설치에서 이어받기
+        if: env.FULL == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Install 0.3.5 (still named Branchwork), then this installer: only Gitrochi should remain
+          $dir = Join-Path $env:RUNNER_TEMP "legacy"
+          gh release download v0.3.5 -R "${{ github.repository }}" -p "*x64-setup.exe" -D $dir
+          Start-Process (Get-ChildItem "$dir/*-setup.exe")[0].FullName -ArgumentList "/S" -Wait
+          $uninst = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall"
+          if (-not (Test-Path "$uninst\Branchwork")) { Write-Error "0.3.5 was not installed"; exit 1 }
+          $oldDir = (Get-ItemProperty "$uninst\Branchwork").InstallLocation.Trim('"')
+          Start-Process (Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe")[0].FullName -ArgumentList "/S" -Wait
+          $programs = [Environment]::GetFolderPath('Programs')
+          $new = if (Test-Path "$uninst\Gitrochi") { Get-ItemProperty "$uninst\Gitrochi" } else { $null }
+          $checks = [ordered]@{
+            "Branchwork uninstall entry removed" = -not (Test-Path "$uninst\Branchwork")
+            "old install folder removed"         = -not (Test-Path $oldDir)
+            "Gitrochi installed"                 = $new -and (Test-Path (Join-Path $new.InstallLocation.Trim('"') $new.MainBinaryName))
+            "Start menu has Gitrochi only"       = [bool](Get-ChildItem $programs -Recurse -Filter "Gitrochi.lnk") -and -not (Get-ChildItem $programs -Recurse -Filter "Branchwork.lnk")
+          }
+          $checks.GetEnumerator() | ForEach-Object { Write-Host "$(if ($_.Value) { 'OK  ' } else { 'FAIL' }) $($_.Key)" }
+          if ($checks.Values -contains $false) { Write-Error "Upgrade from Branchwork 0.3.5 failed"; exit 1 }
+
       - name: 설치 파일 올리기
         if: env.FULL == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: branchwork-windows
+          name: gitrochi-windows
           path: |
             windows/src-tauri/target/release/bundle/nsis/*.exe
             windows/src-tauri/target/release/bundle/nsis/*.sig
-            windows/src-tauri/target/release/branchwork.exe
+            windows/src-tauri/target/release/gitrochi.exe
 
       - name: 점검용 빌드(업데이트 서버 http 허용 — 배포 파일과는 별개)
         shell: bash
@@ -136,9 +161,9 @@ jobs:
           $mock = Start-Process -FilePath node -ArgumentList $mockArgs -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 2
           try { Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop } catch { Write-Host "해상도 변경 불가: $_" }
-          $exe = Resolve-Path "src-tauri/target/release/branchwork.exe"
+          $exe = Resolve-Path "src-tauri/target/release/gitrochi.exe"
           $result = "$env:ST_ROOT/selftest-result.json"
-          $env:BRANCHWORK_SELFTEST = "$env:ST_ROOT/repo"
+          $env:GITROCHI_SELFTEST = "$env:ST_ROOT/repo"
           $p = Start-Process -FilePath $exe -PassThru
           $deadline = (Get-Date).AddSeconds(240)
           while (-not (Test-Path $result) -and (Get-Date) -lt $deadline -and -not $p.HasExited) { Start-Sleep -Milliseconds 500 }
@@ -167,8 +192,8 @@ jobs:
         run: |
           # 점검이 끝난 실제 앱을 데모 저장소로 다시 열어 창만 찍는다(docs/images/windows-*.png 로 쓰려고)
           $repo = (Resolve-Path "$env:ST_ROOT/demo/shop-web").Path -replace '\\', '/'
-          $exe = Resolve-Path "src-tauri/target/release/branchwork.exe"
-          $data = Join-Path $env:APPDATA "Branchwork"
+          $exe = Resolve-Path "src-tauri/target/release/gitrochi.exe"
+          $data = Join-Path $env:APPDATA "Gitrochi"
           New-Item -ItemType Directory -Force $data, "$env:ST_ROOT/shots" | Out-Null
           Add-Type -AssemblyName System.Drawing
           Add-Type @"

@@ -1,4 +1,4 @@
-// SwiftPM 빌드 플러그인(SwiftTermBuildInfoPlugin)이 만들던 파일을 대신한다 — Branchwork 는 swiftc 로 직접 빌드한다.
+// SwiftPM 빌드 플러그인(SwiftTermBuildInfoPlugin)이 만들던 파일을 대신한다 — Gitrochi 는 swiftc 로 직접 빌드한다.
 public enum SwiftTermBuildInfo {
     public static let branch: String? = nil
     public static let tag: String? = "v1.20.0"

@@ -151,7 +151,7 @@ final class TerminalSession: Identifiable {
         }
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
-        env["TERM_PROGRAM"] = "Branchwork"
+        env["TERM_PROGRAM"] = "Gitrochi"
         env["TERM_PROGRAM_VERSION"] = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
         if env["LANG"] == nil {
             env["LANG"] = Locale.current.language.languageCode?.identifier == "ko" ? "ko_KR.UTF-8" : "en_US.UTF-8"

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Branchwork 맥 앱 빌드 (swiftc, 비샌드박스)
-#   macos/build.sh           → macos/build/Branchwork.app (이 맥의 아키텍처, 개발 인증서가 있으면 그걸로 서명)
+# Gitrochi 맥 앱 빌드 (swiftc, 비샌드박스)
+#   macos/build.sh           → macos/build/Gitrochi.app (이 맥의 아키텍처, 개발 인증서가 있으면 그걸로 서명)
 #   macos/build.sh install   → 빌드 후 /Applications 로 설치
 #   macos/build.sh release   → macos/dist/ 에 배포용 zip·dmg·sha256 (Apple Silicon + Intel 유니버설, ad-hoc 서명, 공개키가 있으면 zip 업데이트 서명)
 
-BIN="Branchwork"
+BIN="Gitrochi"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$ROOT/.." && pwd)"
 BUILD="$ROOT/build"
@@ -18,13 +18,13 @@ VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$ROOT/
 if [[ "$MODE" == "release" ]]; then ARCHS=(arm64 x86_64); else ARCHS=("$(uname -m)"); fi
 
 # 업데이트 서명(Ed25519): 앱에 공개키가 들어 있으면 그 앱은 <zip>.sig 가 맞아야만 설치하므로, 비밀키가 없으면 빌드 전에 멈춘다.
-# 비밀키는 BRANCHWORK_UPDATE_KEY(Actions 비밀 값) 또는 로그인 키체인(Tools/updatekey.sh new)
+# 비밀키는 GITROCHI_UPDATE_KEY(Actions 비밀 값) 또는 로그인 키체인(Tools/updatekey.sh new)
 if [[ "$MODE" == "release" ]]; then
-    PUBKEY="$(/usr/libexec/PlistBuddy -c 'Print BWUpdatePublicKey' "$ROOT/Resources/Info.plist" 2>/dev/null || true)"
+    PUBKEY="$(/usr/libexec/PlistBuddy -c 'Print GitrochiUpdatePublicKey' "$ROOT/Resources/Info.plist" 2>/dev/null || true)"
     if [[ -n "$PUBKEY" ]]; then
-        SECRET="${BRANCHWORK_UPDATE_KEY:-$(security find-generic-password -s "Branchwork update signing key" -w 2>/dev/null || true)}"
+        SECRET="${GITROCHI_UPDATE_KEY:-$(security find-generic-password -s "Gitrochi update signing key" -w 2>/dev/null || true)}"
         if [[ -z "$SECRET" ]]; then
-            echo "❌ 업데이트 서명 비밀키가 없습니다(BRANCHWORK_UPDATE_KEY 또는 키체인). 서명 없는 zip 은 앱이 설치하지 않습니다." >&2
+            echo "❌ 업데이트 서명 비밀키가 없습니다(GITROCHI_UPDATE_KEY 또는 키체인). 서명 없는 zip 은 앱이 설치하지 않습니다." >&2
             exit 1
         fi
     fi
@@ -68,9 +68,6 @@ mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 lipo -create "${BINS[@]}" -output "$CONTENTS/MacOS/$BIN"
 cp "$ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
-# 설정에서 고르는 앱 아이콘(1024 PNG 원본 — AppIcon.swift)
-mkdir -p "$CONTENTS/Resources/AppIcons"
-cp "$REPO/assets/app-icons/"*.png "$CONTENTS/Resources/AppIcons/"
 # 화면 번역(한국어 글자가 키, <언어>.lproj/Localizable.strings)
 cp -R "$ROOT/Resources/Localizations/"*.lproj "$CONTENTS/Resources/"
 cp "$REPO/LICENSE" "$CONTENTS/Resources/LICENSE.txt"
@@ -78,12 +75,12 @@ cp "$ROOT/Vendor/SwiftTerm/LICENSE" "$CONTENTS/Resources/SwiftTerm-LICENSE.txt"
 
 # 서명: 고정 인증서(Apple Development 등)가 있으면 그걸로 서명한다.
 # ad-hoc(-)은 빌드마다 서명이 바뀌어 macOS 키체인이 매번 '다른 앱'으로 보고 접근 허용을 다시 묻는다.
-# 다른 인증서를 쓰려면 BRANCHWORK_SIGN_IDENTITY="인증서 이름" ./build.sh
+# 다른 인증서를 쓰려면 GITROCHI_SIGN_IDENTITY="인증서 이름" ./build.sh
 # 배포본(release)은 개인 개발 인증서를 넣지 않고 ad-hoc 으로 서명한다(Developer ID 가 있으면 환경 변수로 지정).
 if [[ "$MODE" == "release" ]]; then
-    IDENTITY="${BRANCHWORK_SIGN_IDENTITY:-}"
+    IDENTITY="${GITROCHI_SIGN_IDENTITY:-}"
 else
-    IDENTITY="${BRANCHWORK_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development|Developer ID Application/ {print $2; exit}')}"
+    IDENTITY="${GITROCHI_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development|Developer ID Application/ {print $2; exit}')}"
 fi
 sign() {
     if [[ -n "$IDENTITY" ]]; then
@@ -120,11 +117,11 @@ release)
     if [[ -n "$PUBKEY" ]]; then
         mkdir -p "$ROOT/.build"
         swiftc -O "$ROOT/Tools/updatesign.swift" -o "$ROOT/.build/updatesign"
-        BRANCHWORK_UPDATE_KEY="$SECRET" "$ROOT/.build/updatesign" sign "$DIST/$NAME.zip"
+        GITROCHI_UPDATE_KEY="$SECRET" "$ROOT/.build/updatesign" sign "$DIST/$NAME.zip"
         "$ROOT/.build/updatesign" verify "$DIST/$NAME.zip" "$PUBKEY" || { rm -f "$DIST/$NAME".*; echo "❌ 비밀키가 Info.plist 의 공개키와 짝이 아닙니다." >&2; exit 1; }
         echo "▶ 업데이트 서명: $NAME.zip.sig"
     else
-        echo "⚠️  Info.plist 에 BWUpdatePublicKey 가 없어 업데이트 서명을 건너뜁니다(앱은 SHA-256 만 확인)."
+        echo "⚠️  Info.plist 에 GitrochiUpdatePublicKey 가 없어 업데이트 서명을 건너뜁니다(앱은 SHA-256 만 확인)."
     fi
     echo "✅ 배포 파일:"
     ls -lh "$DIST/$NAME".*

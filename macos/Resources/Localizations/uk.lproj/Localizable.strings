@@ -1,4 +1,4 @@
-/* Branchwork — uk. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — uk. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Зміни були задовгі, тож пояснено лише їхній початок.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nПотрібна автентифікація. Один раз виконайте push/pull у терміналі, щоб зберегти облікові дані (Зв’язка ключів або SSH-ключ), і спробуйте ще раз.";
@@ -91,7 +91,6 @@
 "An empty file was deleted" = "Видалено порожній файл";
 "Another account's token" = "Токен іншого облікового запису";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Підійде будь-який сервер, що приймає формат OpenAI (/chat/completions). Приклад: Ollama http://localhost:11434/v1";
-"App icon" = "Піктограма застосунку";
 "Appearance" = "Вигляд";
 "Applies the most recently stashed changes (Pop)." = "Застосовує останні сховані зміни (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Діє для всіх функцій AI разом із правилами, заданими нижче для кожної функції.";
@@ -131,10 +130,10 @@
 "Branch to check out" = "Гілка для переходу";
 "Branches hidden from the graph — right-click to show again" = "Гілки, приховані з графа — клацніть правою кнопкою, щоб показати знову";
 "Branches pinned to the top" = "Гілки, закріплені вгорі";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ — найновіша версія.";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork відкрито просто із завантажень, і він працює з тимчасового розташування, тому не може замінити сам себе. Перемістіть його в папку «Програми», відкрийте знову, а потім оновіть.";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Щоб застосувати зміну, Branchwork перезапуститься. Якщо немає історії комітів, на яку можна орієнтуватися, AI також писатиме цією мовою.";
-"Branchwork update" = "Оновлення Branchwork";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ — найновіша версія.";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi відкрито просто із завантажень, і він працює з тимчасового розташування, тому не може замінити сам себе. Перемістіть його в папку «Програми», відкрийте знову, а потім оновіть.";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Щоб застосувати зміну, Gitrochi перезапуститься. Якщо немає історії комітів, на яку можна орієнтуватися, AI також писатиме цією мовою.";
+"Gitrochi update" = "Оновлення Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Підтягує нові коміти з віддаленого репозиторію в поточну гілку (нових комітів: %1$lld).";
 "Browser" = "Браузер";
 "By branch" = "За гілками";
@@ -153,7 +152,6 @@
 "Changes" = "Зміни";
 "Changes %lld" = "Зміни %1$lld";
 "Changes requested: " = "Запитано зміни: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Змінює піктограму в Dock, Finder і Launchpad. Нові піктограми з’являються з оновленнями.";
 "Change…" = "Змінити…";
 "Check failed: %@" = "Не вдалося перевірити: %1$@";
 "Check for new versions at launch and once a day" = "Перевіряти наявність нових версій під час запуску й раз на день";
@@ -255,7 +253,6 @@
 "Copy message" = "Копіювати повідомлення";
 "Copy name" = "Копіювати назву";
 "Copy path" = "Копіювати шлях";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Не вдалося змінити піктограму у Finder: немає дозволу на запис у папку Branchwork. Піктограма в Dock однаково змінюється, поки Branchwork працює.";
 "Couldn't complete the operation" = "Не вдалося виконати операцію";
 "Couldn't download the file." = "Не вдалося завантажити файл.";
 "Couldn't extract: %@" = "Не вдалося розпакувати: %1$@";
@@ -371,7 +368,7 @@
 "End the %@ session?" = "Завершити сеанс %1$@?";
 "Ended" = "Завершено";
 "Ended sessions" = "Завершені сеанси";
-"Enter an administrator password to update Branchwork in %@." = "Введіть пароль адміністратора, щоб оновити Branchwork у %1$@.";
+"Enter an administrator password to update Gitrochi in %@." = "Введіть пароль адміністратора, щоб оновити Gitrochi у %1$@.";
 "Enter the server address." = "Введіть адресу сервера.";
 "Enter your %@ key in Settings > AI." = "Введіть ключ %1$@ у Налаштуваннях > AI.";
 "Environment %lld" = "Середовище %1$lld";
@@ -443,7 +440,7 @@
 "Incoming commit" = "Вхідний коміт";
 "Install" = "Установити";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Розташування встановлення в усіх різні. Якщо інструмент не знайдено автоматично, натисніть **Вказати** і виберіть виконуваний файл самостійно. Вибраний шлях буде збережено й використано наступного разу.";
-"Installing… Branchwork restarts when done" = "Установлення… Після завершення Branchwork перезапуститься";
+"Installing… Gitrochi restarts when done" = "Установлення… Після завершення Gitrochi перезапуститься";
 "Invalid address: %@" = "Недійсна адреса: %1$@";
 "It was closed or hasn't been loaded yet." = "Закрито або ще не завантажено.";
 "Keep at least one commit." = "Залиште принаймні один коміт.";
@@ -561,7 +558,7 @@
 "Only the panel is hidden; shells keep running." = "Приховано лише панель; оболонки продовжують працювати.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Змінилися лише пробіли (вимкніть «Ігнорувати пробіли», щоб їх побачити).";
 "Open" = "Відкрити";
-"Open in Branchwork" = "Відкрити в Branchwork";
+"Open in Gitrochi" = "Відкрити в Gitrochi";
 "Open in Terminal" = "Відкрити в Терміналі";
 "Open in browser" = "Відкрити в браузері";
 "Open in the terminal below" = "Відкрити в терміналі внизу";
@@ -708,7 +705,6 @@
 "Server error %lld: %@" = "Помилка сервера %1$lld: %2$@";
 "Sessions in other folders" = "Сеанси в інших папках";
 "Set manually" = "Задати вручну";
-"Shadow" = "Тінь";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Оболонка, що відкривається в панелі термінала внизу (zsh, bash, fish тощо)";
 "Show all" = "Показати все";
 "Show all %lld hidden branches" = "Показати всі приховані гілки (%1$lld)";
@@ -791,10 +787,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "Зміни були задовгі, тому до %1$@ надіслано лише початок (пропущено %2$lld тис. символів).";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "Зміни були задовгі, тому для розбиття використано лише початок (пропущено %1$lld тис. символів).";
 "The downloaded app's signature is invalid: %@" = "Підпис завантаженої програми недійсний: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "Завантажений файл не є Branchwork. Його не встановлено.";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "Завантажений файл не є Gitrochi. Його не встановлено.";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "SHA-256 завантаженого файлу не збігається з випуском. Його не встановлено.";
 "The file is empty or not committed yet." = "Файл порожній або ще не закомічений.";
-"The language changes when Branchwork restarts." = "Мова зміниться після перезапуску Branchwork.";
+"The language changes when Gitrochi restarts." = "Мова зміниться після перезапуску Gitrochi.";
 "The new message is empty." = "Нове повідомлення порожнє.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Префікс — одне з Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
 "The release has no SHA-256 file. It wasn't installed." = "У випуску немає файлу SHA-256. Оновлення не встановлено.";

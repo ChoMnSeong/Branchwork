@@ -1,4 +1,4 @@
-/* Branchwork — nl. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — nl. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(De diff was lang, dus alleen het begin is uitgelegd.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nAuthenticatie vereist. Voer één keer push/pull uit in een terminal zodat je inloggegevens worden opgeslagen (Sleutelhanger of SSH-sleutel), en probeer het opnieuw.";
@@ -84,7 +84,6 @@
 "An empty file was deleted" = "Er is een leeg bestand verwijderd";
 "Another account's token" = "Token van een ander account";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Elke server die het OpenAI-formaat (/chat/completions) accepteert, werkt. Voorbeeld: Ollama http://localhost:11434/v1";
-"App icon" = "App-symbool";
 "Appearance" = "Weergave";
 "Applies the most recently stashed changes (Pop)." = "Past de laatst gestashte wijzigingen toe (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Geldt voor elke AI-functie, samen met de regels die hieronder per functie zijn ingesteld.";
@@ -121,10 +120,10 @@
 "Branch to check out" = "Uit te checken branch";
 "Branches hidden from the graph — right-click to show again" = "Branches die in de graaf verborgen zijn — klik met rechts om ze weer te tonen";
 "Branches pinned to the top" = "Bovenaan vastgezette branches";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ is de nieuwste versie.";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork is rechtstreeks vanuit de download geopend en draait vanaf een tijdelijke locatie, dus het kan zichzelf niet vervangen. Verplaats het naar de map Apps, open het opnieuw en werk het daarna bij.";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork start opnieuw om de wijziging toe te passen. Als er geen commitgeschiedenis is om te volgen, schrijft de AI ook in deze taal.";
-"Branchwork update" = "Branchwork-update";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ is de nieuwste versie.";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi is rechtstreeks vanuit de download geopend en draait vanaf een tijdelijke locatie, dus het kan zichzelf niet vervangen. Verplaats het naar de map Apps, open het opnieuw en werk het daarna bij.";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi start opnieuw om de wijziging toe te passen. Als er geen commitgeschiedenis is om te volgen, schrijft de AI ook in deze taal.";
+"Gitrochi update" = "Gitrochi-update";
 "Brings %lld new commits from the remote into the current branch." = "Haalt nieuwe commits (%1$lld) van de remote binnen in de huidige branch.";
 "By branch" = "Per branch";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — klik om te openen in de browser";
@@ -142,7 +141,6 @@
 "Changes" = "Wijzigingen";
 "Changes %lld" = "Wijzigingen %1$lld";
 "Changes requested: " = "Wijzigingen gevraagd: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Wijzigt het symbool in het Dock, de Finder en Launchpad. Nieuwe symbolen komen met updates.";
 "Change…" = "Wijzigen…";
 "Check failed: %@" = "Controle mislukt: %1$@";
 "Check for new versions at launch and once a day" = "Bij het starten en eenmaal per dag op nieuwe versies controleren";
@@ -236,7 +234,6 @@
 "Copy message" = "Bericht kopiëren";
 "Copy name" = "Naam kopiëren";
 "Copy path" = "Pad kopiëren";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Kan het symbool in de Finder niet wijzigen omdat er niet naar de map van Branchwork kan worden geschreven. Het Dock-symbool verandert wel zolang Branchwork actief is.";
 "Couldn't complete the operation" = "Kan de bewerking niet voltooien";
 "Couldn't download the file." = "Kan het bestand niet downloaden.";
 "Couldn't extract: %@" = "Kan niet uitpakken: %1$@";
@@ -349,7 +346,7 @@
 "End the %@ session?" = "Sessie van %1$@ beëindigen?";
 "Ended" = "Beëindigd";
 "Ended sessions" = "Beëindigde sessies";
-"Enter an administrator password to update Branchwork in %@." = "Voer een beheerderswachtwoord in om Branchwork in %1$@ bij te werken.";
+"Enter an administrator password to update Gitrochi in %@." = "Voer een beheerderswachtwoord in om Gitrochi in %1$@ bij te werken.";
 "Enter the server address." = "Voer het serveradres in.";
 "Enter your %@ key in Settings > AI." = "Voer je sleutel voor %1$@ in bij Instellingen > AI.";
 "Environment %lld" = "Omgeving %1$lld";
@@ -418,7 +415,7 @@
 "Incoming commit" = "Inkomende commit";
 "Install" = "Installeren";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Installatielocaties verschillen per persoon. Als een tool niet automatisch wordt gevonden, gebruik dan **Aanwijzen** om het uitvoerbare bestand zelf te kiezen. Het gekozen pad wordt opgeslagen en de volgende keer weer gebruikt.";
-"Installing… Branchwork restarts when done" = "Bezig met installeren… Branchwork start daarna opnieuw";
+"Installing… Gitrochi restarts when done" = "Bezig met installeren… Gitrochi start daarna opnieuw";
 "Invalid address: %@" = "Ongeldig adres: %1$@";
 "It was closed or hasn't been loaded yet." = "Het is gesloten of nog niet geladen.";
 "Keep at least one commit." = "Houd minstens één commit over.";
@@ -534,7 +531,7 @@
 "Only the panel is hidden; shells keep running." = "Alleen het paneel wordt verborgen; shells blijven actief.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Alleen witruimte gewijzigd (zet Witruimte negeren uit om het te zien).";
 "Open" = "Openen";
-"Open in Branchwork" = "Openen in Branchwork";
+"Open in Gitrochi" = "Openen in Gitrochi";
 "Open in Terminal" = "Openen in Terminal";
 "Open in browser" = "Openen in browser";
 "Open in the terminal below" = "Openen in de terminal onderaan";
@@ -668,7 +665,6 @@
 "Server error %lld: %@" = "Serverfout %1$lld: %2$@";
 "Sessions in other folders" = "Sessies in andere mappen";
 "Set manually" = "Handmatig ingesteld";
-"Shadow" = "Schaduw";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell die in het terminalpaneel onderaan wordt geopend (zsh, bash, fish, enz.)";
 "Show all" = "Alles tonen";
 "Show all %lld hidden branches" = "Alle verborgen branches tonen (%1$lld)";
@@ -745,10 +741,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "De diff was lang, dus alleen het begin is naar %1$@ gestuurd (%2$lldK tekens weggelaten).";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "De diff was lang, dus alleen het begin is gebruikt voor het opsplitsen (%1$lldK tekens weggelaten).";
 "The downloaded app's signature is invalid: %@" = "De handtekening van de gedownloade app is ongeldig: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "Het gedownloade bestand is geen Branchwork. Het is niet geïnstalleerd.";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "Het gedownloade bestand is geen Gitrochi. Het is niet geïnstalleerd.";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "De SHA-256 van het gedownloade bestand komt niet overeen met de release. Het is niet geïnstalleerd.";
 "The file is empty or not committed yet." = "Het bestand is leeg of nog niet gecommit.";
-"The language changes when Branchwork restarts." = "De taal verandert wanneer Branchwork opnieuw start.";
+"The language changes when Gitrochi restarts." = "De taal verandert wanneer Gitrochi opnieuw start.";
 "The new message is empty." = "Het nieuwe bericht is leeg.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Het prefix is een van Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
 "The release has no SHA-256 file. It wasn't installed." = "De release heeft geen SHA-256-bestand. De update is niet geïnstalleerd.";

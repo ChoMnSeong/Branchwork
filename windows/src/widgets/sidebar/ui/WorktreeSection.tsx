@@ -41,7 +41,7 @@ export function WorktreeSection({ store }: { store: RepoStore }) {
             onDoubleClick={() => void store.openOrReport(w.path)}
             onContextMenu={(e) =>
               showContextMenu(e, [
-                { label: t("Open in Branchwork"), disabled: current, onClick: () => void store.openOrReport(w.path) },
+                { label: t("Open in Gitrochi"), disabled: current, onClick: () => void store.openOrReport(w.path) },
                 { label: t("Show in Explorer"), onClick: () => void ipc.reveal(w.path) },
                 { label: t("Open in the terminal below"), onClick: () => store.newTerminal(w.path) },
                 { label: t("Open in external terminal"), onClick: () => void ipc.openTerminal(w.path) },

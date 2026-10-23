@@ -1,5 +1,5 @@
 #!/bin/sh
-# Branchwork Git 규칙 검사 — 설명은 CONTRIBUTING.md 「Git 규칙」.
+# Gitrochi Git 규칙 검사 — 설명은 CONTRIBUTING.md 「Git 규칙」.
 #   rules.sh message <파일>        커밋 메시지(commit-msg 훅)
 #   rules.sh staged                스테이지한 파일(pre-commit 훅)
 #   rules.sh range <base> <head>   그 사이의 커밋과 바뀐 파일(GitHub Actions)

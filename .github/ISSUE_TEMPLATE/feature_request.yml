@@ -50,4 +50,4 @@ body:
     attributes:
       label: 함께하기
       options:
-        - label: 직접 PR 을 보내 볼 생각이 있습니다([기여 안내](https://github.com/ChoMnSeong/Branchwork/blob/main/CONTRIBUTING.md))
+        - label: 직접 PR 을 보내 볼 생각이 있습니다([기여 안내](https://github.com/ChoMnSeong/Gitrochi/blob/main/CONTRIBUTING.md))

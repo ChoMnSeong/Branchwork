@@ -1,4 +1,4 @@
-/* Branchwork — tr. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — tr. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff uzun olduğu için yalnızca baş kısmı açıklandı.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nKimlik doğrulaması gerekiyor. Terminalde bir kez push/pull yaparak kimlik bilgilerinizi kaydedin (Anahtar Zinciri veya SSH anahtarı), sonra tekrar deneyin.";
@@ -87,7 +87,6 @@
 "An empty file was deleted" = "Boş bir dosya silindi";
 "Another account's token" = "Başka bir hesabın token'ı";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "OpenAI biçimini (/chat/completions) kabul eden her sunucu çalışır. Örnek: Ollama http://localhost:11434/v1";
-"App icon" = "Uygulama simgesi";
 "Appearance" = "Görünüm";
 "Applies the most recently stashed changes (Pop)." = "En son stash'e kaydedilen değişiklikleri uygular (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Aşağıda her özellik için yazılan kurallarla birlikte tüm yapay zeka özelliklerine uygulanır.";
@@ -126,10 +125,10 @@
 "Branch to check out" = "Geçilecek dal";
 "Branches hidden from the graph — right-click to show again" = "Grafikte gizlenen dallar — yeniden göstermek için sağ tıklayın";
 "Branches pinned to the top" = "En üste sabitlenen dallar";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ en son sürüm.";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork doğrudan indirilenler konumundan açıldığı için geçici bir konumdan çalışıyor ve kendini değiştiremiyor. Uygulamalar klasörüne taşıyın, yeniden açın ve ardından güncelleyin.";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Değişikliği uygulamak için Branchwork yeniden başlar. Örnek alınacak commit geçmişi olmadığında yapay zeka da bu dilde yazar.";
-"Branchwork update" = "Branchwork güncellemesi";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ en son sürüm.";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi doğrudan indirilenler konumundan açıldığı için geçici bir konumdan çalışıyor ve kendini değiştiremiyor. Uygulamalar klasörüne taşıyın, yeniden açın ve ardından güncelleyin.";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Değişikliği uygulamak için Gitrochi yeniden başlar. Örnek alınacak commit geçmişi olmadığında yapay zeka da bu dilde yazar.";
+"Gitrochi update" = "Gitrochi güncellemesi";
 "Brings %lld new commits from the remote into the current branch." = "Uzak depodaki %1$lld yeni commit'i geçerli dala çeker.";
 "Browser" = "Tarayıcı";
 "By branch" = "Dala göre";
@@ -148,7 +147,6 @@
 "Changes" = "Değişiklikler";
 "Changes %lld" = "Değişiklikler %1$lld";
 "Changes requested: " = "Değişiklik istendi: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Dock, Finder ve Launchpad'deki simgeyi değiştirir. Yeni simgeler güncellemelerle gelir.";
 "Change…" = "Değiştir…";
 "Check failed: %@" = "Denetim başarısız: %1$@";
 "Check for new versions at launch and once a day" = "Açılışta ve günde bir kez yeni sürüm olup olmadığını denetle";
@@ -245,7 +243,6 @@
 "Copy message" = "Mesajı kopyala";
 "Copy name" = "Adı kopyala";
 "Copy path" = "Yolu kopyala";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Branchwork klasörüne yazılamadığı için Finder'daki simge değiştirilemedi. Dock simgesi Branchwork çalıştığı sürece yine de değişir.";
 "Couldn't complete the operation" = "İşlem tamamlanamadı";
 "Couldn't download the file." = "Dosya indirilemedi.";
 "Couldn't extract: %@" = "Arşivden çıkarılamadı: %1$@";
@@ -361,7 +358,7 @@
 "End the %@ session?" = "%1$@ oturumu sonlandırılsın mı?";
 "Ended" = "Sonlandı";
 "Ended sessions" = "Sonlanan oturumlar";
-"Enter an administrator password to update Branchwork in %@." = "%1$@ konumundaki Branchwork'ü güncellemek için bir yönetici parolası girin.";
+"Enter an administrator password to update Gitrochi in %@." = "%1$@ konumundaki Gitrochi'ü güncellemek için bir yönetici parolası girin.";
 "Enter the server address." = "Sunucu adresini girin.";
 "Enter your %@ key in Settings > AI." = "%1$@ anahtarınızı Ayarlar > AI bölümüne girin.";
 "Environment %lld" = "Ortam %1$lld";
@@ -433,7 +430,7 @@
 "Incoming commit" = "Gelen commit";
 "Install" = "Yükle";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Kurulum konumları kişiden kişiye değişir. Bir araç otomatik olarak bulunamazsa **Konum seç** düğmesiyle çalıştırılabilir dosyayı kendiniz seçin. Seçilen yol kaydedilir ve bir dahaki sefere de kullanılır.";
-"Installing… Branchwork restarts when done" = "Yükleniyor… Bittiğinde Branchwork yeniden başlar";
+"Installing… Gitrochi restarts when done" = "Yükleniyor… Bittiğinde Gitrochi yeniden başlar";
 "Invalid address: %@" = "Geçersiz adres: %1$@";
 "It was closed or hasn't been loaded yet." = "Kapatılmış ya da henüz yüklenmemiş.";
 "Keep at least one commit." = "En az bir commit bırakın.";
@@ -551,7 +548,7 @@
 "Only the panel is hidden; shells keep running." = "Yalnızca panel gizlenir; kabuklar çalışmaya devam eder.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Yalnızca boşluklar değişti (görmek için Boşlukları yok say seçeneğini kapatın).";
 "Open" = "Aç";
-"Open in Branchwork" = "Branchwork'te aç";
+"Open in Gitrochi" = "Gitrochi'te aç";
 "Open in Terminal" = "Terminal'de aç";
 "Open in browser" = "Tarayıcıda aç";
 "Open in the terminal below" = "Alttaki terminalde aç";
@@ -697,7 +694,6 @@
 "Server error %lld: %@" = "Sunucu hatası %1$lld: %2$@";
 "Sessions in other folders" = "Diğer klasörlerdeki oturumlar";
 "Set manually" = "Elle belirlendi";
-"Shadow" = "Gölge";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Alttaki terminal panelinde açılan kabuk (zsh, bash, fish vb.)";
 "Show all" = "Tümünü göster";
 "Show all %lld hidden branches" = "Gizli dalların tümünü göster (%1$lld)";
@@ -777,10 +773,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "Diff uzun olduğu için yalnızca baş kısmı %1$@ tarafına gönderildi (%2$lldK karakter çıkarıldı).";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "Diff uzun olduğu için bölmede yalnızca baş kısmı kullanıldı (%1$lldK karakter çıkarıldı).";
 "The downloaded app's signature is invalid: %@" = "İndirilen uygulamanın imzası geçersiz: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "İndirilen dosya Branchwork değil. Yüklenmedi.";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "İndirilen dosya Gitrochi değil. Yüklenmedi.";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "İndirilen dosyanın SHA-256 değeri sürümle eşleşmiyor. Yüklenmedi.";
 "The file is empty or not committed yet." = "Dosya boş ya da henüz commit edilmemiş.";
-"The language changes when Branchwork restarts." = "Dil, Branchwork yeniden başladığında değişir.";
+"The language changes when Gitrochi restarts." = "Dil, Gitrochi yeniden başladığında değişir.";
 "The new message is empty." = "Yeni mesaj boş.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Önek şunlardan biri olmalı: Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
 "The release has no SHA-256 file. It wasn't installed." = "Sürümde SHA-256 dosyası yok. Güncelleme yüklenmedi.";

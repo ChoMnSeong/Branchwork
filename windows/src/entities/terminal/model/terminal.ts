@@ -186,7 +186,7 @@ export class TerminalSession extends Observable {
     const vars: Record<string, string> = {
       TERM: "xterm-256color",
       COLORTERM: "truecolor",
-      TERM_PROGRAM: "Branchwork",
+      TERM_PROGRAM: "Gitrochi",
       TERM_PROGRAM_VERSION: env.version,
       ...(this.spec.env ?? {}),
     };

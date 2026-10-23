@@ -27,7 +27,7 @@ enum Launcher {
         lines.append("clear")
         lines.append((["exec", program.contains("/") ? quote(program) : program] + args.map(quote)).joined(separator: " "))
         let file = FileManager.default.temporaryDirectory
-            .appendingPathComponent("branchwork-\(UUID().uuidString.prefix(8)).command")
+            .appendingPathComponent("gitrochi-\(UUID().uuidString.prefix(8)).command")
         try (lines.joined(separator: "\n") + "\n").write(to: file, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
         NSWorkspace.shared.open([file], withApplicationAt: t, configuration: NSWorkspace.OpenConfiguration())

@@ -40,7 +40,7 @@ extension RepoStore {
     /// 계획대로 git rebase -i 를 돌린다(할 일 목록은 미리 만들어 편집기 대신 복사해 넣는다)
     func runInteractiveRebase(_ plan: RebasePlan) async {
         guard let gitDir, plan.problem == nil else { return }
-        let dir = gitDir.appendingPathComponent("branchwork-rebase")
+        let dir = gitDir.appendingPathComponent("gitrochi-rebase")
         try? FileManager.default.removeItem(at: dir)
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

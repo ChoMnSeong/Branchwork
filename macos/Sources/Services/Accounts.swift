@@ -4,9 +4,30 @@ import Observation
 
 /// 토큰·API 키를 macOS 키체인(일반 암호)에 보관한다.
 enum Keychain {
-    private static let service = "com.ensnif.Branchwork"
+    private static let service = "com.ensnif.Gitrochi"
 
     static func get(_ account: String) -> String? {
+        if let value = read(service, account) { return value }
+        // Saved before the rename: move it to the new service on first use
+        guard let value = read(LegacyData.keychainService, account) else { return nil }
+        set(value, for: account)
+        return value
+    }
+
+    static func set(_ value: String?, for account: String) {
+        delete(service, account)
+        delete(LegacyData.keychainService, account)
+        guard let value, !value.isEmpty else { return }
+        let add: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecValueData as String: Data(value.utf8),
+        ]
+        SecItemAdd(add as CFDictionary, nil)
+    }
+
+    private static func read(_ service: String, _ account: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -19,17 +40,13 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
-    static func set(_ value: String?, for account: String) {
-        let base: [String: Any] = [
+    private static func delete(_ service: String, _ account: String) {
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
-        SecItemDelete(base as CFDictionary)
-        guard let value, !value.isEmpty else { return }
-        var add = base
-        add[kSecValueData as String] = Data(value.utf8)
-        SecItemAdd(add as CFDictionary, nil)
+        SecItemDelete(query as CFDictionary)
     }
 }
 
@@ -236,17 +253,17 @@ final class AccountStore {
         for (host, a) in byHost.sorted(by: { $0.key < $1.key }) {
             guard let tok = token(for: a) else { continue }
             i += 1
-            env["BRANCHWORK_ASKPASS_HOST_\(i)"] = host
-            env["BRANCHWORK_ASKPASS_USER_\(i)"] = a.provider == .github ? "x-access-token" : "oauth2"
-            env["BRANCHWORK_ASKPASS_PASS_\(i)"] = tok
+            env["GITROCHI_ASKPASS_HOST_\(i)"] = host
+            env["GITROCHI_ASKPASS_USER_\(i)"] = a.provider == .github ? "x-access-token" : "oauth2"
+            env["GITROCHI_ASKPASS_PASS_\(i)"] = tok
         }
         guard i > 0 else { return [:] }
-        env["BRANCHWORK_ASKPASS_COUNT"] = String(i)
+        env["GITROCHI_ASKPASS_COUNT"] = String(i)
         return env
     }
 }
 
-/// GIT_ASKPASS 로 쓰는 작은 셸 스크립트(~/Library/Application Support/Branchwork/askpass.sh)
+/// GIT_ASKPASS 로 쓰는 작은 셸 스크립트(~/Library/Application Support/Gitrochi/askpass.sh)
 enum Askpass {
     static var path: String? {
         let p = directory.appendingPathComponent("askpass.sh").path
@@ -255,21 +272,21 @@ enum Askpass {
 
     private static var directory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Branchwork", isDirectory: true)
+            .appendingPathComponent("Gitrochi", isDirectory: true)
     }
 
     static func install() {
         let script = """
         #!/bin/sh
-        # Branchwork: 연결된 계정 토큰으로 HTTPS git 인증 질문에 답한다(GIT_ASKPASS).
-        # 서버마다 BRANCHWORK_ASKPASS_HOST_n / USER_n / PASS_n 이 넘어온다.
-        n=${BRANCHWORK_ASKPASS_COUNT:-0}
+        # Gitrochi: 연결된 계정 토큰으로 HTTPS git 인증 질문에 답한다(GIT_ASKPASS).
+        # 서버마다 GITROCHI_ASKPASS_HOST_n / USER_n / PASS_n 이 넘어온다.
+        n=${GITROCHI_ASKPASS_COUNT:-0}
         i=1
         while [ "$i" -le "$n" ]; do
-          eval host=\\$BRANCHWORK_ASKPASS_HOST_$i
+          eval host=\\$GITROCHI_ASKPASS_HOST_$i
           if [ -n "$host" ] && printf '%s' "$1" | grep -qF "$host"; then
-            eval user=\\$BRANCHWORK_ASKPASS_USER_$i
-            eval pass=\\$BRANCHWORK_ASKPASS_PASS_$i
+            eval user=\\$GITROCHI_ASKPASS_USER_$i
+            eval pass=\\$GITROCHI_ASKPASS_PASS_$i
             [ -n "$pass" ] || exit 1
             case "$1" in
               Username*) printf '%s\\n' "$user" ;;

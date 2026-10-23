@@ -97,7 +97,7 @@ export async function commandVersion(distro: string, command: string): Promise<s
 
 /** WSL 에서 실행할 때 쓰는 임시 파일(여러 줄 인자) */
 export async function tempFile(name: string, content: string): Promise<{ windows: string; wsl: string }> {
-  const windows = joinPath(env.temp, `branchwork-${crypto.randomUUID().slice(0, 8)}-${name}`);
+  const windows = joinPath(env.temp, `gitrochi-${crypto.randomUUID().slice(0, 8)}-${name}`);
   await ipc.writeText(windows, content);
   return { windows, wsl: toWslPath(windows) };
 }

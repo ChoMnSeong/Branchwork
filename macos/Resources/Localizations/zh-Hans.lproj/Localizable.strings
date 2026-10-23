@@ -1,4 +1,4 @@
-/* Branchwork — zh-Hans. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — zh-Hans. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n（差异较长，因此只解释了开头部分。）";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n需要身份验证。请在终端中执行一次 push/pull 以保存凭据（钥匙串或 SSH 密钥），然后重试。";
@@ -91,7 +91,6 @@
 "An empty file was deleted" = "已删除一个空文件";
 "Another account's token" = "其他账户的令牌";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "任何兼容 OpenAI 格式 (/chat/completions) 的服务器均可使用。示例：Ollama http://localhost:11434/v1";
-"App icon" = "应用图标";
 "Appearance" = "外观";
 "Applies the most recently stashed changes (Pop)." = "应用最近一次贮藏的更改（弹出）。";
 "Applies to every AI feature, together with the rules written for each feature below." = "适用于所有 AI 功能，并与下方各功能单独编写的规则一同生效。";
@@ -131,10 +130,10 @@
 "Branch to check out" = "要检出的分支";
 "Branches hidden from the graph — right-click to show again" = "已从提交图中隐藏的分支 — 右键单击可重新显示";
 "Branches pinned to the top" = "置顶的分支";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ 已是最新版本。";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork 是直接从下载位置打开的，正在临时位置运行，无法替换自身。请将它移到“应用程序”文件夹，重新打开后再更新。";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork 将重新启动以应用更改。没有可参考的提交历史时，AI 也会使用此语言书写。";
-"Branchwork update" = "Branchwork 更新";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ 已是最新版本。";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi 是直接从下载位置打开的，正在临时位置运行，无法替换自身。请将它移到“应用程序”文件夹，重新打开后再更新。";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi 将重新启动以应用更改。没有可参考的提交历史时，AI 也会使用此语言书写。";
+"Gitrochi update" = "Gitrochi 更新";
 "Brings %lld new commits from the remote into the current branch." = "将远程的 %1$lld 个新提交拉取到当前分支。";
 "Browser" = "浏览器";
 "By branch" = "按分支";
@@ -154,7 +153,6 @@
 "Changes" = "更改";
 "Changes %lld" = "更改 %1$lld";
 "Changes requested: " = "请求更改： ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "更改程序坞、访达和启动台中的图标。新图标会随更新提供。";
 "Change…" = "更改…";
 "Check failed: %@" = "检查失败：%1$@";
 "Check for new versions at launch and once a day" = "启动时及每天检查一次新版本";
@@ -257,7 +255,6 @@
 "Copy message" = "复制信息";
 "Copy name" = "复制名称";
 "Copy path" = "复制路径";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "无法写入 Branchwork 所在的文件夹，因此未能更改访达中的图标。Branchwork 运行期间，程序坞图标仍会改变。";
 "Couldn't complete the operation" = "无法完成操作";
 "Couldn't download the file." = "无法下载文件。";
 "Couldn't extract: %@" = "无法解压：%1$@";
@@ -373,7 +370,7 @@
 "End the %@ session?" = "要结束 %1$@ 会话吗？";
 "Ended" = "已结束";
 "Ended sessions" = "已结束的会话";
-"Enter an administrator password to update Branchwork in %@." = "输入管理员密码以更新 %1$@ 中的 Branchwork。";
+"Enter an administrator password to update Gitrochi in %@." = "输入管理员密码以更新 %1$@ 中的 Gitrochi。";
 "Enter the server address." = "请输入服务器地址。";
 "Enter your %@ key in Settings > AI." = "请在“设置 > AI”中输入你的 %1$@ 密钥。";
 "Environment %lld" = "环境 %1$lld";
@@ -445,7 +442,7 @@
 "Incoming commit" = "传入的提交";
 "Install" = "安装";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "每个人的安装位置不同。如果未能自动找到工具，请使用 **定位** 按钮自行选择可执行文件。所选路径会被保存，下次继续使用。";
-"Installing… Branchwork restarts when done" = "正在安装… 完成后 Branchwork 将重新启动";
+"Installing… Gitrochi restarts when done" = "正在安装… 完成后 Gitrochi 将重新启动";
 "Invalid address: %@" = "地址无效：%1$@";
 "It was closed or hasn't been loaded yet." = "它已关闭或尚未加载。";
 "Keep at least one commit." = "请至少保留一个提交。";
@@ -564,7 +561,7 @@
 "Only the panel is hidden; shells keep running." = "仅隐藏面板，Shell 会继续运行。";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "仅空白发生更改（关闭“忽略空白”即可查看）。";
 "Open" = "打开";
-"Open in Branchwork" = "在 Branchwork 中打开";
+"Open in Gitrochi" = "在 Gitrochi 中打开";
 "Open in Terminal" = "在“终端”中打开";
 "Open in browser" = "在浏览器中打开";
 "Open in the terminal below" = "在下方终端中打开";
@@ -711,7 +708,6 @@
 "Server error %lld: %@" = "服务器错误 %1$lld：%2$@";
 "Sessions in other folders" = "其他文件夹中的会话";
 "Set manually" = "手动设置";
-"Shadow" = "暗影";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "在下方终端面板中打开的 Shell（zsh、bash、fish 等）";
 "Show all" = "全部显示";
 "Show all %lld hidden branches" = "显示全部 %1$lld 个已隐藏的分支";
@@ -794,10 +790,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "差异较长，因此只将开头部分发送给了 %1$@（省略了 %2$lldK 个字符）。";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "差异较长，因此只根据开头部分进行了拆分（省略了 %1$lldK 个字符）。";
 "The downloaded app's signature is invalid: %@" = "下载的应用签名无效：%1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "下载的文件不是 Branchwork，未安装。";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "下载的文件不是 Gitrochi，未安装。";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "下载文件的 SHA-256 与发布版本不一致，未安装。";
 "The file is empty or not committed yet." = "文件为空或尚未提交。";
-"The language changes when Branchwork restarts." = "Branchwork 重新启动后语言才会更改。";
+"The language changes when Gitrochi restarts." = "Gitrochi 重新启动后语言才会更改。";
 "The new message is empty." = "新信息为空。";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "前缀为 Feature、Fix、Hotfix、Refactoring、Style、Chore、Remove 之一";
 "The release has no SHA-256 file. It wasn't installed." = "发布中没有 SHA-256 文件，未安装。";

@@ -41,7 +41,7 @@ export function TabBar({ openSettings }: { openSettings: () => void }) {
               "divider",
               { label: t("Settings…"), shortcut: "Ctrl+,", onClick: openSettings },
               { label: updater.state === "available" ? t("Install update {0}…", updater.info?.version) : t("Check for updates…"), onClick: () => void updater.check(true) },
-              { label: `Branchwork ${env.version} · GitHub`, onClick: () => void ipc.openUrl("https://github.com/ChoMnSeong/Branchwork") },
+              { label: `Gitrochi ${env.version} · GitHub`, onClick: () => void ipc.openUrl("https://github.com/ChoMnSeong/Gitrochi") },
             ]);
           }}
         />

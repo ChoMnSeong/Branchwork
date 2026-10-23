@@ -1,4 +1,4 @@
-/* Branchwork — id. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — id. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff terlalu panjang, jadi hanya bagian awal yang dijelaskan.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nAutentikasi diperlukan. Lakukan push/pull sekali di terminal untuk menyimpan kredensial Anda (Rantai Kunci atau kunci SSH), lalu coba lagi.";
@@ -86,7 +86,6 @@
 "An empty file was deleted" = "File kosong telah dihapus";
 "Another account's token" = "Token akun lain";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Server apa pun yang menerima format OpenAI (/chat/completions) dapat digunakan. Contoh: Ollama http://localhost:11434/v1";
-"App icon" = "Ikon aplikasi";
 "Appearance" = "Tampilan";
 "Applies the most recently stashed changes (Pop)." = "Menerapkan perubahan yang terakhir di-stash (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Berlaku untuk semua fitur AI, bersama aturan yang ditulis untuk masing-masing fitur di bawah.";
@@ -122,10 +121,10 @@
 "Branch to check out" = "Branch yang akan di-checkout";
 "Branches hidden from the graph — right-click to show again" = "Branch yang disembunyikan dari grafik — klik kanan untuk menampilkannya lagi";
 "Branches pinned to the top" = "Branch yang disematkan di atas";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ adalah versi terbaru.";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork dibuka langsung dari unduhan dan berjalan dari lokasi sementara, sehingga tidak dapat menggantikan dirinya sendiri. Pindahkan ke folder Aplikasi, buka lagi, lalu perbarui.";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork dimulai ulang untuk menerapkan perubahan. Jika tidak ada riwayat commit yang bisa diikuti, AI juga menulis dalam bahasa ini.";
-"Branchwork update" = "Pembaruan Branchwork";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ adalah versi terbaru.";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi dibuka langsung dari unduhan dan berjalan dari lokasi sementara, sehingga tidak dapat menggantikan dirinya sendiri. Pindahkan ke folder Aplikasi, buka lagi, lalu perbarui.";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi dimulai ulang untuk menerapkan perubahan. Jika tidak ada riwayat commit yang bisa diikuti, AI juga menulis dalam bahasa ini.";
+"Gitrochi update" = "Pembaruan Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Mengambil %1$lld commit baru dari remote ke branch saat ini.";
 "By branch" = "Per branch";
 "CI: %@ · %@#%lld — click to open in the browser" = "CI: %1$@ · %2$@#%3$lld — klik untuk membuka di browser";
@@ -143,7 +142,6 @@
 "Changes" = "Perubahan";
 "Changes %lld" = "Perubahan %1$lld";
 "Changes requested: " = "Perubahan diminta: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Mengubah ikon di Dock, Finder, dan Launchpad. Ikon baru hadir bersama pembaruan.";
 "Change…" = "Ubah…";
 "Check failed: %@" = "Pemeriksaan gagal: %1$@";
 "Check for new versions at launch and once a day" = "Periksa versi baru saat aplikasi dibuka dan sekali sehari";
@@ -239,7 +237,6 @@
 "Copy message" = "Salin pesan";
 "Copy name" = "Salin nama";
 "Copy path" = "Salin jalur";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Ikon di Finder tidak dapat diubah karena folder Branchwork tidak dapat ditulisi. Ikon Dock tetap berubah selama Branchwork berjalan.";
 "Couldn't complete the operation" = "Tidak dapat menyelesaikan operasi";
 "Couldn't download the file." = "Tidak dapat mengunduh file.";
 "Couldn't extract: %@" = "Tidak dapat mengekstrak: %1$@";
@@ -349,7 +346,7 @@
 "End the %@ session?" = "Akhiri sesi %1$@?";
 "Ended" = "Berakhir";
 "Ended sessions" = "Sesi yang telah berakhir";
-"Enter an administrator password to update Branchwork in %@." = "Masukkan kata sandi administrator untuk memperbarui Branchwork di %1$@.";
+"Enter an administrator password to update Gitrochi in %@." = "Masukkan kata sandi administrator untuk memperbarui Gitrochi di %1$@.";
 "Enter the server address." = "Masukkan alamat server.";
 "Enter your %@ key in Settings > AI." = "Masukkan kunci %1$@ Anda di Pengaturan > AI.";
 "Executable" = "File eksekusi";
@@ -417,7 +414,7 @@
 "Incoming commit" = "Commit yang masuk";
 "Install" = "Instal";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Lokasi instalasi berbeda bagi setiap orang. Jika alat tidak ditemukan otomatis, gunakan **Pilih lokasi** untuk memilih file eksekusi sendiri. Jalur yang dipilih disimpan dan dipakai lagi lain kali.";
-"Installing… Branchwork restarts when done" = "Menginstal… Branchwork dimulai ulang setelah selesai";
+"Installing… Gitrochi restarts when done" = "Menginstal… Gitrochi dimulai ulang setelah selesai";
 "Invalid address: %@" = "Alamat tidak valid: %1$@";
 "It was closed or hasn't been loaded yet." = "Sudah ditutup atau belum dimuat.";
 "Keep at least one commit." = "Sisakan setidaknya satu commit.";
@@ -532,7 +529,7 @@
 "Only the panel is hidden; shells keep running." = "Hanya panel yang disembunyikan; shell tetap berjalan.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Hanya spasi yang berubah (matikan Abaikan spasi untuk melihatnya).";
 "Open" = "Buka";
-"Open in Branchwork" = "Buka di Branchwork";
+"Open in Gitrochi" = "Buka di Gitrochi";
 "Open in Terminal" = "Buka di Terminal";
 "Open in browser" = "Buka di browser";
 "Open in the terminal below" = "Buka di terminal di bawah";
@@ -668,7 +665,6 @@
 "Server error %lld: %@" = "Kesalahan server %1$lld: %2$@";
 "Sessions in other folders" = "Sesi di folder lain";
 "Set manually" = "Atur manual";
-"Shadow" = "Bayangan";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell yang dibuka di panel terminal di bawah (zsh, bash, fish, dll.)";
 "Show all" = "Tampilkan semua";
 "Show all %lld hidden branches" = "Tampilkan semua %1$lld branch tersembunyi";
@@ -745,10 +741,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "Diff terlalu panjang, jadi hanya bagian awal yang dikirim ke %1$@ (%2$lldK karakter dihilangkan).";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "Diff terlalu panjang, jadi hanya bagian awal yang dipakai untuk pemecahan (%1$lldK karakter dihilangkan).";
 "The downloaded app's signature is invalid: %@" = "Tanda tangan aplikasi yang diunduh tidak valid: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "File yang diunduh bukan Branchwork. File tidak diinstal.";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "File yang diunduh bukan Gitrochi. File tidak diinstal.";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "SHA-256 file yang diunduh tidak cocok dengan rilis. File tidak diinstal.";
 "The file is empty or not committed yet." = "File kosong atau belum di-commit.";
-"The language changes when Branchwork restarts." = "Bahasa berubah setelah Branchwork dimulai ulang.";
+"The language changes when Gitrochi restarts." = "Bahasa berubah setelah Gitrochi dimulai ulang.";
 "The new message is empty." = "Pesan baru kosong.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Prefix adalah salah satu dari Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
 "The release has no SHA-256 file. It wasn't installed." = "Rilis tidak memiliki file SHA-256. Pembaruan tidak diinstal.";

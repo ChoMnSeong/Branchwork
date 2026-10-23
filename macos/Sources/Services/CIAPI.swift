@@ -172,6 +172,6 @@ enum CIAPI {
         try await Hosting.data(Hosting.request(.github, repo(t, apiBase) + "/actions/runs/\(run)/pending_deployments", token: token,
                                                method: "POST", body: ["environment_ids": environments,
                                                                       "state": approve ? "approved" : "rejected",
-                                                                      "comment": "Branchwork"]))
+                                                                      "comment": "Gitrochi"]))
     }
 }

@@ -1,10 +1,11 @@
 import { CopyPlus, Download, FolderOpen, TriangleAlert } from "lucide-react";
 import type { RepoStore } from "@/entities/repo";
 import { ipc } from "@/shared/api";
+import icon from "@/shared/assets/icon.png";
 import { basename, displayPath, recents, removeRecent, settings } from "@/shared/config";
 import { t } from "@/shared/i18n";
 import { useObserve } from "@/shared/lib";
-import { appIcon, tools } from "@/shared/platform";
+import { tools } from "@/shared/platform";
 import { Button, showContextMenu } from "@/shared/ui";
 import "./welcome-page.css";
 
@@ -17,14 +18,14 @@ export function WelcomePage({ store }: { store: RepoStore; gitMissing?: boolean 
   return (
     <div className="welcome">
       <div className="welcome-main">
-        <img src={appIcon.current.image} width={112} height={112} alt="" />
-        <div style={{ fontSize: 28, fontWeight: 700 }}>Branchwork</div>
+        <img src={icon} width={112} height={112} alt="" />
+        <div style={{ fontSize: 28, fontWeight: 700 }}>Gitrochi</div>
         <div className="muted">{t("An app for viewing and working with Git repositories as a graph")}</div>
         {gitMissing && (
           <div className="card" style={{ maxWidth: 420, borderColor: "var(--orange)" }}>
             <span className="row" style={{ color: "var(--orange)", fontWeight: 600 }}>
               <TriangleAlert size={15} /> {" "}{t("Couldn't find git")}</span>
-            <span className="muted">{t("Branchwork uses the git installed on this PC. Install Git for Windows, or locate git.exe if you already have it.")}</span>
+            <span className="muted">{t("Gitrochi uses the git installed on this PC. Install Git for Windows, or locate git.exe if you already have it.")}</span>
             <div className="row">
               <Button kind="primary" onClick={() => void ipc.openUrl("https://git-scm.com/download/win")}>
                 {t("Get Git for Windows")}</Button>

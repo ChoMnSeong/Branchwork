@@ -1,4 +1,4 @@
-/* Branchwork — cs. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
+/* Gitrochi — cs. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Změny byly dlouhé, proto byl vysvětlen jen jejich začátek.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nJe vyžadováno ověření. Jednou proveďte push/pull v terminálu, aby se uložily přihlašovací údaje (Klíčenka nebo klíč SSH), a pak to zkuste znovu.";
@@ -87,7 +87,6 @@
 "An empty file was deleted" = "Byl smazán prázdný soubor";
 "Another account's token" = "Token jiného účtu";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Funguje jakýkoli server, který přijímá formát OpenAI (/chat/completions). Příklad: Ollama http://localhost:11434/v1";
-"App icon" = "Ikona aplikace";
 "Appearance" = "Vzhled";
 "Applies the most recently stashed changes (Pop)." = "Použije naposledy odložené změny (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Platí pro všechny funkce AI, spolu s pravidly zadanými níže pro jednotlivé funkce.";
@@ -126,10 +125,10 @@
 "Branch to check out" = "Větev, na kterou přepnout";
 "Branches hidden from the graph — right-click to show again" = "Větve skryté v grafu — znovu je zobrazíte kliknutím pravým tlačítkem";
 "Branches pinned to the top" = "Větve připnuté nahoře";
-"Branchwork %@ is the latest version." = "Branchwork %1$@ je nejnovější verze.";
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork byl otevřen přímo ze stažených souborů a běží z dočasného umístění, takže se nemůže sám nahradit. Přesuňte ho do složky Aplikace, znovu ho otevřete a pak aktualizujte.";
-"Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Aby se změna projevila, Branchwork se restartuje. Pokud není k dispozici historie commitů, podle které by se AI mohla řídit, píše AI také v tomto jazyce.";
-"Branchwork update" = "Aktualizace Branchwork";
+"Gitrochi %@ is the latest version." = "Gitrochi %1$@ je nejnovější verze.";
+"Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi byl otevřen přímo ze stažených souborů a běží z dočasného umístění, takže se nemůže sám nahradit. Přesuňte ho do složky Aplikace, znovu ho otevřete a pak aktualizujte.";
+"Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Aby se změna projevila, Gitrochi se restartuje. Pokud není k dispozici historie commitů, podle které by se AI mohla řídit, píše AI také v tomto jazyce.";
+"Gitrochi update" = "Aktualizace Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Přenese nové commity (%1$lld) ze vzdáleného repozitáře do aktuální větve.";
 "Browser" = "Prohlížeč";
 "By branch" = "Podle větví";
@@ -148,7 +147,6 @@
 "Changes" = "Změny";
 "Changes %lld" = "Změny %1$lld";
 "Changes requested: " = "Požadovány změny: ";
-"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Změní ikonu v Docku, Finderu a Launchpadu. Nové ikony přicházejí s aktualizacemi.";
 "Change…" = "Změnit…";
 "Check failed: %@" = "Kontrola selhala: %1$@";
 "Check for new versions at launch and once a day" = "Kontrolovat nové verze při spuštění a jednou denně";
@@ -244,7 +242,6 @@
 "Copy message" = "Kopírovat zprávu";
 "Copy name" = "Kopírovat název";
 "Copy path" = "Kopírovat cestu";
-"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Ikonu ve Finderu se nepodařilo změnit, protože do složky Branchwork nelze zapisovat. Ikona v Docku se přesto změní, dokud Branchwork běží.";
 "Couldn't complete the operation" = "Operaci se nepodařilo dokončit";
 "Couldn't download the file." = "Soubor se nepodařilo stáhnout.";
 "Couldn't extract: %@" = "Nepodařilo se rozbalit: %1$@";
@@ -360,7 +357,7 @@
 "End the %@ session?" = "Ukončit relaci %1$@?";
 "Ended" = "Ukončeno";
 "Ended sessions" = "Ukončené relace";
-"Enter an administrator password to update Branchwork in %@." = "Zadejte heslo správce, abyste mohli aktualizovat Branchwork v %1$@.";
+"Enter an administrator password to update Gitrochi in %@." = "Zadejte heslo správce, abyste mohli aktualizovat Gitrochi v %1$@.";
 "Enter the server address." = "Zadejte adresu serveru.";
 "Enter your %@ key in Settings > AI." = "Zadejte svůj klíč %1$@ v Nastavení > AI.";
 "Environment %lld" = "Prostředí %1$lld";
@@ -430,7 +427,7 @@
 "Incoming commit" = "Příchozí commit";
 "Install" = "Nainstalovat";
 "Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time." = "Umístění instalace se u každého liší. Pokud se nástroj nenajde automaticky, klikněte na **Vybrat** a zvolte spustitelný soubor sami. Zvolená cesta se uloží a použije se i příště.";
-"Installing… Branchwork restarts when done" = "Instalace… Po dokončení se Branchwork restartuje";
+"Installing… Gitrochi restarts when done" = "Instalace… Po dokončení se Gitrochi restartuje";
 "Invalid address: %@" = "Neplatná adresa: %1$@";
 "It was closed or hasn't been loaded yet." = "Byl zavřen nebo ještě nebyl načten.";
 "Keep at least one commit." = "Ponechte alespoň jeden commit.";
@@ -547,7 +544,7 @@
 "Only the panel is hidden; shells keep running." = "Skryje se jen panel, shelly dál poběží.";
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Změnily se jen mezery (chcete-li je vidět, vypněte Ignorovat mezery).";
 "Open" = "Otevřít";
-"Open in Branchwork" = "Otevřít v Branchwork";
+"Open in Gitrochi" = "Otevřít v Gitrochi";
 "Open in Terminal" = "Otevřít v Terminálu";
 "Open in browser" = "Otevřít v prohlížeči";
 "Open in the terminal below" = "Otevřít v terminálu dole";
@@ -690,7 +687,6 @@
 "Server error %lld: %@" = "Chyba serveru %1$lld: %2$@";
 "Sessions in other folders" = "Relace v jiných složkách";
 "Set manually" = "Nastaveno ručně";
-"Shadow" = "Stín";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell otevřený v panelu terminálu dole (zsh, bash, fish atd.)";
 "Show all" = "Zobrazit vše";
 "Show all %lld hidden branches" = "Zobrazit všechny skryté větve (%1$lld)";
@@ -770,10 +766,10 @@
 "The diff was long, so only the beginning was sent to %@ (%lldK characters omitted)." = "Změny byly dlouhé, proto byl do %1$@ odeslán jen jejich začátek (vynecháno %2$lld tis. znaků).";
 "The diff was long, so only the beginning was used for splitting (%lldK characters omitted)." = "Změny byly dlouhé, proto byl k rozdělení použit jen jejich začátek (vynecháno %1$lld tis. znaků).";
 "The downloaded app's signature is invalid: %@" = "Podpis stažené aplikace je neplatný: %1$@";
-"The downloaded file isn't Branchwork. It wasn't installed." = "Stažený soubor není Branchwork. Nebyl nainstalován.";
+"The downloaded file isn't Gitrochi. It wasn't installed." = "Stažený soubor není Gitrochi. Nebyl nainstalován.";
 "The downloaded file's SHA-256 doesn't match the release. It wasn't installed." = "SHA-256 staženého souboru neodpovídá vydání. Soubor nebyl nainstalován.";
 "The file is empty or not committed yet." = "Soubor je prázdný nebo ještě nebyl commitnut.";
-"The language changes when Branchwork restarts." = "Jazyk se změní po restartu Branchwork.";
+"The language changes when Gitrochi restarts." = "Jazyk se změní po restartu Gitrochi.";
 "The new message is empty." = "Nová zpráva je prázdná.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Předpona je jedna z: Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
 "The release has no SHA-256 file. It wasn't installed." = "Vydání neobsahuje soubor SHA-256. Aktualizace nebyla nainstalována.";

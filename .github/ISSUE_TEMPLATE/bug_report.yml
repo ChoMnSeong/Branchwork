@@ -6,8 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        제보해 주셔서 고맙습니다. 먼저 [최신 버전](https://github.com/ChoMnSeong/Branchwork/releases/latest)인지, [비슷한 이슈](https://github.com/ChoMnSeong/Branchwork/issues?q=is%3Aissue)가 있는지 확인해 주세요.
-        **토큰·비밀번호·회사 저장소 주소나 이름은 지우거나 가려 주세요.** 보안 문제는 이슈 대신 [비공개로 알려 주세요](https://github.com/ChoMnSeong/Branchwork/security/advisories/new).
+        제보해 주셔서 고맙습니다. 먼저 [최신 버전](https://github.com/ChoMnSeong/Gitrochi/releases/latest)인지, [비슷한 이슈](https://github.com/ChoMnSeong/Gitrochi/issues?q=is%3Aissue)가 있는지 확인해 주세요.
+        **토큰·비밀번호·회사 저장소 주소나 이름은 지우거나 가려 주세요.** 보안 문제는 이슈 대신 [비공개로 알려 주세요](https://github.com/ChoMnSeong/Gitrochi/security/advisories/new).
 
   - type: dropdown
     id: platform
@@ -23,7 +23,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Branchwork 버전
+      label: Gitrochi 버전
       description: 설정 > 업데이트(Windows 는 업데이트 탭)에 나옵니다
       placeholder: "0.3.2"
     validations:
@@ -85,8 +85,8 @@ body:
       label: 스크린샷 · 로그
       description: |
         화면이면 스크린샷을 끌어다 놓아 주세요. 느리거나 새로 고침이 이상하면
-        맥은 `BRANCHWORK_TRACE=1 /Applications/Branchwork.app/Contents/MacOS/Branchwork` 로 실행해 터미널 출력을,
-        Windows 는 개발자 도구(F12)에서 `localStorage.branchworkTrace = "1"` 후 콘솔 내용을 붙여 주세요.
+        맥은 `GITROCHI_TRACE=1 /Applications/Gitrochi.app/Contents/MacOS/Gitrochi` 로 실행해 터미널 출력을,
+        Windows 는 개발자 도구(F12)에서 `localStorage.gitrochiTrace = "1"` 후 콘솔 내용을 붙여 주세요.
 
   - type: checkboxes
     id: checks
