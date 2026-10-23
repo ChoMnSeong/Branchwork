@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 설치 디스크(dmg) 안의 앱을 바로 열었으면 응용 프로그램 폴더로 옮길지 묻고, 설치한 앱을 열었으면 그 설치 디스크를 꺼낸다
+        MainActor.assumeIsolated { InstallerDisk.check() }
         // 보통은 첫 창이 붙을 때 그 자리에 뜬다. 혹시 늦으면 화면 가운데에라도 띄운다.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             MainActor.assumeIsolated { Splash.shared.show() }

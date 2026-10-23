@@ -137,7 +137,9 @@
 "Click to use another gitch account for this repository." = "Kliknutím použijete pro tento repozitář jiný účet gitch.";
 "Commit authors are fine" = "Autoři commitů jsou v pořádku";
 "Couldn't find gitch inside Gitrochi." = "gitch nebyl v Gitrochi nalezen.";
+"Couldn't move Gitrochi to the Applications folder" = "Gitrochi se nepodařilo přesunout do složky Aplikace";
 "Creates a branch at %@ without changing the current branch." = "Vytvoří větev na %1$@, aniž by měnil aktuální větev.";
+"Enter an administrator password to move Gitrochi to %@." = "Zadejte heslo správce, abyste mohli přesunout Gitrochi do %1$@.";
 "Exclude" = "Vyřadit";
 "Exclude this repository from gitch checks?" = "Vyřadit tento repozitář z kontrol gitch?";
 "Exclude this repository from gitch checks…" = "Vyřadit tento repozitář z kontrol gitch…";
@@ -145,9 +147,12 @@
 "Fix authors of unpushed commits…" = "Opravit autory neodeslaných commitů…";
 "Fix commit authors?" = "Opravit autory commitů?";
 "Follow the default branch" = "Sledovat výchozí větev";
+"Gitrochi %@ in the Applications folder will be replaced." = "Gitrochi %1$@ ve složce Aplikace bude nahrazen.";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ je nejnovější verze.";
+"Gitrochi is already in the Applications folder" = "Gitrochi už je ve složce Aplikace";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi byl otevřen přímo ze stažených souborů a běží z dočasného umístění, takže se nemůže sám nahradit. Přesuňte ho do složky Aplikace, znovu ho otevřete a pak aktualizujte.";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi běží z dočasného umístění. Přesuňte ho do složky Aplikace, znovu ho otevřete a pak nainstalujte gitch.";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi běží z obrazu disku. Ve složce Aplikace se může sám aktualizovat a obraz disku bude vysunut.";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Aby se změna projevila, Gitrochi se restartuje. Pokud není k dispozici historie commitů, podle které by se AI mohla řídit, píše AI také v tomto jazyce.";
 "Gitrochi update" = "Aktualizace Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Přenese nové commity (%1$lld) ze vzdáleného repozitáře do aktuální větve.";
@@ -501,6 +506,8 @@
 "Modified" = "Změněno";
 "Modified files" = "Změněné soubory";
 "Modified files appear here." = "Zde se zobrazí změněné soubory.";
+"Move Gitrochi to the Applications folder?" = "Přesunout Gitrochi do složky Aplikace?";
+"Move to Applications" = "Přesunout do Aplikací";
 "Moves %@ '%@' back to %@." = "%1$@ '%2$@' se přesune zpět na %3$@.";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "Přesune '%1$@' zpět na předchozí commit (%2$@). Necommitnuté změny zůstanou zachovány.";
 "My commit" = "Můj commit";
@@ -583,6 +590,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "Otevřít nebo klonovat jiný repozitář, nedávné repozitáře, zavřít karty";
 "Open releases page" = "Otevřít stránku vydání";
 "Open repository…" = "Otevřít repozitář…";
+"Open that one instead? The disk image will be ejected." = "Otevřít místo toho tamten? Obraz disku bude vysunut.";
 "Open this branch's worktree" = "Otevřít worktree této větve";
 "Open worktree" = "Otevřít worktree";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "Kompatibilní s OpenAI (Ollama, LM Studio, OpenRouter atd.)";
@@ -628,6 +636,7 @@
 "Pushing tag…" = "Probíhá push tagu…";
 "Pushing…" = "Probíhá push…";
 "Queued" = "Ve frontě";
+"Quit the Gitrochi that's already open, then try again." = "Ukončete už otevřený Gitrochi a zkuste to znovu.";
 "Read-only" = "Jen pro čtení";
 "Reading commits and branches…" = "Načítání commitů a větví…";
 "Reading the workflow…" = "Načítání workflow…";
@@ -804,6 +813,7 @@
 "That backup no longer exists." = "Tato záloha už neexistuje.";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "Tato část pracovního stromu se vrátí do commitnutého (připraveného) stavu. Tuto akci nelze vrátit zpět.";
 "The API key is invalid or lacks permission (%lld). %@" = "Klíč API je neplatný nebo nemá oprávnění (%1$lld). %2$@";
+"The Gitrochi that's already open will quit." = "Už otevřený Gitrochi se ukončí.";
 "The address is invalid: %@" = "Adresa je neplatná: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "Nejspodnější (nejstarší) commit nelze s ničím spojit.";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "Větev bude smazána na serveru %1$@. Buďte opatrní, pokud ji používají i ostatní.";

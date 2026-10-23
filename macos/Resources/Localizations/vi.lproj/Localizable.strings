@@ -136,7 +136,9 @@
 "Click to use another gitch account for this repository." = "Nhấp để dùng tài khoản gitch khác cho kho này.";
 "Commit authors are fine" = "Tác giả commit đều đúng";
 "Couldn't find gitch inside Gitrochi." = "Không tìm thấy gitch trong Gitrochi.";
+"Couldn't move Gitrochi to the Applications folder" = "Không thể chuyển Gitrochi vào thư mục Ứng dụng";
 "Creates a branch at %@ without changing the current branch." = "Tạo nhánh tại %1$@ mà không đổi nhánh hiện tại.";
+"Enter an administrator password to move Gitrochi to %@." = "Nhập mật khẩu quản trị viên để chuyển Gitrochi vào %1$@.";
 "Exclude" = "Loại";
 "Exclude this repository from gitch checks?" = "Loại kho này khỏi kiểm tra của gitch?";
 "Exclude this repository from gitch checks…" = "Loại kho này khỏi kiểm tra của gitch…";
@@ -144,9 +146,12 @@
 "Fix authors of unpushed commits…" = "Sửa tác giả của các commit chưa push…";
 "Fix commit authors?" = "Sửa tác giả commit?";
 "Follow the default branch" = "Theo nhánh mặc định";
+"Gitrochi %@ in the Applications folder will be replaced." = "Gitrochi %1$@ trong thư mục Ứng dụng sẽ được thay thế.";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ là phiên bản mới nhất.";
+"Gitrochi is already in the Applications folder" = "Gitrochi đã có trong thư mục Ứng dụng";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi được mở trực tiếp từ nơi tải về nên đang chạy từ một vị trí tạm thời và không thể tự thay thế. Hãy chuyển nó vào thư mục Ứng dụng, mở lại rồi cập nhật.";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi đang chạy từ vị trí tạm thời. Hãy chuyển nó vào thư mục Ứng dụng, mở lại rồi cài gitch.";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi đang chạy từ ảnh đĩa. Khi ở trong thư mục Ứng dụng, nó có thể tự cập nhật và ảnh đĩa sẽ được đẩy ra.";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi sẽ khởi động lại để áp dụng thay đổi. Khi không có lịch sử commit để làm theo, AI cũng viết bằng ngôn ngữ này.";
 "Gitrochi update" = "Bản cập nhật Gitrochi";
 "Brings %lld new commits from the remote into the current branch." = "Đưa %1$lld commit mới từ remote vào nhánh hiện tại.";
@@ -492,6 +497,8 @@
 "Modified" = "Đã sửa đổi";
 "Modified files" = "Tệp đã sửa đổi";
 "Modified files appear here." = "Các tệp đã sửa đổi sẽ hiện ở đây.";
+"Move Gitrochi to the Applications folder?" = "Chuyển Gitrochi vào thư mục Ứng dụng?";
+"Move to Applications" = "Chuyển vào Ứng dụng";
 "Moves %@ '%@' back to %@." = "Đưa %1$@ '%2$@' về %3$@.";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "Đưa '%1$@' về commit trước đó (%2$@). Các thay đổi chưa commit được giữ nguyên.";
 "My commit" = "Commit của tôi";
@@ -574,6 +581,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "Mở hoặc clone kho lưu trữ khác, kho lưu trữ gần đây, đóng tab";
 "Open releases page" = "Mở trang phát hành";
 "Open repository…" = "Mở kho lưu trữ…";
+"Open that one instead? The disk image will be ejected." = "Mở bản đó thay vì bản này? Ảnh đĩa sẽ được đẩy ra.";
 "Open this branch's worktree" = "Mở worktree của nhánh này";
 "Open worktree" = "Mở worktree";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "Tương thích OpenAI (Ollama, LM Studio, OpenRouter, v.v.)";
@@ -616,6 +624,7 @@
 "Pushing tag…" = "Đang push tag…";
 "Pushing…" = "Đang push…";
 "Queued" = "Đang xếp hàng";
+"Quit the Gitrochi that's already open, then try again." = "Hãy thoát Gitrochi đang mở rồi thử lại.";
 "Read-only" = "Chỉ đọc";
 "Reading commits and branches…" = "Đang đọc commit và nhánh…";
 "Reading the workflow…" = "Đang đọc workflow…";
@@ -786,6 +795,7 @@
 "That backup no longer exists." = "Bản sao lưu đó không còn nữa.";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "Phần đó của working tree sẽ quay về trạng thái đã commit (đã stage). Không thể hoàn tác thao tác này.";
 "The API key is invalid or lacks permission (%lld). %@" = "Khóa API không hợp lệ hoặc thiếu quyền (%1$lld). %2$@";
+"The Gitrochi that's already open will quit." = "Gitrochi đang mở sẽ được thoát.";
 "The address is invalid: %@" = "Địa chỉ không hợp lệ: %1$@";
 "The bottom (oldest) commit has nothing to combine into." = "Commit dưới cùng (cũ nhất) không có commit nào để gộp vào.";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "Nhánh sẽ bị xóa trên máy chủ %1$@. Hãy cẩn thận nếu người khác cũng đang dùng nhánh này.";

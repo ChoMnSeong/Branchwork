@@ -142,7 +142,9 @@
 "Click to use another gitch account for this repository." = "按一下可變更此儲存庫使用的 gitch 帳號。";
 "Commit authors are fine" = "提交作者都正確";
 "Couldn't find gitch inside Gitrochi." = "在 Gitrochi 中找不到 gitch。";
+"Couldn't move Gitrochi to the Applications folder" = "無法將 Gitrochi 移到「應用程式」資料夾";
 "Creates a branch at %@ without changing the current branch." = "在 %1$@ 建立新分支，不變更目前分支。";
+"Enter an administrator password to move Gitrochi to %@." = "輸入管理者密碼以將 Gitrochi 移到 %1$@。";
 "Exclude" = "排除";
 "Exclude this repository from gitch checks?" = "要將此儲存庫排除在 gitch 檢查之外嗎？";
 "Exclude this repository from gitch checks…" = "將此儲存庫排除在 gitch 檢查之外…";
@@ -150,9 +152,12 @@
 "Fix authors of unpushed commits…" = "修正未推送提交的作者…";
 "Fix commit authors?" = "要修正提交作者嗎？";
 "Follow the default branch" = "跟隨預設分支";
+"Gitrochi %@ in the Applications folder will be replaced." = "「應用程式」資料夾中的 Gitrochi %1$@ 將被替換。";
 "Gitrochi %@ is the latest version." = "Gitrochi %1$@ 已是最新版本。";
+"Gitrochi is already in the Applications folder" = "Gitrochi 已在「應用程式」資料夾中";
 "Gitrochi is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Gitrochi 是直接從下載位置開啟的，正在暫時位置執行，無法替換自身。請將它移到「應用程式」資料夾，重新開啟後再更新。";
 "Gitrochi is running from a temporary location. Move it to the Applications folder, open it again, then install gitch." = "Gitrochi 正在暫時位置執行。請將它移到「應用程式」資料夾，重新開啟後再安裝 gitch。";
+"Gitrochi is running from the disk image. In the Applications folder it can update itself, and the disk image will be ejected." = "Gitrochi 正從磁碟映像檔執行。移到「應用程式」資料夾後即可自行更新，磁碟映像檔也會退出。";
 "Gitrochi restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Gitrochi 會重新啟動以套用變更。沒有可參考的提交記錄時，AI 也會以此語言撰寫。";
 "Gitrochi update" = "Gitrochi 更新";
 "Brings %lld new commits from the remote into the current branch." = "將遠端的 %1$lld 個新提交帶入目前分支。";
@@ -516,6 +521,8 @@
 "Modified" = "已修改";
 "Modified files" = "已修改的檔案";
 "Modified files appear here." = "修改過的檔案會顯示在這裡。";
+"Move Gitrochi to the Applications folder?" = "要將 Gitrochi 移到「應用程式」資料夾嗎？";
+"Move to Applications" = "移到「應用程式」資料夾";
 "Moves %@ '%@' back to %@." = "將 %1$@「%2$@」移回 %3$@。";
 "Moves '%@' back to the previous commit (%@). Uncommitted changes are kept." = "將「%1$@」移回上一個提交 (%2$@)。未提交的變更會保留。";
 "My commit" = "我的提交";
@@ -599,6 +606,7 @@
 "Open or clone another repository, recent repositories, close tabs" = "開啟或複製其他存放庫、最近使用的存放庫、關閉分頁";
 "Open releases page" = "開啟發行版本頁面";
 "Open repository…" = "開啟存放庫…";
+"Open that one instead? The disk image will be ejected." = "改為開啟那一個嗎？磁碟映像檔將會退出。";
 "Open this branch's worktree" = "開啟此分支的工作樹";
 "Open worktree" = "開啟工作樹";
 "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)" = "OpenAI 相容（Ollama、LM Studio、OpenRouter 等）";
@@ -648,6 +656,7 @@
 "Pushing tag…" = "正在推送標籤…";
 "Pushing…" = "正在推送…";
 "Queued" = "已排入佇列";
+"Quit the Gitrochi that's already open, then try again." = "請先結束已開啟的 Gitrochi，然後再試一次。";
 "Read-only" = "唯讀";
 "Reading commits and branches…" = "正在讀取提交與分支…";
 "Reading the workflow…" = "正在讀取工作流程…";
@@ -827,6 +836,7 @@
 "That backup no longer exists." = "該備份已不存在。";
 "That part of the working tree returns to its committed (staged) state. This can't be undone." = "工作目錄中的該部分會回到已提交（已暫存）的狀態。此操作無法復原。";
 "The API key is invalid or lacks permission (%lld). %@" = "API 金鑰無效或權限不足 (%1$lld)。%2$@";
+"The Gitrochi that's already open will quit." = "已開啟的 Gitrochi 將會結束。";
 "The address is invalid: %@" = "位址無效：%1$@";
 "The bottom (oldest) commit has nothing to combine into." = "最下方（最舊）的提交沒有可以併入的對象。";
 "The branch will be deleted on the %@ server. Be careful if others use it too." = "將會在 %1$@ 伺服器上刪除此分支。若其他人也在使用，請特別小心。";
