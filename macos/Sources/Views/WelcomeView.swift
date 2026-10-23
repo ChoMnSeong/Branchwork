@@ -13,15 +13,15 @@ struct WelcomeView: View {
                     .resizable()
                     .frame(width: 112, height: 112)
                 Text("Branchwork").font(.largeTitle.weight(.bold))
-                Text("Git 저장소를 그래프로 보고 다루는 맥 앱")
+                Text("A Mac app for viewing and working with Git repositories as a graph")
                     .foregroundStyle(.secondary)
                 VStack(spacing: 8) {
-                    action("저장소 열기…", "folder", prominent: true) { store.presentOpenPanel() }
-                    action("저장소 복제…", "arrow.down.circle") { store.sheet = .clone }
-                    action("새 저장소 만들기…", "plus.square.on.square") { store.presentInitPanel() }
+                    action(String(localized: "Open repository…"), "folder", prominent: true) { store.presentOpenPanel() }
+                    action(String(localized: "Clone repository…"), "arrow.down.circle") { store.sheet = .clone }
+                    action(String(localized: "Create new repository…"), "plus.square.on.square") { store.presentInitPanel() }
                 }
                 .padding(.top, 8)
-                Text("폴더를 이 창에 끌어다 놓아도 열립니다")
+                Text("You can also drop a folder onto this window to open it")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
@@ -31,11 +31,11 @@ struct WelcomeView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 0) {
-                Text("최근 저장소")
+                Text("Recent repositories")
                     .font(.headline)
                     .padding(16)
                 if store.recents.isEmpty {
-                    Text("아직 연 저장소가 없습니다")
+                    Text("No repositories opened yet")
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
                     Spacer()
@@ -58,8 +58,8 @@ struct WelcomeView: View {
                         .buttonStyle(.plain)
                         .padding(.vertical, 3)
                         .contextMenu {
-                            Button("Finder 에서 보기") { NSWorkspace.shared.activateFileViewerSelecting([u]) }
-                            Button("목록에서 제거") { store.forgetRecent(u) }
+                            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([u]) }
+                            Button("Remove from list") { store.forgetRecent(u) }
                         }
                     }
                     .listStyle(.sidebar)

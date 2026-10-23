@@ -7,11 +7,11 @@ enum RebaseAction: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .pick: return "그대로"
-        case .reword: return "메시지 고치기"
-        case .squash: return "아래 커밋에 합치기"
-        case .fixup: return "아래 커밋에 합치기(메시지 버림)"
-        case .drop: return "빼기"
+        case .pick: return String(localized: "Pick")
+        case .reword: return String(localized: "Reword")
+        case .squash: return String(localized: "Squash into the commit below")
+        case .fixup: return String(localized: "Fixup into the commit below (discard message)")
+        case .drop: return String(localized: "Drop")
         }
     }
 
@@ -67,11 +67,11 @@ struct RebasePlan {
     /// 실행할 수 없는 계획이면 그 이유
     var problem: String? {
         let kept = items.filter { $0.action != .drop }
-        if kept.isEmpty { return "커밋을 하나 이상 남겨야 합니다." }
+        if kept.isEmpty { return String(localized: "Keep at least one commit.") }
         if let oldest = kept.last, oldest.action == .squash || oldest.action == .fixup {
-            return "가장 아래(오래된) 커밋은 합칠 대상이 없습니다."
+            return String(localized: "The bottom (oldest) commit has nothing to combine into.")
         }
-        if items.contains(where: { $0.action == .reword && $0.newMessage.trimmed.isEmpty }) { return "고칠 메시지가 비어 있습니다." }
+        if items.contains(where: { $0.action == .reword && $0.newMessage.trimmed.isEmpty }) { return String(localized: "The new message is empty.") }
         return nil
     }
 

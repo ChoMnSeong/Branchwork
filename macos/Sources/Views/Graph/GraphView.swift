@@ -83,7 +83,7 @@ struct GraphView: View {
                                 .contextMenu { CommitMenu(commit: entry.commit) }
                         }
                         if store.hasMore {
-                            Button("커밋 더 불러오기") { Task { await store.loadMore() } }
+                            Button("Load more commits") { Task { await store.loadMore() } }
                                 .padding(12)
                         }
                     }
@@ -106,8 +106,8 @@ struct GraphView: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .overlay {
             if store.entries.isEmpty {
-                ContentUnavailableView("아직 커밋이 없습니다", systemImage: "circle.dotted",
-                                       description: Text("파일을 만들고 오른쪽에서 첫 커밋을 해 보세요."))
+                ContentUnavailableView("No commits yet", systemImage: "circle.dotted",
+                                       description: Text("Create a file and make your first commit on the right."))
             }
         }
         .confirmationDialog(store.dropRequest?.title ?? "",
@@ -117,7 +117,7 @@ struct GraphView: View {
             ForEach(req.choices) { c in
                 Button(c.title, role: c.destructive ? .destructive : nil) { Task { await c.action() } }
             }
-            Button(req.choices.isEmpty ? "확인" : "취소", role: .cancel) {}
+            Button(req.choices.isEmpty ? "OK" : "Cancel", role: .cancel) {}
         } message: { req in
             Text(req.message)
         }
@@ -173,7 +173,7 @@ private struct SearchBar: View {
                     Button { store.clearSearch() } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.borderless)
                         .foregroundStyle(.secondary)
-                        .help("검색 지우기 (Esc)")
+                        .help("Clear search (Esc)")
                 }
             }
             .padding(.horizontal, 8)
@@ -187,7 +187,7 @@ private struct SearchBar: View {
             }
             .labelsHidden()
             .fixedSize()
-            .help("검색 대상")
+            .help("Search in")
 
             GraphFilterMenu()
 
@@ -198,14 +198,14 @@ private struct SearchBar: View {
                     .lineLimit(1)
                 ControlGroup {
                     Button { store.previousMatch() } label: { Image(systemName: "chevron.up") }
-                        .help("이전 결과 (⇧⌘G)")
+                        .help("Previous result (⇧⌘G)")
                     Button { store.nextMatch() } label: { Image(systemName: "chevron.down") }
-                        .help("다음 결과 (⌘G · Enter)")
+                        .help("Next result (⌘G · Enter)")
                 }
                 .fixedSize()
                 .disabled(store.searchMatches.isEmpty)
                 if store.searchUnloaded > 0 && store.hasMore {
-                    Button("더 불러와서 찾기") { Task { await store.loadMoreForSearch() } }
+                    Button("Load more and search") { Task { await store.loadMoreForSearch() } }
                         .controlSize(.small)
                 }
             }
@@ -219,11 +219,11 @@ private struct SearchBar: View {
 
     private var resultText: String {
         if store.searchMatches.isEmpty {
-            return store.searching ? "찾는 중…" : "결과 없음"
+            return store.searching ? String(localized: "Searching…") : String(localized: "No results")
         }
         let pos = store.searchPosition.map(String.init) ?? "–"
         var s = "\(pos)/\(store.searchMatches.count)"
-        if store.searchUnloaded > 0 { s += " · 그래프 밖 \(store.searchUnloaded)" }
+        if store.searchUnloaded > 0 { s += String(localized: " · \(store.searchUnloaded) outside the graph") }
         return s
     }
 }
@@ -233,12 +233,12 @@ private struct GraphHeader: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Text("브랜치 / 태그").padding(.leading, 10).frame(width: columns.ref, alignment: .leading)
-            Text("그래프").padding(.leading, 6).frame(width: columns.graph, alignment: .leading)
-            Text("커밋 메시지").padding(.leading, 8).frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            Text("Branch / Tag").padding(.leading, 10).frame(width: columns.ref, alignment: .leading)
+            Text("Graph").padding(.leading, 6).frame(width: columns.graph, alignment: .leading)
+            Text("Commit message").padding(.leading, 8).frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             Group {
-                if columns.author { Text("작성자").frame(width: 120, alignment: .leading).padding(.leading, 8) }
-                if columns.date { Text("날짜").frame(width: 90, alignment: .leading).padding(.leading, 8) }
+                if columns.author { Text("Author").frame(width: 120, alignment: .leading).padding(.leading, 8) }
+                if columns.date { Text("Date").frame(width: 90, alignment: .leading).padding(.leading, 8) }
                 if columns.sha { Text("SHA").frame(width: 60, alignment: .leading).padding(.leading, 8) }
             }
         }
@@ -259,21 +259,21 @@ private struct GraphFilterMenu: View {
         let hidden = store.hiddenRefs.count
         let active = store.graphCurrentOnly || hidden > 0
         Menu {
-            Toggle("현재 브랜치만 보기", isOn: Binding(get: { store.graphCurrentOnly }, set: { on in Task { await store.setCurrentOnly(on) } }))
+            Toggle("Show only the current branch", isOn: Binding(get: { store.graphCurrentOnly }, set: { on in Task { await store.setCurrentOnly(on) } }))
             Divider()
-            Button(hidden > 0 ? "숨긴 브랜치 \(hidden)개 모두 보이기" : "숨긴 브랜치 없음") { Task { await store.showAllBranches() } }
+            Button(hidden > 0 ? "Show all \(hidden) hidden branches" : "No hidden branches") { Task { await store.showAllBranches() } }
                 .disabled(hidden == 0)
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: active ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                if store.graphCurrentOnly { Text("현재 브랜치만").font(.caption) }
-                else if hidden > 0 { Text("숨김 \(hidden)").font(.caption) }
+                if store.graphCurrentOnly { Text("Current branch only").font(.caption) }
+                else if hidden > 0 { Text("Hidden \(hidden)").font(.caption) }
             }
             .foregroundStyle(active ? Color.accentColor : .secondary)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("그래프 거르기 — 현재 브랜치만 보기, 숨긴 브랜치(사이드바 우클릭으로 숨김) 다시 보이기")
-        .accessibilityLabel("그래프 거르기")
+        .help("Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)")
+        .accessibilityLabel("Filter graph")
     }
 }

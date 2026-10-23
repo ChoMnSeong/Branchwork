@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useObserve } from "../../lib/observable";
 import type { RepoStore, SplitGroup } from "../../lib/repo";
 import { Button, IconButton, Modal, StatusBadge } from "../shared/ui";
+import { t } from "../../lib/i18n";
 
 /** 나눠서 커밋: AI 가 나눈 계획을 보고 메시지·파일을 고친 뒤 차례로 커밋 */
 export function SplitCommitsSheet({ store, close }: { store: RepoStore; close: () => void }) {
@@ -41,11 +42,10 @@ export function SplitCommitsSheet({ store, close }: { store: RepoStore; close: (
         <select className="select" style={{ width: 150, height: 24, padding: "0 4px", fontSize: 12 }} value={current ?? "skip"} onChange={(e) => move(p, e.target.value)}>
           {groups.map((g, i) => (
             <option key={g.id} value={g.id}>
-              {i + 1}번 커밋으로
-            </option>
+              {t("To commit {0}", i + 1)}</option>
           ))}
-          <option value="new">새 커밋으로</option>
-          <option value="skip">커밋하지 않음</option>
+          <option value="new">{t("To a new commit")}</option>
+          <option value="skip">{t("Not committed")}</option>
         </select>
       </div>
     );
@@ -53,14 +53,13 @@ export function SplitCommitsSheet({ store, close }: { store: RepoStore; close: (
 
   return (
     <Modal
-      title="나눠서 커밋"
+      title={t("Split into commits")}
       width={720}
       onClose={close}
       footer={
         <>
           <span className="hint grow">
-            스테이지 상태를 비우고 위에서부터 차례로 스테이지 → 커밋합니다. {leftover.length > 0 && `커밋하지 않는 ${leftover.length}개 파일은 그대로 남습니다.`}
-          </span>
+            {t("Clears the staging area, then stages and commits each group from the top. {0}", leftover.length > 0 ? t("{0} files that aren't committed stay as they are.", leftover.length) : "")}</span>
           <Button
             disabled={!!store.aiWorking}
             onClick={() => {
@@ -68,9 +67,8 @@ export function SplitCommitsSheet({ store, close }: { store: RepoStore; close: (
               void store.planSplit();
             }}
           >
-            다시 나누기
-          </Button>
-          <Button onClick={close}>취소</Button>
+            {t("Split again")}</Button>
+          <Button onClick={close}>{t("Cancel")}</Button>
           <Button
             kind="primary"
             disabled={!ready || store.busy != null}
@@ -80,8 +78,7 @@ export function SplitCommitsSheet({ store, close }: { store: RepoStore; close: (
               void store.applySplit(plan);
             }}
           >
-            {valid.length}개 커밋 만들기
-          </Button>
+            {t("Create {0} commits", valid.length)}</Button>
         </>
       }
     >
@@ -90,17 +87,17 @@ export function SplitCommitsSheet({ store, close }: { store: RepoStore; close: (
         g.files.length === 0 ? null : (
           <div key={g.id} className="form-section" style={{ gap: 6 }}>
             <div className="row">
-              <span className="form-section-title">{i + 1}번 커밋</span>
-              <span className="muted">{g.files.length}개 파일</span>
+              <span className="form-section-title">{t("Commit {0}", i + 1)}</span>
+              <span className="muted">{t("{0} files", g.files.length)}</span>
               <span className="spacer" />
-              <IconButton small icon={<ArrowUp size={13} />} tip="위로" disabled={i === 0} onClick={() => shift(i, -1)} />
-              <IconButton small icon={<ArrowDown size={13} />} tip="아래로" disabled={i === groups.length - 1} onClick={() => shift(i, 1)} />
+              <IconButton small icon={<ArrowUp size={13} />} tip={t("Up")} disabled={i === 0} onClick={() => shift(i, -1)} />
+              <IconButton small icon={<ArrowDown size={13} />} tip={t("Down")} disabled={i === groups.length - 1} onClick={() => shift(i, 1)} />
             </div>
             <textarea
               className="textarea"
               style={{ height: 58, fontSize: 12.5 }}
               value={g.message}
-              placeholder="커밋 메시지 (첫 줄이 요약)"
+              placeholder={t("Commit message (the first line is the summary)")}
               onChange={(e) => update(g.id, (x) => ({ ...x, message: e.target.value }))}
               spellCheck={false}
             />
@@ -110,7 +107,7 @@ export function SplitCommitsSheet({ store, close }: { store: RepoStore; close: (
       )}
       {leftover.length > 0 && (
         <div className="form-section" style={{ gap: 6, opacity: 0.85 }}>
-          <span className="form-section-title">커밋하지 않음</span>
+          <span className="form-section-title">{t("Not committed")}</span>
           {leftover.map((p) => fileRow(p, null))}
         </div>
       )}

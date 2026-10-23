@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 /** 충돌 난 파일: 충돌 표시(<<<<<<< ======= >>>>>>>) 사이를 블록으로 나눈 것 (맥 버전 Core/Conflict.swift) */
 
 export interface ConflictBlock {
@@ -92,4 +93,4 @@ export function resolveConflict(doc: ConflictDocument, choices: Map<number, Conf
 }
 
 export const choiceTitle = (c: ConflictChoice) =>
-  ({ ours: "내 것", theirs: "상대 것", oursThenTheirs: "둘 다(내 것 먼저)", theirsThenOurs: "둘 다(상대 것 먼저)", custom: "직접 고침" })[c.kind];
+  ({ ours: t("Mine"), theirs: t("Theirs"), oursThenTheirs: t("Both (mine first)"), theirsThenOurs: t("Both (theirs first)"), custom: t("Edited manually") })[c.kind];

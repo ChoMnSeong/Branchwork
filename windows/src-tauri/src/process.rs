@@ -85,13 +85,13 @@ fn run_blocking(
     if let Some(dir) = cwd.as_deref().filter(|d| !d.is_empty()) {
         let dir = native(dir);
         if !Path::new(&dir).is_dir() {
-            return Err(format!("폴더가 없습니다: {dir}"));
+            return Err(format!("Folder not found: {dir}"));
         }
         cmd.current_dir(dir);
     }
     hide_window(&mut cmd);
     let name = Path::new(&program).file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or(program.clone());
-    let mut child = cmd.spawn().map_err(|e| format!("{name} 을(를) 실행하지 못했습니다: {e}"))?;
+    let mut child = cmd.spawn().map_err(|e| format!("Couldn't run {name}: {e}"))?;
 
     if let (Some(input), Some(mut pipe)) = (stdin, child.stdin.take()) {
         std::thread::spawn(move || {
@@ -124,7 +124,7 @@ fn run_blocking(
     let stderr = err_thread.join().unwrap_or_default();
     let mut stderr = String::from_utf8_lossy(&stderr).into_owned();
     if status == -2 {
-        stderr.push_str(&format!("\n{name} 이(가) {}초 안에 끝나지 않아 중단했습니다.", timeout.as_secs()));
+        stderr.push_str(&format!("\n{name} didn't finish within {}s and was stopped.", timeout.as_secs()));
     }
     // binary: 이미지처럼 글이 아닌 출력은 그대로(base64) 넘긴다
     let stdout = if binary { crate::net::base64(&stdout) } else { String::from_utf8_lossy(&stdout).into_owned() };

@@ -27,11 +27,11 @@ struct RunPipelineSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(provider == .gitlab ? "파이프라인 실행" : "워크플로 실행").font(.title3.weight(.semibold))
-            LabeledContent("브랜치") {
+            Text(provider == .gitlab ? "Run pipeline" : "Run workflow").font(.title3.weight(.semibold))
+            LabeledContent("Branch") {
                 let branches = store.ciBranches
                 if branches.isEmpty {
-                    TextField("브랜치 이름", text: $ref).textFieldStyle(.roundedBorder)
+                    TextField("Branch name", text: $ref).textFieldStyle(.roundedBorder)
                 } else {
                     Picker("", selection: $ref) {
                         ForEach(branches, id: \.self) { Text($0).tag($0) }
@@ -43,9 +43,9 @@ struct RunPipelineSheet: View {
             HStack {
                 if loading { ProgressView().controlSize(.small) }
                 Spacer()
-                Button("취소", role: .cancel) { dismiss() }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("실행") { run() }
+                Button("Run") { run() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canRun)
             }
@@ -61,14 +61,14 @@ struct RunPipelineSheet: View {
     private var gitlabForm: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("변수").font(.subheadline.weight(.semibold))
+                Text("Variables").font(.subheadline.weight(.semibold))
                 Spacer()
                 Button { variables.append(Variable(key: "", value: "")) } label: { Image(systemName: "plus") }
                     .buttonStyle(.borderless)
-                    .help("변수 추가")
+                    .help("Add variable")
             }
             if variables.isEmpty {
-                Text("변수 없이 실행합니다.").font(.caption).foregroundStyle(.secondary)
+                Text("Runs without variables.").font(.caption).foregroundStyle(.secondary)
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
@@ -78,10 +78,10 @@ struct RunPipelineSheet: View {
                                 if v.fixed {
                                     Text(v.key).font(.callout.monospaced()).frame(width: 160, alignment: .leading).lineLimit(1)
                                 } else {
-                                    TextField("이름", text: $v.key).textFieldStyle(.roundedBorder).font(.callout.monospaced()).frame(width: 160)
+                                    TextField("Name", text: $v.key).textFieldStyle(.roundedBorder).font(.callout.monospaced()).frame(width: 160)
                                 }
                                 if v.options.isEmpty {
-                                    TextField("값", text: $v.value).textFieldStyle(.roundedBorder)
+                                    TextField("Value", text: $v.value).textFieldStyle(.roundedBorder)
                                 } else {
                                     Picker("", selection: $v.value) {
                                         ForEach(v.options, id: \.self) { Text($0).tag($0) }
@@ -90,7 +90,7 @@ struct RunPipelineSheet: View {
                                 }
                                 Button { variables.removeAll { $0.id == v.id } } label: { Image(systemName: "minus.circle") }
                                     .buttonStyle(.borderless)
-                                    .help("이 변수 빼기")
+                                    .help("Remove this variable")
                             }
                             if !v.description.isEmpty {
                                 Text(v.description).font(.caption).foregroundStyle(.secondary)
@@ -109,10 +109,10 @@ struct RunPipelineSheet: View {
         if let loadError {
             Text(loadError).font(.caption).foregroundStyle(.red).textSelection(.enabled)
         } else if workflows.isEmpty {
-            Text(loading ? "워크플로를 읽는 중…" : "이 브랜치에는 'Run workflow'(workflow_dispatch)가 있는 워크플로가 없습니다.")
+            Text(loading ? "Reading the workflow…" : "This branch has no workflow with 'Run workflow' (workflow_dispatch).")
                 .font(.callout).foregroundStyle(.secondary)
         } else {
-            LabeledContent("워크플로") {
+            LabeledContent("Workflow") {
                 Picker("", selection: Binding(get: { workflowID ?? workflows[0].id }, set: { pick($0) })) {
                     ForEach(workflows) { w in Text(w.name).tag(w.id) }
                 }

@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 
 
 /** CI/CD: GitLab 파이프라인 · GitHub Actions (맥 버전 CI.swift · RepoStore+CI.swift 와 같은 동작) */
@@ -66,18 +67,18 @@ export function githubStatus(status?: string | null, conclusion?: string | null)
 }
 
 export const statusInfo: Record<CIStatus, { title: string; color: string }> = {
-  created: { title: "생성됨", color: "var(--text-2)" },
-  waiting: { title: "대기 중", color: "#e8912d" },
-  pending: { title: "대기열", color: "var(--text-2)" },
-  running: { title: "실행 중", color: "#2f7ff0" },
-  success: { title: "성공", color: "#2ea44f" },
-  failed: { title: "실패", color: "#e5484d" },
-  canceled: { title: "취소됨", color: "var(--text-2)" },
-  skipped: { title: "건너뜀", color: "var(--text-2)" },
-  manual: { title: "수동 실행 대기", color: "#e8912d" },
-  scheduled: { title: "예약됨", color: "#8e5bd8" },
-  neutral: { title: "완료", color: "var(--text-2)" },
-  unknown: { title: "알 수 없음", color: "var(--text-2)" },
+  created: { title: t("Created"), color: "var(--text-2)" },
+  waiting: { title: t("Waiting"), color: "#e8912d" },
+  pending: { title: t("Queued"), color: "var(--text-2)" },
+  running: { title: t("Running"), color: "#2f7ff0" },
+  success: { title: t("Succeeded"), color: "#2ea44f" },
+  failed: { title: t("Failed"), color: "#e5484d" },
+  canceled: { title: t("Canceled"), color: "var(--text-2)" },
+  skipped: { title: t("Skipped"), color: "var(--text-2)" },
+  manual: { title: t("Waiting to be run manually"), color: "#e8912d" },
+  scheduled: { title: t("Scheduled"), color: "#8e5bd8" },
+  neutral: { title: t("Done"), color: "var(--text-2)" },
+  unknown: { title: t("Unknown"), color: "var(--text-2)" },
 };
 
 /** 아직 끝나지 않아 자주 새로 고쳐야 하는 상태 */
@@ -145,16 +146,16 @@ export interface CIInput {
 export const eventTitle = (e: string) =>
   ({
     push: "push",
-    web: "수동",
-    workflow_dispatch: "수동",
-    schedule: "예약",
+    web: t("Manual"),
+    workflow_dispatch: t("Manual"),
+    schedule: t("Scheduled"),
     merge_request_event: "MR·PR",
     pull_request: "MR·PR",
     pull_request_target: "MR·PR",
     api: "API",
-    trigger: "트리거",
-    repository_dispatch: "트리거",
-    parent_pipeline: "연결",
-    pipeline: "연결",
-    workflow_run: "연결",
+    trigger: t("Trigger"),
+    repository_dispatch: t("Trigger"),
+    parent_pipeline: t("Connect"),
+    pipeline: t("Connect"),
+    workflow_run: t("Connect"),
   })[e] ?? e;

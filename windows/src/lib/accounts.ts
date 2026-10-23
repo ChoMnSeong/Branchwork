@@ -5,6 +5,7 @@ import { accountApiBase, accountHost, type HostAccount, type Provider, type Repo
 import { Observable } from "./observable";
 import { settings } from "./settings";
 import { tools } from "./tools";
+import { t } from "./i18n";
 
 /** GitHub·사내 GitLab 계정(여러 개). 앱 전체에서 하나만 쓴다. (맥 버전 AccountStore) */
 class AccountStore extends Observable {
@@ -34,13 +35,13 @@ class AccountStore extends Observable {
   }
 
   /** 이 저장소 서버에 쓸 수 있는 계정(같은 주소이거나, 같은 서버의 다른 주소로 확인된 계정) */
-  candidates(t: RepoTarget) {
-    return this.accounts.filter((a) => a.provider === t.provider && (accountHost(a) === t.host || this.aliases[t.host] === a.id));
+  candidates(target: RepoTarget) {
+    return this.accounts.filter((a) => a.provider === target.provider && (accountHost(a) === target.host || this.aliases[target.host] === a.id));
   }
 
   /** 이 저장소에 쓸 계정: 저장소마다 고른 계정 → 없으면 그 서버의 첫 계정 */
-  accountFor(t: RepoTarget, repoPath: string | null) {
-    const list = this.candidates(t);
+  accountFor(target: RepoTarget, repoPath: string | null) {
+    const list = this.candidates(target);
     const id = repoPath ? this.preferred[repoPath] : undefined;
     return list.find((a) => a.id === id) ?? list[0] ?? null;
   }
@@ -56,22 +57,22 @@ class AccountStore extends Observable {
    * 저장소 서버 주소가 연결된 계정 서버의 다른 이름인지 확인해 같은 서버로 기억한다.
    * sameAddressOnly 이면 두 주소가 같은 IP 를 가리킬 때만 토큰으로 확인한다(엉뚱한 서버로 토큰을 보내지 않게).
    */
-  async discoverAlias(t: RepoTarget, sameAddressOnly: boolean): Promise<HostAccount | null> {
-    for (const a of this.accountsFor(t.provider)) {
-      if (accountHost(a) === t.host) continue;
+  async discoverAlias(target: RepoTarget, sameAddressOnly: boolean): Promise<HostAccount | null> {
+    for (const a of this.accountsFor(target.provider)) {
+      if (accountHost(a) === target.host) continue;
       if (sameAddressOnly) {
-        const [x, y] = await Promise.all([ipc.resolveHost(accountHost(a)), ipc.resolveHost(t.host)]);
+        const [x, y] = await Promise.all([ipc.resolveHost(accountHost(a)), ipc.resolveHost(target.host)]);
         if (!x.some((ip) => y.includes(ip))) continue;
       }
       const tok = await this.token(a);
       if (!tok) continue;
       try {
-        const m = await Hosting.me(t.provider, tok, `https://${t.host}/api/v4`);
+        const m = await Hosting.me(target.provider, tok, `https://${target.host}/api/v4`);
         if (m.username !== a.username) continue;
       } catch {
         continue;
       }
-      this.aliases = { ...this.aliases, [t.host]: a.id };
+      this.aliases = { ...this.aliases, [target.host]: a.id };
       settings.set("hostAliases", this.aliases);
       this.revision++;
       this.emit();
@@ -113,15 +114,15 @@ class AccountStore extends Observable {
     } catch {
       /* 아래에서 */
     }
-    if (!host) throw new Error("서버 주소를 확인하세요. 예: https://gitlab.회사.co.kr");
+    if (!host) throw new Error(t("Check the server address. Example: https://gitlab.example.com"));
     if (host === "gitlab.com" || host.endsWith(".gitlab.com"))
-      throw new Error("지금은 사내(자체 호스팅) GitLab 만 연결할 수 있습니다. 회사 GitLab 서버 주소를 넣어 주세요.");
+      throw new Error(t("Only self-hosted GitLab can be connected for now. Enter your GitLab server address."));
     return this.add("gitlab", base, token);
   }
 
   private async add(provider: Provider, server: string, token: string): Promise<HostAccount> {
-    const t = token.trim();
-    const m = await Hosting.me(provider, t, accountApiBase({ provider, server }));
+    const text = token.trim();
+    const m = await Hosting.me(provider, text, accountApiBase({ provider, server }));
     const probeHost = accountHost({ id: "", provider, server, username: "", name: null, avatarURL: null });
     // 같은 서버의 같은 사용자면 토큰만 바꾼다
     const existing = this.accounts.find((a) => a.provider === provider && accountHost(a) === probeHost && a.username === m.username);
@@ -133,8 +134,8 @@ class AccountStore extends Observable {
       name: m.name,
       avatarURL: m.avatarURL,
     };
-    await ipc.secretSet("acct:" + acc.id, t);
-    this.secrets.set("acct:" + acc.id, t);
+    await ipc.secretSet("acct:" + acc.id, text);
+    this.secrets.set("acct:" + acc.id, text);
     this.accounts = [...this.accounts.filter((a) => a.id !== acc.id), acc];
     this.save();
     return acc;
@@ -142,11 +143,11 @@ class AccountStore extends Observable {
 
   /** gh CLI 에 로그인돼 있는 GitHub 계정을 가져온다 */
   async importGitHubCLI() {
-    if (!this.ghPath) throw new Error("gh CLI 를 찾지 못했습니다.");
+    if (!this.ghPath) throw new Error(t("Couldn't find the gh CLI."));
     const r = await ipc.run(this.ghPath, ["auth", "token"], { cwd: env.temp, timeoutMs: 30000 });
-    const t = r.stdout.trim();
-    if (r.status !== 0 || !t) throw new Error(r.stderr.trim() || "gh 에 로그인돼 있지 않습니다. 터미널에서 `gh auth login` 을 먼저 하세요.");
-    return this.connectGitHub(t);
+    const text = r.stdout.trim();
+    if (r.status !== 0 || !text) throw new Error(r.stderr.trim() || t("You're not logged in to gh. Run `gh auth login` in a terminal first."));
+    return this.connectGitHub(text);
   }
 
   async disconnect(a: HostAccount) {

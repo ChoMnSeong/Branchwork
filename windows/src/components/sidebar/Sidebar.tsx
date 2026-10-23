@@ -14,6 +14,7 @@ import { Segmented, showContextMenu, tip } from "../shared/ui";
 import { PullRequestSection } from "./PullRequestSection";
 import { Section } from "./Section";
 import { WorktreeSection } from "./WorktreeSection";
+import { t } from "../../lib/i18n";
 
 export function Sidebar({ store, openSettings }: { store: RepoStore; openSettings: () => void }) {
   useObserve(store);
@@ -29,9 +30,9 @@ export function Sidebar({ store, openSettings }: { store: RepoStore; openSetting
           value={mode}
           onChange={(v) => settings.set("sidebarMode", v)}
           options={[
-            { value: "list", label: "목록" },
-            { value: "agents", label: active ? `에이전트 ${active}` : "에이전트" },
-            { value: "ci", label: "CI/CD", tip: "파이프라인·Actions|수동 작업 실행, 다시 실행, 취소, 배포 승인" },
+            { value: "list", label: t("List") },
+            { value: "agents", label: active ? t("Agents {0}", active) : t("Agents") },
+            { value: "ci", label: "CI/CD", tip: t("Pipelines · Actions|Run manual jobs, rerun, cancel, approve deployments") },
           ]}
         />
       </div>
@@ -105,7 +106,7 @@ function BranchList({ store, openSettings }: { store: RepoStore; openSettings: (
       {store.target && <PullRequestSection store={store} target={store.target} openSettings={openSettings} />}
 
       {store.localBranches.some((b) => store.isPinned(b)) && (
-        <Section id="pinned" title="고정">
+        <Section id="pinned" title={t("Pinned")}>
           {store.localBranches
             .filter((b) => store.isPinned(b))
             .map((b) => (
@@ -114,7 +115,7 @@ function BranchList({ store, openSettings }: { store: RepoStore; openSettings: (
         </Section>
       )}
 
-      <Section id="local" title="로컬 브랜치" count={store.localBranches.length}>
+      <Section id="local" title={t("Local branches")} count={store.localBranches.length}>
         {locals.loose.map((b) => (
           <BranchRow key={b.name} store={store} branch={b} label={b.name} />
         ))}
@@ -132,7 +133,7 @@ function BranchList({ store, openSettings }: { store: RepoStore; openSettings: (
       {store.worktrees.length > 1 && <WorktreeSection store={store} />}
 
       {store.remoteBranches.length > 0 && (
-        <Section id="remote" title="원격" count={store.remoteBranches.length}>
+        <Section id="remote" title={t("Remotes")} count={store.remoteBranches.length}>
           {[...remoteGroups.entries()]
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([remote, list]) => {
@@ -163,32 +164,32 @@ function BranchList({ store, openSettings }: { store: RepoStore; openSettings: (
       )}
 
       {store.tags.length > 0 && (
-        <Section id="tags" title="태그" count={store.tags.length} defaultOpen={false}>
-          {store.tags.map((t) => (
+        <Section id="tags" title={t("Tags")} count={store.tags.length} defaultOpen={false}>
+          {store.tags.map((tag) => (
             <div
-              key={t.name}
+              key={tag.name}
               className="side-row"
-              onClick={() => store.reveal(t.target)}
+              onClick={() => store.reveal(tag.target)}
               onContextMenu={(e) =>
                 showContextMenu(e, [
-                  { label: "이 태그로 이동", onClick: () => store.reveal(t.target) },
-                  { label: "태그 Push", onClick: () => void store.pushTag(t) },
+                  { label: t("Go to this tag"), onClick: () => store.reveal(tag.target) },
+                  { label: t("Push tag"), onClick: () => void store.pushTag(tag) },
                   "divider",
-                  { label: "태그 삭제…", danger: true, onClick: () => store.deleteTag(t) },
+                  { label: t("Delete tag…"), danger: true, onClick: () => store.deleteTag(tag) },
                 ])
               }
             >
               <span className="lead">
                 <TagIcon size={13} />
               </span>
-              <span className="ellipsis">{t.name}</span>
+              <span className="ellipsis">{tag.name}</span>
             </div>
           ))}
         </Section>
       )}
 
       {store.stashes.length > 0 && (
-        <Section id="stashes" title="스태시" count={store.stashes.length}>
+        <Section id="stashes" title={t("Stashes")} count={store.stashes.length}>
           {store.stashes.map((s) => (
             <div
               key={s.ref}
@@ -197,10 +198,10 @@ function BranchList({ store, openSettings }: { store: RepoStore; openSettings: (
               onClick={() => store.reveal(s.hash)}
               onContextMenu={(e) =>
                 showContextMenu(e, [
-                  { label: "적용 (Apply)", onClick: () => void store.stashApply(s) },
-                  { label: "꺼내기 (Pop)", onClick: () => void store.stashPop(s) },
+                  { label: t("Apply"), onClick: () => void store.stashApply(s) },
+                  { label: t("Pop"), onClick: () => void store.stashPop(s) },
                   "divider",
-                  { label: "버리기 (Drop)…", danger: true, onClick: () => store.stashDrop(s) },
+                  { label: t("Drop…"), danger: true, onClick: () => store.stashDrop(s) },
                 ])
               }
             >
@@ -234,29 +235,29 @@ function BranchRow({ store, branch: b, label }: { store: RepoStore; branch: Bran
       onClick={() => store.reveal(b.target)}
       onDoubleClick={() => void store.checkout(b)}
       onContextMenu={(e) => showContextMenu(e, b.isRemote ? remoteBranchMenu(store, b) : localBranchMenu(store, b))}
-      data-tip={tip(b.name, "클릭: 그래프에서 보기 · 더블클릭: 체크아웃 · 그래프의 다른 브랜치로 끌어 놓기: 머지·리베이스")}
+      data-tip={tip(b.name, t("Click: show in graph · Double-click: check out · Drag onto another branch in the graph: merge or rebase"))}
     >
       <span className="lead">{b.isCurrent ? <CircleCheck size={14} /> : <GitBranch size={14} />}</span>
       <span className="ellipsis grow" style={store.isHidden(b) ? { color: "var(--text-2)" } : undefined}>
         {label}
       </span>
       {store.isPinned(b) && (
-        <span className="muted" data-tip="맨 위에 고정한 브랜치" style={{ display: "inline-flex" }}>
+        <span className="muted" data-tip={t("Branches pinned to the top")} style={{ display: "inline-flex" }}>
           <Pin size={11} />
         </span>
       )}
       {store.isHidden(b) && (
-        <span className="muted" data-tip="그래프에서 숨긴 브랜치 — 우클릭으로 다시 보이기" style={{ display: "inline-flex" }}>
+        <span className="muted" data-tip={t("Branches hidden from the graph — right-click to show again")} style={{ display: "inline-flex" }}>
           <EyeOff size={12} />
         </span>
       )}
       {w && (
-        <span className="muted" data-tip={`워크트리에서 사용 중: ${displayPath(w.path)}`} style={{ display: "inline-flex" }}>
+        <span className="muted" data-tip={t("In use by a worktree: {0}", displayPath(w.path))} style={{ display: "inline-flex" }}>
           <Folder size={12} />
         </span>
       )}
       {b.upstreamGone && (
-        <span style={{ color: "var(--orange)", display: "inline-flex" }} data-tip="추적하던 원격 브랜치가 삭제됨">
+        <span style={{ color: "var(--orange)", display: "inline-flex" }} data-tip={t("The tracked remote branch was deleted")}>
           <CloudAlert size={13} />
         </span>
       )}

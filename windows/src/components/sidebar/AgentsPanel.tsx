@@ -8,6 +8,7 @@ import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { ipc } from "../../lib/ipc";
 import { Button, IconButton, showContextMenu } from "../shared/ui";
+import { t } from "../../lib/i18n";
 
 /** 사이드바 '에이전트' 탭: 워크트리 카드 + 그 안에서 도는 Claude Code 세션 */
 export function AgentsPanel({ store }: { store: RepoStore }) {
@@ -16,8 +17,8 @@ export function AgentsPanel({ store }: { store: RepoStore }) {
   useEffect(() => {
     // 다른 워크트리는 파일 감시 대상이 아니라 몇 초마다 다시 센다
     void store.refreshWorktreeStats();
-    const t = setInterval(() => void store.refreshWorktreeStats(), 5000);
-    return () => clearInterval(t);
+    const secs = setInterval(() => void store.refreshWorktreeStats(), 5000);
+    return () => clearInterval(secs);
   }, [store, paths]);
 
   const others = agents.sessions.filter((s) => !store.worktrees.some((w) => samePath(w.path, s.path)) && s.status !== "ended");
@@ -28,21 +29,19 @@ export function AgentsPanel({ store }: { store: RepoStore }) {
   return (
     <div className="side-scroll col" style={{ gap: 10, padding: 10 }}>
       <div className="row">
-        <span style={{ fontWeight: 600 }}>워크트리</span>
+        <span style={{ fontWeight: 600 }}>{t("Worktrees")}</span>
         <span className="muted">{store.worktrees.length}</span>
         <span className="spacer" />
         {agents.sessions.some((s) => s.status === "ended") && (
           <button className="link" onClick={() => void agents.clearEnded()}>
-            종료된 세션 지우기
-          </button>
+            {t("Clear ended sessions")}</button>
         )}
-        <IconButton small icon={<Plus size={13} />} tip="새 워크트리" onClick={() => sheet({ kind: "addWorktree", branch: null, start: null })} />
+        <IconButton small icon={<Plus size={13} />} tip={t("New worktree")} onClick={() => sheet({ kind: "addWorktree", branch: null, start: null })} />
       </div>
       <div className="row">
-        <Button size="large" className="grow" onClick={() => sheet({ kind: "startAgent", path: null })} tip="에이전트 세션 시작|Claude Code·Codex·Gemini CLI 중 하나로, 작업할 워크트리와 맡길 일을 고릅니다">
-          <Sparkles size={14} /> 세션 시작
-        </Button>
-        <Button size="large" onClick={() => store.path && void store.startAgent(store.path)} tip={`지금 이 워크트리에서 ${agentKind(agents.defaultKind).title} 바로 시작`}>
+        <Button size="large" className="grow" onClick={() => sheet({ kind: "startAgent", path: null })} tip={t("Start agent session|Choose Claude Code, Codex or Gemini CLI, a worktree to work in, and a task")}>
+          <Sparkles size={14} /> {" "}{t("Start session")}</Button>
+        <Button size="large" onClick={() => store.path && void store.startAgent(store.path)} tip={t("Start {0} in this worktree now", agentKind(agents.defaultKind).title)}>
           <Zap size={14} />
         </Button>
       </div>
@@ -52,16 +51,14 @@ export function AgentsPanel({ store }: { store: RepoStore }) {
       {others.length > 0 && (
         <>
           <span className="muted" style={{ fontWeight: 600, marginTop: 6 }}>
-            다른 폴더의 세션
-          </span>
+            {t("Sessions in other folders")}</span>
           {others.map((s) => (
             <SessionRow key={s.id} store={store} session={s} showPath />
           ))}
         </>
       )}
       <span className="faint" style={{ fontSize: 11.5 }}>
-        여기서 시작한 세션은 아래 터미널 탭에서 돌고, 상태가 여기 표시됩니다. 세션을 누르면 그 터미널로 이동합니다.
-      </span>
+        {t("Sessions started here run in tabs of the terminal below, and their status is shown here. Click a session to go to its terminal.")}</span>
     </div>
   );
 }
@@ -74,18 +71,18 @@ function WorktreeCard({ store, worktree: w, stats, sessions, isCurrent }: { stor
       onContextMenu={(e) =>
         showContextMenu(e, [
           {
-            label: "에이전트 세션 시작…",
+            label: t("Start agent session…"),
             onClick: () => {
               store.sheet = { kind: "startAgent", path: w.path };
               store.changed();
             },
           },
-          { label: "Branchwork 에서 열기", disabled: isCurrent, onClick: () => void store.openOrReport(w.path) },
-          { label: "탐색기에서 보기", onClick: () => void ipc.reveal(w.path) },
-          { label: "아래 터미널에서 열기", onClick: () => store.newTerminal(w.path) },
-          { label: "외부 터미널에서 열기", onClick: () => void ipc.openTerminal(w.path) },
+          { label: t("Open in Branchwork"), disabled: isCurrent, onClick: () => void store.openOrReport(w.path) },
+          { label: t("Show in Explorer"), onClick: () => void ipc.reveal(w.path) },
+          { label: t("Open in the terminal below"), onClick: () => store.newTerminal(w.path) },
+          { label: t("Open in external terminal"), onClick: () => void ipc.openTerminal(w.path) },
           "divider",
-          { label: "워크트리 제거…", danger: true, disabled: w.isMain || isCurrent, onClick: () => store.confirmRemove(w) },
+          { label: t("Remove worktree…"), danger: true, disabled: w.isMain || isCurrent, onClick: () => store.confirmRemove(w) },
         ])
       }
     >
@@ -94,13 +91,13 @@ function WorktreeCard({ store, worktree: w, stats, sessions, isCurrent }: { stor
           {w.isMain ? <House size={14} /> : <GitBranch size={14} />}
         </span>
         <span className="grow" style={{ fontWeight: 600, wordBreak: "break-all" }} data-tip={displayPath(w.path)}>
-          {w.branch ?? "분리된 HEAD"}
+          {w.branch ?? t("Detached HEAD")}
         </span>
         <IconButton
           small
           className="hover-only"
           icon={<Sparkles size={13} />}
-          tip="이 워크트리에서 에이전트 세션 시작"
+          tip={t("Start an agent session in this worktree")}
           onClick={() => {
             store.sheet = { kind: "startAgent", path: w.path };
             store.changed();
@@ -109,35 +106,35 @@ function WorktreeCard({ store, worktree: w, stats, sessions, isCurrent }: { stor
       </div>
       {stats && (
         <div className="row" style={{ gap: 8, fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>
-          {statsClean(stats) && !stats.ahead && !stats.behind && <span className="muted">변경 없음</span>}
+          {statsClean(stats) && !stats.ahead && !stats.behind && <span className="muted">{t("No changes")}</span>}
           {stats.added > 0 && (
-            <span style={{ color: "var(--green)" }} data-tip="새 파일">
+            <span style={{ color: "var(--green)" }} data-tip={t("New file")}>
               +{stats.added}
             </span>
           )}
           {stats.modified > 0 && (
-            <span className="row" style={{ color: "var(--orange)", gap: 2 }} data-tip="수정한 파일">
+            <span className="row" style={{ color: "var(--orange)", gap: 2 }} data-tip={t("Modified files")}>
               <Pencil size={11} />
               {stats.modified}
             </span>
           )}
           {stats.deleted > 0 && (
-            <span style={{ color: "var(--red)" }} data-tip="삭제한 파일">
+            <span style={{ color: "var(--red)" }} data-tip={t("Deleted file")}>
               −{stats.deleted}
             </span>
           )}
           {stats.conflicted > 0 && (
-            <span style={{ color: "var(--red)" }} data-tip="충돌">
+            <span style={{ color: "var(--red)" }} data-tip={t("Conflict")}>
               !{stats.conflicted}
             </span>
           )}
           {stats.ahead > 0 && (
-            <span style={{ color: "var(--accent)" }} data-tip="원격에 올리지 않은 커밋">
+            <span style={{ color: "var(--accent)" }} data-tip={t("Commits not pushed to the remote")}>
               ↑{stats.ahead}
             </span>
           )}
           {stats.behind > 0 && (
-            <span style={{ color: "var(--orange)" }} data-tip="원격에서 받지 않은 커밋">
+            <span style={{ color: "var(--orange)" }} data-tip={t("Commits not pulled from the remote")}>
               ↓{stats.behind}
             </span>
           )}
@@ -170,19 +167,19 @@ function SessionRow({ store, session: s, showPath }: { store: RepoStore; session
     <div
       className="session-row"
       onClick={() => can && agents.focus(s)}
-      data-tip={s.status === "ended" ? "끝난 세션" : "눌러서 그 터미널로 이동"}
+      data-tip={s.status === "ended" ? t("Ended sessions") : t("Click to go to that terminal")}
       onContextMenu={(e) =>
         showContextMenu(e, [
-          { label: "터미널로 이동", disabled: !can, onClick: () => agents.focus(s) },
-          { label: "같은 곳에서 새 세션", onClick: () => void store.startAgent(s.path, "", null, s.kind) },
+          { label: t("Go to terminal"), disabled: !can, onClick: () => agents.focus(s) },
+          { label: t("New session in the same place"), onClick: () => void store.startAgent(s.path, "", null, s.kind) },
           "divider",
           s.status === "ended"
-            ? { label: "목록에서 지우기", onClick: () => void agents.remove(s.id) }
+            ? { label: t("Remove from list"), onClick: () => void agents.remove(s.id) }
             : {
-                label: "세션 끝내기…",
+                label: t("End session…"),
                 danger: true,
                 onClick: () =>
-                  store.ask({ title: `${agentKind(s.kind).title} 세션을 끝낼까요?`, message: s.task || s.path, actionTitle: "끝내기", action: () => agents.stop(s) }),
+                  store.ask({ title: t("End the {0} session?", agentKind(s.kind).title), message: s.task || s.path, actionTitle: t("End"), action: () => agents.stop(s) }),
               },
         ])
       }

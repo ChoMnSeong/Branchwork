@@ -21,7 +21,7 @@ struct PullRequestDetailView: View {
                     if store.reviewLoading { ProgressView().controlSize(.small) }
                     Button { Task { await store.loadReview(number) } } label: { Image(systemName: "arrow.clockwise") }
                         .buttonStyle(.borderless)
-                        .help("대화·승인 새로 고침")
+                        .help("Refresh conversation and approvals")
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
@@ -33,7 +33,7 @@ struct PullRequestDetailView: View {
                         actions(pr)
                         Divider()
                         if pr.body.trimmed.isEmpty {
-                            Text("설명 없음").foregroundStyle(.secondary)
+                            Text("No description").foregroundStyle(.secondary)
                         } else {
                             Text(markdown(pr.body)).textSelection(.enabled)
                         }
@@ -55,20 +55,20 @@ struct PullRequestDetailView: View {
             }
             .task(id: number) { draft = ""; await store.loadReview(number) }
         } else {
-            ContentUnavailableView("목록에 없는 \(store.target?.provider.requestShort ?? "PR")", systemImage: "arrow.triangle.pull",
-                                   description: Text("닫혔거나 아직 불러오지 않았습니다."))
+            ContentUnavailableView("\(store.target?.provider.requestShort ?? "PR") not in the list", systemImage: "arrow.triangle.pull",
+                                   description: Text("It was closed or hasn't been loaded yet."))
         }
     }
 
     private func info(_ pr: PullRequest) -> some View {
         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 6) {
-            GridRow { Text("작성자").foregroundStyle(.secondary); Text("@\(pr.author)") }
+            GridRow { Text("Author").foregroundStyle(.secondary); Text("@\(pr.author)") }
             GridRow {
-                Text("브랜치").foregroundStyle(.secondary)
-                Text("\(pr.source) → \(pr.target)\(pr.fromFork ? "  (포크)" : "")")
+                Text("Branch").foregroundStyle(.secondary)
+                Text("\(pr.source) → \(pr.target)\(pr.fromFork ? String(localized: "  (fork)") : "")")
             }
             if let d = pr.updated {
-                GridRow { Text("업데이트").foregroundStyle(.secondary); Text(Fmt.long(d)) }
+                GridRow { Text("Update").foregroundStyle(.secondary); Text(Fmt.long(d)) }
             }
             if let sha = pr.headSHA, let ci = store.ciBySha[sha] {
                 GridRow {
@@ -76,7 +76,7 @@ struct PullRequestDetailView: View {
                     HStack(spacing: 4) {
                         CIStatusIcon(status: ci.status, size: 11)
                         Text("\(ci.status.title) · #\(ci.number)")
-                        Button("열기") { if let u = URL(string: ci.url) { NSWorkspace.shared.open(u) } }.buttonStyle(.link)
+                        Button("Open") { if let u = URL(string: ci.url) { NSWorkspace.shared.open(u) } }.buttonStyle(.link)
                     }
                 }
             }
@@ -87,14 +87,14 @@ struct PullRequestDetailView: View {
     private func actions(_ pr: PullRequest) -> some View {
         HStack {
             Button { Task { await store.checkoutPullRequest(pr) } } label: {
-                Label("브랜치 체크아웃", systemImage: "arrow.down.to.line")
+                Label("Check out branch", systemImage: "arrow.down.to.line")
             }
             .buttonStyle(.borderedProminent)
             Button { if let u = URL(string: pr.url) { NSWorkspace.shared.open(u) } } label: {
-                Label("브라우저", systemImage: "safari")
+                Label("Browser", systemImage: "safari")
             }
             if let sha = pr.headSHA, store.commitIndex[sha] != nil {
-                Button { store.reveal(sha) } label: { Label("그래프에서 보기", systemImage: "point.3.connected.trianglepath.dotted") }
+                Button { store.reveal(sha) } label: { Label("Show in graph", systemImage: "point.3.connected.trianglepath.dotted") }
             }
         }
     }
@@ -102,20 +102,20 @@ struct PullRequestDetailView: View {
     /// 승인 상태
     private func approval(_ s: ReviewState, provider: Provider) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("리뷰").font(.subheadline.weight(.semibold))
+            Text("Review").font(.subheadline.weight(.semibold))
             if s.approvedBy.isEmpty && s.changesRequestedBy.isEmpty {
-                Text("아직 승인한 사람이 없습니다.").font(.callout).foregroundStyle(.secondary)
+                Text("No one has approved yet.").font(.callout).foregroundStyle(.secondary)
             }
             if !s.approvedBy.isEmpty {
-                Label("승인: " + s.approvedBy.map { "@\($0)" }.joined(separator: ", "), systemImage: "checkmark.seal.fill")
+                Label(String(localized: "Approved: ") + s.approvedBy.map { "@\($0)" }.joined(separator: ", "), systemImage: "checkmark.seal.fill")
                     .font(.callout).foregroundStyle(.green)
             }
             if !s.changesRequestedBy.isEmpty {
-                Label("변경 요청: " + s.changesRequestedBy.map { "@\($0)" }.joined(separator: ", "), systemImage: "exclamationmark.bubble.fill")
+                Label(String(localized: "Changes requested: ") + s.changesRequestedBy.map { "@\($0)" }.joined(separator: ", "), systemImage: "exclamationmark.bubble.fill")
                     .font(.callout).foregroundStyle(.orange)
             }
             if let left = s.approvalsLeft, left > 0 {
-                Text("승인 \(left)명이 더 필요합니다.").font(.caption).foregroundStyle(.secondary)
+                Text("\(left) more approvals needed.").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -123,7 +123,7 @@ struct PullRequestDetailView: View {
     /// 바뀐 파일(누르면 가운데에 diff)
     private func files(_ r: PullRequestReview) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("바뀐 파일 \(r.files.count)").font(.subheadline.weight(.semibold))
+            Text("Changed files \(r.files.count)").font(.subheadline.weight(.semibold))
             ForEach(r.files) { f in
                 HStack(spacing: 6) {
                     StatusBadge(kind: f.kind)
@@ -140,7 +140,7 @@ struct PullRequestDetailView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction { store.openReviewFile(r.number, f) }
-                .help(f.patch == nil ? "바이너리이거나 너무 커서 브라우저에서 보세요" : "눌러서 가운데에 diff 보기")
+                .help(f.patch == nil ? "Binary or too large — view it in the browser" : "Click to see the diff in the center")
             }
         }
     }
@@ -153,7 +153,7 @@ struct PullRequestDetailView: View {
     /// 대화(일반 댓글·코드 줄 댓글·리뷰·시스템 기록)
     private func conversation(_ r: PullRequestReview) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("대화 \(r.comments.filter { $0.kind != .system }.count)").font(.subheadline.weight(.semibold))
+            Text("Conversation \(r.comments.filter { $0.kind != .system }.count)").font(.subheadline.weight(.semibold))
             ForEach(r.comments) { c in
                 if c.kind == .system {
                     Text("@\(c.author) \(c.body)").font(.caption).foregroundStyle(.secondary)
@@ -162,8 +162,8 @@ struct PullRequestDetailView: View {
                         HStack(spacing: 6) {
                             Text("@\(c.author)").font(.callout.weight(.semibold))
                             switch c.kind {
-                            case .approved: Label("승인", systemImage: "checkmark.seal.fill").font(.caption).foregroundStyle(.green)
-                            case .changesRequested: Label("변경 요청", systemImage: "exclamationmark.bubble.fill").font(.caption).foregroundStyle(.orange)
+                            case .approved: Label("Approve", systemImage: "checkmark.seal.fill").font(.caption).foregroundStyle(.green)
+                            case .changesRequested: Label("Request changes", systemImage: "exclamationmark.bubble.fill").font(.caption).foregroundStyle(.orange)
                             default: EmptyView()
                             }
                             Spacer()
@@ -197,32 +197,32 @@ struct PullRequestDetailView: View {
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.25)))
                 .overlay(alignment: .topLeading) {
                     if draft.isEmpty {
-                        Text("댓글 · 리뷰 의견").font(.callout).foregroundStyle(.tertiary).padding(8).allowsHitTesting(false)
+                        Text("Comment · review feedback").font(.callout).foregroundStyle(.tertiary).padding(8).allowsHitTesting(false)
                     }
                 }
             HStack(spacing: 6) {
                 if store.reviewBusy { ProgressView().controlSize(.small) }
                 Spacer()
                 if provider == .github {
-                    Button("변경 요청") { Task { if await store.requestChanges(number, body: text) { draft = "" } } }
+                    Button("Request changes") { Task { if await store.requestChanges(number, body: text) { draft = "" } } }
                         .disabled(text.isEmpty || store.reviewBusy)
-                        .help("의견을 남기며 변경을 요청합니다(의견 필수)")
+                        .help("Request changes with a comment (comment required)")
                 }
                 if provider == .gitlab, s?.approvedByMe == true {
-                    Button("승인 취소") { Task { await store.unapprovePullRequest(number) } }
+                    Button("Revoke approval") { Task { await store.unapprovePullRequest(number) } }
                         .disabled(store.reviewBusy)
                 } else {
                     Button { Task { if await store.approvePullRequest(number, body: text) { draft = "" } } } label: {
-                        Label("승인", systemImage: "checkmark.seal")
+                        Label("Approve", systemImage: "checkmark.seal")
                     }
                     .disabled(store.reviewBusy || s?.approvedByMe == true)
-                    .help(text.isEmpty ? "승인합니다" : "의견과 함께 승인합니다")
+                    .help(text.isEmpty ? "Approves this request" : "Approve with a comment")
                 }
-                Button("댓글") { Task { if await store.postReviewComment(number, body: text) { draft = "" } } }
+                Button("Comment") { Task { if await store.postReviewComment(number, body: text) { draft = "" } } }
                     .buttonStyle(.borderedProminent)
                     .disabled(text.isEmpty || store.reviewBusy)
                     .keyboardShortcut(.return, modifiers: .command)
-                    .help("댓글 달기 (⌘↩)")
+                    .help("Comment (⌘↩)")
             }
             .controlSize(.small)
         }

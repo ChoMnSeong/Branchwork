@@ -5,6 +5,7 @@ import { ipc } from "./ipc";
 import { Observable } from "./observable";
 import { theme as appTheme } from "./theme";
 import { tools } from "./tools";
+import { t } from "./i18n";
 
 export interface TerminalSpec {
   directory: string;
@@ -84,8 +85,8 @@ export class TerminalSession extends Observable {
     this.term.onResize(({ cols, rows }) => {
       if (this.ptyId && this.running) void ipc.ptyResize(this.ptyId, cols, rows).catch(() => {});
     });
-    this.term.onTitleChange((t) => {
-      this.shellTitle = t.trim() || null;
+    this.term.onTitleChange((text) => {
+      this.shellTitle = text.trim() || null;
       this.updateTitle();
     });
     this.term.attachCustomKeyEventHandler((e) => this.keyFilter(e));
@@ -118,9 +119,9 @@ export class TerminalSession extends Observable {
   }
 
   private updateTitle() {
-    const t = this.spec.title ?? this.shellTitle ?? basename(this.directory);
+    const text = this.spec.title ?? this.shellTitle ?? basename(this.directory);
     // PowerShell 기본 제목(실행 파일 경로)은 폴더 이름이 더 알아보기 쉽다
-    const shown = /\\|\.exe$/i.test(t) ? this.spec.title ?? basename(this.directory) : t;
+    const shown = /\\|\.exe$/i.test(text) ? this.spec.title ?? basename(this.directory) : text;
     if (shown !== this.title) {
       this.title = shown;
       this.emit();
@@ -210,7 +211,7 @@ export class TerminalSession extends Observable {
       });
     } catch (e) {
       this.running = false;
-      this.term.write(`\r\n\x1b[31m터미널을 시작하지 못했습니다: ${String(e)}\x1b[0m\r\n`);
+      this.term.write(t("\r\n\u001b[31mCouldn't start the terminal: {0}\u001b[0m\r\n", String(e)));
       this.emit();
     }
   }

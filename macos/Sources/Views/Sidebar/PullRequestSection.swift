@@ -12,18 +12,18 @@ struct PullRequestSection: View {
             case .needsAccount:
                 let others = AccountStore.shared.accounts(for: target.provider)
                 if let a = others.first {
-                    Button("연결된 계정(@\(a.username) · \(a.host))으로 시도") { Task { await store.tryExistingAccounts() } }
+                    Button("Try with the connected account (@\(a.username) · \(a.host))") { Task { await store.tryExistingAccounts() } }
                         .buttonStyle(.link)
-                        .help("같은 서버가 다른 주소로 쓰이는 경우, 이미 연결한 계정이 그대로 통합니다")
+                        .help("If the same server is used under another address, an account you've already connected works there too")
                 }
-                Button(target.provider == .gitlab ? "사내 GitLab(\(target.host)) 계정 연결…" : "GitHub 계정 연결…") { openSettings() }
+                Button(target.provider == .gitlab ? "Connect a self-hosted GitLab (\(target.host)) account…" : "Connect a GitHub account…") { openSettings() }
                     .buttonStyle(.link)
             case .failed(let m):
                 Text(m).font(.caption).foregroundStyle(.red).lineLimit(3)
             case .loading where store.pullRequests.isEmpty:
                 ProgressView().controlSize(.small)
             case .loaded where store.pullRequests.isEmpty:
-                Text("열린 \(target.provider.requestShort) 없음").font(.callout).foregroundStyle(.secondary)
+                Text("No open \(target.provider.requestShort)").font(.callout).foregroundStyle(.secondary)
             default:
                 EmptyView()
             }
@@ -45,9 +45,9 @@ struct PullRequestSection: View {
                 .contentShape(Rectangle())
                 .onTapGesture { store.select(.pullRequest(pr.number)) }
                 .contextMenu {
-                    Button("브랜치 체크아웃") { Task { await store.checkoutPullRequest(pr) } }
-                    Button("브라우저에서 열기") { if let u = URL(string: pr.url) { NSWorkspace.shared.open(u) } }
-                    Button("링크 복사") { store.copy(pr.url) }
+                    Button("Check out branch") { Task { await store.checkoutPullRequest(pr) } }
+                    Button("Open in browser") { if let u = URL(string: pr.url) { NSWorkspace.shared.open(u) } }
+                    Button("Copy link") { store.copy(pr.url) }
                 }
             }
         } header: {
@@ -65,21 +65,21 @@ struct PullRequestSection: View {
                             }
                         }
                         Divider()
-                        Button("계정 추가…") { openSettings() }
+                        Button("Add account…") { openSettings() }
                     } label: {
                         Text("@\(current.username)").font(.caption)
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
-                    .help(candidates.count > 1 ? "이 저장소에 쓸 계정 고르기" : "이 저장소에 쓰는 계정")
+                    .help(candidates.count > 1 ? "Choose the account for this repository" : "Account for this repository")
                 }
                 Button { Task { await store.loadPullRequests() } } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.borderless)
-                    .help("목록 새로 고침")
+                    .help("Refresh list")
                 Button { store.sheet = .createPullRequest } label: { Image(systemName: "plus") }
                     .buttonStyle(.borderless)
                     .disabled(store.headBranch == nil)
-                    .help("현재 브랜치로 새 \(target.provider.requestShort)")
+                    .help("New \(target.provider.requestShort) from the current branch")
             }
         }
     }

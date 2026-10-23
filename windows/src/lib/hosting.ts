@@ -1,5 +1,6 @@
 import { ipc } from "./ipc";
 import type { Provider, PullRequest, RemoteRepo, RepoTarget } from "./models";
+import { t } from "./i18n";
 
 /** GitHub REST API / GitLab REST API v4 (맥 버전 Hosting.swift 와 같은 동작) */
 
@@ -28,13 +29,13 @@ export class HostingError extends Error {
   static describe(status: number, message: string) {
     switch (status) {
       case 401:
-        return "인증에 실패했습니다(401). 토큰이 만료됐거나 잘못됐습니다. 설정에서 계정을 다시 연결하세요.";
+        return t("Authentication failed (401). The token expired or is wrong. Reconnect the account in Settings.");
       case 403:
-        return `권한이 없습니다(403): ${message}`;
+        return t("No permission (403): {0}", message);
       case 404:
-        return "찾을 수 없습니다(404). 저장소에 접근할 권한이 있는 토큰인지 확인하세요.";
+        return t("Not found (404). Check that the token has access to the repository.");
       default:
-        return `서버 오류 ${status}: ${message}`;
+        return t("Server error {0}: {1}", status, message);
     }
   }
 }
@@ -157,33 +158,33 @@ export async function me(p: Provider, token: string, apiBase: string): Promise<M
   return { username: u.username, name: u.name ?? null, avatarURL: u.avatar_url ?? null };
 }
 
-export async function pullRequests(t: RepoTarget, token: string, apiBase: string): Promise<PullRequest[]> {
-  if (t.provider === "github") {
-    const list = await send<GHPull[]>("github", `${apiBase}/repos/${t.path}/pulls?state=open&per_page=50&sort=updated&direction=desc`, token);
-    return list.map((p) => fromPull(p, t.path));
+export async function pullRequests(target: RepoTarget, token: string, apiBase: string): Promise<PullRequest[]> {
+  if (target.provider === "github") {
+    const list = await send<GHPull[]>("github", `${apiBase}/repos/${target.path}/pulls?state=open&per_page=50&sort=updated&direction=desc`, token);
+    return list.map((p) => fromPull(p, target.path));
   }
-  const list = await send<GLMergeRequest[]>("gitlab", `${apiBase}/projects/${projectID(t.path)}/merge_requests?state=opened&per_page=50&order_by=updated_at`, token);
+  const list = await send<GLMergeRequest[]>("gitlab", `${apiBase}/projects/${projectID(target.path)}/merge_requests?state=opened&per_page=50&order_by=updated_at`, token);
   return list.map(fromMerge);
 }
 
-export async function defaultBranch(t: RepoTarget, token: string, apiBase: string): Promise<string | null> {
-  if (t.provider === "github") return (await send<GHRepo>("github", `${apiBase}/repos/${t.path}`, token)).default_branch ?? null;
-  return (await send<GLProject>("gitlab", `${apiBase}/projects/${projectID(t.path)}`, token)).default_branch ?? null;
+export async function defaultBranch(target: RepoTarget, token: string, apiBase: string): Promise<string | null> {
+  if (target.provider === "github") return (await send<GHRepo>("github", `${apiBase}/repos/${target.path}`, token)).default_branch ?? null;
+  return (await send<GLProject>("gitlab", `${apiBase}/projects/${projectID(target.path)}`, token)).default_branch ?? null;
 }
 
 export async function createPullRequest(
-  t: RepoTarget,
+  target: RepoTarget,
   token: string,
   apiBase: string,
   a: { title: string; body: string; source: string; target: string; draft: boolean },
 ): Promise<PullRequest> {
-  if (t.provider === "github") {
-    const p = await send<GHPull>("github", `${apiBase}/repos/${t.path}/pulls`, token, "POST", {
+  if (target.provider === "github") {
+    const p = await send<GHPull>("github", `${apiBase}/repos/${target.path}/pulls`, token, "POST", {
       title: a.title, body: a.body, head: a.source, base: a.target, draft: a.draft,
     });
-    return fromPull(p, t.path);
+    return fromPull(p, target.path);
   }
-  const m = await send<GLMergeRequest>("gitlab", `${apiBase}/projects/${projectID(t.path)}/merge_requests`, token, "POST", {
+  const m = await send<GLMergeRequest>("gitlab", `${apiBase}/projects/${projectID(target.path)}/merge_requests`, token, "POST", {
     title: a.draft ? "Draft: " + a.title : a.title,
     description: a.body,
     source_branch: a.source,

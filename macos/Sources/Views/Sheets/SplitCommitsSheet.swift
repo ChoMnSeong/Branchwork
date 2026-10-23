@@ -13,7 +13,7 @@ struct SplitCommitsSheet: View {
         let valid = groups.filter { !$0.files.isEmpty }
         let leftover = store.splittableChanges.map(\.path).filter { p in !groups.contains { $0.files.contains(p) } }
         VStack(alignment: .leading, spacing: 0) {
-            Text("나눠서 커밋").font(.title3.weight(.semibold)).padding([.top, .horizontal], 20)
+            Text("Split into commits").font(.title3.weight(.semibold)).padding([.top, .horizontal], 20)
             if let notice = store.aiNotice {
                 Text(notice).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20).padding(.top, 4)
             }
@@ -23,13 +23,13 @@ struct SplitCommitsSheet: View {
                         if !g.files.isEmpty {
                             Card(spacing: 6) {
                                 HStack {
-                                    Text("\(i + 1)번 커밋").font(.subheadline.weight(.semibold))
-                                    Text("\(g.files.count)개 파일").font(.caption).foregroundStyle(.secondary)
+                                    Text("Commit \(i + 1)").font(.subheadline.weight(.semibold))
+                                    Text("\(g.files.count) files").font(.caption).foregroundStyle(.secondary)
                                     Spacer()
                                     Button { shift(i, -1) } label: { Image(systemName: "arrow.up") }
-                                        .buttonStyle(.borderless).disabled(i == 0).help("위로")
+                                        .buttonStyle(.borderless).disabled(i == 0).help("Up")
                                     Button { shift(i, 1) } label: { Image(systemName: "arrow.down") }
-                                        .buttonStyle(.borderless).disabled(i == groups.count - 1).help("아래로")
+                                        .buttonStyle(.borderless).disabled(i == groups.count - 1).help("Down")
                                 }
                                 TextEditor(text: Binding(get: { groups[i].message }, set: { groups[i].message = $0 }))
                                     .font(.callout)
@@ -44,7 +44,7 @@ struct SplitCommitsSheet: View {
                     }
                     if !leftover.isEmpty {
                         Card(spacing: 6) {
-                            Text("커밋하지 않음").font(.subheadline.weight(.semibold))
+                            Text("Not committed").font(.subheadline.weight(.semibold))
                             ForEach(leftover, id: \.self) { p in fileRow(p, changes[p], current: nil) }
                         }
                     }
@@ -53,17 +53,17 @@ struct SplitCommitsSheet: View {
             }
             .frame(maxHeight: 520)
             HStack {
-                Text("스테이지 상태를 비우고 위에서부터 차례로 스테이지 → 커밋합니다." + (leftover.isEmpty ? "" : " 커밋하지 않는 \(leftover.count)개 파일은 그대로 남습니다."))
+                Text(String(localized: "Clears the staging area, then stages and commits each group from the top.") + (leftover.isEmpty ? "" : String(localized: " \(leftover.count) files that aren't committed stay as they are.")))
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button("다시 나누기") {
+                Button("Split again") {
                     dismiss()
                     Task { await store.planSplit() }
                 }
                 .disabled(store.aiWorking != nil)
-                Button("취소", role: .cancel) { dismiss() }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("\(valid.count)개 커밋 만들기") {
+                Button("Create \(valid.count) commits") {
                     let plan = valid
                     dismiss()
                     Task { await store.applySplit(plan) }
@@ -86,13 +86,13 @@ struct SplitCommitsSheet: View {
             Spacer()
             Menu {
                 ForEach(Array(groups.enumerated()), id: \.element.id) { i, g in
-                    Button("\(i + 1)번 커밋으로") { move(p, to: g.id) }.disabled(g.id == current)
+                    Button("To commit \(i + 1)") { move(p, to: g.id) }.disabled(g.id == current)
                 }
-                Button("새 커밋으로") { move(p, to: nil, new: true) }
+                Button("To a new commit") { move(p, to: nil, new: true) }
                 Divider()
-                Button("커밋하지 않음") { move(p, to: nil) }.disabled(current == nil)
+                Button("Not committed") { move(p, to: nil) }.disabled(current == nil)
             } label: {
-                Text(current.flatMap { id in groups.firstIndex { $0.id == id }.map { "\($0 + 1)번 커밋" } } ?? "커밋 안 함")
+                Text(current.flatMap { id in groups.firstIndex { $0.id == id }.map { "Commit \($0 + 1)" } } ?? "Don't commit")
                     .font(.caption)
             }
             .menuStyle(.borderlessButton)

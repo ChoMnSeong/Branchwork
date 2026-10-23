@@ -214,9 +214,9 @@ final class RestoreState {
     private let minimumSplash: TimeInterval = 1.3
 
     var step: String {
-        guard planned else { return "준비 중…" }
-        if total <= 1 { return current.isEmpty ? "저장소 여는 중…" : "\(current) 여는 중…" }
-        return "탭 \(min(done + 1, total))/\(total) 여는 중\(current.isEmpty ? "…" : " · " + current)"
+        guard planned else { return String(localized: "Preparing…") }
+        if total <= 1 { return current.isEmpty ? String(localized: "Opening repository…") : String(localized: "Opening \(current)…") }
+        return String(localized: "Opening tab \(min(done + 1, total))/\(total)\(current.isEmpty ? "…" : " · " + current)")
     }
 
     private init() {

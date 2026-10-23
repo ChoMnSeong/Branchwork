@@ -9,8 +9,8 @@ enum AIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notConfigured(let m): return m
-        case .refused(let who): return "\(who) 가 이 요청을 거절했습니다. 내용을 바꿔 다시 시도해 보세요."
-        case .failed(let who, let m): return "\(who) 응답 실패: \(m)"
+        case .refused(let who): return String(localized: "\(who) declined this request. Try changing the content and try again.")
+        case .failed(let who, let m): return String(localized: "\(who) request failed: \(m)")
         }
     }
 }
@@ -23,13 +23,13 @@ enum AIProvider: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .claudeCode: return "Claude Code (로그인 사용)"
-        case .codex: return "Codex (ChatGPT 로그인 사용)"
-        case .geminiCli: return "Gemini CLI (Google 로그인 사용)"
+        case .claudeCode: return String(localized: "Claude Code (uses your login)")
+        case .codex: return String(localized: "Codex (uses your ChatGPT login)")
+        case .geminiCli: return String(localized: "Gemini CLI (uses your Google login)")
         case .anthropic: return "Claude API (Anthropic)"
         case .openai: return "ChatGPT API (OpenAI)"
         case .gemini: return "Gemini API (Google)"
-        case .compatible: return "OpenAI 호환 (Ollama·LM Studio·OpenRouter 등)"
+        case .compatible: return String(localized: "OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)")
         }
     }
 
@@ -64,7 +64,7 @@ enum AIProvider: String, CaseIterable, Identifiable {
     }
 
     var modelHint: String {
-        isCLI ? "비우면 기본값" : (self == .compatible ? "llama3.1, qwen2.5-coder …" : defaultModel)
+        isCLI ? String(localized: "Leave empty for the default") : (self == .compatible ? "llama3.1, qwen2.5-coder …" : defaultModel)
     }
 
     var keyHint: String {
@@ -72,7 +72,7 @@ enum AIProvider: String, CaseIterable, Identifiable {
         case .anthropic: return "sk-ant-…"
         case .openai: return "sk-…"
         case .gemini: return "AIza…"
-        default: return "필요할 때만"
+        default: return String(localized: "Only if needed")
         }
     }
 
@@ -87,13 +87,13 @@ enum AIProvider: String, CaseIterable, Identifiable {
 
     var note: String {
         switch self {
-        case .claudeCode: return "이 맥에서 로그인한 Claude Code 를 그대로 씁니다. 도구는 모두 끈 채 글만 생성합니다."
-        case .codex: return "이 맥에서 ChatGPT 계정으로 로그인한 Codex CLI 를 읽기 전용으로 실행해 글만 받습니다."
-        case .geminiCli: return "이 맥에서 로그인한 Gemini CLI 를 읽기 전용(plan) 모드로 실행해 글만 받습니다."
-        case .anthropic: return "요청이 안전 분류기에 막히면 서버가 권장 모델로 한 번 더 시도하도록(fallbacks) 켜 두었습니다."
-        case .openai: return "OpenAI API 키로 Chat Completions 를 부릅니다."
-        case .gemini: return "Google AI Studio API 키로 Gemini 를 부릅니다."
-        case .compatible: return "OpenAI 형식(/chat/completions)을 받는 서버라면 무엇이든 됩니다. 예: Ollama http://localhost:11434/v1"
+        case .claudeCode: return String(localized: "Uses Claude Code logged in on this Mac as is. All tools are turned off; it only generates text.")
+        case .codex: return String(localized: "Runs the Codex CLI logged in with your ChatGPT account on this Mac in read-only mode and only takes the text.")
+        case .geminiCli: return String(localized: "Runs the Gemini CLI logged in on this Mac in read-only (plan) mode and only takes the text.")
+        case .anthropic: return String(localized: "If a request is blocked by the safety classifier, the server retries once with the recommended model (fallbacks).")
+        case .openai: return String(localized: "Calls Chat Completions with an OpenAI API key.")
+        case .gemini: return String(localized: "Calls Gemini with a Google AI Studio API key.")
+        case .compatible: return String(localized: "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1")
         }
     }
 }
@@ -113,29 +113,29 @@ enum InstructionKey: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .global: return "공통 규칙"
-        case .commit: return "커밋 메시지 작성 · 나눠서 커밋"
-        case .explain: return "커밋 설명"
-        case .pullRequest: return "PR·MR 설명"
+        case .global: return String(localized: "Common rules")
+        case .commit: return String(localized: "Commit messages · Split into commits")
+        case .explain: return String(localized: "Commit explanation")
+        case .pullRequest: return String(localized: "PR/MR description")
         }
     }
 
     var detail: String {
         switch self {
-        case .global: return "아래 기능마다 따로 적은 규칙과 함께 모든 AI 기능에 적용됩니다."
-        case .commit: return "커밋 메시지를 쓰거나 변경을 여러 커밋으로 나눌 때 따릅니다."
-        case .explain: return "커밋·변경 내용을 설명할 때 따릅니다."
-        case .pullRequest: return "Pull/Merge Request 제목과 본문을 쓸 때 따릅니다."
+        case .global: return String(localized: "Applies to every AI feature, together with the rules written for each feature below.")
+        case .commit: return String(localized: "Followed when writing commit messages or splitting changes into commits.")
+        case .explain: return String(localized: "Followed when explaining commits and changes.")
+        case .pullRequest: return String(localized: "Followed when writing pull/merge request titles and descriptions.")
         }
     }
 
     var chips: [String] {
         switch self {
-        case .global: return ["한국어로 작성", "영어로 작성", "간결하게", "명령형으로", "기술적인 말투", "부드러운 말투"]
-        case .commit: return ["Conventional Commits 형식(feat: …)", "prefix 는 Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove 중 하나",
-                              "prefix 의 첫 글자는 대문자", "제목 50자 이내", "이슈 번호 포함", "본문 없이 제목만", "무엇을·왜 바꿨는지 중심으로"]
-        case .explain: return ["업무에 주는 영향 위주로", "글머리표로", "영향받는 부분 포함", "초보자도 알기 쉽게"]
-        case .pullRequest: return ["변경 이유를 먼저", "테스트 방법 포함", "체크리스트 형식", "관련 이슈 번호 포함", "스크린샷 자리 남기기"]
+        case .global: return [String(localized: "Write in Korean"), String(localized: "Write in English"), String(localized: "Be concise"), String(localized: "Use the imperative mood"), String(localized: "Technical tone"), String(localized: "Friendly tone")]
+        case .commit: return [String(localized: "Conventional Commits format (feat: …)"), String(localized: "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove"),
+                              String(localized: "Capitalize the first letter of the prefix"), String(localized: "Subject within 50 characters"), String(localized: "Include the issue number"), String(localized: "Subject line only, no body"), String(localized: "Focus on what changed and why")]
+        case .explain: return [String(localized: "Focus on the impact on the work"), String(localized: "As bullet points"), String(localized: "Include the affected areas"), String(localized: "Easy for beginners to understand")]
+        case .pullRequest: return [String(localized: "Start with the reason for the change"), String(localized: "Include how to test"), String(localized: "As a checklist"), String(localized: "Include the related issue number"), String(localized: "Leave room for screenshots")]
         }
     }
 }
@@ -247,10 +247,10 @@ final class AIStore {
     /// 쓸 수 없는 이유(되면 nil)
     func problem(_ p: AIProvider) -> String? {
         if let tool = p.tool {
-            return ToolStore.shared.path(tool) == nil ? "\(tool.title) 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 설치하세요." : nil
+            return ToolStore.shared.path(tool) == nil ? String(localized: "Couldn't find \(tool.title). Locate the executable in Settings > Tools or install it.") : nil
         }
-        if p == .compatible { return baseURL.isEmpty ? "서버 주소를 입력하세요." : nil }
-        return hasKey[p.rawValue] == true ? nil : "설정 > AI 에서 \(p.title) 키를 입력하세요."
+        if p == .compatible { return baseURL.isEmpty ? String(localized: "Enter the server address.") : nil }
+        return hasKey[p.rawValue] == true ? nil : String(localized: "Enter your \(p.title) key in Settings > AI.")
     }
 
     /// 글 한 번 생성. effort 는 Claude API 에서만 쓴다(low/medium/high).
@@ -278,7 +278,7 @@ final class AIStore {
         case .openai:
             return try await Self.chat(base: "https://api.openai.com/v1", key: key(p), model: model, system: system, prompt: prompt, name: "ChatGPT")
         case .compatible:
-            return try await Self.chat(base: baseURL, key: key(p), model: model, system: system, prompt: prompt, name: "AI 서버")
+            return try await Self.chat(base: baseURL, key: key(p), model: model, system: system, prompt: prompt, name: String(localized: "AI server"))
         case .gemini:
             return try await Self.gemini(key: key(p)!, model: model, system: system, prompt: prompt)
         }
@@ -294,13 +294,13 @@ final class AIStore {
         let out = r.output.trimmed
         guard r.status == 0, !out.isEmpty else {
             let err = r.stderr.trimmed.split(separator: "\n").suffix(6).joined(separator: "\n")
-            throw AIError.failed(name, !err.isEmpty ? err : (!out.isEmpty ? out : "응답이 없습니다(종료 코드 \(r.status))."))
+            throw AIError.failed(name, !err.isEmpty ? err : (!out.isEmpty ? out : String(localized: "No response (exit code \(r.status)).")))
         }
         return out
     }
 
     private static func post(_ url: String, headers: [String: String], body: [String: Any]) async throws -> (Int, Data) {
-        guard let u = URL(string: url) else { throw AIError.notConfigured("주소가 올바르지 않습니다: \(url)") }
+        guard let u = URL(string: url) else { throw AIError.notConfigured(String(localized: "The address is invalid: \(url)")) }
         var req = URLRequest(url: u, timeoutInterval: 300)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "content-type")
@@ -311,7 +311,7 @@ final class AIStore {
     }
 
     private static func get(_ url: String, headers: [String: String]) async throws -> (Int, Data) {
-        guard let u = URL(string: url) else { throw AIError.notConfigured("주소가 올바르지 않습니다: \(url)") }
+        guard let u = URL(string: url) else { throw AIError.notConfigured(String(localized: "The address is invalid: \(url)")) }
         var req = URLRequest(url: u, timeoutInterval: 30)
         for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
         let (data, resp) = try await URLSession.shared.data(for: req)
@@ -324,9 +324,9 @@ final class AIStore {
             ?? ((obj as? [[String: Any]])?.first?["error"] as? [String: Any])?["message"] as? String
             ?? String(decoding: data.prefix(300), as: UTF8.self)
         switch code {
-        case 401, 403: return AIError.failed(who, "API 키가 올바르지 않거나 권한이 없습니다(\(code)). \(msg)")
-        case 404: return AIError.failed(who, "모델이나 주소를 찾을 수 없습니다(404). 모델 이름을 확인하세요. \(msg)")
-        case 429: return AIError.failed(who, "사용 한도에 걸렸습니다(429). 잠시 뒤 다시 시도하세요. \(msg)")
+        case 401, 403: return AIError.failed(who, String(localized: "The API key is invalid or lacks permission (\(code)). \(msg)"))
+        case 404: return AIError.failed(who, String(localized: "Model or address not found (404). Check the model name. \(msg)"))
+        case 429: return AIError.failed(who, String(localized: "Usage limit reached (429). Try again in a moment. \(msg)"))
         default: return AIError.failed(who, "HTTP \(code) — \(msg)")
         }
     }
@@ -351,12 +351,12 @@ final class AIStore {
         if obj["stop_reason"] as? String == "refusal" { throw AIError.refused("Claude") }
         let text = (obj["content"] as? [[String: Any]] ?? []).filter { $0["type"] as? String == "text" }
             .compactMap { $0["text"] as? String }.joined().trimmed
-        guard !text.isEmpty else { throw AIError.failed("Claude", "빈 응답") }
+        guard !text.isEmpty else { throw AIError.failed("Claude", String(localized: "Empty response")) }
         return text
     }
 
     private static func chat(base: String, key: String?, model: String, system: String, prompt: String, name: String) async throws -> String {
-        guard !model.isEmpty else { throw AIError.notConfigured("\(name): 모델을 정하세요(설정 > AI).") }
+        guard !model.isEmpty else { throw AIError.notConfigured(String(localized: "\(name): choose a model (Settings > AI).")) }
         var headers: [String: String] = [:]
         if let key { headers["authorization"] = "Bearer \(key)" }
         let body: [String: Any] = ["model": model, "messages": [["role": "system", "content": system], ["role": "user", "content": prompt]]]
@@ -368,7 +368,7 @@ final class AIStore {
         let msg = ((obj["choices"] as? [[String: Any]])?.first?["message"]) as? [String: Any]
         if let refusal = msg?["refusal"] as? String, !refusal.isEmpty { throw AIError.refused(name) }
         let text = (msg?["content"] as? String ?? "").trimmed
-        guard !text.isEmpty else { throw AIError.failed(name, "빈 응답") }
+        guard !text.isEmpty else { throw AIError.failed(name, String(localized: "Empty response")) }
         return text
     }
 
@@ -387,7 +387,7 @@ final class AIStore {
         let parts = ((cand?["content"] as? [String: Any])?["parts"] as? [[String: Any]]) ?? []
         let text = parts.compactMap { $0["text"] as? String }.joined().trimmed
         guard !text.isEmpty else {
-            throw cand?["finishReason"] as? String == "SAFETY" ? AIError.refused("Gemini") : AIError.failed("Gemini", "빈 응답")
+            throw cand?["finishReason"] as? String == "SAFETY" ? AIError.refused("Gemini") : AIError.failed("Gemini", String(localized: "Empty response"))
         }
         return text
     }
@@ -400,16 +400,16 @@ final class AIStore {
         }
         switch p {
         case .anthropic:
-            guard let k else { throw AIError.notConfigured("먼저 API 키를 저장하세요.") }
+            guard let k else { throw AIError.notConfigured(String(localized: "Save an API key first.")) }
             let (code, data) = try await Self.get("https://api.anthropic.com/v1/models?limit=100", headers: ["x-api-key": k, "anthropic-version": "2023-06-01"])
             guard code == 200 else { throw Self.apiError("Claude", code, data) }
             return ids(data).compactMap { $0["id"] as? String }
         case .openai, .compatible:
-            if p == .openai, k == nil { throw AIError.notConfigured("먼저 API 키를 저장하세요.") }
+            if p == .openai, k == nil { throw AIError.notConfigured(String(localized: "Save an API key first.")) }
             var base = p == .openai ? "https://api.openai.com/v1" : baseURL
             while base.hasSuffix("/") { base.removeLast() }
             let (code, data) = try await Self.get(base + "/models", headers: k.map { ["authorization": "Bearer \($0)"] } ?? [:])
-            guard code == 200 else { throw Self.apiError(p == .openai ? "ChatGPT" : "AI 서버", code, data) }
+            guard code == 200 else { throw Self.apiError(p == .openai ? "ChatGPT" : String(localized: "AI server"), code, data) }
             var list = ids(data).compactMap { $0["id"] as? String }
             if p == .openai {
                 // 글 생성 모델만(임베딩·음성·이미지 제외)
@@ -420,7 +420,7 @@ final class AIStore {
             }
             return list.sorted { $0.localizedStandardCompare($1) == .orderedDescending }
         case .gemini:
-            guard let k else { throw AIError.notConfigured("먼저 API 키를 저장하세요.") }
+            guard let k else { throw AIError.notConfigured(String(localized: "Save an API key first.")) }
             let (code, data) = try await Self.get("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", headers: ["x-goog-api-key": k])
             guard code == 200 else { throw Self.apiError("Gemini", code, data) }
             return ids(data, field: "models")

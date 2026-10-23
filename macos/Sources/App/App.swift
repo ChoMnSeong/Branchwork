@@ -31,6 +31,8 @@ struct BranchworkApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     init() {
+        // 화면 언어(기본 영어): 번역 묶음을 고르기 전에 정해 둔다
+        AppLanguage.applyChoice()
         // 커밋 메시지를 stdin 으로 넘기는 중 git 이 먼저 끝나도 SIGPIPE 로 앱이 죽지 않게
         signal(SIGPIPE, SIG_IGN)
         // 창 복원은 직접 한다(Workspace) — 시스템 복원과 겹쳐 같은 저장소가 두 번 열리지 않게
@@ -145,33 +147,33 @@ struct AppCommands: Commands {
         // 창이 하나도 없을 때도 새 창을 열 수 있게 메뉴의 openWindow 를 받아 둔다
         let _ = Workspace.shared.setWindowOpener { [openWindow] in openWindow(id: "repo") }
         CommandGroup(after: .appInfo) {
-            Button("업데이트 확인…") { Task { await UpdateCenter.shared.check(manual: true) } }
+            Button("Check for updates…") { Task { await UpdateCenter.shared.check(manual: true) } }
         }
         CommandGroup(replacing: .newItem) {
-            Button("새 탭") { openWindow(id: "repo") }
+            Button("New tab") { openWindow(id: "repo") }
                 .keyboardShortcut("t")
-            Button("저장소 열기…") {
+            Button("Open repository…") {
                 if let store { store.presentOpenPanel() } else { openWindow(id: "repo") }
             }
             .keyboardShortcut("o")
-            Button("저장소 복제…") { store?.sheet = .clone }
+            Button("Clone repository…") { store?.sheet = .clone }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
-            Button("새 저장소 만들기…") { store?.presentInitPanel() }
+            Button("Create new repository…") { store?.presentInitPanel() }
         }
-        CommandMenu("저장소") {
-            Button(store?.undoStack.last.map { "되돌리기: \($0.title)" } ?? "되돌리기") { store?.confirmUndo() }
+        CommandMenu("Repository") {
+            Button(store?.undoStack.last.map { "Undo: \($0.title)" } ?? "Undo") { store?.confirmUndo() }
                 .keyboardShortcut("z", modifiers: [.command, .option])
                 .disabled(store?.undoStack.isEmpty ?? true)
             Divider()
-            Button("새로 고침") { Task { await store?.reload() } }
+            Button("Refresh") { Task { await store?.reload() } }
                 .keyboardShortcut("r")
-            Button("커밋 검색") { store?.requestSearchFocus() }
+            Button("Search commits") { store?.requestSearchFocus() }
                 .keyboardShortcut("f")
-            Button("다음 검색 결과") { store?.nextMatch() }
+            Button("Next search result") { store?.nextMatch() }
                 .keyboardShortcut("g")
-            Button("이전 검색 결과") { store?.previousMatch() }
+            Button("Previous search result") { store?.previousMatch() }
                 .keyboardShortcut("g", modifiers: [.command, .shift])
-            Button("작업 중인 변경 보기") { store?.select(.wip) }
+            Button("Show uncommitted changes") { store?.select(.wip) }
                 .keyboardShortcut("1")
             Divider()
             Button("Fetch") { Task { await store?.fetch() } }
@@ -181,24 +183,24 @@ struct AppCommands: Commands {
             Button("Push") { Task { await store?.push() } }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
             Divider()
-            Button("새 브랜치…") { store?.requestNewBranch() }
+            Button("New branch…") { store?.requestNewBranch() }
                 .keyboardShortcut("b", modifiers: [.command, .shift])
-            Button("새 워크트리…") { store?.sheet = .addWorktree(branch: nil, start: nil) }
+            Button("New worktree…") { store?.sheet = .addWorktree(branch: nil, start: nil) }
                 .keyboardShortcut("w", modifiers: [.command, .option])
-            Button("새 Pull/Merge Request…") { store?.sheet = .createPullRequest }
+            Button("New pull/merge request…") { store?.sheet = .createPullRequest }
                 .disabled(store?.target == nil || store?.headBranch == nil)
             Divider()
-            Button("AI 로 커밋 메시지 작성") { Task { await store?.generateCommitMessage() } }
+            Button("Write commit message with AI") { Task { await store?.generateCommitMessage() } }
                 .keyboardShortcut("m", modifiers: [.command, .option])
                 .disabled(store?.status.staged.isEmpty ?? true)
-            Button("에이전트 세션 시작…") { store?.sheet = .startAgent(path: store?.url?.path) }
+            Button("Start agent session…") { store?.sheet = .startAgent(path: store?.url?.path) }
                 .keyboardShortcut("k", modifiers: [.command, .option])
                 .disabled(store?.url == nil)
             Divider()
-            Button(store?.showTerminal == true ? "터미널 숨기기" : "터미널 보기") { store?.toggleTerminal() }
+            Button(store?.showTerminal == true ? "Hide terminal" : "Show terminal") { store?.toggleTerminal() }
                 .keyboardShortcut("`", modifiers: .control)
                 .disabled(store?.url == nil)
-            Button("새 터미널") { store?.newTerminal() }
+            Button("New terminal") { store?.newTerminal() }
                 .keyboardShortcut("`", modifiers: [.control, .shift])
                 .disabled(store?.url == nil)
             Divider()
@@ -223,7 +225,7 @@ struct RepoContainer: View {
             }
             if showLoading {
                 LoadingView(title: store.loading?.title ?? "Branchwork",
-                            step: store.loading?.step ?? "준비 중…")
+                            step: store.loading?.step ?? String(localized: "Preparing…"))
                     .transition(.opacity)
                     .zIndex(1)
             }
@@ -243,19 +245,19 @@ struct RepoContainer: View {
             case .interactiveRebase: InteractiveRebaseSheet()
             }
         }
-        .alert("작업을 완료하지 못했습니다",
+        .alert("Couldn't complete the operation",
                isPresented: Binding(get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } })) {
-            Button("확인", role: .cancel) {}
+            Button("OK", role: .cancel) {}
         } message: {
             Text(store.errorMessage ?? "")
         }
-        .alert("Git 저장소가 아닙니다",
+        .alert("Not a Git repository",
                isPresented: Binding(get: { store.notRepoPrompt != nil }, set: { if !$0 { store.notRepoPrompt = nil } }),
                presenting: store.notRepoPrompt) { folder in
-            Button("여기에 저장소 만들기") { Task { await store.initRepository(at: folder) } }
-            Button("취소", role: .cancel) {}
+            Button("Create repository here") { Task { await store.initRepository(at: folder) } }
+            Button("Cancel", role: .cancel) {}
         } message: { folder in
-            Text("\(folder.path) 에 새 Git 저장소를 만들까요?")
+            Text("Create a new Git repository in \(folder.path)?")
         }
         .confirmationDialog(store.confirm?.title ?? "",
                             isPresented: Binding(get: { store.confirm != nil }, set: { if !$0 { store.confirm = nil } }),
@@ -264,7 +266,7 @@ struct RepoContainer: View {
             Button(req.actionTitle, role: req.destructive ? .destructive : nil) {
                 Task { await req.action() }
             }
-            Button("취소", role: .cancel) {}
+            Button("Cancel", role: .cancel) {}
         } message: { req in
             Text(req.message)
         }

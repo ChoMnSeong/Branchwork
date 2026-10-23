@@ -15,22 +15,22 @@ struct AccountsSettings: View {
                 ForEach(accounts.accounts(for: .github)) { a in
                     ConnectedRow(account: a) { accounts.disconnect(a) }
                 }
-                SecureField("Personal access token", text: $githubToken, prompt: Text(accounts.accounts(for: .github).isEmpty ? "ghp_… 토큰" : "다른 계정의 토큰"))
+                SecureField("Personal access token", text: $githubToken, prompt: Text(accounts.accounts(for: .github).isEmpty ? "ghp_… token" : "Another account's token"))
                 HStack {
-                    Button(accounts.accounts(for: .github).isEmpty ? "연결" : "계정 추가") { connectGitHub() }
+                    Button(accounts.accounts(for: .github).isEmpty ? "Connect" : "Add account") { connectGitHub() }
                         .disabled(githubToken.trimmed.isEmpty || working != nil)
                     if accounts.ghPath != nil {
-                        Button("gh CLI 로그인 가져오기") { importGH() }
+                        Button("Import gh CLI login") { importGH() }
                             .disabled(working != nil)
                     }
                     if working == .github { ProgressView().controlSize(.small) }
                     Spacer()
-                    Link("토큰 만들기", destination: URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org,workflow&description=Branchwork")!)
+                    Link("Create token", destination: URL(string: "https://github.com/settings/tokens/new?scopes=repo,read:org,workflow&description=Branchwork")!)
                 }
             } header: {
                 Text("GitHub \(countText(.github))")
             } footer: {
-                Text("계정을 여러 개 연결하면, 같은 서버의 저장소에서는 왼쪽 PR 목록 위에서 쓸 계정을 고를 수 있습니다.")
+                Text("If you connect several accounts, you can choose which one to use above the PR list for repositories on the same server.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -38,22 +38,22 @@ struct AccountsSettings: View {
                 ForEach(accounts.accounts(for: .gitlab)) { a in
                     ConnectedRow(account: a, showServer: true) { accounts.disconnect(a) }
                 }
-                TextField("서버 주소", text: $gitlabServer, prompt: Text("https://gitlab.회사.co.kr"))
-                SecureField("Personal access token (api 권한)", text: $gitlabToken)
+                TextField("Server address", text: $gitlabServer, prompt: Text("https://gitlab.example.com"))
+                SecureField("Personal access token (api scope)", text: $gitlabToken)
                 HStack {
-                    Button(accounts.accounts(for: .gitlab).isEmpty ? "연결" : "계정 추가") { connectGitLab() }
+                    Button(accounts.accounts(for: .gitlab).isEmpty ? "Connect" : "Add account") { connectGitLab() }
                         .disabled(gitlabServer.trimmed.isEmpty || gitlabToken.trimmed.isEmpty || working != nil)
                     if working == .gitlab { ProgressView().controlSize(.small) }
                     Spacer()
                     if !gitlabServer.trimmed.isEmpty,
                        let u = URL(string: AccountStore.normalizeServer(gitlabServer) + "/-/user_settings/personal_access_tokens?name=Branchwork&scopes=api") {
-                        Link("토큰 만들기", destination: u)
+                        Link("Create token", destination: u)
                     }
                 }
             } header: {
-                Text("사내 GitLab (자체 호스팅) \(countText(.gitlab))")
+                Text("Self-hosted GitLab \(countText(.gitlab))")
             } footer: {
-                Text("회사에서 운영하는 GitLab 서버만 연결합니다(gitlab.com 은 아직 지원하지 않음). 서버마다 여러 계정을 연결할 수 있습니다.")
+                Text("Only GitLab servers run by your organization can be connected (gitlab.com isn't supported yet). You can connect several accounts per server.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -61,18 +61,18 @@ struct AccountsSettings: View {
                 Text(error).foregroundStyle(.red).font(.callout)
             }
 
-            Section("커밋 그래프") {
-                Toggle("작성자 프로필 사진 보이기", isOn: Binding(get: { AvatarStore.shared.enabled }, set: { AvatarStore.shared.enabled = $0 }))
+            Section("Commit graph") {
+                Toggle("Show author profile pictures", isOn: Binding(get: { AvatarStore.shared.enabled }, set: { AvatarStore.shared.enabled = $0 }))
                 HStack {
-                    Text("GitHub 프로필 → 연결한 사내 GitLab 프로필 → Gravatar 순으로 찾고, 없으면 이니셜을 씁니다. Gravatar 에는 이메일 해시가 전송됩니다.")
+                    Text("Looks for a GitHub profile, then a connected self-hosted GitLab profile, then Gravatar, and uses initials if none is found. An email hash is sent to Gravatar.")
                         .font(.caption).foregroundStyle(.secondary)
                     Spacer()
-                    Button("다시 받기") { AvatarStore.shared.refresh() }.controlSize(.small)
+                    Button("Download again") { AvatarStore.shared.refresh() }.controlSize(.small)
                 }
             }
 
             Section {
-                Text("토큰은 macOS 키체인에 계정별로 저장되고 PR·MR 조회와 생성, 저장소 목록, HTTPS push·pull 인증에 쓰입니다.")
+                Text("Tokens are stored per account in the macOS Keychain and used to view and create PRs/MRs, list repositories, and authenticate HTTPS push and pull.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -85,7 +85,7 @@ struct AccountsSettings: View {
 
     private func countText(_ p: Provider) -> String {
         let n = accounts.accounts(for: p).count
-        return n == 0 ? "" : "· \(n)개"
+        return n == 0 ? "" : String(localized: "· \(n)")
     }
 
     private func connectGitHub() {
@@ -137,10 +137,10 @@ private struct ConnectedRow: View {
                 Text("@\(account.username)" + (showServer ? " · \(account.host)" : "")).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Label("연결됨", systemImage: "checkmark.circle.fill")
+            Label("Connected", systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green)
                 .font(.caption)
-            Button("연결 해제", action: disconnect)
+            Button("Disconnect", action: disconnect)
         }
     }
 }

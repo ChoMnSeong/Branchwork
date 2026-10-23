@@ -44,8 +44,8 @@ struct CommitRow: View {
                 .background(tint.opacity(groups.isEmpty ? 0.04 : 0.10))
             HStack(spacing: 6) {
                 if c.isWIP {
-                    Text("// 작업 중인 변경").italic().foregroundStyle(.secondary)
-                    Text("\(wipCount)개 파일")
+                    Text("// Uncommitted changes").italic().foregroundStyle(.secondary)
+                    Text("\(wipCount) files")
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 6).padding(.vertical, 1)
                         .background(Capsule().fill(tint.opacity(0.18)))
@@ -56,7 +56,7 @@ struct CommitRow: View {
                         .foregroundStyle(c.isMerge ? .secondary : .primary)
                     if let ci {
                         CIStatusIcon(status: ci.status, size: 11)
-                            .help("CI: \(ci.status.title) · \(ci.name.isEmpty ? "" : ci.name + " ")#\(ci.number) — 눌러서 브라우저로")
+                            .help("CI: \(ci.status.title) · \(ci.name.isEmpty ? "" : ci.name + " ")#\(ci.number) — click to open in the browser")
                             .onTapGesture { if let u = URL(string: ci.url) { NSWorkspace.shared.open(u) } }
                     }
                 }
@@ -94,7 +94,7 @@ struct CommitRow: View {
         .contentShape(Rectangle())
         // 커밋 줄을 끌어 브랜치에 놓으면 cherry-pick, 이 줄에 브랜치를 놓으면 머지·리베이스
         .draggable(RepoStore.commitPayload + c.id) {
-            Label("커밋 \(c.short)  \(c.subject)", systemImage: "smallcircle.filled.circle")
+            Label("Commit \(c.short)  \(c.subject)", systemImage: "smallcircle.filled.circle")
                 .lineLimit(1)
                 .padding(6)
                 .background(RoundedRectangle(cornerRadius: 6).fill(.regularMaterial))
@@ -226,10 +226,10 @@ private struct RefPill: View {
 
     private var helpText: String {
         var parts: [String] = []
-        if let l = group.local { parts.append("로컬: \(l)" + (group.isCurrent ? " (현재)" : "")) }
-        if !group.remotes.isEmpty { parts.append("원격: " + group.remotes.joined(separator: ", ")) }
-        if group.isTag { parts.append("태그: \(group.name)") }
-        if !group.isTag && !group.isHead { parts.append("더블클릭: 체크아웃 · 다른 브랜치 줄로 끌어 놓기: 머지·리베이스 · 우클릭: 메뉴") }
+        if let l = group.local { parts.append(String(localized: "Local: \(l)") + (group.isCurrent ? String(localized: " (current)") : "")) }
+        if !group.remotes.isEmpty { parts.append(String(localized: "Remote: ") + group.remotes.joined(separator: ", ")) }
+        if group.isTag { parts.append(String(localized: "Tag: \(group.name)")) }
+        if !group.isTag && !group.isHead { parts.append(String(localized: "Double-click: check out · Drag onto another branch's row: merge or rebase · Right-click: menu")) }
         return parts.joined(separator: "\n")
     }
 }
@@ -330,46 +330,46 @@ struct CommitMenu: View {
 
     var body: some View {
         if commit.isWIP {
-            Button("모두 스테이지") { Task { await store.stageAll() } }
+            Button("Stage all") { Task { await store.stageAll() } }
             Button("Stash…") { store.sheet = .stash }
             Divider()
-            Button("모든 변경 버리기…", role: .destructive) { store.confirmDiscardAll() }
+            Button("Discard all changes…", role: .destructive) { store.confirmDiscardAll() }
         } else {
             let branches = (store.refsByCommit[commit.id] ?? []).filter { $0.kind == .local || $0.kind == .remote }
             if !branches.isEmpty {
                 ForEach(branches) { r in
-                    Menu("브랜치 '\(r.name)'") { RefMenu(ref: r) }
+                    Menu("Branch '\(r.name)'") { RefMenu(ref: r) }
                 }
                 Divider()
             }
             if let current = store.headBranch, commit.id != store.headHash {
-                Button("이 커밋을 '\(current)'에 머지") { Task { await store.merge(commit.id) } }
-                Button("'\(current)'을(를) 이 커밋 위로 리베이스") { Task { await store.rebase(onto: commit.id) } }
+                Button("Merge this commit into '\(current)'") { Task { await store.merge(commit.id) } }
+                Button("Rebase '\(current)' onto this commit") { Task { await store.rebase(onto: commit.id) } }
                 Divider()
             }
             if store.headBranch != nil {
-                Button("여기부터 커밋 정리(합치기·순서·메시지)…") { Task { await store.startInteractiveRebase(from: commit.id) } }
+                Button("Clean up commits from here (squash, reorder, reword)…") { Task { await store.startInteractiveRebase(from: commit.id) } }
                     .disabled(store.repoState != .clean)
                 Divider()
             }
-            Button("여기서 새 브랜치…") { store.requestNewBranch(from: commit.id, label: commit.short) }
-            Button("여기에 태그…") { store.sheet = .tag(sha: commit.id) }
-            Button("여기서 워크트리 만들기…") { store.sheet = .addWorktree(branch: nil, start: commit.id) }
+            Button("New branch from here…") { store.requestNewBranch(from: commit.id, label: commit.short) }
+            Button("Tag here…") { store.sheet = .tag(sha: commit.id) }
+            Button("Create worktree from here…") { store.sheet = .addWorktree(branch: nil, start: commit.id) }
             Divider()
-            Button("이 커밋 체크아웃 (분리된 HEAD)") { Task { await store.checkoutDetached(commit.id) } }
+            Button("Check out this commit (detached HEAD)") { Task { await store.checkoutDetached(commit.id) } }
             Button("Cherry-pick") { Task { await store.cherryPick(commit.id) } }
                 .disabled(commit.id == store.headHash)
-            Button("Revert (되돌리는 커밋 만들기)") { Task { await store.revert(commit.id) } }
+            Button("Revert (create a reverting commit)") { Task { await store.revert(commit.id) } }
             if store.headBranch != nil {
-                Menu("현재 브랜치를 여기로 Reset") {
-                    Button("Soft — 변경은 스테이지된 상태로 유지") { store.reset(to: commit.id, mode: .soft) }
-                    Button("Mixed — 변경은 작업 트리에 유지") { store.reset(to: commit.id, mode: .mixed) }
-                    Button("Hard — 변경까지 모두 버림…", role: .destructive) { store.reset(to: commit.id, mode: .hard) }
+                Menu("Reset current branch to here") {
+                    Button("Soft — keep changes staged") { store.reset(to: commit.id, mode: .soft) }
+                    Button("Mixed — keep changes in the working tree") { store.reset(to: commit.id, mode: .mixed) }
+                    Button("Hard — discard changes too…", role: .destructive) { store.reset(to: commit.id, mode: .hard) }
                 }
             }
             Divider()
-            Button("SHA 복사") { store.copy(commit.id) }
-            Button("메시지 복사") { store.copy(commit.subject) }
+            Button("Copy SHA") { store.copy(commit.id) }
+            Button("Copy message") { store.copy(commit.subject) }
         }
     }
 }

@@ -25,22 +25,22 @@ extension RepoStore {
         } else {
             args += [path, branch]
         }
-        guard await run("워크트리 만드는 중…", args) else { return }
+        guard await run(String(localized: "Creating worktree…"), args) else { return }
         if launchClaude { startAgent(in: path, task: task) }
     }
 
     func confirmRemove(_ w: Worktree, force: Bool = false) {
-        confirm = ConfirmRequest(title: "워크트리 '\(w.name)'을(를) 제거할까요?",
+        confirm = ConfirmRequest(title: String(localized: "Remove worktree '\(w.name)'?"),
                                  message: force
-                                    ? "\(w.path)\n커밋하지 않은 변경도 함께 지워집니다."
-                                    : "\(w.path)\n폴더가 지워지고, 브랜치와 커밋은 그대로 남습니다. 커밋하지 않은 변경이 있으면 git 이 거부합니다.",
-                                 actionTitle: force ? "강제 제거" : "제거") { [weak self] in
-            await self?.run("워크트리 제거 중…", ["worktree", "remove"] + (force ? ["--force"] : []) + [w.path])
+                                    ? String(localized: "\(w.path)\nUncommitted changes are deleted too.")
+                                    : String(localized: "\(w.path)\nThe folder is deleted; the branch and commits stay. git refuses if there are uncommitted changes."),
+                                 actionTitle: force ? String(localized: "Force remove") : String(localized: "Remove")) { [weak self] in
+            await self?.run(String(localized: "Removing worktree…"), ["worktree", "remove"] + (force ? ["--force"] : []) + [w.path])
         }
     }
 
     func pruneWorktrees() async {
-        await run("워크트리 정리 중…", ["worktree", "prune"])
+        await run(String(localized: "Pruning worktrees…"), ["worktree", "prune"])
     }
 
     /// 코딩 에이전트(Claude Code·Codex·Gemini CLI)를 Terminal 에서 시작
@@ -81,7 +81,7 @@ extension RepoStore {
     func tryExistingAccounts() async {
         guard let t = target else { return }
         if await AccountStore.shared.discoverAlias(for: t, sameAddressOnly: false) == nil {
-            errorMessage = "연결된 \(t.provider.title) 계정으로는 \(t.host) 에 접속되지 않습니다. 이 서버의 토큰으로 계정을 추가해 주세요."
+            errorMessage = String(localized: "The connected \(t.provider.title) account can't access \(t.host). Add an account with a token for this server.")
         } else {
             await loadPullRequests()
         }
@@ -124,7 +124,7 @@ extension RepoStore {
         let remoteName = "\(t.remote)/\(pr.source)"
         if !pr.fromFork {
             if remoteBranches.first(where: { $0.name == remoteName }) == nil {
-                guard await run("가져오는 중…", ["fetch", t.remote, pr.source], network: true) else { return }
+                guard await run(String(localized: "Fetching…"), ["fetch", t.remote, pr.source], network: true) else { return }
             }
             if let b = remoteBranches.first(where: { $0.name == remoteName }) {
                 await checkout(b)
@@ -134,9 +134,9 @@ extension RepoStore {
         let ref = t.provider == .github ? "refs/pull/\(pr.number)/head" : "refs/merge-requests/\(pr.number)/head"
         let local = "\(t.provider.requestShort.lowercased())/\(pr.number)"
         if headBranch == local {
-            await run("가져오는 중…", ["pull", "--ff-only", t.remote, ref], network: true)
-        } else if await run("가져오는 중…", ["fetch", t.remote, "+\(ref):refs/heads/\(local)"], network: true) {
-            await run("체크아웃 중…", ["switch", local])
+            await run(String(localized: "Fetching…"), ["pull", "--ff-only", t.remote, ref], network: true)
+        } else if await run(String(localized: "Fetching…"), ["fetch", t.remote, "+\(ref):refs/heads/\(local)"], network: true) {
+            await run(String(localized: "Checking out…"), ["switch", local])
         }
     }
 
@@ -159,16 +159,16 @@ extension RepoStore {
     func createPullRequest(title: String, body: String, base: String, draft: Bool) async {
         guard let t = target, let branch = headBranch else { return }
         guard let acct = hostingAccount, let token = AccountStore.shared.token(for: acct) else {
-            errorMessage = "\(t.provider.title)(\(t.host)) 계정을 먼저 연결하세요(설정 > 계정)."
+            errorMessage = String(localized: "Connect a \(t.provider.title) (\(t.host)) account first (Settings > Accounts).")
             return
         }
         // 원격에 브랜치가 없거나 올리지 않은 커밋이 있으면 먼저 push
         if status.upstream == nil {
-            guard await run("Push 중…", ["push", "-u", t.remote, branch], network: true) else { return }
+            guard await run(String(localized: "Pushing…"), ["push", "-u", t.remote, branch], network: true) else { return }
         } else if status.ahead > 0 {
-            guard await run("Push 중…", ["push"], network: true) else { return }
+            guard await run(String(localized: "Pushing…"), ["push"], network: true) else { return }
         }
-        busy = "\(t.provider.requestShort) 만드는 중…"
+        busy = String(localized: "Creating \(t.provider.requestShort)…")
         defer { busy = nil }
         do {
             let pr = try await Hosting.createPullRequest(t, token: token, apiBase: acct.apiBase,
@@ -187,13 +187,13 @@ extension RepoStore {
 extension RepoStore {
     func generateCommitMessage() async {
         guard let url, aiWorking == nil else { return }
-        aiWorking = "\(AIStore.shared.short(for: .commit)) 가 커밋 메시지를 쓰는 중…"
+        aiWorking = String(localized: "\(AIStore.shared.short(for: .commit)) is writing the commit message…")
         aiNotice = nil
         defer { aiWorking = nil }
         do {
             let diff = try await Git.run(["diff", "--cached", "--no-ext-diff", "-M", "--stat", "--patch"], in: url).output
             guard !diff.trimmed.isEmpty else {
-                errorMessage = "스테이지된 변경이 없습니다. 먼저 파일을 스테이지하세요."
+                errorMessage = String(localized: "No staged changes. Stage files first.")
                 return
             }
             let recent = (try? await Git.run(["log", "-15", "--format=%s"], in: url).output.trimmed) ?? ""
@@ -211,7 +211,7 @@ extension RepoStore {
             let parts = AIPrompts.split(text)
             summary = parts.0
             message = parts.1
-            if clipped.omitted > 0 { aiNotice = "변경이 길어 앞부분만 \(AIStore.shared.short(for: .commit)) 에 보냈습니다(\(clipped.omitted / 1000)K자 생략)." }
+            if clipped.omitted > 0 { aiNotice = String(localized: "The diff was long, so only the beginning was sent to \(AIStore.shared.short(for: .commit)) (\(clipped.omitted / 1000)K characters omitted).") }
         } catch {
             errorMessage = describe(error)
         }
@@ -226,7 +226,7 @@ extension RepoStore {
                                           "--format=commit %H%nAuthor: %an%nDate: %ad%n%n%B", sha], in: url).output
             let clipped = AIPrompts.clip(show)
             var text = try await AIStore.shared.write(.explain, base: AIPrompts.explain, prompt: clipped.text, effort: "medium")
-            if clipped.omitted > 0 { text += "\n\n(변경이 길어 앞부분만 보고 설명했습니다.)" }
+            if clipped.omitted > 0 { text += String(localized: "\n\n(The diff was long, so only the beginning was explained.)") }
             explanations[sha] = text
         } catch {
             errorMessage = describe(error)
@@ -241,7 +241,7 @@ extension RepoStore {
             let log = try await Git.run(["log", "--format=- %s%n%b", "\(baseRef)..HEAD"], in: url).output
             let diff = try await Git.run(["diff", "--no-ext-diff", "--stat", "--patch", "\(baseRef)...HEAD"], in: url).output
             guard !log.trimmed.isEmpty || !diff.trimmed.isEmpty else {
-                errorMessage = "'\(base)' 와 비교해 새 커밋이 없습니다."
+                errorMessage = String(localized: "No new commits compared with '\(base)'.")
                 return nil
             }
             let clipped = AIPrompts.clip(diff)
@@ -282,10 +282,10 @@ extension RepoStore {
     func planSplit() async {
         guard let url, aiWorking == nil else { return }
         let changes = splittableChanges
-        guard changes.count >= 2 else { errorMessage = "나눌 변경이 두 파일 이상이어야 합니다."; return }
-        guard status.conflicted.isEmpty else { errorMessage = "충돌을 먼저 해결하세요."; return }
+        guard changes.count >= 2 else { errorMessage = String(localized: "Splitting needs changes in at least two files."); return }
+        guard status.conflicted.isEmpty else { errorMessage = String(localized: "Resolve the conflicts first."); return }
         let ai = AIStore.shared
-        aiWorking = "\(ai.short(for: .commit)) 가 변경을 주요 내용별로 나누는 중…"
+        aiWorking = String(localized: "\(ai.short(for: .commit)) is splitting the changes by topic…")
         aiNotice = nil
         defer { aiWorking = nil }
         do {
@@ -315,7 +315,7 @@ extension RepoStore {
             """
             let text = try await ai.write(.commit, base: AIPrompts.split, prompt: prompt, effort: "medium")
             splitPlan = try Self.parseSplitPlan(text, changes: changes)
-            if clipped.omitted > 0 { aiNotice = "변경이 길어 앞부분만 보고 나눴습니다(\(clipped.omitted / 1000)K자 생략)." }
+            if clipped.omitted > 0 { aiNotice = String(localized: "The diff was long, so only the beginning was used for splitting (\(clipped.omitted / 1000)K characters omitted).") }
             sheet = .splitCommits
         } catch {
             errorMessage = describe(error)
@@ -326,7 +326,7 @@ extension RepoStore {
     static func parseSplitPlan(_ text: String, changes: [FileChange]) throws -> [SplitGroup] {
         guard let start = text.firstIndex(of: "{"), let end = text.lastIndex(of: "}"), start < end,
               let obj = try? JSONSerialization.jsonObject(with: Data(text[start...end].utf8)) as? [String: Any] else {
-            throw AIError.failed("AI", "나눈 결과를 읽지 못했습니다(JSON 아님). 다시 시도해 보세요.")
+            throw AIError.failed("AI", String(localized: "Couldn't read the split result (not JSON). Please try again."))
         }
         var known: [String: String] = [:]
         for c in changes {
@@ -345,8 +345,8 @@ extension RepoStore {
             if !files.isEmpty { groups.append(SplitGroup(message: (c["message"] as? String ?? "").trimmed, files: files)) }
         }
         let rest = changes.map(\.path).filter { !used.contains($0) }
-        if !rest.isEmpty { groups.append(SplitGroup(message: groups.isEmpty ? "Chore: 변경 사항" : "", files: rest)) }
-        guard !groups.isEmpty else { throw AIError.failed("AI", "커밋을 나누지 못했습니다.") }
+        if !rest.isEmpty { groups.append(SplitGroup(message: groups.isEmpty ? String(localized: "Chore: update") : "", files: rest)) }
+        guard !groups.isEmpty else { throw AIError.failed("AI", String(localized: "Couldn't split the commits.")) }
         return groups
     }
 
@@ -355,13 +355,13 @@ extension RepoStore {
         let plan = groups.filter { !$0.files.isEmpty && !$0.message.trimmed.isEmpty }
         guard let url, !plan.isEmpty, busy == nil else { return }
         let byPath = Dictionary(splittableChanges.map { ($0.path, $0) }, uniquingKeysWith: { a, _ in a })
-        busy = "커밋 나누는 중…"
+        busy = String(localized: "Splitting commits…")
         var done = 0
         do {
             if headHash != nil { try await Git.run(["reset", "-q"], in: url) }
             else { try await Git.run(["rm", "--cached", "-r", "-q", "--ignore-unmatch", "."], in: url) }
             for g in plan {
-                busy = "커밋 \(done + 1)/\(plan.count) 만드는 중…"
+                busy = String(localized: "Creating commit \(done + 1)/\(plan.count)…")
                 let paths = g.files.flatMap { p in byPath[p]?.oldPath.map { [$0, p] } ?? [p] }
                 try await Git.run(["add", "-A", "--"] + paths, in: url, env: ["GIT_LITERAL_PATHSPECS": "1"])
                 try await Git.run(["commit", "-F", "-"], in: url, input: g.message.trimmed + "\n", timeout: 300)
@@ -371,7 +371,7 @@ extension RepoStore {
             message = ""
             splitPlan = nil
         } catch {
-            errorMessage = "\(plan.count)개 중 \(done)개를 커밋하고 멈췄습니다.\n\n\(describe(error))"
+            errorMessage = String(localized: "Committed \(done) of \(plan.count) and stopped.\n\n\(describe(error))")
         }
         busy = nil
         await reload(quiet: true)

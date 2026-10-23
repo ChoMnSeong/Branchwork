@@ -4,6 +4,7 @@ import { Observable } from "./observable";
 import { settings } from "./settings";
 import { tools, type ToolId } from "./tools";
 import { tempFile, wslArgs } from "./wsl";
+import { languageInEnglish, t } from "./i18n";
 
 /**
  * 글 작성(커밋 메시지·커밋 설명·PR 본문)에 쓰는 AI.
@@ -26,13 +27,13 @@ export interface AIProviderInfo {
 }
 
 export const aiProviders: AIProviderInfo[] = [
-  { id: "claudeCode", title: "Claude Code (로그인 사용)", short: "Claude", kind: "cli", tool: "claude", defaultModel: "", modelHint: "비우면 Claude Code 기본값", note: "이 PC 에서 로그인한 Claude Code 를 그대로 씁니다. 도구는 모두 끈 채 글만 생성합니다." },
-  { id: "codex", title: "Codex (ChatGPT 로그인 사용)", short: "ChatGPT", kind: "cli", tool: "codex", defaultModel: "", modelHint: "비우면 Codex 기본값", note: "이 PC 에서 ChatGPT 계정으로 로그인한 Codex CLI 를 읽기 전용으로 실행해 글만 받습니다." },
-  { id: "geminiCli", title: "Gemini CLI (Google 로그인 사용)", short: "Gemini", kind: "cli", tool: "gemini", defaultModel: "", modelHint: "비우면 Gemini CLI 기본값", note: "이 PC 에서 로그인한 Gemini CLI 를 읽기 전용(plan) 모드로 실행해 글만 받습니다." },
-  { id: "anthropic", title: "Claude API (Anthropic)", short: "Claude", kind: "api", defaultModel: "claude-opus-5-5", modelHint: "claude-opus-5-5", keyHint: "sk-ant-…", keyURL: "https://console.anthropic.com/settings/keys", note: "요청이 안전 분류기에 막히면 서버가 권장 모델로 한 번 더 시도하도록(fallbacks) 켜 두었습니다." },
-  { id: "openai", title: "ChatGPT API (OpenAI)", short: "ChatGPT", kind: "api", defaultModel: "gpt-5", modelHint: "gpt-5", keyHint: "sk-…", keyURL: "https://platform.openai.com/api-keys", note: "OpenAI API 키로 Chat Completions 를 부릅니다." },
-  { id: "gemini", title: "Gemini API (Google)", short: "Gemini", kind: "api", defaultModel: "gemini-2.5-flash", modelHint: "gemini-2.5-flash", keyHint: "AIza…", keyURL: "https://aistudio.google.com/apikey", note: "Google AI Studio API 키로 Gemini 를 부릅니다." },
-  { id: "compatible", title: "OpenAI 호환 (Ollama·LM Studio·OpenRouter 등)", short: "AI", kind: "api", defaultModel: "", modelHint: "llama3.1, qwen2.5-coder …", keyHint: "필요할 때만", note: "OpenAI 형식(/chat/completions)을 받는 서버라면 무엇이든 됩니다. 예: Ollama http://localhost:11434/v1" },
+  { id: "claudeCode", title: t("Claude Code (uses your login)"), short: "Claude", kind: "cli", tool: "claude", defaultModel: "", modelHint: t("Leave empty for the Claude Code default"), note: t("Uses Claude Code logged in on this PC as is. All tools are turned off; it only generates text.") },
+  { id: "codex", title: t("Codex (uses your ChatGPT login)"), short: "ChatGPT", kind: "cli", tool: "codex", defaultModel: "", modelHint: t("Leave empty for the Codex default"), note: t("Runs the Codex CLI logged in with your ChatGPT account on this PC in read-only mode and only takes the text.") },
+  { id: "geminiCli", title: t("Gemini CLI (uses your Google login)"), short: "Gemini", kind: "cli", tool: "gemini", defaultModel: "", modelHint: t("Leave empty for the Gemini CLI default"), note: t("Runs the Gemini CLI logged in on this PC in read-only (plan) mode and only takes the text.") },
+  { id: "anthropic", title: "Claude API (Anthropic)", short: "Claude", kind: "api", defaultModel: "claude-opus-5-5", modelHint: "claude-opus-5-5", keyHint: "sk-ant-…", keyURL: "https://console.anthropic.com/settings/keys", note: t("If a request is blocked by the safety classifier, the server retries once with the recommended model (fallbacks).") },
+  { id: "openai", title: "ChatGPT API (OpenAI)", short: "ChatGPT", kind: "api", defaultModel: "gpt-5", modelHint: "gpt-5", keyHint: "sk-…", keyURL: "https://platform.openai.com/api-keys", note: t("Calls Chat Completions with an OpenAI API key.") },
+  { id: "gemini", title: "Gemini API (Google)", short: "Gemini", kind: "api", defaultModel: "gemini-2.5-flash", modelHint: "gemini-2.5-flash", keyHint: "AIza…", keyURL: "https://aistudio.google.com/apikey", note: t("Calls Gemini with a Google AI Studio API key.") },
+  { id: "compatible", title: t("OpenAI compatible (Ollama, LM Studio, OpenRouter, etc.)"), short: "AI", kind: "api", defaultModel: "", modelHint: "llama3.1, qwen2.5-coder …", keyHint: t("Only if needed"), note: t("Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1") },
 ];
 
 export const providerById = (id: AIProviderId) => aiProviders.find((p) => p.id === id)!;
@@ -44,35 +45,35 @@ export type InstructionKey = "global" | AIFeature;
 export const instructionInfo: { id: InstructionKey; title: string; detail: string; chips: string[] }[] = [
   {
     id: "global",
-    title: "공통 규칙",
-    detail: "아래 기능마다 따로 적은 규칙과 함께 모든 AI 기능에 적용됩니다.",
-    chips: ["한국어로 작성", "영어로 작성", "간결하게", "명령형으로", "기술적인 말투", "부드러운 말투"],
+    title: t("Common rules"),
+    detail: t("Applies to every AI feature, together with the rules written for each feature below."),
+    chips: [t("Write in Korean"), t("Write in English"), t("Be concise"), t("Use the imperative mood"), t("Technical tone"), t("Friendly tone")],
   },
   {
     id: "commit",
-    title: "커밋 메시지 작성 · 나눠서 커밋",
-    detail: "커밋 메시지를 쓰거나 변경을 여러 커밋으로 나눌 때 따릅니다.",
+    title: t("Commit messages · Split into commits"),
+    detail: t("Followed when writing commit messages or splitting changes into commits."),
     chips: [
-      "Conventional Commits 형식(feat: …)",
-      "prefix 는 Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove 중 하나",
-      "prefix 의 첫 글자는 대문자",
-      "제목 50자 이내",
-      "이슈 번호 포함",
-      "본문 없이 제목만",
-      "무엇을·왜 바꿨는지 중심으로",
+      t("Conventional Commits format (feat: …)"),
+      t("The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove"),
+      t("Capitalize the first letter of the prefix"),
+      t("Subject within 50 characters"),
+      t("Include the issue number"),
+      t("Subject line only, no body"),
+      t("Focus on what changed and why"),
     ],
   },
   {
     id: "explain",
-    title: "커밋 설명",
-    detail: "커밋·변경 내용을 설명할 때 따릅니다.",
-    chips: ["업무에 주는 영향 위주로", "글머리표로", "영향받는 부분 포함", "초보자도 알기 쉽게"],
+    title: t("Commit explanation"),
+    detail: t("Followed when explaining commits and changes."),
+    chips: [t("Focus on the impact on the work"), t("As bullet points"), t("Include the affected areas"), t("Easy for beginners to understand")],
   },
   {
     id: "pullRequest",
-    title: "PR·MR 설명",
-    detail: "Pull/Merge Request 제목과 본문을 쓸 때 따릅니다.",
-    chips: ["변경 이유를 먼저", "테스트 방법 포함", "체크리스트 형식", "관련 이슈 번호 포함", "스크린샷 자리 남기기"],
+    title: t("PR/MR description"),
+    detail: t("Followed when writing pull/merge request titles and descriptions."),
+    chips: [t("Start with the reason for the change"), t("Include how to test"), t("As a checklist"), t("Include the related issue number"), t("Leave room for screenshots")],
   },
 ];
 
@@ -85,9 +86,9 @@ function apiError(provider: string, status: number, body: string) {
   } catch {
     /* 본문 그대로 */
   }
-  if (status === 401 || status === 403) return new Error(`${provider}: API 키가 올바르지 않거나 권한이 없습니다(${status}). ${msg}`);
-  if (status === 404) return new Error(`${provider}: 모델이나 주소를 찾을 수 없습니다(404). 모델 이름을 확인하세요. ${msg}`);
-  if (status === 429) return new Error(`${provider}: 사용 한도에 걸렸습니다(429). 잠시 뒤 다시 시도하세요. ${msg}`);
+  if (status === 401 || status === 403) return new Error(t("{0}: the API key is invalid or lacks permission ({1}). {2}", provider, status, msg));
+  if (status === 404) return new Error(t("{0}: model or address not found (404). Check the model name. {1}", provider, msg));
+  if (status === 429) return new Error(t("{0}: usage limit reached (429). Try again in a moment. {1}", provider, msg));
   return new Error(`${provider}: HTTP ${status} — ${msg}`);
 }
 
@@ -216,9 +217,9 @@ class AI extends Observable {
   /** 지금 고른 AI 를 쓸 수 있는지(안 되면 이유) */
   problem(id: AIProviderId = this.provider): string | null {
     const p = providerById(id);
-    if (p.kind === "cli") return p.tool && tools.available(p.tool) ? null : `${p.title.split(" (")[0]} 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 WSL 에서 찾아 주세요.`;
-    if (id === "compatible") return this.baseURL ? null : "서버 주소를 입력하세요.";
-    return this.hasKey[id] ? null : `설정 > AI 에서 ${p.title} 키를 입력하세요.`;
+    if (p.kind === "cli") return p.tool && tools.available(p.tool) ? null : t("Couldn't find {0}. Locate the executable in Settings > Tools or find it in WSL.", p.title.split(" (")[0]);
+    if (id === "compatible") return this.baseURL ? null : t("Enter the server address.");
+    return this.hasKey[id] ? null : t("Enter your {0} key in Settings > AI.", p.title);
   }
 
   /** 글 한 번 생성. effort 는 Claude API 에서만 쓴다(low/medium/high). */
@@ -244,7 +245,7 @@ class AI extends Observable {
       case "openai":
         return this.chatCompletions("https://api.openai.com/v1", await this.key(id), model, system, prompt, "ChatGPT");
       case "compatible":
-        return this.chatCompletions(this.baseURL, await this.key(id), model, system, prompt, "AI 서버");
+        return this.chatCompletions(this.baseURL, await this.key(id), model, system, prompt, t("AI server"));
       case "gemini":
         return this.gemini((await this.key(id))!, model, system, prompt);
     }
@@ -253,7 +254,7 @@ class AI extends Observable {
   /** CLI 실행. 여러 줄 글({ text })은 WSL 로 실행할 때 임시 파일로 넘긴다. */
   private async cli(tool: ToolId, args: (string | { text: string })[], stdin: string, name: string) {
     const cmd = tools.command(tool);
-    if (!cmd) throw new Error(`${name} 를 찾지 못했습니다.`);
+    if (!cmd) throw new Error(t("Couldn't find {0}.", name));
     let exe: string, argv: string[];
     const temps: string[] = [];
     if (cmd.kind === "native") {
@@ -276,12 +277,12 @@ class AI extends Observable {
     try {
       r = await ipc.run(exe, argv, { cwd: env.temp, stdin, timeoutMs: 300_000 });
     } finally {
-      for (const t of temps) void ipc.remove(t);
+      for (const text of temps) void ipc.remove(text);
     }
     const out = r.stdout.trim();
     if (r.status !== 0 || !out) {
       const err = r.stderr.trim().split(/\r?\n/).slice(-6).join("\n");
-      throw new Error(`${name} 응답 실패: ` + (err || out || `응답이 없습니다(종료 코드 ${r.status}).`));
+      throw new Error(t("{0} request failed: ", name) + (err || out || t("No response (exit code {0}).", r.status)));
     }
     return out;
   }
@@ -303,14 +304,14 @@ class AI extends Observable {
     const r = await ipc.http("POST", "https://api.anthropic.com/v1/messages", headers, JSON.stringify(body), 300_000);
     if (r.status !== 200) throw apiError("Claude", r.status, r.body);
     const data = JSON.parse(r.body) as { content: { type: string; text?: string }[]; stop_reason?: string };
-    if (data.stop_reason === "refusal") throw new Error("Claude 가 이 요청을 거절했습니다. 내용을 바꿔 다시 시도해 보세요.");
+    if (data.stop_reason === "refusal") throw new Error(t("Claude declined this request. Try changing the content and try again."));
     const text = data.content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("").trim();
-    if (!text) throw new Error("Claude: 빈 응답");
+    if (!text) throw new Error(t("Claude: empty response"));
     return text;
   }
 
   private async chatCompletions(base: string, key: string | null, model: string, system: string, prompt: string, name: string) {
-    if (!model) throw new Error(`${name}: 모델을 정하세요(설정 > AI).`);
+    if (!model) throw new Error(t("{0}: choose a model (Settings > AI).", name));
     const headers: Record<string, string> = { "content-type": "application/json" };
     if (key) headers.authorization = `Bearer ${key}`;
     const body = { model, messages: [{ role: "system", content: system }, { role: "user", content: prompt }] };
@@ -318,9 +319,9 @@ class AI extends Observable {
     if (r.status !== 200) throw apiError(name, r.status, r.body);
     const data = JSON.parse(r.body) as { choices?: { message?: { content?: string | null; refusal?: string | null } }[] };
     const m = data.choices?.[0]?.message;
-    if (m?.refusal) throw new Error(`${name} 가 이 요청을 거절했습니다: ${m.refusal}`);
+    if (m?.refusal) throw new Error(t("{0} declined this request: {1}", name, m.refusal));
     const text = (m?.content ?? "").trim();
-    if (!text) throw new Error(`${name}: 빈 응답`);
+    if (!text) throw new Error(t("{0}: empty response", name));
     return text;
   }
 
@@ -330,10 +331,10 @@ class AI extends Observable {
     const r = await ipc.http("POST", url, { "content-type": "application/json", "x-goog-api-key": key }, JSON.stringify(body), 300_000);
     if (r.status !== 200) throw apiError("Gemini", r.status, r.body);
     const data = JSON.parse(r.body) as { candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[]; promptFeedback?: { blockReason?: string } };
-    if (data.promptFeedback?.blockReason) throw new Error(`Gemini 가 이 요청을 막았습니다(${data.promptFeedback.blockReason}).`);
+    if (data.promptFeedback?.blockReason) throw new Error(t("Gemini blocked this request ({0}).", data.promptFeedback.blockReason));
     const c = data.candidates?.[0];
     const text = (c?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
-    if (!text) throw new Error(c?.finishReason === "SAFETY" ? "Gemini 가 안전 정책으로 응답하지 않았습니다." : "Gemini: 빈 응답");
+    if (!text) throw new Error(c?.finishReason === "SAFETY" ? t("Gemini didn't respond because of its safety policy.") : t("Gemini: empty response"));
     return text;
   }
 
@@ -343,23 +344,23 @@ class AI extends Observable {
     let r;
     switch (id) {
       case "anthropic":
-        if (!key) throw new Error("먼저 API 키를 저장하세요.");
+        if (!key) throw new Error(t("Save an API key first."));
         r = await ipc.http("GET", "https://api.anthropic.com/v1/models?limit=100", { "x-api-key": key, "anthropic-version": "2023-06-01" });
         if (r.status !== 200) throw apiError("Claude", r.status, r.body);
         return (JSON.parse(r.body).data as { id: string }[]).map((m) => m.id);
       case "openai":
       case "compatible": {
-        if (id === "openai" && !key) throw new Error("먼저 API 키를 저장하세요.");
+        if (id === "openai" && !key) throw new Error(t("Save an API key first."));
         const base = id === "openai" ? "https://api.openai.com/v1" : this.baseURL;
         r = await ipc.http("GET", base.replace(/\/+$/, "") + "/models", key ? { authorization: `Bearer ${key}` } : {});
-        if (r.status !== 200) throw apiError(id === "openai" ? "ChatGPT" : "AI 서버", r.status, r.body);
+        if (r.status !== 200) throw apiError(id === "openai" ? "ChatGPT" : t("AI server"), r.status, r.body);
         const ids = ((JSON.parse(r.body).data ?? []) as { id: string }[]).map((m) => m.id);
         // OpenAI 는 글 생성 모델만 추린다(임베딩·음성·이미지 제외)
         const list = id === "openai" ? ids.filter((m) => /^(gpt|o\d|chatgpt)/.test(m) && !/(audio|realtime|transcribe|tts|image|embedding|search)/.test(m)) : ids;
         return list.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
       }
       case "gemini":
-        if (!key) throw new Error("먼저 API 키를 저장하세요.");
+        if (!key) throw new Error(t("Save an API key first."));
         r = await ipc.http("GET", "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", { "x-goog-api-key": key });
         if (r.status !== 200) throw apiError("Gemini", r.status, r.body);
         return ((JSON.parse(r.body).models ?? []) as { name: string; supportedGenerationMethods?: string[] }[])
@@ -374,14 +375,17 @@ class AI extends Observable {
 
 export const ai = new AI();
 
+/** 커밋 기록이 없을 때 AI 가 쓰는 언어(화면 언어) */
+const outputLanguage = languageInEnglish();
+
 export const Prompts = {
   commit: `You write git commit messages for the staged changes the user sends.
 Reply with the commit message only: no preamble, no code fences, no quotation marks.
 First line: a concise summary of at most 72 characters in the imperative mood.
 If the change needs explanation, add a blank line and a short body saying what changed and why.
-Match the language and style of the repository's recent commit messages shown in the input; if there are none, write in Korean.`,
+Match the language and style of the repository's recent commit messages shown in the input; if there are none, write in ${outputLanguage}.`,
 
-  explain: `You explain a git commit to a developer who is reviewing the history. Answer in Korean.
+  explain: `You explain a git commit to a developer who is reviewing the history. Answer in ${outputLanguage}.
 Start with one sentence on what the commit does. Then list the key changes as short "-" bullets, naming files and functions.
 End with anything risky or worth a closer look, or say that nothing stands out.
 Be concrete and brief. Plain text only, no headings.`,
@@ -390,31 +394,31 @@ Be concrete and brief. Plain text only, no headings.`,
 Group files that belong to the same logical change (one feature, one fix, one refactor, docs, config …). Every listed file must appear in exactly one commit; never invent paths.
 Order the commits so each one builds on the previous (shared refactors and dependencies first).
 Write each commit message as a commit message for that group: a summary line of at most 72 characters, optionally a blank line and a short body.
-Match the language and style of the repository's recent commit messages shown in the input; if there are none, write in Korean.
+Match the language and style of the repository's recent commit messages shown in the input; if there are none, write in ${outputLanguage}.
 Reply with JSON only, no code fences, exactly in this shape: {"commits":[{"message":"summary\\n\\noptional body","files":["path/one","path/two"]}]}`,
 
   pullRequest: `You write pull request descriptions from the commits and diff the user sends.
 Reply in exactly this shape: the first line is the title (at most 72 characters, no "Title:" prefix), then a blank line, then the description in Markdown.
 The description has a short summary paragraph, a bulleted list of the main changes, and a short note on how to test if the changes suggest one.
-Use the same language as the commit messages; if unclear, write in Korean. Output nothing else.`,
+Use the same language as the commit messages; if unclear, write in ${outputLanguage}. Output nothing else.`,
 };
 
 /** 너무 긴 입력은 앞부분만 보내고, 잘렸으면 생략한 글자 수를 돌려준다 */
 export function clip(s: string, limit = 400_000): { text: string; omitted: number } {
   if (s.length <= limit) return { text: s, omitted: 0 };
-  return { text: s.slice(0, limit) + `\n\n[... 이후 ${s.length - limit}자 생략 ...]`, omitted: s.length - limit };
+  return { text: s.slice(0, limit) + t("\n\n[... {0} more characters omitted ...]", s.length - limit), omitted: s.length - limit };
 }
 
 /** 첫 줄(요약/제목)과 나머지(본문)로 나눈다. 코드 펜스·따옴표로 감쌌으면 벗긴다. */
 export function splitMessage(text: string): [string, string] {
-  let t = text.trim();
-  if (t.startsWith("```")) {
-    t = t.split("\n").slice(1).join("\n");
-    if (t.endsWith("```")) t = t.slice(0, -3);
-    t = t.trim();
+  let text2 = text.trim();
+  if (text2.startsWith("```")) {
+    text2 = text2.split("\n").slice(1).join("\n");
+    if (text2.endsWith("```")) text2 = text2.slice(0, -3);
+    text2 = text2.trim();
   }
-  const nl = t.indexOf("\n");
-  let first = (nl < 0 ? t : t.slice(0, nl)).trim();
+  const nl = text2.indexOf("\n");
+  let first = (nl < 0 ? text2 : text2.slice(0, nl)).trim();
   if (first.length > 1 && first.startsWith('"') && first.endsWith('"')) first = first.slice(1, -1);
-  return [first, nl < 0 ? "" : t.slice(nl + 1).trim()];
+  return [first, nl < 0 ? "" : text2.slice(nl + 1).trim()];
 }

@@ -1,6 +1,7 @@
 import { short, type Branch, type Commit, type RefLabel, isWIP } from "../../lib/models";
 import type { RepoStore } from "../../lib/repo";
 import type { MenuItem } from "./ui";
+import { t } from "../../lib/i18n";
 
 /** 브랜치·태그 배지 우클릭 메뉴(그래프 배지와 커밋 메뉴에서 같이 쓴다) */
 export function refMenu(store: RepoStore, ref: RefLabel): MenuItem[] {
@@ -10,14 +11,14 @@ export function refMenu(store: RepoStore, ref: RefLabel): MenuItem[] {
     return b.isRemote ? remoteBranchMenu(store, b) : localBranchMenu(store, b);
   }
   if (ref.kind === "tag") {
-    const t = store.tags.find((x) => x.name === ref.name);
-    if (!t) return [];
+    const tag = store.tags.find((x) => x.name === ref.name);
+    if (!tag) return [];
     return [
-      { label: "이 태그로 이동", onClick: () => store.reveal(t.target) },
-      { label: "태그 Push", onClick: () => void store.pushTag(t) },
-      { label: "이름 복사", onClick: () => store.copy(t.name) },
+      { label: t("Go to this tag"), onClick: () => store.reveal(tag.target) },
+      { label: t("Push tag"), onClick: () => void store.pushTag(tag) },
+      { label: t("Copy name"), onClick: () => store.copy(tag.name) },
       "divider",
-      { label: "태그 삭제…", danger: true, onClick: () => store.deleteTag(t) },
+      { label: t("Delete tag…"), danger: true, onClick: () => store.deleteTag(tag) },
     ];
   }
   return [];
@@ -29,8 +30,8 @@ function mergeIntoMenu(store: RepoStore, source: string): MenuItem[] {
   if (!targets.length) return [];
   return [
     {
-      label: `'${source}'을(를) 다른 브랜치에 머지`,
-      submenu: targets.map((t): MenuItem => ({ label: t.isCurrent ? `${t.name} (현재)` : t.name, onClick: () => void store.mergeBranch(source, t.name) })),
+      label: t("Merge '{0}' into another branch", source),
+      submenu: targets.map((branch): MenuItem => ({ label: branch.isCurrent ? t("{0} (current)", branch.name) : branch.name, onClick: () => void store.mergeBranch(source, branch.name) })),
     },
   ];
 }
@@ -38,19 +39,19 @@ function mergeIntoMenu(store: RepoStore, source: string): MenuItem[] {
 export function localBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
   const current = store.headBranch;
   const w = store.worktreeUsing(b.name);
-  const items: MenuItem[] = [{ label: "체크아웃", disabled: b.isCurrent, onClick: () => void store.checkout(b) }];
+  const items: MenuItem[] = [{ label: t("Check out"), disabled: b.isCurrent, onClick: () => void store.checkout(b) }];
   if (current && !b.isCurrent) {
     items.push(
-      { label: `'${b.name}'을(를) '${current}'에 머지`, onClick: () => void store.merge(b.name) },
-      { label: `'${current}'을(를) '${b.name}' 위로 리베이스`, onClick: () => void store.rebase(b.name) },
+      { label: t("Merge '{0}' into '{1}'", b.name, current), onClick: () => void store.merge(b.name) },
+      { label: t("Rebase '{0}' onto '{1}'", current, b.name), onClick: () => void store.rebase(b.name) },
     );
   }
   items.push(...mergeIntoMenu(store, b.name));
   items.push(
     "divider",
-    { label: "여기서 새 브랜치…", onClick: () => store.requestNewBranch(b.target, b.name) },
+    { label: t("New branch from here…"), onClick: () => store.requestNewBranch(b.target, b.name) },
     {
-      label: "새 워크트리에서 체크아웃…",
+      label: t("Check out in a new worktree…"),
       disabled: b.isCurrent || !!w,
       onClick: () => {
         store.sheet = { kind: "addWorktree", branch: b.name, start: null };
@@ -60,44 +61,44 @@ export function localBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
   );
   if (w) {
     items.push(
-      { label: "이 브랜치의 워크트리 열기", onClick: () => void store.openOrReport(w.path) },
-      { label: "워크트리에서 에이전트 실행", onClick: () => void store.startAgent(w.path) },
+      { label: t("Open this branch's worktree"), onClick: () => void store.openOrReport(w.path) },
+      { label: t("Run an agent in a worktree"), onClick: () => void store.startAgent(w.path) },
     );
   }
   items.push(
-    { label: "Push", onClick: () => void store.pushBranch(b) },
-    { label: "이름 복사", onClick: () => store.copy(b.name) },
+    { label: t("Push"), onClick: () => void store.pushBranch(b) },
+    { label: t("Copy name"), onClick: () => store.copy(b.name) },
     "divider",
-    { label: store.isPinned(b) ? "고정 풀기" : "맨 위에 고정", onClick: () => store.setPinned(b, !store.isPinned(b)) },
+    { label: store.isPinned(b) ? t("Unpin") : t("Pin to top"), onClick: () => store.setPinned(b, !store.isPinned(b)) },
     {
-      label: store.isHidden(b) ? "그래프에 다시 보이기" : "그래프에서 숨기기",
+      label: store.isHidden(b) ? t("Show in graph again") : t("Hide from graph"),
       disabled: b.isCurrent && !store.isHidden(b),
       onClick: () => void store.setHidden(b, !store.isHidden(b)),
     },
     "divider",
-    { label: "삭제…", danger: true, disabled: b.isCurrent, onClick: () => store.confirmDelete(b) },
-    { label: "강제 삭제…", danger: true, disabled: b.isCurrent, onClick: () => store.confirmForceDelete(b) },
+    { label: t("Delete…"), danger: true, disabled: b.isCurrent, onClick: () => store.confirmDelete(b) },
+    { label: t("Force delete…"), danger: true, disabled: b.isCurrent, onClick: () => store.confirmForceDelete(b) },
   );
   return items;
 }
 
 export function remoteBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
   const current = store.headBranch;
-  const items: MenuItem[] = [{ label: "체크아웃 (로컬 추적 브랜치)", onClick: () => void store.checkout(b) }];
+  const items: MenuItem[] = [{ label: t("Check out (local tracking branch)"), onClick: () => void store.checkout(b) }];
   if (current) {
     items.push(
-      { label: `'${b.name}'을(를) '${current}'에 머지`, onClick: () => void store.merge(b.name) },
-      { label: `'${current}'을(를) '${b.name}' 위로 리베이스`, onClick: () => void store.rebase(b.name) },
+      { label: t("Merge '{0}' into '{1}'", b.name, current), onClick: () => void store.merge(b.name) },
+      { label: t("Rebase '{0}' onto '{1}'", current, b.name), onClick: () => void store.rebase(b.name) },
     );
   }
   items.push(...mergeIntoMenu(store, b.name));
   items.push(
     "divider",
-    { label: "여기서 새 브랜치…", onClick: () => store.requestNewBranch(b.target, b.name) },
-    { label: "이름 복사", onClick: () => store.copy(b.name) },
-    { label: store.isHidden(b) ? "그래프에 다시 보이기" : "그래프에서 숨기기", onClick: () => void store.setHidden(b, !store.isHidden(b)) },
+    { label: t("New branch from here…"), onClick: () => store.requestNewBranch(b.target, b.name) },
+    { label: t("Copy name"), onClick: () => store.copy(b.name) },
+    { label: store.isHidden(b) ? t("Show in graph again") : t("Hide from graph"), onClick: () => void store.setHidden(b, !store.isHidden(b)) },
     "divider",
-    { label: "원격에서 삭제…", danger: true, onClick: () => store.confirmDelete(b) },
+    { label: t("Delete from remote…"), danger: true, onClick: () => store.confirmDelete(b) },
   );
   return items;
 }
@@ -110,46 +111,46 @@ export function commitMenu(store: RepoStore, c: Commit): MenuItem[] {
   };
   if (isWIP(c)) {
     return [
-      { label: "모두 스테이지", onClick: () => void store.stageAll() },
-      { label: "Stash…", onClick: () => sheet({ kind: "stash" }) },
+      { label: t("Stage all"), onClick: () => void store.stageAll() },
+      { label: t("Stash…"), onClick: () => sheet({ kind: "stash" }) },
       "divider",
-      { label: "모든 변경 버리기…", danger: true, onClick: () => store.confirmDiscardAll() },
+      { label: t("Discard all changes…"), danger: true, onClick: () => store.confirmDiscardAll() },
     ];
   }
   const items: MenuItem[] = [];
   const branches = (store.refsByCommit.get(c.id) ?? []).filter((r) => r.kind === "local" || r.kind === "remote");
-  for (const r of branches) items.push({ label: `브랜치 '${r.name}'`, submenu: refMenu(store, r) });
+  for (const r of branches) items.push({ label: t("Branch '{0}'", r.name), submenu: refMenu(store, r) });
   if (branches.length) items.push("divider");
   const current = store.headBranch;
   if (current && c.id !== store.headHash) {
     items.push(
-      { label: `이 커밋을 '${current}'에 머지`, onClick: () => void store.merge(c.id) },
-      { label: `'${current}'을(를) 이 커밋 위로 리베이스`, onClick: () => void store.rebase(c.id) },
+      { label: t("Merge this commit into '{0}'", current), onClick: () => void store.merge(c.id) },
+      { label: t("Rebase '{0}' onto this commit", current), onClick: () => void store.rebase(c.id) },
       "divider",
     );
   }
   if (current) {
-    items.push({ label: "여기부터 커밋 정리(합치기·순서·메시지)…", disabled: store.repoState !== "clean", onClick: () => void store.startInteractiveRebase(c.id) }, "divider");
+    items.push({ label: t("Clean up commits from here (squash, reorder, reword)…"), disabled: store.repoState !== "clean", onClick: () => void store.startInteractiveRebase(c.id) }, "divider");
   }
   items.push(
-    { label: "여기서 새 브랜치…", onClick: () => store.requestNewBranch(c.id, short(c.id)) },
-    { label: "여기에 태그…", onClick: () => sheet({ kind: "tag", sha: c.id }) },
-    { label: "여기서 워크트리 만들기…", onClick: () => sheet({ kind: "addWorktree", branch: null, start: c.id }) },
+    { label: t("New branch from here…"), onClick: () => store.requestNewBranch(c.id, short(c.id)) },
+    { label: t("Tag here…"), onClick: () => sheet({ kind: "tag", sha: c.id }) },
+    { label: t("Create worktree from here…"), onClick: () => sheet({ kind: "addWorktree", branch: null, start: c.id }) },
     "divider",
-    { label: "이 커밋 체크아웃 (분리된 HEAD)", onClick: () => void store.checkoutDetached(c.id) },
-    { label: "Cherry-pick", disabled: c.id === store.headHash, onClick: () => void store.cherryPick(c.id) },
-    { label: "Revert (되돌리는 커밋 만들기)", onClick: () => void store.revert(c.id) },
+    { label: t("Check out this commit (detached HEAD)"), onClick: () => void store.checkoutDetached(c.id) },
+    { label: t("Cherry-pick"), disabled: c.id === store.headHash, onClick: () => void store.cherryPick(c.id) },
+    { label: t("Revert (create a reverting commit)"), onClick: () => void store.revert(c.id) },
   );
   if (store.headBranch) {
     items.push({
-      label: "현재 브랜치를 여기로 Reset",
+      label: t("Reset current branch to here"),
       submenu: [
-        { label: "Soft — 변경은 스테이지된 상태로 유지", onClick: () => store.reset(c.id, "soft") },
-        { label: "Mixed — 변경은 작업 트리에 유지", onClick: () => store.reset(c.id, "mixed") },
-        { label: "Hard — 변경까지 모두 버림…", danger: true, onClick: () => store.reset(c.id, "hard") },
+        { label: t("Soft — keep changes staged"), onClick: () => store.reset(c.id, "soft") },
+        { label: t("Mixed — keep changes in the working tree"), onClick: () => store.reset(c.id, "mixed") },
+        { label: t("Hard — discard changes too…"), danger: true, onClick: () => store.reset(c.id, "hard") },
       ],
     });
   }
-  items.push("divider", { label: "SHA 복사", onClick: () => store.copy(c.id) }, { label: "메시지 복사", onClick: () => store.copy(c.subject) });
+  items.push("divider", { label: t("Copy SHA"), onClick: () => store.copy(c.id) }, { label: t("Copy message"), onClick: () => store.copy(c.subject) });
   return items;
 }

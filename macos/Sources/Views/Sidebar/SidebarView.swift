@@ -9,8 +9,8 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             Picker("", selection: $mode) {
-                Text("목록").tag("list")
-                Text(activeAgents > 0 ? "에이전트 \(activeAgents)" : "에이전트").tag("agents")
+                Text("List").tag("list")
+                Text(activeAgents > 0 ? "Agents \(activeAgents)" : "Agents").tag("agents")
                 Text("CI/CD").tag("ci")
             }
             .pickerStyle(.segmented)
@@ -41,12 +41,12 @@ struct SidebarView: View {
 
             let pinned = store.localBranches.filter { store.isPinned($0) }
             if !pinned.isEmpty {
-                Section("고정") {
+                Section("Pinned") {
                     ForEach(pinned) { b in localRow(b, label: b.name) }
                 }
             }
 
-            Section("로컬 브랜치 \(store.localBranches.count)") {
+            Section("Local branches \(store.localBranches.count)") {
                 let groups = BranchFolders(store.localBranches) { $0.name }
                 ForEach(groups.loose) { b in localRow(b, label: b.name) }
                 ForEach(groups.folders) { f in
@@ -63,7 +63,7 @@ struct SidebarView: View {
             }
 
             if !store.remoteBranches.isEmpty {
-                Section("원격 \(store.remoteBranches.count)") {
+                Section("Remotes \(store.remoteBranches.count)") {
                     ForEach(remoteGroups, id: \.0) { remote, branches in
                         DisclosureGroup(isExpanded: expansion("r:" + remote)) {
                             let groups = BranchFolders(branches) { $0.shortName }
@@ -87,24 +87,24 @@ struct SidebarView: View {
             }
 
             if !store.tags.isEmpty {
-                Section("태그 \(store.tags.count)") {
+                Section("Tags \(store.tags.count)") {
                     ForEach(store.tags) { t in
                         Label(t.name, systemImage: "tag")
                             .lineLimit(1)
                             .contentShape(Rectangle())
                             .onTapGesture { store.reveal(t.target) }
                             .contextMenu {
-                                Button("이 태그로 이동") { store.reveal(t.target) }
-                                Button("태그 Push") { Task { await store.pushTag(t) } }
+                                Button("Go to this tag") { store.reveal(t.target) }
+                                Button("Push tag") { Task { await store.pushTag(t) } }
                                 Divider()
-                                Button("태그 삭제…", role: .destructive) { store.deleteTag(t) }
+                                Button("Delete tag…", role: .destructive) { store.deleteTag(t) }
                             }
                     }
                 }
             }
 
             if !store.stashes.isEmpty {
-                Section("스태시 \(store.stashes.count)") {
+                Section("Stashes \(store.stashes.count)") {
                     ForEach(store.stashes) { s in
                         VStack(alignment: .leading, spacing: 1) {
                             Text(s.message).lineLimit(1)
@@ -113,10 +113,10 @@ struct SidebarView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { store.reveal(s.hash) }
                         .contextMenu {
-                            Button("적용 (Apply)") { Task { await store.stashApply(s) } }
-                            Button("꺼내기 (Pop)") { Task { await store.stashPop(s) } }
+                            Button("Apply") { Task { await store.stashApply(s) } }
+                            Button("Pop") { Task { await store.stashPop(s) } }
                             Divider()
-                            Button("버리기 (Drop)…", role: .destructive) { store.stashDrop(s) }
+                            Button("Drop…", role: .destructive) { store.stashDrop(s) }
                         }
                     }
                 }
@@ -174,48 +174,48 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func localMenu(_ b: Branch) -> some View {
-        Button("체크아웃") { Task { await store.checkout(b) } }
+        Button("Check out") { Task { await store.checkout(b) } }
             .disabled(b.isCurrent)
         if let current = store.headBranch, !b.isCurrent {
-            Button("'\(b.name)'을(를) '\(current)'에 머지") { Task { await store.merge(b.name) } }
-            Button("'\(current)'을(를) '\(b.name)' 위로 리베이스") { Task { await store.rebase(onto: b.name) } }
+            Button("Merge '\(b.name)' into '\(current)'") { Task { await store.merge(b.name) } }
+            Button("Rebase '\(current)' onto '\(b.name)'") { Task { await store.rebase(onto: b.name) } }
         }
         MergeIntoMenu(source: b.name)
         Divider()
-        Button("여기서 새 브랜치…") { store.requestNewBranch(from: b.target, label: b.name) }
-        Button("새 워크트리에서 체크아웃…") { store.sheet = .addWorktree(branch: b.name, start: nil) }
+        Button("New branch from here…") { store.requestNewBranch(from: b.target, label: b.name) }
+        Button("Check out in a new worktree…") { store.sheet = .addWorktree(branch: b.name, start: nil) }
             .disabled(b.isCurrent || store.worktree(using: b.name) != nil)
         if let w = store.worktree(using: b.name) {
-            Button("이 브랜치의 워크트리 열기") { Task { await store.openOrReport(URL(fileURLWithPath: w.path, isDirectory: true)) } }
-            Button("워크트리에서 에이전트 실행") { store.startAgent(in: w.path) }
+            Button("Open this branch's worktree") { Task { await store.openOrReport(URL(fileURLWithPath: w.path, isDirectory: true)) } }
+            Button("Run an agent in a worktree") { store.startAgent(in: w.path) }
         }
         Button("Push") { Task { await store.pushBranch(b) } }
-        Button("이름 복사") { store.copy(b.name) }
+        Button("Copy name") { store.copy(b.name) }
         Divider()
-        Button(store.isPinned(b) ? "고정 풀기" : "맨 위에 고정") { store.setPinned(b, !store.isPinned(b)) }
-        Button(store.isHidden(b) ? "그래프에 다시 보이기" : "그래프에서 숨기기") { Task { await store.setHidden(b, !store.isHidden(b)) } }
+        Button(store.isPinned(b) ? "Unpin" : "Pin to top") { store.setPinned(b, !store.isPinned(b)) }
+        Button(store.isHidden(b) ? "Show in graph again" : "Hide from graph") { Task { await store.setHidden(b, !store.isHidden(b)) } }
             .disabled(b.isCurrent && !store.isHidden(b))
         Divider()
-        Button("삭제…", role: .destructive) { store.confirmDelete(b) }
+        Button("Delete…", role: .destructive) { store.confirmDelete(b) }
             .disabled(b.isCurrent)
-        Button("강제 삭제…", role: .destructive) { store.confirmForceDelete(b) }
+        Button("Force delete…", role: .destructive) { store.confirmForceDelete(b) }
             .disabled(b.isCurrent)
     }
 
     @ViewBuilder
     private func remoteMenu(_ b: Branch) -> some View {
-        Button("체크아웃 (로컬 추적 브랜치)") { Task { await store.checkout(b) } }
+        Button("Check out (local tracking branch)") { Task { await store.checkout(b) } }
         if let current = store.headBranch {
-            Button("'\(b.name)'을(를) '\(current)'에 머지") { Task { await store.merge(b.name) } }
-            Button("'\(current)'을(를) '\(b.name)' 위로 리베이스") { Task { await store.rebase(onto: b.name) } }
+            Button("Merge '\(b.name)' into '\(current)'") { Task { await store.merge(b.name) } }
+            Button("Rebase '\(current)' onto '\(b.name)'") { Task { await store.rebase(onto: b.name) } }
         }
         MergeIntoMenu(source: b.name)
         Divider()
-        Button("여기서 새 브랜치…") { store.requestNewBranch(from: b.target, label: b.name) }
-        Button("이름 복사") { store.copy(b.name) }
-        Button(store.isHidden(b) ? "그래프에 다시 보이기" : "그래프에서 숨기기") { Task { await store.setHidden(b, !store.isHidden(b)) } }
+        Button("New branch from here…") { store.requestNewBranch(from: b.target, label: b.name) }
+        Button("Copy name") { store.copy(b.name) }
+        Button(store.isHidden(b) ? "Show in graph again" : "Hide from graph") { Task { await store.setHidden(b, !store.isHidden(b)) } }
         Divider()
-        Button("원격에서 삭제…", role: .destructive) { store.confirmDelete(b) }
+        Button("Delete from remote…", role: .destructive) { store.confirmDelete(b) }
     }
 }
 
@@ -276,18 +276,18 @@ private struct BranchRow: View {
                 .help(branch.name)
             Spacer(minLength: 4)
             if pinned {
-                Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.secondary).help("맨 위에 고정한 브랜치")
+                Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.secondary).help("Branches pinned to the top")
             }
             if hidden {
-                Image(systemName: "eye.slash").foregroundStyle(.secondary).help("그래프에서 숨긴 브랜치 — 우클릭으로 다시 보이기")
+                Image(systemName: "eye.slash").foregroundStyle(.secondary).help("Branches hidden from the graph — right-click to show again")
             }
             if let worktreePath {
                 Image(systemName: "folder").foregroundStyle(.secondary)
-                    .help("워크트리에서 사용 중: \(worktreePath)")
+                    .help("In use by a worktree: \(worktreePath)")
             }
             if branch.upstreamGone {
                 Image(systemName: "exclamationmark.icloud").foregroundStyle(.orange)
-                    .help("추적하던 원격 브랜치가 삭제됨")
+                    .help("The tracked remote branch was deleted")
             }
             if branch.ahead > 0 { counter("↑\(branch.ahead)") }
             if branch.behind > 0 { counter("↓\(branch.behind)") }

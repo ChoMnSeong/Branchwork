@@ -5,6 +5,7 @@ import { providerInfo } from "../../lib/models";
 import type { RepoStore } from "../../lib/repo";
 import { Button, Checkbox, Spinner } from "../shared/ui";
 import { Frame } from "./Frame";
+import { t } from "../../lib/i18n";
 
 export function CreatePullRequestSheet({ store, close }: { store: RepoStore; close: () => void }) {
   const provider = store.target?.provider ?? "github";
@@ -22,19 +23,19 @@ export function CreatePullRequestSheet({ store, close }: { store: RepoStore; clo
   }, [store]);
   return (
     <Frame
-      title={`새 ${providerInfo[provider].requestName}`}
-      confirm="만들기"
+      title={t("New {0}", providerInfo[provider].requestName)}
+      confirm={t("Create")}
       width={640}
       canConfirm={!!title.trim() && !!base}
       close={close}
       onConfirm={() => void store.createPullRequest(title.trim(), body, base, draft)}
-      leftFooter={store.status.upstream == null || store.status.ahead > 0 ? `만들기 전에 현재 브랜치를 ${store.target?.remote ?? "원격"}에 Push 합니다.` : undefined}
+      leftFooter={store.status.upstream == null || store.status.ahead > 0 ? t("Pushes the current branch to {0} before creating.", store.target?.remote ?? t("Remotes")) : undefined}
     >
       <div className="row">
         <span className="mono">{store.headBranch}</span>
         <span className="muted">→</span>
         <select className="select" style={{ width: 240 }} value={base} onChange={(e) => setBase(e.target.value)}>
-          {!base && <option value="">대상 브랜치</option>}
+          {!base && <option value="">{t("Target branch")}</option>}
           {bases.map((b) => (
             <option key={b} value={b}>
               {b}
@@ -42,10 +43,10 @@ export function CreatePullRequestSheet({ store, close }: { store: RepoStore; clo
           ))}
         </select>
       </div>
-      <input className="input" placeholder="제목" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <textarea className="textarea" style={{ height: 220 }} value={body} placeholder="설명 (Markdown)" onChange={(e) => setBody(e.target.value)} />
+      <input className="input" placeholder={t("Title")} value={title} onChange={(e) => setTitle(e.target.value)} />
+      <textarea className="textarea" style={{ height: 220 }} value={body} placeholder={t("Description (Markdown)")} onChange={(e) => setBody(e.target.value)} />
       <div className="row">
-        <Checkbox checked={draft} onChange={setDraft} label="Draft" />
+        <Checkbox checked={draft} onChange={setDraft} label={t("Draft")} />
         <span className="spacer" />
         {generating && <Spinner />}
         <Button
@@ -61,8 +62,7 @@ export function CreatePullRequestSheet({ store, close }: { store: RepoStore; clo
             });
           }}
         >
-          <Sparkles size={13} /> {ai.shortFor("pullRequest")}로 작성
-        </Button>
+          <Sparkles size={13} /> {" "}{t("Write with {0}", ai.shortFor("pullRequest"))}</Button>
       </div>
     </Frame>
   );

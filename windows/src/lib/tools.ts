@@ -3,6 +3,7 @@ import { ipc } from "./ipc";
 import { Observable } from "./observable";
 import { settings } from "./settings";
 import { commandVersion, findCommand, isExecutable, listDistros } from "./wsl";
+import { t } from "./i18n";
 
 /**
  * 외부 프로그램(git·AI CLI·gh·셸) 위치. PC 마다 설치 위치가 달라
@@ -22,12 +23,12 @@ export interface ToolInfo {
 }
 
 export const toolList: ToolInfo[] = [
-  { id: "git", title: "Git", detail: "모든 저장소 작업에 씁니다.", required: true, command: "git", versionArgs: ["--version"], install: "https://git-scm.com/download/win" },
-  { id: "claude", title: "Claude Code", detail: "Claude 로그인으로 글 작성·에이전트 세션", command: "claude", versionArgs: ["--version"], install: "https://claude.com/claude-code" },
-  { id: "codex", title: "Codex CLI", detail: "ChatGPT 로그인으로 글 작성·에이전트 세션", command: "codex", versionArgs: ["--version"], install: "https://developers.openai.com/codex/cli" },
-  { id: "gemini", title: "Gemini CLI", detail: "Google 로그인으로 글 작성·에이전트 세션", command: "gemini", versionArgs: ["--version"], install: "https://github.com/google-gemini/gemini-cli" },
-  { id: "gh", title: "GitHub CLI (gh)", detail: "gh 로그인을 GitHub 계정으로 가져올 때", command: "gh", versionArgs: ["--version"], install: "https://cli.github.com" },
-  { id: "shell", title: "터미널 셸", detail: "아래 터미널 패널에서 여는 셸(PowerShell·cmd·Git Bash 등)", command: "", versionArgs: [] },
+  { id: "git", title: "Git", detail: t("Used for all repository operations."), required: true, command: "git", versionArgs: ["--version"], install: "https://git-scm.com/download/win" },
+  { id: "claude", title: "Claude Code", detail: t("Writing and agent sessions with your Claude login"), command: "claude", versionArgs: ["--version"], install: "https://claude.com/claude-code" },
+  { id: "codex", title: "Codex CLI", detail: t("Writing and agent sessions with your ChatGPT login"), command: "codex", versionArgs: ["--version"], install: "https://developers.openai.com/codex/cli" },
+  { id: "gemini", title: "Gemini CLI", detail: t("Writing and agent sessions with your Google login"), command: "gemini", versionArgs: ["--version"], install: "https://github.com/google-gemini/gemini-cli" },
+  { id: "gh", title: "GitHub CLI (gh)", detail: t("When importing the gh login as a GitHub account"), command: "gh", versionArgs: ["--version"], install: "https://cli.github.com" },
+  { id: "shell", title: t("Terminal shell"), detail: t("Shell opened in the terminal panel below (PowerShell, cmd, Git Bash, etc.)"), command: "", versionArgs: [] },
 ];
 
 export type ToolSource = "custom" | "auto" | "none";
@@ -92,7 +93,7 @@ function candidates(id: ToolId): string[] {
 }
 
 class Tools extends Observable {
-  state: Record<ToolId, ToolState> = Object.fromEntries(toolList.map((t) => [t.id, { path: null, source: "none", version: null }])) as Record<ToolId, ToolState>;
+  state: Record<ToolId, ToolState> = Object.fromEntries(toolList.map((tool) => [tool.id, { path: null, source: "none", version: null }])) as Record<ToolId, ToolState>;
 
   private custom(): Partial<Record<ToolId, string>> {
     return settings.get<Partial<Record<ToolId, string>>>("toolPaths", {});
@@ -136,8 +137,8 @@ class Tools extends Observable {
     const found = await findCommand(distro, info.command);
     if (!found.path) {
       throw new Error(
-        `${distro} 안에서 ${info.command} 를 찾지 못했습니다.\n` +
-          `WSL 터미널에서 'which ${info.command}' 로 설치 위치를 확인한 뒤, '불러오기…'로 \\\\wsl.localhost\\${distro}\\… 아래의 그 파일을 고르면 됩니다.\n\n(확인한 내용: ${found.detail})`,
+        t("Couldn't find {1} in {0}.\n", distro, info.command) +
+          t("In a WSL terminal, run 'which {0}' to find where it's installed, then choose that file under \\\\wsl.localhost\\{1}\\… with 'Locate…'.\n\n(What was checked: {2})", info.command, distro, found.detail),
       );
     }
     await this.saveWsl(id, distro, found.path, auto);
@@ -145,7 +146,7 @@ class Tools extends Observable {
 
   /** 불러오기로 고른 \\wsl.localhost\배포판\… 파일을 WSL 도구로 쓴다 */
   async useWslPath(id: ToolId, distro: string, path: string) {
-    if (!(await isExecutable(distro, path))) throw new Error(`${path} 은(는) ${distro} 안에서 실행할 수 있는 파일이 아닙니다(chmod +x 확인).`);
+    if (!(await isExecutable(distro, path))) throw new Error(t("{0} isn't an executable file in {1} (check chmod +x).", path, distro));
     await this.saveWsl(id, distro, path, false);
   }
 
@@ -186,11 +187,11 @@ class Tools extends Observable {
   }
 
   async detectAll() {
-    await Promise.all(toolList.map((t) => this.detect(t.id)));
+    await Promise.all(toolList.map((tool) => this.detect(tool.id)));
   }
 
   async detect(id: ToolId) {
-    const info = toolList.find((t) => t.id === id)!;
+    const info = toolList.find((tool) => tool.id === id)!;
     const custom = this.custom()[id];
     let path: string | null = null;
     let source: ToolSource = "none";
@@ -228,7 +229,7 @@ class Tools extends Observable {
   }
 
   private toolList(id: ToolId) {
-    return toolList.find((t) => t.id === id)!;
+    return toolList.find((tool) => tool.id === id)!;
   }
 
   /** 직접 고른 실행 파일로 바꾼다. 실행해 보고 안 되면 이유를 던진다. */
@@ -239,9 +240,9 @@ class Tools extends Observable {
       try {
         r = await ipc.run(path, info.versionArgs, { cwd: env.temp, timeoutMs: 20000 });
       } catch (e) {
-        throw new Error(`${basename(path)} 을(를) 실행하지 못했습니다: ${String(e)}`);
+        throw new Error(t("Couldn't run {0}: {1}", basename(path), String(e)));
       }
-      if (r.status !== 0) throw new Error(`${basename(path)} 이(가) 정상적으로 응답하지 않았습니다(종료 코드 ${r.status}). ${info.title} 실행 파일이 맞는지 확인하세요.`);
+      if (r.status !== 0) throw new Error(t("{0} didn't respond correctly (exit code {1}). Check that it's the {2} executable.", basename(path), r.status, info.title));
     }
     settings.set("toolPaths", { ...this.custom(), [id]: path });
     await this.detect(id);

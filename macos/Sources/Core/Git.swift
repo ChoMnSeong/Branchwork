@@ -12,11 +12,11 @@ struct GitError: LocalizedError {
     let message: String
 
     var errorDescription: String? {
-        var text = message.isEmpty ? "git \(command) 실패" : message
+        var text = message.isEmpty ? String(localized: "git \(command) failed") : message
         let lower = message.lowercased()
         if lower.contains("terminal prompts disabled") || lower.contains("authentication failed")
             || lower.contains("permission denied (publickey)") || lower.contains("could not read username") {
-            text += "\n\n인증이 필요합니다. 터미널에서 한 번 push/pull 해서 자격 증명(키체인·SSH 키)을 저장한 뒤 다시 시도하세요."
+            text += String(localized: "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again.")
         }
         return text
     }
@@ -104,7 +104,7 @@ enum Shell {
                     try? err.fileHandleForWriting.close()
                     group.wait()
                     let name = (executable as NSString).lastPathComponent
-                    cont.resume(throwing: GitError(command: name, message: "\(name) 을(를) 실행하지 못했습니다: \(error.localizedDescription)"))
+                    cont.resume(throwing: GitError(command: name, message: String(localized: "Couldn't run \(name): \(error.localizedDescription)")))
                     return
                 }
                 if let inPipe, let input {

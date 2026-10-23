@@ -1,7 +1,17 @@
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { Channel, invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { nativeError, nativeText } from "./i18n";
 
 /** 백엔드(Rust) 명령 모음 */
+
+/** 백엔드 오류·출력의 영어 메시지는 화면 언어로 바꿔서 넘긴다 */
+const invoke = <T>(cmd: string, args?: Record<string, unknown>) =>
+  tauriInvoke<T>(cmd, args).then(
+    (r) => (r && typeof r === "object" && "stderr" in r ? ({ ...r, stderr: nativeText(String((r as { stderr: unknown }).stderr)) } as T) : r),
+    (e) => {
+      throw nativeError(e);
+    },
+  );
 
 export interface ProcOutput {
   status: number;

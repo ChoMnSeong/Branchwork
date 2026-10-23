@@ -8,6 +8,7 @@ import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { Segmented } from "../shared/ui";
 import { Frame, Row } from "./Frame";
+import { t } from "../../lib/i18n";
 
 export function StartAgentSheet({ store, close, presetPath }: { store: RepoStore; close: () => void; presetPath: string | null }) {
   useObserve(tools);
@@ -28,12 +29,12 @@ export function StartAgentSheet({ store, close, presetPath }: { store: RepoStore
   const validBranch = validBranchName(newBranch) && !exists;
   return (
     <Frame
-      title="에이전트 세션 시작"
-      confirm="시작"
+      title={t("Start agent session")}
+      confirm={t("Start")}
       width={580}
       canConfirm={found && (!!target || validBranch)}
       close={close}
-      leftFooter="아래 터미널의 새 탭에서 실행되고, 상태는 에이전트 탭에 표시됩니다."
+      leftFooter={t("Runs in a new tab of the terminal below; its status is shown in the Agents tab.")}
       onConfirm={() =>
         void (async () => {
           const m = mode || null;
@@ -43,7 +44,7 @@ export function StartAgentSheet({ store, close, presetPath }: { store: RepoStore
         })()
       }
     >
-      <Row label="에이전트">
+      <Row label={t("Agents")}>
         <Segmented
           value={kind}
           onChange={setKind}
@@ -55,36 +56,36 @@ export function StartAgentSheet({ store, close, presetPath }: { store: RepoStore
                 {tools.wsl(k.tool) ? " · WSL" : ""}
               </span>
             ),
-            tip: tools.available(k.tool) ? `${k.title}|${tools.describe(k.tool)}` : `${k.title} — 찾지 못함(설정 > 도구에서 불러오기·WSL 에서 찾기)`,
+            tip: tools.available(k.tool) ? `${k.title}|${tools.describe(k.tool)}` : t("{0} — not found (locate it or find it in WSL in Settings > Tools)", k.title),
           }))}
         />
       </Row>
-      {!found && <span className="error-text">{info.title} 실행 파일을 찾지 못했습니다. 설정 &gt; 도구에서 불러오거나, WSL 에 설치했다면 'WSL 에서 찾기'를 누르세요.</span>}
-      {found && tools.wsl(info.tool) && <span className="hint">WSL({tools.wsl(info.tool)!.distro}) 안에서 실행합니다. 작업 폴더는 리눅스 경로로 바꿔 엽니다.</span>}
-      <Row label="작업할 곳">
+      {!found && <span className="error-text">{t("Couldn't find the {0} executable. Locate it in Settings > Tools, or if you installed it in WSL, click 'Find in WSL'.", info.title)}</span>}
+      {found && tools.wsl(info.tool) && <span className="hint">{t("Runs inside WSL ({0}). The working folder is opened as a Linux path.", tools.wsl(info.tool)!.distro)}</span>}
+      <Row label={t("Where to work")}>
         <select className="select" value={target} onChange={(e) => setTarget(e.target.value)}>
           {store.worktrees.map((w) => (
             <option key={w.path} value={w.path}>
-              {(w.branch ?? "분리된 HEAD") + (w.path === store.path ? "  (지금 연 곳)" : "")}
+              {(w.branch ?? t("Detached HEAD")) + (w.path === store.path ? t("  (opened here)") : "")}
             </option>
           ))}
-          <option value="">새 워크트리 만들기…</option>
+          <option value="">{t("Create new worktree…")}</option>
         </select>
       </Row>
       {!target && (
         <>
-          <Row label="새 브랜치 이름">
-            <input className="input" autoFocus value={newBranch} placeholder="feature/ai-작업" onChange={(e) => setNewBranch(e.target.value)} spellCheck={false} />
+          <Row label={t("New branch name")}>
+            <input className="input" autoFocus value={newBranch} placeholder={t("feature/ai-work")} onChange={(e) => setNewBranch(e.target.value)} spellCheck={false} />
           </Row>
-          <Row label="위치">
+          <Row label={t("Location")}>
             <span className="ellipsis muted">{wtPath ? displayPath(wtPath) : "-"}</span>
           </Row>
         </>
       )}
-      <Row label="맡길 작업">
-        <textarea className="textarea" style={{ height: 80 }} value={task} placeholder="예: 로그인 실패 시 잠금 처리 추가하고 테스트까지" onChange={(e) => setTask(e.target.value)} />
+      <Row label={t("Task")}>
+        <textarea className="textarea" style={{ height: 80 }} value={task} placeholder={t("e.g. add a lockout after failed logins, including tests")} onChange={(e) => setTask(e.target.value)} />
       </Row>
-      <Row label="권한 모드">
+      <Row label={t("Permission mode")}>
         <select className="select" value={mode} onChange={(e) => setMode(e.target.value)}>
           {info.modes.map((m) => (
             <option key={m.value} value={m.value}>

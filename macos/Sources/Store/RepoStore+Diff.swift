@@ -67,7 +67,7 @@ extension RepoStore {
         case .unstage: args += ["--cached", "--reverse"]
         case .discard: args.append("--reverse")
         }
-        let label = action == .stage ? "스테이지 중…" : (action == .unstage ? "언스테이지 중…" : "변경 버리는 중…")
+        let label = action == .stage ? String(localized: "Staging…") : (action == .unstage ? String(localized: "Unstaging…") : String(localized: "Discarding changes…"))
         if await run(label, args + ["-"], input: patch) {
             diffSelection = []
             diffSelectionAnchor = nil
@@ -76,9 +76,9 @@ extension RepoStore {
 
     func confirmDiscardLines(hunk: Int) {
         let n = selectedCount(inHunk: hunk)
-        confirm = ConfirmRequest(title: n > 0 ? "고른 줄 \(n)개의 변경을 버릴까요?" : "이 덩어리의 변경을 버릴까요?",
-                                 message: "작업 트리에서 그 부분이 커밋된(스테이지된) 상태로 돌아갑니다. 되돌릴 수 없습니다.",
-                                 actionTitle: "버리기") { [weak self] in
+        confirm = ConfirmRequest(title: n > 0 ? String(localized: "Discard changes in \(n) selected lines?") : String(localized: "Discard the changes in this hunk?"),
+                                 message: String(localized: "That part of the working tree returns to its committed (staged) state. This can't be undone."),
+                                 actionTitle: String(localized: "Discard")) { [weak self] in
             await self?.applyLines(.discard, hunk: hunk)
         }
     }

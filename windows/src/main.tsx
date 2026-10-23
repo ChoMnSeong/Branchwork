@@ -1,49 +1,22 @@
-import { createRoot } from "react-dom/client";
-import { App } from "./App";
-import { accounts } from "./lib/accounts";
-import { agents } from "./lib/agents";
 import { env, initEnv } from "./lib/env";
-import { ai } from "./lib/ai";
-import { gitAvailable } from "./lib/git";
-import { tools } from "./lib/tools";
-import { updater } from "./lib/updater";
+import { loadLanguage, t } from "./lib/i18n";
 import { ipc } from "./lib/ipc";
 import { settings } from "./lib/settings";
-import { theme } from "./lib/theme";
-import { workspace } from "./lib/workspace";
-import { runSelfTest } from "./selftest";
-import "./styles.css";
 
-// 웹뷰 기본 우클릭 메뉴(새로 고침·검사 등)는 끄고, 앱 메뉴만 쓴다(입력 칸은 그대로)
-window.addEventListener("contextmenu", (e) => {
-  const t = e.target as HTMLElement;
-  if (!t.closest("input, textarea, .xterm, .selectable")) e.preventDefault();
-});
-
+// 화면 언어를 먼저 정하고 나서 앱을 불러온다(앱 모듈의 글자가 그 언어로 읽히게).
+// 자체 점검·README 스크린샷은 한국어 화면을 기준으로 한다.
 async function boot() {
   await initEnv();
   await settings.load();
-  theme.init();
-  await tools.detectAll();
-  await Promise.all([accounts.load(), ai.load(), agents.init()]);
-  const git = gitAvailable();
-  createRoot(document.getElementById("root")!).render(<App gitMissing={!git} />);
-  // 첫 화면(로딩 애니메이션)이 그려진 뒤 창을 보여 준다 — 흰 화면 번쩍임 없이.
-  // 숨긴 창에서는 requestAnimationFrame 이 돌지 않으므로 타이머로 부른다.
-  setTimeout(() => void ipc.appReady(), 30);
-  updater.start();
-  // 윈도에서 못 찾은 AI CLI 는 WSL 에서 한 번 찾아 둔다(WSL 을 깨우느라 몇 초 걸릴 수 있어 뒤에서)
-  if (!env.selftest) setTimeout(() => void tools.probeWsl(), 6000);
-  window.addEventListener("beforeunload", () => void settings.flush());
-  if (git) {
-    const test = await runSelfTest();
-    if (!test) await workspace.restore();
-  } else {
-    await workspace.restore();
-  }
+  await loadLanguage(env.selftest ? "ko" : settings.get<string | null>("language", null));
+  const { start } = await import("./start");
+  await start();
 }
 
 void boot().catch((e) => {
-  document.body.innerHTML = `<pre style="padding:20px;white-space:pre-wrap">Branchwork 를 시작하지 못했습니다\n\n${String(e?.stack ?? e)}</pre>`;
+  const pre = document.createElement("pre");
+  pre.style.cssText = "padding:20px;white-space:pre-wrap";
+  pre.textContent = `${t("Couldn't start Branchwork")}\n\n${String(e?.stack ?? e)}`;
+  document.body.replaceChildren(pre);
   void ipc.appReady();
 });

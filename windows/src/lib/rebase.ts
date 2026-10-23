@@ -1,13 +1,14 @@
+import { t } from "./i18n";
 /** 인터랙티브 리베이스(커밋 정리) 계획 (맥 버전 Core/RebasePlan.swift 와 같은 규칙) */
 
 export type RebaseAction = "pick" | "reword" | "squash" | "fixup" | "drop";
 
 export const rebaseActions: Array<{ value: RebaseAction; title: string }> = [
-  { value: "pick", title: "그대로" },
-  { value: "reword", title: "메시지 고치기" },
-  { value: "squash", title: "아래 커밋에 합치기" },
-  { value: "fixup", title: "아래 커밋에 합치기(메시지 버림)" },
-  { value: "drop", title: "빼기" },
+  { value: "pick", title: t("Pick") },
+  { value: "reword", title: t("Reword") },
+  { value: "squash", title: t("Squash into the commit below") },
+  { value: "fixup", title: t("Fixup into the commit below (discard message)") },
+  { value: "drop", title: t("Drop") },
 ];
 
 export interface RebaseItem {
@@ -44,10 +45,10 @@ export function makePlan(base: string | null, items: RebaseItem[], pushed = fals
 /** 실행할 수 없는 계획이면 그 이유 */
 export function planProblem(p: RebasePlan): string | null {
   const kept = p.items.filter((i) => i.action !== "drop");
-  if (!kept.length) return "커밋을 하나 이상 남겨야 합니다.";
+  if (!kept.length) return t("Keep at least one commit.");
   const oldest = kept[kept.length - 1];
-  if (oldest.action === "squash" || oldest.action === "fixup") return "가장 아래(오래된) 커밋은 합칠 대상이 없습니다.";
-  if (p.items.some((i) => i.action === "reword" && !i.newMessage.trim())) return "고칠 메시지가 비어 있습니다.";
+  if (oldest.action === "squash" || oldest.action === "fixup") return t("The bottom (oldest) commit has nothing to combine into.");
+  if (p.items.some((i) => i.action === "reword" && !i.newMessage.trim())) return t("The new message is empty.");
   return null;
 }
 

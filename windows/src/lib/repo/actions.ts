@@ -18,6 +18,7 @@ import {
 
 import { RepoFilters } from "./filters";
 import type { RefSnapshot } from "./undo-model";
+import { t } from "../i18n";
 
 /** git 작업: 실행·Fetch·Pull·Push·브랜치·태그·스태시·스테이지·커밋·진행 중인 머지/리베이스 */
 export abstract class RepoActions extends RepoFilters {
@@ -60,7 +61,7 @@ export abstract class RepoActions extends RepoFilters {
   }
 
   async fetch() {
-    if (await this.run("Fetch 중…", ["fetch", "--all", "--prune"], { network: true })) {
+    if (await this.run(t("Fetching…"), ["fetch", "--all", "--prune"], { network: true })) {
       await this.loadPullRequests();
       await this.ci.refreshBadges();
     }
@@ -71,13 +72,13 @@ export abstract class RepoActions extends RepoFilters {
     if (mode === "fastForward") args.push("--ff-only");
     if (mode === "merge") args.push("--no-rebase");
     if (mode === "rebase") args.push("--rebase");
-    await this.run("Pull 중…", args, { network: true });
+    await this.run(t("Pulling…"), args, { network: true });
   }
 
   async push(force = false) {
     const branch = this.headBranch;
     if (!branch || !this.headHash) {
-      this.errorMessage = "Push 할 브랜치가 없습니다. 분리된 HEAD 이거나 아직 커밋이 없습니다.";
+      this.errorMessage = t("There's no branch to push. HEAD is detached or there are no commits yet.");
       this.emit();
       return;
     }
@@ -86,13 +87,13 @@ export abstract class RepoActions extends RepoFilters {
     if (!this.status.upstream) {
       const remote = this.defaultRemote;
       if (!remote) {
-        this.errorMessage = "원격 저장소가 없습니다. 터미널에서 `git remote add origin <URL>` 로 먼저 추가하세요.";
+        this.errorMessage = t("No remote repository. Add one first in a terminal with `git remote add origin <URL>`.");
         this.emit();
         return;
       }
       args.push("-u", remote, branch);
     }
-    if (await this.run("Push 중…", args, { network: true })) {
+    if (await this.run(t("Pushing…"), args, { network: true })) {
       await this.loadPullRequests();
       // 올리자마자 파이프라인이 생기므로 조금 뒤에 읽는다
       await new Promise((r) => setTimeout(r, 3000));
@@ -104,11 +105,11 @@ export abstract class RepoActions extends RepoFilters {
     if (b.isCurrent) return this.push();
     const remote = b.upstream ? b.upstream.split("/")[0] : this.defaultRemote;
     if (!remote) {
-      this.errorMessage = "원격 저장소가 없습니다.";
+      this.errorMessage = t("No remote repository.");
       this.emit();
       return;
     }
-    await this.run("Push 중…", ["push", ...(b.upstream ? [] : ["-u"]), remote, b.name], { network: true });
+    await this.run(t("Pushing…"), ["push", ...(b.upstream ? [] : ["-u"]), remote, b.name], { network: true });
   }
 
   /** 지금 열린 곳이 아닌 다른 워크트리가 이 브랜치를 쓰고 있으면 그 워크트리 */
@@ -121,9 +122,9 @@ export abstract class RepoActions extends RepoFilters {
       const w = this.worktreeUsing(b.name);
       if (w) {
         this.ask({
-          title: `'${b.name}'은(는) 다른 워크트리에서 쓰는 중입니다`,
-          message: `${w.path}\n한 브랜치는 워크트리 하나에서만 체크아웃할 수 있습니다. 그 워크트리를 열까요?`,
-          actionTitle: "워크트리 열기",
+          title: t("'{0}' is in use by another worktree", b.name),
+          message: t("{0}\nA branch can be checked out in only one worktree. Open that worktree?", w.path),
+          actionTitle: t("Open worktree"),
           destructive: false,
           action: () => this.openOrReport(w.path),
         });
@@ -132,15 +133,15 @@ export abstract class RepoActions extends RepoFilters {
     }
     if (b.isRemote) {
       const s = branchShort(b);
-      if (this.localBranches.some((x) => x.name === s)) await this.run("체크아웃 중…", ["switch", s]);
-      else await this.run("체크아웃 중…", ["switch", "-c", s, "--track", b.name]);
+      if (this.localBranches.some((x) => x.name === s)) await this.run(t("Checking out…"), ["switch", s]);
+      else await this.run(t("Checking out…"), ["switch", "-c", s, "--track", b.name]);
     } else if (!b.isCurrent) {
-      await this.run("체크아웃 중…", ["switch", b.name]);
+      await this.run(t("Checking out…"), ["switch", b.name]);
     }
   }
 
   checkoutDetached(sha: string) {
-    return this.run("체크아웃 중…", ["switch", "--detach", sha]);
+    return this.run(t("Checking out…"), ["switch", "--detach", sha]);
   }
 
   requestNewBranch(start?: string, label?: string) {
@@ -150,7 +151,7 @@ export abstract class RepoActions extends RepoFilters {
   }
 
   createBranch(name: string, start: string, checkout: boolean) {
-    return this.run("브랜치 만드는 중…", checkout ? ["switch", "-c", name, start] : ["branch", name, start]);
+    return this.run(t("Creating branch…"), checkout ? ["switch", "-c", name, start] : ["branch", name, start]);
   }
 
   ask(c: ConfirmRequest) {
@@ -163,76 +164,76 @@ export abstract class RepoActions extends RepoFilters {
       const remote = branchRemote(b);
       if (!remote) return;
       this.ask({
-        title: `원격 브랜치 '${b.name}'을(를) 삭제할까요?`,
-        message: `${remote} 서버에서 브랜치가 삭제됩니다. 다른 사람도 쓰는 브랜치라면 주의하세요.`,
-        actionTitle: "원격에서 삭제",
-        action: () => this.run("원격 브랜치 삭제 중…", ["push", remote, "--delete", branchShort(b)], { network: true }),
+        title: t("Delete remote branch '{0}'?", b.name),
+        message: t("The branch will be deleted on the {0} server. Be careful if others use it too.", remote),
+        actionTitle: t("Delete from remote"),
+        action: () => this.run(t("Deleting remote branch…"), ["push", remote, "--delete", branchShort(b)], { network: true }),
       });
     } else {
       this.ask({
-        title: `브랜치 '${b.name}'을(를) 삭제할까요?`,
-        message: "머지되지 않은 커밋이 있으면 git 이 삭제를 거부합니다. 그때는 '강제 삭제'를 쓰세요.",
-        actionTitle: "삭제",
-        action: () => this.run("브랜치 삭제 중…", ["branch", "-d", b.name]),
+        title: t("Delete branch '{0}'?", b.name),
+        message: t("git refuses to delete a branch with unmerged commits. Use 'Force delete' in that case."),
+        actionTitle: t("Delete"),
+        action: () => this.run(t("Deleting branch…"), ["branch", "-d", b.name]),
       });
     }
   }
 
   confirmForceDelete(b: Branch) {
     this.ask({
-      title: `브랜치 '${b.name}'을(를) 강제로 삭제할까요?`,
-      message: "머지되지 않은 커밋도 함께 버려집니다.",
-      actionTitle: "강제 삭제",
-      action: () => this.run("브랜치 삭제 중…", ["branch", "-D", b.name]),
+      title: t("Force delete branch '{0}'?", b.name),
+      message: t("Unmerged commits are discarded too."),
+      actionTitle: t("Force delete"),
+      action: () => this.run(t("Deleting branch…"), ["branch", "-D", b.name]),
     });
   }
 
   merge(name: string) {
-    return this.run("머지 중…", ["merge", name]);
+    return this.run(t("Merging…"), ["merge", name]);
   }
   rebase(onto: string) {
-    return this.run("리베이스 중…", ["rebase", onto]);
+    return this.run(t("Rebasing…"), ["rebase", onto]);
   }
   cherryPick(sha: string) {
-    return this.run("Cherry-pick 중…", ["cherry-pick", sha]);
+    return this.run(t("Cherry-picking…"), ["cherry-pick", sha]);
   }
   revert(sha: string) {
-    return this.run("Revert 중…", ["revert", "--no-edit", sha]);
+    return this.run(t("Reverting…"), ["revert", "--no-edit", sha]);
   }
 
   reset(sha: string, mode: ResetMode) {
-    const action = () => this.run("Reset 중…", ["reset", `--${mode}`, sha]);
+    const action = () => this.run(t("Resetting…"), ["reset", `--${mode}`, sha]);
     if (mode === "hard") {
       this.ask({
-        title: `${short(sha)}(으)로 Hard reset 할까요?`,
-        message: "커밋하지 않은 변경과 이후 커밋이 현재 브랜치에서 사라집니다.",
-        actionTitle: "Hard reset",
+        title: t("Hard reset to {0}?", short(sha)),
+        message: t("Uncommitted changes and later commits are removed from the current branch."),
+        actionTitle: t("Hard reset"),
         action,
       });
     } else void action();
   }
 
   createTag(name: string, message: string, sha: string) {
-    return this.run("태그 만드는 중…", message.trim() ? ["tag", "-a", name, "-m", message, sha] : ["tag", name, sha]);
+    return this.run(t("Creating tag…"), message.trim() ? ["tag", "-a", name, "-m", message, sha] : ["tag", name, sha]);
   }
 
-  deleteTag(t: Tag) {
+  deleteTag(tag: Tag) {
     this.ask({
-      title: `태그 '${t.name}'을(를) 삭제할까요?`,
-      message: "로컬 태그만 삭제됩니다.",
-      actionTitle: "삭제",
-      action: () => this.run("태그 삭제 중…", ["tag", "-d", t.name]),
+      title: t("Delete tag '{0}'?", tag.name),
+      message: t("Only the local tag is deleted."),
+      actionTitle: t("Delete"),
+      action: () => this.run(t("Deleting tag…"), ["tag", "-d", tag.name]),
     });
   }
 
-  async pushTag(t: Tag) {
+  async pushTag(tag: Tag) {
     const remote = this.defaultRemote;
     if (!remote) {
-      this.errorMessage = "원격 저장소가 없습니다.";
+      this.errorMessage = t("No remote repository.");
       this.emit();
       return;
     }
-    await this.run("태그 Push 중…", ["push", remote, "refs/tags/" + t.name], { network: true });
+    await this.run(t("Pushing tag…"), ["push", remote, "refs/tags/" + tag.name], { network: true });
   }
 
   // 스태시
@@ -241,20 +242,20 @@ export abstract class RepoActions extends RepoFilters {
     const args = ["stash", "push"];
     if (includeUntracked) args.push("--include-untracked");
     if (message.trim()) args.push("-m", message.trim());
-    return this.run("Stash 중…", args);
+    return this.run(t("Stashing…"), args);
   }
   stashApply(s: Stash) {
-    return this.run("Stash 적용 중…", ["stash", "apply", s.ref]);
+    return this.run(t("Applying stash…"), ["stash", "apply", s.ref]);
   }
   stashPop(s?: Stash) {
-    return this.run("Stash Pop 중…", ["stash", "pop", ...(s ? [s.ref] : [])]);
+    return this.run(t("Popping stash…"), ["stash", "pop", ...(s ? [s.ref] : [])]);
   }
   stashDrop(s: Stash) {
     this.ask({
-      title: `${s.ref}을(를) 버릴까요?`,
+      title: t("Discard {0}?", s.ref),
       message: s.message,
-      actionTitle: "버리기",
-      action: () => this.run("Stash 버리는 중…", ["stash", "drop", s.ref]),
+      actionTitle: t("Discard"),
+      action: () => this.run(t("Dropping stash…"), ["stash", "drop", s.ref]),
     });
   }
 
@@ -262,45 +263,45 @@ export abstract class RepoActions extends RepoFilters {
 
   stage(changes: FileChange[]) {
     if (!changes.length) return Promise.resolve(false);
-    return this.run("스테이지 중…", ["add", "-A", "--", ...changes.flatMap(changePaths)]);
+    return this.run(t("Staging…"), ["add", "-A", "--", ...changes.flatMap(changePaths)]);
   }
 
   unstage(changes: FileChange[]) {
     if (!changes.length) return Promise.resolve(false);
     const paths = changes.flatMap(changePaths);
     return this.headHash
-      ? this.run("언스테이지 중…", ["restore", "--staged", "--", ...paths])
-      : this.run("언스테이지 중…", ["rm", "--cached", "-r", "-q", "--", ...paths]);
+      ? this.run(t("Unstaging…"), ["restore", "--staged", "--", ...paths])
+      : this.run(t("Unstaging…"), ["rm", "--cached", "-r", "-q", "--", ...paths]);
   }
 
   stageAll() {
-    return this.run("스테이지 중…", ["add", "-A"]);
+    return this.run(t("Staging…"), ["add", "-A"]);
   }
 
   unstageAll() {
-    return this.headHash ? this.run("언스테이지 중…", ["reset", "-q"]) : this.run("언스테이지 중…", ["rm", "--cached", "-r", "-q", "."]);
+    return this.headHash ? this.run(t("Unstaging…"), ["reset", "-q"]) : this.run(t("Unstaging…"), ["rm", "--cached", "-r", "-q", "."]);
   }
 
   confirmDiscard(c: FileChange) {
     this.ask({
-      title: `'${fileName(c.path)}'의 변경을 버릴까요?`,
-      message: c.kind === "untracked" ? "추적하지 않는 새 파일이 삭제됩니다." : "작업 트리의 수정 내용이 사라집니다.",
-      actionTitle: "변경 버리기",
+      title: t("Discard changes to '{0}'?", fileName(c.path)),
+      message: c.kind === "untracked" ? t("Untracked new files will be deleted.") : t("Your edits in the working tree will be lost."),
+      actionTitle: t("Discard changes"),
       action: () =>
         c.kind === "untracked"
-          ? this.run("변경 버리는 중…", ["clean", "-f", "-q", "--", c.path])
-          : this.run("변경 버리는 중…", ["restore", "--worktree", "--", ...changePaths(c)]),
+          ? this.run(t("Discarding changes…"), ["clean", "-f", "-q", "--", c.path])
+          : this.run(t("Discarding changes…"), ["restore", "--worktree", "--", ...changePaths(c)]),
     });
   }
 
   confirmDiscardAll() {
     this.ask({
-      title: "모든 변경을 버릴까요?",
-      message: "스테이지된 것과 안 된 것, 추적하지 않는 새 파일까지 모두 사라집니다. 되돌릴 수 없습니다.",
-      actionTitle: "모두 버리기",
+      title: t("Discard all changes?"),
+      message: t("Staged and unstaged changes and untracked new files will all be lost. This can't be undone."),
+      actionTitle: t("Discard all"),
       action: async () => {
-        if (this.headHash && !(await this.run("되돌리는 중…", ["reset", "--hard", "-q"]))) return;
-        await this.run("정리 중…", ["clean", "-fd", "-q"]);
+        if (this.headHash && !(await this.run(t("Undoing…"), ["reset", "--hard", "-q"]))) return;
+        await this.run(t("Cleaning up…"), ["clean", "-fd", "-q"]);
       },
     });
   }
@@ -343,7 +344,7 @@ export abstract class RepoActions extends RepoFilters {
     const text = [this.summary.trim(), this.message.trim()].filter(Boolean).join("\n\n");
     const args = ["commit", "-F", "-"];
     if (this.amend) args.push("--amend");
-    if (await this.run("커밋 중…", args, { input: text + "\n" })) {
+    if (await this.run(t("Committing…"), args, { input: text + "\n" })) {
       this.summary = "";
       this.message = "";
       this.amend = false;
@@ -363,11 +364,11 @@ export abstract class RepoActions extends RepoFilters {
     const a = args[this.repoState];
     if (!a) return;
     this.ask({
-      title: `${this.repoStateTitle}을(를) 중단할까요?`,
-      message: "작업을 시작하기 전 상태로 돌아갑니다.",
-      actionTitle: "중단",
+      title: t("Abort the current operation ({0})?", this.repoStateTitle),
+      message: t("Returns to the state before the operation started."),
+      actionTitle: t("Abort"),
       action: async () => {
-        await this.run("중단하는 중…", a);
+        await this.run(t("Aborting…"), a);
         this.summary = "";
         this.message = "";
         this.emit();
@@ -376,19 +377,19 @@ export abstract class RepoActions extends RepoFilters {
   }
 
   get repoStateTitle() {
-    return { clean: "", merging: "머지 진행 중", rebasing: "리베이스 진행 중", cherryPicking: "Cherry-pick 진행 중", reverting: "Revert 진행 중" }[this.repoState];
+    return { clean: "", merging: t("Merge in progress"), rebasing: t("Rebase in progress"), cherryPicking: t("Cherry-pick in progress"), reverting: t("Revert in progress") }[this.repoState];
   }
 
   async continueOperation() {
     switch (this.repoState) {
       case "rebasing":
-        await this.run("리베이스 계속…", ["rebase", "--continue"]);
+        await this.run(t("Continuing rebase…"), ["rebase", "--continue"]);
         break;
       case "cherryPicking":
-        await this.run("Cherry-pick 계속…", ["cherry-pick", "--continue"]);
+        await this.run(t("Continuing cherry-pick…"), ["cherry-pick", "--continue"]);
         break;
       case "reverting":
-        await this.run("Revert 계속…", ["revert", "--continue"]);
+        await this.run(t("Continuing revert…"), ["revert", "--continue"]);
         break;
       case "merging":
         await this.commit();

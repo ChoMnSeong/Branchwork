@@ -7,6 +7,7 @@ import { useObserve } from "../lib/observable";
 import type { RepoStore } from "../lib/repo";
 import { workspace } from "../lib/workspace";
 import { showMenuBelow, Spinner, tip, type MenuItem } from "./shared/ui";
+import { t } from "../lib/i18n";
 
 /** 툴바 버튼은 아이콘만. 무슨 버튼인지는 마우스를 올리면 설명 풍선으로 보여 준다. */
 export function Toolbar({ store }: { store: RepoStore }) {
@@ -21,7 +22,7 @@ export function Toolbar({ store }: { store: RepoStore }) {
       <button className="tool" data-tip={mainTip} disabled={disabled} onClick={onMain}>
         {main}
       </button>
-      <button className="tool caret" disabled={disabled} onClick={(e) => showMenuBelow(e.currentTarget.parentElement!, items())} data-tip="더 보기">
+      <button className="tool caret" disabled={disabled} onClick={(e) => showMenuBelow(e.currentTarget.parentElement!, items())} data-tip={t("More")}>
         <ChevronDown size={12} />
       </button>
     </div>
@@ -32,7 +33,7 @@ export function Toolbar({ store }: { store: RepoStore }) {
       <div className="tool-group">
         <button
           className="tool"
-          data-tip={tip("저장소", "다른 저장소 열기·복제, 최근에 연 저장소, 탭 닫기")}
+          data-tip={tip(t("Repository"), t("Open or clone another repository, recent repositories, close tabs"))}
           onClick={(e) =>
             showMenuBelow(e.currentTarget, [
               ...recents()
@@ -40,10 +41,10 @@ export function Toolbar({ store }: { store: RepoStore }) {
                 .slice(0, 10)
                 .map((p): MenuItem => ({ label: `${basename(p)}   —   ${displayPath(p)}`, onClick: () => void store.openOrReport(p) })),
               "divider",
-              { label: "저장소 열기…", shortcut: "Ctrl+O", onClick: () => void store.pickAndOpen() },
-              { label: "저장소 복제…", shortcut: "Ctrl+Shift+O", onClick: () => sheet({ kind: "clone" }) },
+              { label: t("Open repository…"), shortcut: "Ctrl+O", onClick: () => void store.pickAndOpen() },
+              { label: t("Clone repository…"), shortcut: "Ctrl+Shift+O", onClick: () => sheet({ kind: "clone" }) },
               "divider",
-              { label: "탭 닫기", shortcut: "Ctrl+W", onClick: () => workspace.closeTab(store.id) },
+              { label: t("Close tab"), shortcut: "Ctrl+W", onClick: () => workspace.closeTab(store.id) },
             ])
           }
         >
@@ -68,10 +69,10 @@ export function Toolbar({ store }: { store: RepoStore }) {
           disabled={!store.undoStack.length || store.busy != null}
           onClick={() => store.confirmUndo()}
           data-tip={tip(
-            "되돌리기",
+            t("Undo"),
             store.undoStack.length
-              ? `마지막 작업 「${store.undoStack[store.undoStack.length - 1].title}」을(를) 되돌립니다. 커밋은 취소해도 변경이 남습니다.`
-              : "되돌릴 작업이 없습니다. 커밋·머지·리베이스·체크아웃·브랜치 삭제 같은 작업을 하면 여기서 되돌릴 수 있습니다.",
+              ? t("Undoes the last operation, “{0}”. Undoing a commit keeps its changes.", store.undoStack[store.undoStack.length - 1].title)
+              : t("Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here."),
             "Ctrl+Z",
           )}
         >
@@ -81,15 +82,15 @@ export function Toolbar({ store }: { store: RepoStore }) {
           className="tool"
           onClick={() => store.select({ kind: "wip" })}
           data-tip={tip(
-            "작업 중인 변경",
-            statusIsEmpty(st) ? "수정한 파일이 없습니다. 파일을 고치면 여기서 스테이지하고 커밋합니다." : `수정한 파일 ${store.wipCount}개 — 스테이지하고 커밋합니다.`,
+            t("Uncommitted changes"),
+            statusIsEmpty(st) ? t("No modified files. When you edit files, you can stage and commit them here.") : t("{0} modified files — stage and commit them.", store.wipCount),
             "Ctrl+1",
           )}
         >
           <SquarePen size={16} />
           {!statusIsEmpty(st) && <span className="badge-num">{store.wipCount}</span>}
         </button>
-        <button className="tool" onClick={() => void store.fetch()} data-tip={tip("Fetch", "모든 원격에서 새 커밋과 브랜치를 가져옵니다. 내 브랜치는 바꾸지 않습니다.", "Ctrl+Shift+F")}>
+        <button className="tool" onClick={() => void store.fetch()} data-tip={tip("Fetch", t("Fetches new commits and branches from all remotes. Your branches aren't changed."), "Ctrl+Shift+F")}>
           <RefreshCcw size={16} />
         </button>
       </div>
@@ -102,18 +103,18 @@ export function Toolbar({ store }: { store: RepoStore }) {
         tip(
           "Pull",
           (!st.upstream
-            ? "이 브랜치는 원격 추적 브랜치가 없어 Pull 할 곳이 없습니다(먼저 Push 하면 생깁니다)."
+            ? t("This branch has no remote tracking branch to pull from (push it first to create one).")
             : st.behind > 0
-              ? `원격의 새 커밋 ${st.behind}개를 현재 브랜치로 가져옵니다.`
-              : "현재 브랜치를 원격과 맞춥니다(지금은 받을 커밋 없음).") + " ▾ 에서 merge·rebase 방식을 고를 수 있습니다.",
+              ? t("Brings {0} new commits from the remote into the current branch.", st.behind)
+              : t("Syncs the current branch with the remote (no commits to pull right now).")) + t(" Choose merge or rebase from ▾."),
           "Ctrl+Shift+L",
         ),
         () => void store.pull(),
         () => [
-          { label: "Pull (git 설정대로)", onClick: () => void store.pull("standard") },
-          { label: "Pull — fast-forward 만", onClick: () => void store.pull("fastForward") },
-          { label: "Pull — merge", onClick: () => void store.pull("merge") },
-          { label: "Pull — rebase", onClick: () => void store.pull("rebase") },
+          { label: t("Pull (as configured in git)"), onClick: () => void store.pull("standard") },
+          { label: t("Pull — fast-forward only"), onClick: () => void store.pull("fastForward") },
+          { label: t("Pull — merge"), onClick: () => void store.pull("merge") },
+          { label: t("Pull — rebase"), onClick: () => void store.pull("rebase") },
         ],
         !st.upstream,
       )}
@@ -126,22 +127,22 @@ export function Toolbar({ store }: { store: RepoStore }) {
         tip(
           "Push",
           (!st.upstream
-            ? "현재 브랜치를 원격에 처음 올리고 추적을 연결합니다."
+            ? t("Pushes the current branch to the remote for the first time and sets up tracking.")
             : st.ahead > 0
-              ? `올리지 않은 커밋 ${st.ahead}개를 원격에 올립니다.`
-              : "현재 브랜치를 원격에 올립니다(지금은 올릴 커밋 없음).") + " ▾ 에서 Force push.",
+              ? t("Pushes {0} unpushed commits to the remote.", st.ahead)
+              : t("Pushes the current branch to the remote (no commits to push right now).")) + t(" Force push from ▾."),
           "Ctrl+Shift+P",
         ),
         () => void store.push(),
         () => [
-          { label: "Push", onClick: () => void store.push() },
+          { label: t("Push"), onClick: () => void store.push() },
           {
-            label: "Force push (with lease)…",
+            label: t("Force push (with lease)…"),
             onClick: () =>
               store.ask({
-                title: "강제로 Push 할까요?",
-                message: "원격 브랜치가 내가 마지막으로 본 상태일 때만 덮어씁니다(--force-with-lease).",
-                actionTitle: "Force push",
+                title: t("Force push?"),
+                message: t("Overwrites the remote branch only if it's still as you last saw it (--force-with-lease)."),
+                actionTitle: t("Force push"),
                 action: () => store.push(true),
               }),
           },
@@ -150,14 +151,14 @@ export function Toolbar({ store }: { store: RepoStore }) {
 
       {split(
         <GitBranch size={16} />,
-        tip("브랜치", "지금 위치에서 새 브랜치를 만듭니다. ▾ 에서 새 워크트리, 에이전트(Claude Code·Codex·Gemini) 실행.", "Ctrl+Shift+B"),
+        tip(t("Branch"), t("Creates a new branch at the current position. From ▾: new worktree, run an agent (Claude Code, Codex, Gemini)."), "Ctrl+Shift+B"),
         () => store.requestNewBranch(),
         () => [
-          { label: "새 브랜치…", shortcut: "Ctrl+Shift+B", onClick: () => store.requestNewBranch() },
-          { label: "새 워크트리…", shortcut: "Ctrl+Alt+W", onClick: () => sheet({ kind: "addWorktree", branch: null, start: null }) },
+          { label: t("New branch…"), shortcut: "Ctrl+Shift+B", onClick: () => store.requestNewBranch() },
+          { label: t("New worktree…"), shortcut: "Ctrl+Alt+W", onClick: () => sheet({ kind: "addWorktree", branch: null, start: null }) },
           "divider",
-          { label: `여기서 ${agentKind(agents.defaultKind).title} 실행`, onClick: () => store.path && void store.startAgent(store.path) },
-          { label: "에이전트 세션 시작…", shortcut: "Ctrl+Alt+K", onClick: () => sheet({ kind: "startAgent", path: store.path }) },
+          { label: t("Run {0} here", agentKind(agents.defaultKind).title), onClick: () => store.path && void store.startAgent(store.path) },
+          { label: t("Start agent session…"), shortcut: "Ctrl+Alt+K", onClick: () => sheet({ kind: "startAgent", path: store.path }) },
         ],
       )}
 
@@ -168,8 +169,8 @@ export function Toolbar({ store }: { store: RepoStore }) {
             disabled={!store.headBranch}
             onClick={() => sheet({ kind: "createPullRequest" })}
             data-tip={tip(
-              `새 ${providerInfo[store.target.provider].requestShort}`,
-              `현재 브랜치(${store.headBranch ?? "-"})로 ${providerInfo[store.target.provider].requestName}를 만듭니다. 필요하면 먼저 Push 합니다.`,
+              t("New {0}", providerInfo[store.target.provider].requestShort),
+              t("Creates a {1} from the current branch ({0}). Pushes first if needed.", store.headBranch ?? "-", providerInfo[store.target.provider].requestName),
             )}
           >
             <GitPullRequestArrow size={16} />
@@ -184,15 +185,15 @@ export function Toolbar({ store }: { store: RepoStore }) {
         </>,
         tip(
           "Stash",
-          (statusIsEmpty(st) ? "가장 최근에 보관한 변경을 꺼냅니다(Pop)." : "커밋하지 않은 변경을 임시로 보관합니다.") +
-            (store.stashes.length ? ` 보관된 stash ${store.stashes.length}개.` : "") +
-            " ▾ 에서 Stash·Pop 선택.",
+          (statusIsEmpty(st) ? t("Applies the most recently stashed changes (Pop).") : t("Saves uncommitted changes for later.")) +
+            (store.stashes.length ? t(" {0} stashes saved.", store.stashes.length) : "") +
+            t(" Choose Stash or Pop from ▾."),
           "Ctrl+Shift+S",
         ),
         () => (!statusIsEmpty(st) ? sheet({ kind: "stash" }) : void store.stashPop()),
         () => [
-          { label: "Stash… (변경 임시 보관)", disabled: statusIsEmpty(st), onClick: () => sheet({ kind: "stash" }) },
-          { label: "Pop (가장 최근 stash 꺼내기)", disabled: !store.stashes.length, onClick: () => void store.stashPop() },
+          { label: t("Stash… (save changes for later)"), disabled: statusIsEmpty(st), onClick: () => sheet({ kind: "stash" }) },
+          { label: t("Pop (apply the latest stash)"), disabled: !store.stashes.length, onClick: () => void store.stashPop() },
         ],
         statusIsEmpty(st) && !store.stashes.length,
       )}
@@ -202,8 +203,8 @@ export function Toolbar({ store }: { store: RepoStore }) {
           className={`tool ${store.showTerminal ? "on" : ""}`}
           onClick={() => store.toggleTerminal()}
           data-tip={tip(
-            "터미널",
-            store.showTerminal ? "아래 터미널 패널을 숨깁니다. 셸은 계속 실행됩니다." : "그래프 아래에 이 저장소 폴더의 터미널을 엽니다. git 명령을 치면 그래프가 바로 갱신됩니다.",
+            t("Terminal"),
+            store.showTerminal ? t("Hides the terminal panel below. Shells keep running.") : t("Opens a terminal in this repository's folder below the graph. The graph updates as soon as you run git commands."),
             "Ctrl+`",
           )}
         >

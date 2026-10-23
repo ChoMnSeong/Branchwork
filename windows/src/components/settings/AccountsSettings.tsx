@@ -7,6 +7,7 @@ import { accountHost, type HostAccount, type Provider } from "../../lib/models";
 import { useObserve } from "../../lib/observable";
 import { avatars } from "../../lib/avatars";
 import { Avatar, Button, Checkbox, Spinner } from "../shared/ui";
+import { t } from "../../lib/i18n";
 
 export function AccountsSettings() {
   useObserve(accounts);
@@ -27,7 +28,7 @@ export function AccountsSettings() {
     }
     setWorking(null);
   };
-  const count = (p: Provider) => (accounts.accountsFor(p).length ? ` · ${accounts.accountsFor(p).length}개` : "");
+  const count = (p: Provider) => (accounts.accountsFor(p).length ? t(" · {0}", accounts.accountsFor(p).length) : "");
   const gitlabTokenURL = gitlabServer.trim() ? AccountStore.normalizeServer(gitlabServer) + "/-/user_settings/personal_access_tokens?name=Branchwork&scopes=api" : null;
 
   return (
@@ -41,7 +42,7 @@ export function AccountsSettings() {
           className="input"
           type="password"
           value={githubToken}
-          placeholder={accounts.accountsFor("github").length ? "다른 계정의 토큰" : "Personal access token (ghp_…)"}
+          placeholder={accounts.accountsFor("github").length ? t("Another account's token") : "Personal access token (ghp_…)"}
           onChange={(e) => setGithubToken(e.target.value)}
         />
         <div className="row">
@@ -54,29 +55,27 @@ export function AccountsSettings() {
               })
             }
           >
-            {accounts.accountsFor("github").length ? "계정 추가" : "연결"}
+            {accounts.accountsFor("github").length ? t("Add account") : t("Connect")}
           </Button>
           {accounts.ghPath && (
             <Button disabled={!!working} onClick={() => void run("github", () => accounts.importGitHubCLI())}>
-              gh CLI 로그인 가져오기
-            </Button>
+              {t("Import gh CLI login")}</Button>
           )}
           {working === "github" && <Spinner />}
           <span className="spacer" />
           <button className="link" onClick={() => void ipc.openUrl("https://github.com/settings/tokens/new?scopes=repo,read:org,workflow&description=Branchwork")}>
-            토큰 만들기
-          </button>
+            {t("Create token")}</button>
         </div>
-        <span className="hint">계정을 여러 개 연결하면, 같은 서버의 저장소에서는 왼쪽 PR 목록 위에서 쓸 계정을 고를 수 있습니다.</span>
+        <span className="hint">{t("If you connect several accounts, you can choose which one to use above the PR list for repositories on the same server.")}</span>
       </div>
 
       <div className="form-section">
-        <span className="form-section-title">사내 GitLab (자체 호스팅){count("gitlab")}</span>
+        <span className="form-section-title">{t("Self-hosted GitLab{0}", count("gitlab"))}</span>
         {accounts.accountsFor("gitlab").map((a) => (
           <ConnectedRow key={a.id} account={a} showServer />
         ))}
-        <input className="input" value={gitlabServer} placeholder="서버 주소 — https://gitlab.회사.co.kr" onChange={(e) => setGitlabServer(e.target.value)} spellCheck={false} />
-        <input className="input" type="password" value={gitlabToken} placeholder="Personal access token (api 권한)" onChange={(e) => setGitlabToken(e.target.value)} />
+        <input className="input" value={gitlabServer} placeholder={t("Server address — https://gitlab.example.com")} onChange={(e) => setGitlabServer(e.target.value)} spellCheck={false} />
+        <input className="input" type="password" value={gitlabToken} placeholder={t("Personal access token (api scope)")} onChange={(e) => setGitlabToken(e.target.value)} />
         <div className="row">
           <Button
             disabled={!gitlabServer.trim() || !gitlabToken.trim() || !!working}
@@ -87,28 +86,26 @@ export function AccountsSettings() {
               })
             }
           >
-            {accounts.accountsFor("gitlab").length ? "계정 추가" : "연결"}
+            {accounts.accountsFor("gitlab").length ? t("Add account") : t("Connect")}
           </Button>
           {working === "gitlab" && <Spinner />}
           <span className="spacer" />
           {gitlabTokenURL && (
             <button className="link" onClick={() => void ipc.openUrl(gitlabTokenURL)}>
-              토큰 만들기
-            </button>
+              {t("Create token")}</button>
           )}
         </div>
-        <span className="hint">회사에서 운영하는 GitLab 서버만 연결합니다(gitlab.com 은 아직 지원하지 않음). 서버마다 여러 계정을 연결할 수 있습니다.</span>
+        <span className="hint">{t("Only GitLab servers run by your organization can be connected (gitlab.com isn't supported yet). You can connect several accounts per server.")}</span>
       </div>
 
       <div className="form-section">
-        <span className="form-section-title">커밋 그래프</span>
-        <Checkbox checked={avatars.enabled} onChange={(v) => avatars.setEnabled(v)} label="작성자 프로필 사진 보이기" />
-        <span className="hint">GitHub 프로필 → 연결한 사내 GitLab 프로필 → Gravatar 순으로 찾고, 없으면 이니셜을 씁니다. Gravatar 에는 이메일 해시가 전송됩니다.</span>
+        <span className="form-section-title">{t("Commit graph")}</span>
+        <Checkbox checked={avatars.enabled} onChange={(v) => avatars.setEnabled(v)} label={t("Show author profile pictures")} />
+        <span className="hint">{t("Looks for a GitHub profile, then a connected self-hosted GitLab profile, then Gravatar, and uses initials if none is found. An email hash is sent to Gravatar.")}</span>
       </div>
       {error && <span className="error-text">{error}</span>}
       <span className="hint">
-        토큰은 {isWindows() ? "Windows 자격 증명 관리자" : "키체인"}에 계정별로 저장되고 PR·MR 조회와 생성, 저장소 목록, HTTPS push·pull 인증에 쓰입니다.
-      </span>
+        {t("Tokens are stored per account in {0} and used to view and create PRs/MRs, list repositories, and authenticate HTTPS push and pull.", isWindows() ? t("Windows Credential Manager") : t("Keychain"))}</span>
     </div>
   );
 }
@@ -125,11 +122,9 @@ function ConnectedRow({ account: a, showServer }: { account: HostAccount; showSe
         </span>
       </div>
       <span className="row" style={{ color: "var(--green)", fontSize: 12 }}>
-        <CircleCheck size={13} /> 연결됨
-      </span>
+        <CircleCheck size={13} /> {" "}{t("Connected")}</span>
       <Button size="small" onClick={() => void accounts.disconnect(a)}>
-        연결 해제
-      </Button>
+        {t("Disconnect")}</Button>
     </div>
   );
 }

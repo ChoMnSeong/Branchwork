@@ -25,10 +25,10 @@ struct HostingError: LocalizedError {
 
     var errorDescription: String? {
         switch status {
-        case 401: return "인증에 실패했습니다(401). 토큰이 만료됐거나 잘못됐습니다. 설정에서 계정을 다시 연결하세요."
-        case 403: return "권한이 없습니다(403): \(message)"
-        case 404: return "찾을 수 없습니다(404). 저장소에 접근할 권한이 있는 토큰인지 확인하세요."
-        default: return "서버 오류 \(status): \(message)"
+        case 401: return String(localized: "Authentication failed (401). The token expired or is wrong. Reconnect the account in Settings.")
+        case 403: return String(localized: "No permission (403): \(message)")
+        case 404: return String(localized: "Not found (404). Check that the token has access to the repository.")
+        default: return String(localized: "Server error \(status): \(message)")
         }
     }
 }
@@ -84,7 +84,7 @@ enum Hosting {
 
     static func request(_ p: Provider, _ url: String, token: String, method: String = "GET",
                                 body: [String: Any]? = nil) throws -> URLRequest {
-        guard let u = URL(string: url) else { throw HostingError(status: 0, body: Data("잘못된 주소: \(url)".utf8)) }
+        guard let u = URL(string: url) else { throw HostingError(status: 0, body: Data(String(localized: "Invalid address: \(url)").utf8)) }
         var r = URLRequest(url: u, timeoutInterval: 30)
         r.httpMethod = method
         r.setValue("Branchwork", forHTTPHeaderField: "User-Agent")

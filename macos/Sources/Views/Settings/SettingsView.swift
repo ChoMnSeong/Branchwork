@@ -6,17 +6,17 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             AccountsSettings()
-                .tabItem { Label("계정", systemImage: "person.crop.circle") }
+                .tabItem { Label("Accounts", systemImage: "person.crop.circle") }
             AISettings()
                 .tabItem { Label("AI", systemImage: "sparkles") }
             RulesSettings()
-                .tabItem { Label("규칙", systemImage: "text.badge.checkmark") }
+                .tabItem { Label("Rules", systemImage: "text.badge.checkmark") }
             ToolsSettings()
-                .tabItem { Label("도구", systemImage: "wrench.and.screwdriver") }
+                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
             AppearanceSettings()
-                .tabItem { Label("화면", systemImage: "paintpalette") }
+                .tabItem { Label("Appearance", systemImage: "paintpalette") }
             UpdateSettings()
-                .tabItem { Label("업데이트", systemImage: "arrow.down.circle") }
+                .tabItem { Label("Update", systemImage: "arrow.down.circle") }
         }
         .frame(width: 600, height: 560)
     }

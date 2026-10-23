@@ -1,6 +1,7 @@
 import { gitRaw } from "../git";
 import { isWIP, short, type DropChoice, type DropRequest, type GraphEntry, type RefLabel } from "../models";
 import { RepoUndo } from "./undo";
+import { t } from "../i18n";
 
 export const branchPayload = "branchwork-branch:";
 export const commitPayload = "branchwork-commit:";
@@ -52,7 +53,7 @@ export abstract class RepoDrop extends RepoUndo {
 
   /** source 를 target 브랜치에 머지. target 이 현재 브랜치가 아니면 먼저 체크아웃한다(머지는 체크아웃한 브랜치에만 할 수 있다). */
   async mergeBranch(source: string, target: string) {
-    if (target !== this.headBranch && !(await this.run(`'${target}' 체크아웃 중…`, ["switch", target]))) return;
+    if (target !== this.headBranch && !(await this.run(t("Checking out '{0}'…", target), ["switch", target]))) return;
     await this.merge(source);
   }
 
@@ -77,48 +78,48 @@ export abstract class RepoDrop extends RepoUndo {
     const targetIsLocal = this.localBranches.some((b) => b.name === target);
     const sourceIsLocal = this.localBranches.some((b) => b.name === source);
     if (await this.isAncestor(sourceRef, targetRef)) {
-      this.setDrop({ title: `'${source}'은(는) 이미 '${target}'에 들어 있습니다`, message: "머지할 새 커밋이 없습니다.", choices: [] });
+      this.setDrop({ title: t("'{0}' is already in '{1}'", source, target), message: t("No new commits to merge."), choices: [] });
       return;
     }
     const choices: DropChoice[] = [];
     // 대상이 원본의 조상이면 머지 커밋 없이 앞으로 옮기기만 하면 된다
     if (targetIsLocal && (await this.isAncestor(targetRef, sourceRef))) {
       if (target === current) {
-        choices.push({ title: `'${target}'(현재)을(를) '${source}'까지 빨리 감기 (fast-forward)`, action: () => this.run("빨리 감는 중…", ["merge", "--ff-only", source]) });
+        choices.push({ title: t("Fast-forward '{0}' (current) to '{1}'", target, source), action: () => this.run(t("Fast-forwarding…"), ["merge", "--ff-only", source]) });
       } else {
         choices.push({
-          title: `'${target}'을(를) '${source}'까지 빨리 감기 (fast-forward)`,
-          action: () => this.run("빨리 감는 중…", ["fetch", ".", `${sourceRef}:refs/heads/${target}`]),
+          title: t("Fast-forward '{0}' to '{1}'", target, source),
+          action: () => this.run(t("Fast-forwarding…"), ["fetch", ".", `${sourceRef}:refs/heads/${target}`]),
         });
       }
     }
     if (target === current) {
-      choices.push({ title: `'${source}'을(를) '${target}'(현재)에 머지`, action: () => this.merge(source) });
-      choices.push({ title: `'${target}'(현재)을(를) '${source}' 위로 리베이스`, action: () => this.rebase(source) });
+      choices.push({ title: t("Merge '{0}' into '{1}' (current)", source, target), action: () => this.merge(source) });
+      choices.push({ title: t("Rebase '{0}' (current) onto '{1}'", target, source), action: () => this.rebase(source) });
     } else if (source === current) {
       // 가장 흔한 경우: 작업한 브랜치(현재)를 main 같은 브랜치에 합치기
-      if (targetIsLocal) choices.push({ title: `'${source}'(현재)을(를) '${target}'에 머지 — '${target}' 체크아웃`, action: () => this.mergeBranch(source, target) });
-      choices.push({ title: `'${source}'(현재)을(를) '${target}' 위로 리베이스`, action: () => this.rebase(target) });
-      choices.push({ title: `'${target}'을(를) '${source}'(현재)에 머지`, action: () => this.merge(target) });
+      if (targetIsLocal) choices.push({ title: t("Merge '{0}' (current) into '{1}' — checks out '{2}'", source, target, target), action: () => this.mergeBranch(source, target) });
+      choices.push({ title: t("Rebase '{0}' (current) onto '{1}'", source, target), action: () => this.rebase(target) });
+      choices.push({ title: t("Merge '{0}' into '{1}' (current)", target, source), action: () => this.merge(target) });
     } else {
       if (targetIsLocal)
         choices.push({
-          title: `'${target}' 체크아웃 후 '${source}' 머지`,
+          title: t("Check out '{0}', then merge '{1}'", target, source),
           action: async () => {
-            if (await this.run("체크아웃 중…", ["switch", target])) await this.merge(source);
+            if (await this.run(t("Checking out…"), ["switch", target])) await this.merge(source);
           },
         });
       if (sourceIsLocal)
         choices.push({
-          title: `'${source}' 체크아웃 후 '${target}' 위로 리베이스`,
+          title: t("Check out '{0}', then rebase onto '{1}'", source, target),
           action: async () => {
-            if (await this.run("체크아웃 중…", ["switch", source])) await this.rebase(target);
+            if (await this.run(t("Checking out…"), ["switch", source])) await this.rebase(target);
           },
         });
     }
     this.setDrop({
       title: `'${source}'  →  '${target}'`,
-      message: choices.length ? "무엇을 할까요? 충돌이 나면 오른쪽에서 해결할 수 있습니다." : "여기에서 할 수 있는 작업이 없습니다.",
+      message: choices.length ? t("What would you like to do? If there are conflicts, you can resolve them on the right.") : t("There's nothing you can do here."),
       choices,
     });
   }
@@ -127,17 +128,17 @@ export abstract class RepoDrop extends RepoUndo {
     const s = short(sha);
     const choices: DropChoice[] = [];
     if (source === this.headBranch) {
-      choices.push({ title: `이 커밋(${s})을 '${source}'(현재)에 머지`, action: () => this.merge(sha) });
-      choices.push({ title: `'${source}'(현재)을(를) 이 커밋(${s}) 위로 리베이스`, action: () => this.rebase(sha) });
+      choices.push({ title: t("Merge this commit ({0}) into '{1}' (current)", s, source), action: () => this.merge(sha) });
+      choices.push({ title: t("Rebase '{0}' (current) onto this commit ({1})", source, s), action: () => this.rebase(sha) });
     } else if (this.localBranches.some((b) => b.name === source)) {
       choices.push({
-        title: `'${source}' 체크아웃 후 이 커밋(${s}) 위로 리베이스`,
+        title: t("Check out '{0}', then rebase onto this commit ({1})", source, s),
         action: async () => {
-          if (await this.run("체크아웃 중…", ["switch", source])) await this.rebase(sha);
+          if (await this.run(t("Checking out…"), ["switch", source])) await this.rebase(sha);
         },
       });
     }
-    this.setDrop({ title: `'${source}'  →  커밋 ${s}`, message: choices.length ? "무엇을 할까요?" : "여기에서 할 수 있는 작업이 없습니다.", choices });
+    this.setDrop({ title: t("'{0}'  →  commit {1}", source, s), message: choices.length ? t("What would you like to do?") : t("There's nothing you can do here."), choices });
   }
 
   protected offerCommitDrop(sha: string, target: string | null) {
@@ -145,18 +146,18 @@ export abstract class RepoDrop extends RepoUndo {
     const s = short(sha);
     const choices: DropChoice[] = [];
     if (target === this.headBranch) {
-      choices.push({ title: `커밋 ${s}을(를) '${target}'(현재)에 cherry-pick`, action: () => this.cherryPick(sha) });
+      choices.push({ title: t("Cherry-pick commit {0} onto '{1}' (current)", s, target), action: () => this.cherryPick(sha) });
     } else if (this.localBranches.some((b) => b.name === target)) {
       choices.push({
-        title: `'${target}' 체크아웃 후 커밋 ${s} cherry-pick`,
+        title: t("Check out '{0}', then cherry-pick commit {1}", target, s),
         action: async () => {
-          if (await this.run("체크아웃 중…", ["switch", target])) await this.cherryPick(sha);
+          if (await this.run(t("Checking out…"), ["switch", target])) await this.cherryPick(sha);
         },
       });
     }
     this.setDrop({
-      title: `커밋 ${s}  →  '${target}'`,
-      message: choices.length ? "무엇을 할까요?" : "원격 브랜치에는 바로 cherry-pick 할 수 없습니다.",
+      title: t("Commit {0}  →  '{1}'", s, target),
+      message: choices.length ? t("What would you like to do?") : t("You can't cherry-pick onto a remote branch directly."),
       choices,
     });
   }

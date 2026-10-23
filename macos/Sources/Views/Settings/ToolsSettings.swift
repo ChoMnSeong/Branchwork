@@ -10,7 +10,7 @@ struct ToolsSettings: View {
     var body: some View {
         Form {
             Section {
-                Text("사람마다 설치 위치가 달라 자동으로 못 찾으면 **불러오기**로 실행 파일을 직접 고르세요. 고른 경로는 저장되어 다음에도 그대로 씁니다.")
+                Text("Install locations differ from person to person. If a tool isn't found automatically, use **Locate** to choose the executable yourself. The chosen path is saved and used next time.")
                     .font(.callout).foregroundStyle(.secondary)
             }
             ForEach(ToolID.allCases) { id in
@@ -23,25 +23,25 @@ struct ToolsSettings: View {
                             .textSelection(.enabled)
                         Spacer()
                         if busy == id { ProgressView().controlSize(.small) }
-                        Button("불러오기…") { choose(id) }
+                        Button("Locate…") { choose(id) }
                         if st.source == .custom {
-                            Button("자동") { tools.resetToAuto(id) }
-                                .help("직접 고른 경로를 지우고 다시 자동으로 찾습니다")
+                            Button("Auto") { tools.resetToAuto(id) }
+                                .help("Clears the path you chose and finds it automatically again")
                         }
                         if st.source == .none, let u = id.install.flatMap(URL.init(string:)) {
-                            Link("설치", destination: u)
+                            Link("Install", destination: u)
                         }
                     }
                     if let v = st.version { Text(v).font(.caption).foregroundStyle(.secondary) }
                 } header: {
                     HStack {
                         Text(id.title)
-                        if id == .git { Text("필수").font(.caption2).foregroundStyle(.secondary) }
+                        if id == .git { Text("Required").font(.caption2).foregroundStyle(.secondary) }
                         Spacer()
                         switch st.source {
-                        case .custom: Text("직접 지정").font(.caption).foregroundStyle(Color.accentColor)
-                        case .auto: Text("자동으로 찾음").font(.caption).foregroundStyle(.secondary)
-                        case .none: Text("없음").font(.caption).foregroundStyle(.orange)
+                        case .custom: Text("Set manually").font(.caption).foregroundStyle(Color.accentColor)
+                        case .auto: Text("Found automatically").font(.caption).foregroundStyle(.secondary)
+                        case .none: Text("None").font(.caption).foregroundStyle(.orange)
                         }
                     }
                 } footer: {
@@ -62,8 +62,8 @@ struct ToolsSettings: View {
         p.allowsMultipleSelection = false
         p.treatsFilePackagesAsDirectories = true
         p.showsHiddenFiles = true
-        p.prompt = "불러오기"
-        p.message = "\(id.title) 실행 파일을 고르세요"
+        p.prompt = String(localized: "Locate")
+        p.message = String(localized: "Choose the \(id.title) executable")
         if let cur = tools.path(id) { p.directoryURL = URL(fileURLWithPath: (cur as NSString).deletingLastPathComponent) }
         guard p.runModal() == .OK, let u = p.url else { return }
         error = nil

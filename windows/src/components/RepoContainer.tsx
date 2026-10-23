@@ -13,6 +13,7 @@ import { TerminalPanel } from "./TerminalPanel";
 import { Toolbar } from "./Toolbar";
 import { Button, Modal } from "./shared/ui";
 import { WelcomeView } from "./WelcomeView";
+import { t } from "../lib/i18n";
 
 /** 탭 하나: 저장소 화면 또는 시작 화면, 그 위의 로딩 화면과 대화상자들 */
 export function RepoContainer({ store, visible, gitMissing, openSettings }: { store: RepoStore; visible: boolean; gitMissing: boolean; openSettings: () => void }) {
@@ -21,7 +22,7 @@ export function RepoContainer({ store, visible, gitMissing, openSettings }: { st
   return (
     <div style={{ position: "absolute", inset: 0, display: visible ? "block" : "none" }}>
       {store.path ? <RepoView store={store} openSettings={openSettings} /> : store.booted && !store.loading ? <WelcomeView store={store} gitMissing={gitMissing} /> : null}
-      <FadingLoading show={showLoading} title={store.loading?.title ?? "Branchwork"} step={store.loading?.step ?? "준비 중…"} />
+      <FadingLoading show={showLoading} title={store.loading?.title ?? "Branchwork"} step={store.loading?.step ?? t("Preparing…")} />
       {visible && <Dialogs store={store} />}
     </div>
   );
@@ -33,8 +34,8 @@ function FadingLoading({ show, title, step }: { show: boolean; title: string; st
   useEffect(() => {
     if (show) setMounted(true);
     else {
-      const t = setTimeout(() => setMounted(false), 420);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setMounted(false), 420);
+      return () => clearTimeout(timer);
     }
   }, [show]);
   if (!mounted) return null;
@@ -51,13 +52,12 @@ function Dialogs({ store }: { store: RepoStore }) {
       <SheetHost store={store} />
       {store.errorMessage && (
         <Modal
-          title="작업을 완료하지 못했습니다"
+          title={t("Couldn't complete the operation")}
           width={520}
           onClose={close(() => (store.errorMessage = null))}
           footer={
             <Button kind="primary" autoFocus onClick={close(() => (store.errorMessage = null))}>
-              확인
-            </Button>
+              {t("OK")}</Button>
           }
         >
           <div className="modal-message selectable">{store.errorMessage}</div>
@@ -65,11 +65,11 @@ function Dialogs({ store }: { store: RepoStore }) {
       )}
       {store.notRepoPrompt && (
         <Modal
-          title="Git 저장소가 아닙니다"
+          title={t("Not a Git repository")}
           onClose={close(() => (store.notRepoPrompt = null))}
           footer={
             <>
-              <Button onClick={close(() => (store.notRepoPrompt = null))}>취소</Button>
+              <Button onClick={close(() => (store.notRepoPrompt = null))}>{t("Cancel")}</Button>
               <Button
                 kind="primary"
                 onClick={() => {
@@ -79,31 +79,28 @@ function Dialogs({ store }: { store: RepoStore }) {
                   void store.initRepository(p);
                 }}
               >
-                여기에 저장소 만들기
-              </Button>
+                {t("Create repository here")}</Button>
             </>
           }
         >
-          <div className="modal-message">{store.notRepoPrompt} 에 새 Git 저장소를 만들까요?</div>
+          <div className="modal-message">{t("Create a new Git repository in {0}?", store.notRepoPrompt)}</div>
         </Modal>
       )}
       {store.unsafePrompt && (
         <Modal
-          title="git 이 이 저장소를 막았습니다"
+          title={t("git blocked this repository")}
           width={560}
           onClose={close(() => (store.unsafePrompt = null))}
           footer={
             <>
-              <Button onClick={close(() => (store.unsafePrompt = null))}>취소</Button>
+              <Button onClick={close(() => (store.unsafePrompt = null))}>{t("Cancel")}</Button>
               <Button kind="primary" onClick={() => void store.trustRepository()}>
-                믿을 수 있는 저장소로 등록하고 열기
-              </Button>
+                {t("Mark the repository as safe and open it")}</Button>
             </>
           }
         >
           <div className="modal-message">
-            저장소 폴더의 소유자가 지금 사용자와 달라서(WSL 안의 저장소, 외장 디스크 등) git 이 안전을 위해 열지 않았습니다. 내가 아는 저장소라면 등록하세요.
-          </div>
+            {t("The repository folder is owned by a different user (a repository in WSL, an external disk, etc.), so git didn't open it for safety. If you know this repository, mark it as safe.")}</div>
           <div className="mono selectable" style={{ fontSize: 11.5, wordBreak: "break-all" }}>
             git config --global --add safe.directory '{store.unsafePrompt.safePath}'
           </div>
@@ -115,7 +112,7 @@ function Dialogs({ store }: { store: RepoStore }) {
           onClose={close(() => (store.confirm = null))}
           footer={
             <>
-              <Button onClick={close(() => (store.confirm = null))}>취소</Button>
+              <Button onClick={close(() => (store.confirm = null))}>{t("Cancel")}</Button>
               <Button
                 kind={store.confirm.destructive === false ? "primary" : "danger"}
                 autoFocus
@@ -139,7 +136,7 @@ function Dialogs({ store }: { store: RepoStore }) {
           title={store.dropRequest.title}
           width={480}
           onClose={close(() => (store.dropRequest = null))}
-          footer={<Button onClick={close(() => (store.dropRequest = null))}>{store.dropRequest.choices.length ? "취소" : "확인"}</Button>}
+          footer={<Button onClick={close(() => (store.dropRequest = null))}>{store.dropRequest.choices.length ? t("Cancel") : t("OK")}</Button>}
         >
           <div className="modal-message">{store.dropRequest.message}</div>
           {store.dropRequest.choices.map((c, i) => (

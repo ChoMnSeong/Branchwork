@@ -11,6 +11,7 @@ import { ipc } from "./lib/ipc";
 import { useObserve } from "./lib/observable";
 import type { RepoStore } from "./lib/repo";
 import { workspace } from "./lib/workspace";
+import { t } from "./lib/i18n";
 
 export function App({ gitMissing }: { gitMissing: boolean }) {
   useObserve(workspace);
@@ -38,8 +39,8 @@ export function App({ gitMissing }: { gitMissing: boolean }) {
     <div className="col" style={{ height: "100%" }}>
       <TabBar openSettings={() => setSettingsOpen(true)} />
       <div style={{ flex: 1, minHeight: 0, position: "relative", background: "var(--surface)" }}>
-        {workspace.tabs.map((t) => (
-          <RepoContainer key={t.id} store={t} visible={t === active} gitMissing={gitMissing} openSettings={() => setSettingsOpen(true)} />
+        {workspace.tabs.map((tab) => (
+          <RepoContainer key={tab.id} store={tab} visible={tab === active} gitMissing={gitMissing} openSettings={() => setSettingsOpen(true)} />
         ))}
         {!workspace.tabs.length && <LoadingView title="Branchwork" step={workspace.restoreStep} />}
       </div>
@@ -63,33 +64,33 @@ function TabBar({ openSettings }: { openSettings: () => void }) {
   useObserve(workspace);
   return (
     <div className="tabbar">
-      {workspace.tabs.map((t) => (
-        <Tab key={t.id} store={t} on={t === workspace.active} />
+      {workspace.tabs.map((tab) => (
+        <Tab key={tab.id} store={tab} on={tab === workspace.active} />
       ))}
       <div className="tabbar-end">
-        <IconButton icon={<Plus size={16} />} tip={tip("새 탭", "다른 저장소를 새 탭에서 엽니다.", "Ctrl+T")} onClick={() => workspace.newTab()} />
+        <IconButton icon={<Plus size={16} />} tip={tip(t("New tab"), t("Opens another repository in a new tab."), "Ctrl+T")} onClick={() => workspace.newTab()} />
         <span className="spacer" />
       </div>
       <span className="spacer" />
       <div className="tabbar-end">
-        <IconButton icon={<Settings size={15} />} tip={tip("설정", "GitHub·GitLab 계정과 Claude 연결", "Ctrl+,")} onClick={openSettings} />
+        <IconButton icon={<Settings size={15} />} tip={tip(t("Settings"), t("Connect GitHub and GitLab accounts and Claude"), "Ctrl+,")} onClick={openSettings} />
         <IconButton
           icon={<Menu size={16} />}
-          tip="메뉴"
+          tip={t("Menu")}
           onClick={(e) => {
             const s = workspace.active;
             showMenuBelow(e.currentTarget, [
-              { label: "새 탭", shortcut: "Ctrl+T", onClick: () => workspace.newTab() },
-              { label: "저장소 열기…", shortcut: "Ctrl+O", onClick: () => void (s?.path ? workspace.newTab() : s)?.pickAndOpen() },
-              { label: "저장소 복제…", shortcut: "Ctrl+Shift+O", onClick: () => s && openSheet(s, { kind: "clone" }) },
-              { label: "새 저장소 만들기…", onClick: () => void s?.pickAndInit() },
+              { label: t("New tab"), shortcut: "Ctrl+T", onClick: () => workspace.newTab() },
+              { label: t("Open repository…"), shortcut: "Ctrl+O", onClick: () => void (s?.path ? workspace.newTab() : s)?.pickAndOpen() },
+              { label: t("Clone repository…"), shortcut: "Ctrl+Shift+O", onClick: () => s && openSheet(s, { kind: "clone" }) },
+              { label: t("Create new repository…"), onClick: () => void s?.pickAndInit() },
               "divider",
-              { label: "새로 고침", shortcut: "F5", disabled: !s?.path, onClick: () => void s?.reload() },
-              { label: "커밋 검색", shortcut: "Ctrl+F", disabled: !s?.path, onClick: () => s?.requestSearchFocus() },
-              { label: "터미널 보기/숨기기", shortcut: "Ctrl+`", disabled: !s?.path, onClick: () => s?.toggleTerminal() },
+              { label: t("Refresh"), shortcut: "F5", disabled: !s?.path, onClick: () => void s?.reload() },
+              { label: t("Search commits"), shortcut: "Ctrl+F", disabled: !s?.path, onClick: () => s?.requestSearchFocus() },
+              { label: t("Show/hide terminal"), shortcut: "Ctrl+`", disabled: !s?.path, onClick: () => s?.toggleTerminal() },
               "divider",
-              { label: "설정…", shortcut: "Ctrl+,", onClick: openSettings },
-              { label: updater.state === "available" ? `업데이트 ${updater.info?.version} 설치…` : "업데이트 확인…", onClick: () => void updater.check(true) },
+              { label: t("Settings…"), shortcut: "Ctrl+,", onClick: openSettings },
+              { label: updater.state === "available" ? t("Install update {0}…", updater.info?.version) : t("Check for updates…"), onClick: () => void updater.check(true) },
               { label: `Branchwork ${env.version} · GitHub`, onClick: () => void ipc.openUrl("https://github.com/ChoMnSeong/Branchwork") },
             ]);
           }}
@@ -111,17 +112,17 @@ function Tab({ store, on }: { store: RepoStore; on: boolean }) {
         } else if (e.button === 0) workspace.select(store.id);
       }}
       onContextMenu={(e) => showContextMenu(e, tabMenu(store))}
-      data-tip={store.path ? store.path : "새 탭"}
+      data-tip={store.path ? store.path : t("New tab")}
     >
       {(store.loading || store.busy) && <Spinner size={11} />}
       <span className="ellipsis grow" style={{ fontWeight: on ? 600 : 400 }}>
-        {store.path ? store.name : store.loading ? store.loading.title : "새 탭"}
+        {store.path ? store.name : store.loading ? store.loading.title : t("New tab")}
       </span>
       <IconButton
         small
         className="close"
         icon={<X size={12} />}
-        tip={keyLabel("탭 닫기 (Ctrl+W)")}
+        tip={keyLabel(t("Close tab (Ctrl+W)"))}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={() => workspace.closeTab(store.id)}
       />
@@ -131,22 +132,22 @@ function Tab({ store, on }: { store: RepoStore; on: boolean }) {
 
 /** 탭 우클릭 메뉴. 닫히는 탭에서 터미널·에이전트 세션이 돌고 있으면 한 번 묻는다(닫으면 함께 끝난다). */
 function tabMenu(store: RepoStore): MenuItem[] {
-  const others = workspace.tabs.filter((t) => t !== store);
+  const others = workspace.tabs.filter((tab) => tab !== store);
   const closing = (tabs: RepoStore[], action: () => void, what: string) => () => {
-    const running = tabs.reduce((n, t) => n + t.terminals.filter((x) => x.running).length, 0);
+    const running = tabs.reduce((n, tab) => n + tab.terminals.filter((x) => x.running).length, 0);
     if (!running) return action();
     workspace.select(store.id);
     store.ask({
-      title: `${what}을(를) 닫을까요?`,
-      message: `실행 중인 터미널·에이전트 세션 ${running}개가 함께 끝납니다.`,
-      actionTitle: "닫기",
+      title: t("Close {0}?", what),
+      message: t("{0} running terminal and agent sessions will end too.", running),
+      actionTitle: t("Close"),
       action,
     });
   };
   return [
-    { label: "이 탭 닫기", shortcut: store === workspace.active ? "Ctrl+W" : undefined, onClick: closing([store], () => workspace.closeTab(store.id), "이 탭") },
-    { label: "다른 탭 모두 닫기", disabled: !others.length, onClick: closing(others, () => workspace.closeOthers(store.id), `다른 탭 ${others.length}개`) },
-    { label: "모든 탭 닫기", onClick: closing(workspace.tabs, () => workspace.closeAll(), `탭 ${workspace.tabs.length}개 모두`) },
+    { label: t("Close this tab"), shortcut: store === workspace.active ? "Ctrl+W" : undefined, onClick: closing([store], () => workspace.closeTab(store.id), t("This tab")) },
+    { label: t("Close other tabs"), disabled: !others.length, onClick: closing(others, () => workspace.closeOthers(store.id), t("{0} other tabs", others.length)) },
+    { label: t("Close all tabs"), onClick: closing(workspace.tabs, () => workspace.closeAll(), t("All {0} tabs", workspace.tabs.length)) },
   ];
 }
 

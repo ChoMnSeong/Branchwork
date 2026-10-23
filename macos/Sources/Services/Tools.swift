@@ -14,18 +14,18 @@ enum ToolID: String, CaseIterable, Identifiable {
         case .codex: return "Codex CLI"
         case .gemini: return "Gemini CLI"
         case .gh: return "GitHub CLI (gh)"
-        case .shell: return "터미널 셸"
+        case .shell: return String(localized: "Terminal shell")
         }
     }
 
     var detail: String {
         switch self {
-        case .git: return "모든 저장소 작업에 씁니다."
-        case .claude: return "Claude 로그인으로 글 작성·에이전트 세션"
-        case .codex: return "ChatGPT 로그인으로 글 작성·에이전트 세션"
-        case .gemini: return "Google 로그인으로 글 작성·에이전트 세션"
-        case .gh: return "gh 로그인을 GitHub 계정으로 가져올 때"
-        case .shell: return "아래 터미널 패널에서 여는 셸(zsh·bash·fish 등)"
+        case .git: return String(localized: "Used for all repository operations.")
+        case .claude: return String(localized: "Writing and agent sessions with your Claude login")
+        case .codex: return String(localized: "Writing and agent sessions with your ChatGPT login")
+        case .gemini: return String(localized: "Writing and agent sessions with your Google login")
+        case .gh: return String(localized: "When importing the gh login as a GitHub account")
+        case .shell: return String(localized: "Shell opened in the terminal panel below (zsh, bash, fish, etc.)")
         }
     }
 
@@ -151,12 +151,12 @@ final class ToolStore {
     func setCustom(_ id: ToolID, path: String) async throws {
         let name = (path as NSString).lastPathComponent
         guard FileManager.default.isExecutableFile(atPath: path) else {
-            throw GitError(command: id.rawValue, message: "\(name) 은(는) 실행할 수 있는 파일이 아닙니다.")
+            throw GitError(command: id.rawValue, message: String(localized: "\(name) isn't an executable file."))
         }
         if !id.versionArgs.isEmpty {
             let r = try await Shell.run(path, id.versionArgs, cwd: FileManager.default.temporaryDirectory, timeout: 20)
             guard r.status == 0 else {
-                throw GitError(command: id.rawValue, message: "\(name) 이(가) 정상적으로 응답하지 않았습니다(종료 코드 \(r.status)). \(id.title) 실행 파일이 맞는지 확인하세요.")
+                throw GitError(command: id.rawValue, message: String(localized: "\(name) didn't respond correctly (exit code \(r.status)). Check that it's the \(id.title) executable."))
             }
         }
         var c = custom

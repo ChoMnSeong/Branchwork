@@ -1,13 +1,14 @@
 import { isWindows } from "./env";
 import { ipc, type ProcOutput } from "./ipc";
 import { tools } from "./tools";
+import { NativeError, t } from "./i18n";
 
 export class GitError extends Error {
   constructor(
     readonly command: string,
     message: string,
   ) {
-    super(message || `git ${command} 실패`);
+    super(message || t("git {0} failed", command));
   }
 }
 
@@ -23,9 +24,9 @@ export function describe(e: unknown): string {
   ) {
     return (
       msg +
-      "\n\n인증이 필요합니다. 설정(Ctrl+,)에서 GitHub·GitLab 계정을 연결하거나, 터미널에서 한 번 push/pull 해서 자격 증명(" +
-      (isWindows() ? "Windows 자격 증명 관리자" : "키체인") +
-      "·SSH 키)을 저장한 뒤 다시 시도하세요."
+      t("\n\nAuthentication is required. Connect a GitHub or GitLab account in Settings (Ctrl+,), or push/pull once in a terminal to save your credentials (") +
+      (isWindows() ? t("Windows Credential Manager") : t("Keychain")) +
+      t(" or SSH key), then try again.")
     );
   }
   return msg;
@@ -92,9 +93,9 @@ export async function gitRaw(args: string[], cwd: string, o: GitOptions = {}): P
       timeoutMs: o.timeoutMs ?? 120_000,
     });
   } catch (e) {
-    const m = String(e);
-    if (/실행하지 못했습니다/.test(m) && isWindows()) {
-      throw new GitError("git", "git 을 찾지 못했습니다. Git for Windows(https://git-scm.com/download/win)를 설치하거나, 설정 > 도구에서 git.exe 를 불러오세요.");
+    const m = String(e instanceof Error ? e.message : e);
+    if (/^Couldn't run /.test(e instanceof NativeError ? e.native : m) && isWindows()) {
+      throw new GitError("git", t("Couldn't find git. Install Git for Windows (https://git-scm.com/download/win) or locate git.exe in Settings > Tools."));
     }
     throw new GitError("git", m);
   }

@@ -1,3 +1,4 @@
+import { language, t } from "./i18n";
 /** 레인 색. 흰 글자를 올려도 읽히도록 채도·명도를 맞췄다. (맥 버전과 같은 색) */
 export const laneColors = [
   "rgb(41,133,245)", // 파랑
@@ -22,27 +23,36 @@ export function stableHash(s: string) {
   return h;
 }
 
-const relative = new Intl.RelativeTimeFormat("ko", { numeric: "auto", style: "short" });
+let fmts: { lang: string; relative: Intl.RelativeTimeFormat; day: Intl.DateTimeFormat; long: Intl.DateTimeFormat } | null = null;
+/** 화면 언어에 맞춘 날짜 형식(언어는 시작할 때 정해지므로 처음 쓸 때 만든다) */
+function formats() {
+  if (fmts?.lang !== language) {
+    const loc = language;
+    fmts = {
+      lang: loc,
+      relative: new Intl.RelativeTimeFormat(loc, { numeric: "auto", style: "short" }),
+      day: new Intl.DateTimeFormat(loc, { year: "numeric", month: "2-digit", day: "2-digit" }),
+      long: new Intl.DateTimeFormat(loc, { dateStyle: "long", timeStyle: "short" }),
+    };
+  }
+  return fmts;
+}
 
 /** 일주일 이내는 "3시간 전", 그보다 오래면 날짜 */
 export function shortDate(sec: number) {
   const diff = Date.now() / 1000 - sec;
+  const f = formats();
   if (diff < 7 * 86400) {
-    if (diff < 60) return "방금";
-    if (diff < 3600) return relative.format(-Math.floor(diff / 60), "minute");
-    if (diff < 86400) return relative.format(-Math.floor(diff / 3600), "hour");
-    return relative.format(-Math.floor(diff / 86400), "day");
+    if (diff < 60) return t("Just now");
+    if (diff < 3600) return f.relative.format(-Math.floor(diff / 60), "minute");
+    if (diff < 86400) return f.relative.format(-Math.floor(diff / 3600), "hour");
+    return f.relative.format(-Math.floor(diff / 86400), "day");
   }
-  const d = new Date(sec * 1000);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+  return f.day.format(new Date(sec * 1000));
 }
 
 export function longDate(sec: number) {
-  const d = new Date(sec * 1000);
-  const h = d.getHours();
-  const ampm = h < 12 ? "오전" : "오후";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${ampm} ${h12}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return formats().long.format(new Date(sec * 1000));
 }
 
 export const trimmed = (s: string) => s.trim();

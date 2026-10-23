@@ -41,9 +41,9 @@ pub async fn http_request(
     }
     let resp = req.send().await.map_err(|e| {
         if e.is_timeout() {
-            format!("응답 시간이 초과됐습니다: {url}")
+            format!("Request timed out: {url}")
         } else if e.is_connect() {
-            format!("서버에 연결하지 못했습니다: {url}")
+            format!("Couldn't connect to the server: {url}")
         } else {
             e.to_string()
         }

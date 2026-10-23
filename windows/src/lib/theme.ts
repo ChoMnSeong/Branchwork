@@ -1,13 +1,14 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Observable } from "./observable";
 import { settings } from "./settings";
+import { t } from "./i18n";
 
 export type ThemeMode = "system" | "light" | "dark";
 
 export const themeModes: { id: ThemeMode; title: string }[] = [
-  { id: "system", title: "시스템" },
-  { id: "light", title: "라이트" },
-  { id: "dark", title: "다크" },
+  { id: "system", title: t("System") },
+  { id: "light", title: t("Light") },
+  { id: "dark", title: t("Dark") },
 ];
 
 /**

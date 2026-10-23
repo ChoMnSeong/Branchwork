@@ -6,17 +6,17 @@ extension RepoStore {
     func startInteractiveRebase(from sha: String) async {
         guard let url, let branch = headBranch else { return }
         guard repoState == .clean else {
-            errorMessage = "\(repoState.title)인 동안에는 커밋을 정리할 수 없습니다."
+            errorMessage = String(localized: "You can't clean up commits right now (\(repoState.title)).")
             return
         }
         guard await isAncestor(sha, of: "HEAD") else {
-            errorMessage = "현재 브랜치 '\(branch)'에 들어 있는 커밋만 정리할 수 있습니다."
+            errorMessage = String(localized: "You can only clean up commits that are on the current branch '\(branch)'.")
             return
         }
         let base = (try? await Git.run(["rev-parse", "--verify", "-q", "\(sha)^"], in: url))?.output.trimmed
         let range = base.map { "\($0)..HEAD" } ?? "HEAD"
         guard let r = try? await Git.run(["log", "--format=%H%x1f%P%x1f%an%x1f%B%x1e", range], in: url) else {
-            errorMessage = "커밋 목록을 읽지 못했습니다."
+            errorMessage = String(localized: "Couldn't read the commit list.")
             return
         }
         var items: [RebaseItem] = []
@@ -24,7 +24,7 @@ extension RepoStore {
             let f = rec.trimmingCharacters(in: .newlines).split(separator: "\u{1f}", maxSplits: 3, omittingEmptySubsequences: false).map(String.init)
             guard f.count == 4 else { continue }
             if f[1].split(separator: " ").count > 1 {
-                errorMessage = "정리할 구간에 머지 커밋이 있습니다. 머지 커밋보다 위의 커밋부터 골라 주세요."
+                errorMessage = String(localized: "There's a merge commit in the range. Pick a commit above the merge commit.")
                 return
             }
             items.append(RebaseItem(sha: f[0], message: f[3].trimmingCharacters(in: .newlines), author: f[2]))
@@ -50,11 +50,11 @@ extension RepoStore {
             let todo = plan.todo { dir.appendingPathComponent("msg-\($0)").path }
             try Data(todo.utf8).write(to: dir.appendingPathComponent("todo"))
         } catch {
-            errorMessage = "정리 계획을 쓰지 못했습니다.\n\n" + describe(error)
+            errorMessage = String(localized: "Couldn't write the cleanup plan.\n\n") + describe(error)
             return
         }
         let editor = "cp " + RebasePlan.shellQuote(dir.appendingPathComponent("todo").path)
-        let ok = await run("커밋 정리 중…", ["-c", "sequence.editor=\(editor)", "rebase", "-i", "--autostash", plan.base ?? "--root"])
+        let ok = await run(String(localized: "Cleaning up commits…"), ["-c", "sequence.editor=\(editor)", "rebase", "-i", "--autostash", plan.base ?? "--root"])
         rebasePlan = nil
         // 충돌로 멈추면 남은 메시지 고치기에 파일이 필요하다
         if ok && repoState == .clean { try? FileManager.default.removeItem(at: dir) }

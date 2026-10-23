@@ -89,7 +89,7 @@ describe("파일 종류별", () => {
   it("권한만 바뀜: 내용 줄 없이 설명만", () => {
     const d = parseDiff("diff --git a/r b/r\nold mode 100644\nnew mode 100755\n");
     expect(d.lines).toEqual([]);
-    expect(modeSummary(d.info)).toBe("100644 → 100755 — 실행 권한이 생겼습니다");
+    expect(modeSummary(d.info)).toBe("100644 → 100755 — now executable");
   });
   it("이름 바뀜: 정보만 읽고 줄 목록엔 넣지 않음", () => {
     const d = parseDiff("diff --git a/a b/b\nsimilarity index 95%\nrename from a\nrename to b\nindex 1..2 100644\n--- a/a\n+++ b/b\n@@ -1 +1 @@\n-x\n+y\n");

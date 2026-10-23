@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { Button, Modal } from "../shared/ui";
+import { t } from "../../lib/i18n";
 
 export function Frame({
   title,
@@ -33,7 +34,7 @@ export function Frame({
       footer={
         <>
           {leftFooter && <span className="hint grow">{leftFooter}</span>}
-          <Button onClick={close}>취소</Button>
+          <Button onClick={close}>{t("Cancel")}</Button>
           <Button kind="primary" disabled={!canConfirm} onClick={submit}>
             {confirm}
           </Button>

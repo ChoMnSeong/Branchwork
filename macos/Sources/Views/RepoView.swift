@@ -25,7 +25,7 @@ struct RepoView: View {
 
     private var subtitle: String {
         guard let branch = store.headBranch else {
-            return store.headHash.map { "분리된 HEAD · \($0.prefix(7))" } ?? ""
+            return store.headHash.map { String(localized: "Detached HEAD · \($0.prefix(7))") } ?? ""
         }
         var s = branch
         if let up = store.status.upstream {
@@ -45,14 +45,14 @@ struct RepoView: View {
                     Button(u.lastPathComponent) { Task { await store.openOrReport(u) } }
                 }
                 if store.recents.count > 1 { Divider() }
-                Button("저장소 열기…") { store.presentOpenPanel() }
-                Button("저장소 복제…") { store.sheet = .clone }
+                Button("Open repository…") { store.presentOpenPanel() }
+                Button("Clone repository…") { store.sheet = .clone }
                 Divider()
-                Button("탭 닫기") { NSApp.keyWindow?.performClose(nil) }
+                Button("Close tab") { NSApp.keyWindow?.performClose(nil) }
             } label: {
-                ToolLabel(title: "저장소", icon: "folder")
+                ToolLabel(title: String(localized: "Repository"), icon: "folder")
             }
-            .hoverTip("저장소", "다른 저장소 열기·복제, 최근에 연 저장소, 탭 닫기")
+            .hoverTip(String(localized: "Repository"), String(localized: "Open or clone another repository, recent repositories, close tabs"))
         }
 
         // 작업 중 표시는 버튼 묶음과 떼어 자기 칸에 둔다(같은 묶음이면 글자가 테두리에 붙음)
@@ -70,30 +70,30 @@ struct RepoView: View {
         ToolbarItemGroup(placement: .primaryAction) {
 
             Button { store.confirmUndo() } label: {
-                ToolLabel(title: "되돌리기", icon: "arrow.uturn.backward")
+                ToolLabel(title: String(localized: "Undo"), icon: "arrow.uturn.backward")
             }
             .disabled(store.undoStack.isEmpty || store.busy != nil)
-            .hoverTip("되돌리기",
-                      store.undoStack.last.map { "마지막 작업 「\($0.title)」을(를) 되돌립니다. 커밋은 취소해도 변경이 남습니다." }
-                        ?? "되돌릴 작업이 없습니다. 커밋·머지·리베이스·체크아웃·브랜치 삭제 같은 작업을 하면 여기서 되돌릴 수 있습니다.",
+            .hoverTip(String(localized: "Undo"),
+                      store.undoStack.last.map { String(localized: "Undoes the last operation, “\($0.title)”. Undoing a commit keeps its changes.") }
+                        ?? String(localized: "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here."),
                       shortcut: "⌥⌘Z")
 
             Button { store.select(.wip) } label: {
-                ToolLabel(title: store.status.isEmpty ? "변경" : "변경 \(store.status.count)", icon: "square.and.pencil")
+                ToolLabel(title: store.status.isEmpty ? String(localized: "Changes") : String(localized: "Changes \(store.status.count)"), icon: "square.and.pencil")
             }
-            .hoverTip("작업 중인 변경",
-                      store.status.isEmpty ? "수정한 파일이 없습니다. 파일을 고치면 여기서 스테이지하고 커밋합니다."
-                                           : "수정한 파일 \(store.status.count)개 — 스테이지하고 커밋합니다.",
+            .hoverTip(String(localized: "Uncommitted changes"),
+                      store.status.isEmpty ? String(localized: "No modified files. When you edit files, you can stage and commit them here.")
+                                           : String(localized: "\(store.status.count) modified files — stage and commit them."),
                       shortcut: "⌘1")
 
             Button { Task { await store.fetch() } } label: {
                 ToolLabel(title: "Fetch", icon: "arrow.triangle.2.circlepath")
             }
-            .hoverTip("Fetch", "모든 원격에서 새 커밋과 브랜치를 가져옵니다. 내 브랜치는 바꾸지 않습니다.", shortcut: "⇧⌘F")
+            .hoverTip("Fetch", String(localized: "Fetches new commits and branches from all remotes. Your branches aren't changed."), shortcut: "⇧⌘F")
 
             Menu {
-                Button("Pull (git 설정대로)") { Task { await store.pull(.standard) } }
-                Button("Pull — fast-forward 만") { Task { await store.pull(.fastForward) } }
+                Button("Pull (as configured in git)") { Task { await store.pull(.standard) } }
+                Button("Pull — fast-forward only") { Task { await store.pull(.fastForward) } }
                 Button("Pull — merge") { Task { await store.pull(.merge) } }
                 Button("Pull — rebase") { Task { await store.pull(.rebase) } }
             } label: {
@@ -103,16 +103,16 @@ struct RepoView: View {
             }
             .disabled(store.status.upstream == nil)
             .hoverTip("Pull",
-                      store.status.upstream == nil ? "이 브랜치는 원격 추적 브랜치가 없어 Pull 할 곳이 없습니다(먼저 Push 하면 생깁니다)."
-                      : (store.status.behind > 0 ? "원격의 새 커밋 \(store.status.behind)개를 현재 브랜치로 가져옵니다." : "현재 브랜치를 원격과 맞춥니다(지금은 받을 커밋 없음).")
-                        + " ▾ 에서 merge·rebase 방식을 고를 수 있습니다.",
+                      store.status.upstream == nil ? String(localized: "This branch has no remote tracking branch to pull from (push it first to create one).")
+                      : (store.status.behind > 0 ? String(localized: "Brings \(store.status.behind) new commits from the remote into the current branch.") : String(localized: "Syncs the current branch with the remote (no commits to pull right now)."))
+                        + String(localized: " Choose merge or rebase from ▾."),
                       shortcut: "⇧⌘L")
 
             Menu {
                 Button("Push") { Task { await store.push() } }
                 Button("Force push (with lease)…") {
-                    store.confirm = ConfirmRequest(title: "강제로 Push 할까요?",
-                                                   message: "원격 브랜치가 내가 마지막으로 본 상태일 때만 덮어씁니다(--force-with-lease).",
+                    store.confirm = ConfirmRequest(title: String(localized: "Force push?"),
+                                                   message: String(localized: "Overwrites the remote branch only if it's still as you last saw it (--force-with-lease)."),
                                                    actionTitle: "Force push") { await store.push(force: true) }
                 }
             } label: {
@@ -121,38 +121,38 @@ struct RepoView: View {
                 Task { await store.push() }
             }
             .hoverTip("Push",
-                      (store.status.upstream == nil ? "현재 브랜치를 원격에 처음 올리고 추적을 연결합니다."
-                       : (store.status.ahead > 0 ? "올리지 않은 커밋 \(store.status.ahead)개를 원격에 올립니다." : "현재 브랜치를 원격에 올립니다(지금은 올릴 커밋 없음)."))
-                        + " ▾ 에서 Force push.",
+                      (store.status.upstream == nil ? String(localized: "Pushes the current branch to the remote for the first time and sets up tracking.")
+                       : (store.status.ahead > 0 ? String(localized: "Pushes \(store.status.ahead) unpushed commits to the remote.") : String(localized: "Pushes the current branch to the remote (no commits to push right now).")))
+                        + String(localized: " Force push from ▾."),
                       shortcut: "⇧⌘P")
 
             Menu {
-                Button("새 브랜치…") { store.requestNewBranch() }
-                Button("새 워크트리…") { store.sheet = .addWorktree(branch: nil, start: nil) }
+                Button("New branch…") { store.requestNewBranch() }
+                Button("New worktree…") { store.sheet = .addWorktree(branch: nil, start: nil) }
                 if let url = store.url {
                     Divider()
-                    Button("여기서 \(AgentCenter.shared.defaultKind.title) 실행") { store.startAgent(in: url.path) }
-                    Button("에이전트 세션 시작…") { store.sheet = .startAgent(path: url.path) }
+                    Button("Run \(AgentCenter.shared.defaultKind.title) here") { store.startAgent(in: url.path) }
+                    Button("Start agent session…") { store.sheet = .startAgent(path: url.path) }
                 }
             } label: {
-                ToolLabel(title: "브랜치", icon: "arrow.triangle.branch")
+                ToolLabel(title: String(localized: "Branch"), icon: "arrow.triangle.branch")
             } primaryAction: {
                 store.requestNewBranch()
             }
-            .hoverTip("브랜치", "지금 위치에서 새 브랜치를 만듭니다. ▾ 에서 새 워크트리, 에이전트(Claude Code·Codex·Gemini) 실행.", shortcut: "⇧⌘B")
+            .hoverTip(String(localized: "Branch"), String(localized: "Creates a new branch at the current position. From ▾: new worktree, run an agent (Claude Code, Codex, Gemini)."), shortcut: "⇧⌘B")
 
             if let t = store.target {
                 Button { store.sheet = .createPullRequest } label: {
-                    ToolLabel(title: "새 \(t.provider.requestShort)", icon: "arrow.triangle.pull")
+                    ToolLabel(title: String(localized: "New \(t.provider.requestShort)"), icon: "arrow.triangle.pull")
                 }
                 .disabled(store.headBranch == nil)
-                .hoverTip("새 \(t.provider.requestShort)", "현재 브랜치(\(store.headBranch ?? "-"))로 \(t.provider.requestName)를 만듭니다. 필요하면 먼저 Push 합니다.")
+                .hoverTip(String(localized: "New \(t.provider.requestShort)"), String(localized: "Creates a \(t.provider.requestName) from the current branch (\(store.headBranch ?? "-")). Pushes first if needed."))
             }
 
             Menu {
-                Button("Stash… (변경 임시 보관)") { store.sheet = .stash }
+                Button("Stash… (save changes for later)") { store.sheet = .stash }
                     .disabled(store.status.isEmpty)
-                Button("Pop (가장 최근 stash 꺼내기)") { Task { await store.stashPop() } }
+                Button("Pop (apply the latest stash)") { Task { await store.stashPop() } }
                     .disabled(store.stashes.isEmpty)
             } label: {
                 ToolLabel(title: store.stashes.isEmpty ? "Stash" : "Stash \(store.stashes.count)", icon: "tray.and.arrow.down")
@@ -161,16 +161,16 @@ struct RepoView: View {
             }
             .disabled(store.status.isEmpty && store.stashes.isEmpty)
             .hoverTip("Stash",
-                      (store.status.isEmpty ? "가장 최근에 보관한 변경을 꺼냅니다(Pop)." : "커밋하지 않은 변경을 임시로 보관합니다.")
-                        + (store.stashes.isEmpty ? "" : " 보관된 stash \(store.stashes.count)개.") + " ▾ 에서 Stash·Pop 선택.",
+                      (store.status.isEmpty ? String(localized: "Applies the most recently stashed changes (Pop).") : String(localized: "Saves uncommitted changes for later."))
+                        + (store.stashes.isEmpty ? "" : String(localized: " \(store.stashes.count) stashes saved.")) + String(localized: " Choose Stash or Pop from ▾."),
                       shortcut: "⇧⌘S")
 
             Button { store.toggleTerminal() } label: {
-                ToolLabel(title: "터미널", icon: store.showTerminal ? "apple.terminal.fill" : "apple.terminal")
+                ToolLabel(title: String(localized: "Terminal"), icon: store.showTerminal ? "apple.terminal.fill" : "apple.terminal")
             }
-            .hoverTip("터미널",
-                      store.showTerminal ? "아래 터미널 패널을 숨깁니다. 셸은 계속 실행됩니다."
-                                         : "그래프 아래에 이 저장소 폴더의 터미널을 엽니다. git 명령을 치면 그래프가 바로 갱신됩니다.",
+            .hoverTip(String(localized: "Terminal"),
+                      store.showTerminal ? String(localized: "Hides the terminal panel below. Shells keep running.")
+                                         : String(localized: "Opens a terminal in this repository's folder below the graph. The graph updates as soon as you run git commands."),
                       shortcut: "⌃`")
         }
     }
@@ -189,8 +189,8 @@ struct InspectorView: View {
         case .pullRequest(let n)?:
             PullRequestDetailView(number: n)
         case nil:
-            ContentUnavailableView("선택된 커밋 없음", systemImage: "point.3.connected.trianglepath.dotted",
-                                   description: Text("그래프에서 커밋을 선택하세요."))
+            ContentUnavailableView("No commit selected", systemImage: "point.3.connected.trianglepath.dotted",
+                                   description: Text("Select a commit in the graph."))
         }
     }
 }

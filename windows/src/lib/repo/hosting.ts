@@ -4,6 +4,7 @@ import * as Hosting from "../hosting";
 import { accountApiBase, branchRemote, branchShort, providerInfo, sameTarget, type HostAccount, type PullRequest } from "../models";
 import { ReviewAPI, reviewFileChange, type ReviewAccess, type ReviewFile } from "../review";
 import { RepoWorktrees } from "./worktrees";
+import { t } from "../i18n";
 
 /** GitHub·GitLab: PR·MR 목록·만들기·체크아웃 */
 export abstract class RepoHosting extends RepoWorktrees {
@@ -14,10 +15,10 @@ export abstract class RepoHosting extends RepoWorktrees {
 
   /** 사용자가 눌렀을 때: 이미 연결한 계정이 이 저장소 서버에도 통하는지 직접 확인 */
   async tryExistingAccounts() {
-    const t = this.target;
-    if (!t) return;
-    if (!(await accounts.discoverAlias(t, false))) {
-      this.errorMessage = `연결된 ${providerInfo[t.provider].title} 계정으로는 ${t.host} 에 접속되지 않습니다. 이 서버의 토큰으로 계정을 추가해 주세요.`;
+    const target = this.target;
+    if (!target) return;
+    if (!(await accounts.discoverAlias(target, false))) {
+      this.errorMessage = t("The connected {0} account can't access {1}. Add an account with a token for this server.", providerInfo[target.provider].title, target.host);
       this.emit();
     } else await this.loadPullRequests();
   }
@@ -27,20 +28,20 @@ export abstract class RepoHosting extends RepoWorktrees {
   }
 
   async loadPullRequests() {
-    const t = this.target;
-    if (!t) {
+    const target = this.target;
+    if (!target) {
       this.pullRequests = [];
       this.prState = { kind: "idle" };
       this.emit();
       return;
     }
     // 연결된 계정 서버의 다른 주소(같은 IP)면 그 계정으로 확인해 이어 쓴다
-    if (!this.hostingAccount && accounts.accountsFor(t.provider).length) await accounts.discoverAlias(t, true);
+    if (!this.hostingAccount && accounts.accountsFor(target.provider).length) await accounts.discoverAlias(target, true);
     const acct = this.hostingAccount;
     const token = acct ? await accounts.token(acct) : null;
     if (!acct || !token) {
       // 사내 GitLab 이면 설정 화면에 그 서버 주소를 미리 채워 둔다
-      if (t.provider === "gitlab") accounts.suggestedGitLabServer = `https://${t.host}`;
+      if (target.provider === "gitlab") accounts.suggestedGitLabServer = `https://${target.host}`;
       this.pullRequests = [];
       this.prState = { kind: "needsAccount" };
       this.emit();
@@ -49,12 +50,12 @@ export abstract class RepoHosting extends RepoWorktrees {
     this.prState = { kind: "loading" };
     this.emit();
     try {
-      const list = await Hosting.pullRequests(t, token, accountApiBase(acct));
-      if (!sameTarget(this.target, t)) return;
+      const list = await Hosting.pullRequests(target, token, accountApiBase(acct));
+      if (!sameTarget(this.target, target)) return;
       this.pullRequests = list;
       this.prState = { kind: "loaded" };
     } catch (e) {
-      if (!sameTarget(this.target, t)) return;
+      if (!sameTarget(this.target, target)) return;
       this.prState = { kind: "failed", message: describe(e) };
     }
     this.emit();
@@ -62,12 +63,12 @@ export abstract class RepoHosting extends RepoWorktrees {
 
   /** PR 브랜치 체크아웃: 같은 저장소 브랜치면 추적 브랜치로, 포크면 pr/번호 로컬 브랜치로 가져온다 */
   async checkoutPullRequest(pr: PullRequest) {
-    const t = this.target;
-    if (!t) return;
-    const remoteName = `${t.remote}/${pr.source}`;
+    const target = this.target;
+    if (!target) return;
+    const remoteName = `${target.remote}/${pr.source}`;
     if (!pr.fromFork) {
       if (!this.remoteBranches.some((b) => b.name === remoteName)) {
-        if (!(await this.run("가져오는 중…", ["fetch", t.remote, pr.source], { network: true }))) return;
+        if (!(await this.run(t("Fetching…"), ["fetch", target.remote, pr.source], { network: true }))) return;
       }
       const b = this.remoteBranches.find((x) => x.name === remoteName);
       if (b) {
@@ -75,29 +76,29 @@ export abstract class RepoHosting extends RepoWorktrees {
         return;
       }
     }
-    const ref = t.provider === "github" ? `refs/pull/${pr.number}/head` : `refs/merge-requests/${pr.number}/head`;
-    const local = `${providerInfo[t.provider].requestShort.toLowerCase()}/${pr.number}`;
-    if (this.headBranch === local) await this.run("가져오는 중…", ["pull", "--ff-only", t.remote, ref], { network: true });
-    else if (await this.run("가져오는 중…", ["fetch", t.remote, `+${ref}:refs/heads/${local}`], { network: true }))
-      await this.run("체크아웃 중…", ["switch", local]);
+    const ref = target.provider === "github" ? `refs/pull/${pr.number}/head` : `refs/merge-requests/${pr.number}/head`;
+    const local = `${providerInfo[target.provider].requestShort.toLowerCase()}/${pr.number}`;
+    if (this.headBranch === local) await this.run(t("Fetching…"), ["pull", "--ff-only", target.remote, ref], { network: true });
+    else if (await this.run(t("Fetching…"), ["fetch", target.remote, `+${ref}:refs/heads/${local}`], { network: true }))
+      await this.run(t("Checking out…"), ["switch", local]);
   }
 
   /** PR 대상 브랜치 후보: 원격 브랜치 이름(원격 접두사 제외) */
   pullRequestBaseCandidates() {
-    const t = this.target;
-    if (!t) return [];
-    return this.remoteBranches.filter((b) => branchRemote(b) === t.remote && branchShort(b) !== this.headBranch).map(branchShort);
+    const target = this.target;
+    if (!target) return [];
+    return this.remoteBranches.filter((b) => branchRemote(b) === target.remote && branchShort(b) !== this.headBranch).map(branchShort);
   }
 
   async defaultBaseBranch() {
     const candidates = this.pullRequestBaseCandidates();
-    const t = this.target,
+    const target = this.target,
       acct = this.hostingAccount;
-    if (t && acct) {
+    if (target && acct) {
       const token = await accounts.token(acct);
       if (token) {
         try {
-          const b = await Hosting.defaultBranch(t, token, accountApiBase(acct));
+          const b = await Hosting.defaultBranch(target, token, accountApiBase(acct));
           if (b && candidates.includes(b)) return b;
         } catch {
           /* 아래 */
@@ -108,26 +109,26 @@ export abstract class RepoHosting extends RepoWorktrees {
   }
 
   async createPullRequest(title: string, body: string, base: string, draft: boolean) {
-    const t = this.target,
+    const target = this.target,
       branch = this.headBranch;
-    if (!t || !branch) return;
+    if (!target || !branch) return;
     const acct = this.hostingAccount;
     const token = acct ? await accounts.token(acct) : null;
     if (!acct || !token) {
-      this.errorMessage = `${providerInfo[t.provider].title}(${t.host}) 계정을 먼저 연결하세요(설정 > 계정).`;
+      this.errorMessage = t("Connect a {0} ({1}) account first (Settings > Accounts).", providerInfo[target.provider].title, target.host);
       this.emit();
       return;
     }
     // 원격에 브랜치가 없거나 올리지 않은 커밋이 있으면 먼저 push
     if (!this.status.upstream) {
-      if (!(await this.run("Push 중…", ["push", "-u", t.remote, branch], { network: true }))) return;
+      if (!(await this.run(t("Pushing…"), ["push", "-u", target.remote, branch], { network: true }))) return;
     } else if (this.status.ahead > 0) {
-      if (!(await this.run("Push 중…", ["push"], { network: true }))) return;
+      if (!(await this.run(t("Pushing…"), ["push"], { network: true }))) return;
     }
-    this.busy = `${providerInfo[t.provider].requestShort} 만드는 중…`;
+    this.busy = t("Creating {0}…", providerInfo[target.provider].requestShort);
     this.emit();
     try {
-      const pr = await Hosting.createPullRequest(t, token, accountApiBase(acct), { title, body, source: branch, target: base, draft });
+      const pr = await Hosting.createPullRequest(target, token, accountApiBase(acct), { title, body, source: branch, target: base, draft });
       this.busy = null;
       await this.loadPullRequests();
       this.select({ kind: "pullRequest", number: pr.number });
@@ -143,16 +144,16 @@ export abstract class RepoHosting extends RepoWorktrees {
   // MARK: 리뷰(대화·바뀐 파일·승인) — 맥 버전 RepoStore+Review
 
   protected async reviewAccess(): Promise<ReviewAccess | null> {
-    const t = this.target,
+    const target = this.target,
       a = this.hostingAccount;
     const token = a ? await accounts.token(a) : null;
-    return t && a && token ? { target: t, token, apiBase: accountApiBase(a), me: a.username } : null;
+    return target && a && token ? { target: target, token, apiBase: accountApiBase(a), me: a.username } : null;
   }
 
   async loadReview(n: number) {
     const c = await this.reviewAccess();
     if (!c) {
-      this.reviewError = "계정을 연결하면 대화·승인을 볼 수 있습니다.";
+      this.reviewError = t("Connect an account to see the conversation and approvals.");
       this.emit();
       return;
     }
@@ -183,8 +184,8 @@ export abstract class RepoHosting extends RepoWorktrees {
       if (e instanceof Hosting.HostingError && [403, 404, 422].includes(e.status)) {
         msg +=
           c.target.provider === "gitlab"
-            ? "\n\n토큰에 api 권한이 있어야 하고, 승인은 그 MR 을 승인할 수 있는 사람만 할 수 있습니다."
-            : "\n\n토큰에 pull request 쓰기 권한(클래식 토큰은 repo)이 있어야 합니다. 내가 만든 PR 은 스스로 승인할 수 없습니다.";
+            ? t("\n\nThe token needs the api scope, and only people who can approve this MR can approve it.")
+            : t("\n\nThe token needs write access to pull requests (classic token: repo). You can't approve your own PR.");
       }
       this.reviewBusy = false;
       this.showError(msg);

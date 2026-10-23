@@ -17,6 +17,7 @@ import {
   type WorkingStatus,
   type Worktree,
 } from "./models";
+import { t } from "./i18n";
 
 /** git 의 기계용 출력(porcelain, -z, 커스텀 format)을 모델로 바꾼다. (맥 버전 Parsers.swift 와 같은 규칙) */
 
@@ -93,14 +94,14 @@ export function parseRefs(text: string): { locals: Branch[]; remotes: Branch[]; 
     if (f.length < 6) continue;
     const [ref, obj, peeled, upstream, track] = f;
     if (ref.startsWith("refs/heads/")) {
-      const t = parseTrack(track);
+      const item = parseTrack(track);
       locals.push({
         name: ref.slice(11),
         target: obj,
         upstream: upstream || null,
-        ahead: t.ahead,
-        behind: t.behind,
-        upstreamGone: t.gone,
+        ahead: item.ahead,
+        behind: item.behind,
+        upstreamGone: item.gone,
         isCurrent: f[5].trim() === "*",
         isRemote: false,
       });
@@ -169,7 +170,7 @@ export function parseWorktrees(text: string): Worktree[] {
 /** status --porcelain=v2 -z --branch */
 export function parseStatus(text: string): WorkingStatus {
   const st = emptyStatus();
-  const tokens = text.split("\0").filter((t) => t.length > 0);
+  const tokens = text.split("\0").filter((text2) => text2.length > 0);
   let i = 0;
 
   const add = (xy: string, path: string, orig: string | null) => {
@@ -178,9 +179,9 @@ export function parseStatus(text: string): WorkingStatus {
     if (xy[1] !== ".") st.unstaged.push({ path, oldPath: null, kind: changeKind(xy[1]), staged: false });
   };
   /** 공백으로 n 칸 나누고 나머지는 경로(경로에 공백이 있을 수 있음) */
-  const splitN = (t: string, n: number) => {
+  const splitN = (text2: string, n: number) => {
     const out: string[] = [];
-    let rest = t;
+    let rest = text2;
     for (let k = 0; k < n - 1; k++) {
       const sp = rest.indexOf(" ");
       if (sp < 0) break;
@@ -192,9 +193,9 @@ export function parseStatus(text: string): WorkingStatus {
   };
 
   while (i < tokens.length) {
-    const t = tokens[i++];
-    if (t.startsWith("# ")) {
-      const body = t.slice(2);
+    const text2 = tokens[i++];
+    if (text2.startsWith("# ")) {
+      const body = text2.slice(2);
       const sp = body.indexOf(" ");
       if (sp < 0) continue;
       const key = body.slice(0, sp),
@@ -207,19 +208,19 @@ export function parseStatus(text: string): WorkingStatus {
           if (w.startsWith("-")) st.behind = Number(w.slice(1)) || 0;
         }
       }
-    } else if (t.startsWith("1 ")) {
-      const f = splitN(t, 9);
+    } else if (text2.startsWith("1 ")) {
+      const f = splitN(text2, 9);
       if (f.length === 9) add(f[1], f[8], null);
-    } else if (t.startsWith("2 ")) {
-      const f = splitN(t, 10);
+    } else if (text2.startsWith("2 ")) {
+      const f = splitN(text2, 10);
       const orig = i < tokens.length ? tokens[i] : null;
       i++;
       if (f.length === 10) add(f[1], f[9], orig);
-    } else if (t.startsWith("u ")) {
-      const f = splitN(t, 11);
+    } else if (text2.startsWith("u ")) {
+      const f = splitN(text2, 11);
       if (f.length === 11) st.conflicted.push({ path: f[10], oldPath: null, kind: "conflicted", staged: false });
-    } else if (t.startsWith("? ")) {
-      st.unstaged.push({ path: t.slice(2), oldPath: null, kind: "untracked", staged: false });
+    } else if (text2.startsWith("? ")) {
+      st.unstaged.push({ path: text2.slice(2), oldPath: null, kind: "untracked", staged: false });
     }
   }
   return st;
@@ -227,7 +228,7 @@ export function parseStatus(text: string): WorkingStatus {
 
 /** --name-status -z */
 export function parseNameStatus(text: string): FileChange[] {
-  const tokens = text.split("\0").filter((t) => t.length > 0);
+  const tokens = text.split("\0").filter((text2) => text2.length > 0);
   const out: FileChange[] = [];
   let i = 0;
   while (i < tokens.length) {
@@ -253,13 +254,13 @@ export function parseNumstat(text: string): Record<string, LineStat> {
   const out: Record<string, LineStat> = {};
   let i = 0;
   while (i < tokens.length) {
-    const t = tokens[i++].replace(/^\n/, "");
-    const a = t.indexOf("\t");
-    const b = a < 0 ? -1 : t.indexOf("\t", a + 1);
+    const text2 = tokens[i++].replace(/^\n/, "");
+    const a = text2.indexOf("\t");
+    const b = a < 0 ? -1 : text2.indexOf("\t", a + 1);
     if (a < 0 || b < 0) continue;
     const num = (s: string) => (/^\d+$/.test(s) ? Number(s) : null);
-    const stat: LineStat = { added: num(t.slice(0, a)), deleted: num(t.slice(a + 1, b)) };
-    const path = t.slice(b + 1);
+    const stat: LineStat = { added: num(text2.slice(0, a)), deleted: num(text2.slice(a + 1, b)) };
+    const path = text2.slice(b + 1);
     if (!path) {
       if (i + 1 >= tokens.length) break;
       out[tokens[i + 1]] = stat;
@@ -296,8 +297,8 @@ export function parseDiff(text: string, maxLines = 20000): DiffDocument {
     files = 0;
   const info: DiffFileInfo = {};
   doc.info = info;
-  const push = (kind: DiffKind, t: string, o: number | null, n: number | null, raw = "") =>
-    doc.lines.push({ kind, text: t, oldNo: o, newNo: n, raw, hunk: doc.hunks.length ? doc.hunks.length - 1 : undefined });
+  const push = (kind: DiffKind, text2: string, o: number | null, n: number | null, raw = "") =>
+    doc.lines.push({ kind, text: text2, oldNo: o, newNo: n, raw, hunk: doc.hunks.length ? doc.hunks.length - 1 : undefined });
 
   for (const line of body.split("\n")) {
     if (doc.lines.length >= maxLines) {
@@ -329,7 +330,7 @@ export function parseDiff(text: string, maxLines = 20000): DiffDocument {
       continue;
     }
     if (s.startsWith("\\")) {
-      push("meta", "파일 끝에 줄바꿈 없음", null, null, s);
+      push("meta", t("No newline at end of file"), null, null, s);
       continue;
     }
     const marker = s.slice(0, cols);

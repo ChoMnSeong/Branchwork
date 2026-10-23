@@ -25,12 +25,12 @@ describe("커밋 정리 계획", () => {
   it("가장 오래된 커밋은 합칠 수 없고, 모두 빼거나 빈 메시지는 안 됨", () => {
     const p = plan();
     p.items[3] = { ...p.items[3], action: "fixup" };
-    expect(planProblem(p)).toContain("합칠 대상");
+    expect(planProblem(p)).toContain("nothing to combine");
     p.items = p.items.map((i) => ({ ...i, action: "drop" }));
-    expect(planProblem(p)).toContain("하나 이상");
+    expect(planProblem(p)).toContain("at least one");
     const q = plan();
     q.items[0] = { ...q.items[0], action: "reword", newMessage: "  " };
-    expect(planProblem(q)).toContain("비어");
+    expect(planProblem(q)).toContain("empty");
   });
   it("메시지를 그대로 둔 '메시지 고치기'는 바뀐 것이 아님", () => {
     const p = plan();
@@ -41,6 +41,6 @@ describe("커밋 정리 계획", () => {
   it("작은따옴표 인용과 되돌리기 제목", () => {
     expect(shellQuote("C:/a b/it's")).toBe(`'C:/a b/it'\\''s'`);
     const snap = { heads: {}, tags: {}, head: "x", headRef: "refs/heads/main" };
-    expect(undoTitle(["-c", "sequence.editor=cp 'x'", "rebase", "-i", "--autostash", "abc"], undefined, snap as never)).toBe("커밋 정리");
+    expect(undoTitle(["-c", "sequence.editor=cp 'x'", "rebase", "-i", "--autostash", "abc"], undefined, snap as never)).toBe("Clean up commits");
   });
 });

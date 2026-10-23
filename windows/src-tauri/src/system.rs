@@ -177,7 +177,7 @@ pub async fn pick_file(app: AppHandle, title: String, start: Option<String>) -> 
     tauri::async_runtime::spawn_blocking(move || {
         let mut d = app.dialog().file().set_title(&title);
         if cfg!(windows) {
-            d = d.add_filter("프로그램", &["exe", "cmd", "bat"]).add_filter("모든 파일", &["*"]);
+            d = d.add_filter("Programs", &["exe", "cmd", "bat"]).add_filter("All files", &["*"]);
         }
         if let Some(s) = start.map(|s| crate::process::native(&s)).filter(|s| Path::new(s).is_dir()) {
             d = d.set_directory(s);
@@ -192,7 +192,7 @@ pub async fn pick_file(app: AppHandle, title: String, start: Option<String>) -> 
 #[tauri::command]
 pub fn open_url(app: AppHandle, url: String) -> Result<(), String> {
     if !(url.starts_with("https://") || url.starts_with("http://")) {
-        return Err("웹 주소만 열 수 있습니다".into());
+        return Err("Only web addresses can be opened".into());
     }
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
@@ -214,7 +214,7 @@ pub fn open_terminal(path: String) -> Result<(), String> {
         }
         let shell = crate::process::find_program("pwsh")
             .or_else(|| crate::process::find_program("powershell"))
-            .ok_or("PowerShell 을 찾지 못했습니다")?;
+            .ok_or("Couldn't find PowerShell")?;
         let mut cmd = Command::new(shell);
         cmd.arg("-NoExit").current_dir(&path);
         #[cfg(windows)]

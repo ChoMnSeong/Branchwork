@@ -4,6 +4,7 @@ import { useObserve } from "../../lib/observable";
 import { planChanged, planProblem, rebaseActions, type RebaseItem, type RebasePlan } from "../../lib/rebase";
 import type { RepoStore } from "../../lib/repo";
 import { Button, IconButton, Modal } from "../shared/ui";
+import { t } from "../../lib/i18n";
 
 /** 커밋 정리(인터랙티브 리베이스): 커밋마다 그대로·메시지 고치기·아래 커밋에 합치기·빼기를 고르고 순서를 바꾼다 (맥 버전 InteractiveRebaseSheet) */
 export function InteractiveRebaseSheet({ store, close }: { store: RepoStore; close: () => void }) {
@@ -22,15 +23,15 @@ export function InteractiveRebaseSheet({ store, close }: { store: RepoStore; clo
 
   return (
     <Modal
-      title="커밋 정리"
+      title={t("Clean up commits")}
       width={720}
       onClose={close}
       footer={
         <>
           <span className="hint grow" style={problem ? { color: "var(--red)" } : undefined}>
-            {problem ?? "시작하기 전 상태로 언제든 되돌릴 수 있습니다(되돌리기 Ctrl+Z)."}
+            {problem ?? t("You can always return to the state before you started (Undo, Ctrl+Z).")}
           </span>
-          <Button onClick={close}>취소</Button>
+          <Button onClick={close}>{t("Cancel")}</Button>
           <Button
             kind="primary"
             disabled={!!problem || !planChanged(plan) || store.busy != null}
@@ -39,19 +40,16 @@ export function InteractiveRebaseSheet({ store, close }: { store: RepoStore; clo
               void store.runInteractiveRebase(plan);
             }}
           >
-            정리 시작
-          </Button>
+            {t("Start cleanup")}</Button>
         </>
       }
     >
       <div className="col" style={{ gap: 4, marginBottom: 10 }}>
         <span className="muted">
-          '{store.headBranch}'의 커밋 {plan.items.length}개 — 위가 최신입니다. 합치기는 바로 아래(이전) 커밋에 합칩니다.
-        </span>
+          {t("{1} commits on '{0}' — newest at the top. Squash combines a commit into the one right below it (older).", store.headBranch, plan.items.length)}</span>
         {plan.pushed && (
           <span style={{ color: "var(--orange)", fontSize: 12 }}>
-            <TriangleAlert size={12} style={{ verticalAlign: -2 }} /> 이미 원격에 올린 커밋이 들어 있습니다. 정리한 뒤에는 강제 푸시가 필요합니다.
-          </span>
+            <TriangleAlert size={12} style={{ verticalAlign: -2 }} /> {" "}{t("Includes commits already pushed to the remote. You'll need to force push after cleaning up.")}</span>
         )}
       </div>
       <div className="col rebase-list">
@@ -62,7 +60,7 @@ export function InteractiveRebaseSheet({ store, close }: { store: RepoStore; clo
                 className="select"
                 style={{ width: 210, height: 26, padding: "0 6px" }}
                 value={it.action}
-                aria-label="이 커밋을 어떻게 할지"
+                aria-label={t("What to do with this commit")}
                 onChange={(e) => update(i, (x) => ({ ...x, action: e.target.value as RebaseItem["action"] }))}
               >
                 {rebaseActions.map((a) => (
@@ -78,8 +76,8 @@ export function InteractiveRebaseSheet({ store, close }: { store: RepoStore; clo
               <span className="muted ellipsis" style={{ fontSize: 11.5, maxWidth: 120 }}>
                 {it.author}
               </span>
-              <IconButton icon={<ArrowUp size={14} />} aria-label="위로" tip="위로(나중으로)" disabled={i === 0} onClick={() => shift(i, -1)} />
-              <IconButton icon={<ArrowDown size={14} />} aria-label="아래로" tip="아래로(먼저로)" disabled={i === plan.items.length - 1} onClick={() => shift(i, 1)} />
+              <IconButton icon={<ArrowUp size={14} />} aria-label={t("Up")} tip={t("Up (later)")} disabled={i === 0} onClick={() => shift(i, -1)} />
+              <IconButton icon={<ArrowDown size={14} />} aria-label={t("Down")} tip={t("Down (earlier)")} disabled={i === plan.items.length - 1} onClick={() => shift(i, 1)} />
             </div>
             {it.action === "reword" && (
               <textarea className="input" style={{ height: 64, marginTop: 6 }} value={it.newMessage} onChange={(e) => update(i, (x) => ({ ...x, newMessage: e.target.value }))} />

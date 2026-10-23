@@ -10,7 +10,7 @@ extension RepoStore {
     }
 
     func loadReview(_ number: Int) async {
-        guard let c = reviewAccess else { reviewError = "계정을 연결하면 대화·승인을 볼 수 있습니다."; return }
+        guard let c = reviewAccess else { reviewError = String(localized: "Connect an account to see the conversation and approvals."); return }
         if review?.number != number { review = nil }
         reviewLoading = true
         reviewError = nil
@@ -36,8 +36,8 @@ extension RepoStore {
             var msg = describe(error)
             if let h = error as? HostingError, h.status == 403 || h.status == 404 || h.status == 422 {
                 msg += c.target.provider == .gitlab
-                    ? "\n\n토큰에 api 권한이 있어야 하고, 승인은 그 MR 을 승인할 수 있는 사람만 할 수 있습니다."
-                    : "\n\n토큰에 pull request 쓰기 권한(클래식 토큰은 repo)이 있어야 합니다. 내가 만든 PR 은 스스로 승인할 수 없습니다."
+                    ? String(localized: "\n\nThe token needs the api scope, and only people who can approve this MR can approve it.")
+                    : String(localized: "\n\nThe token needs write access to pull requests (classic token: repo). You can't approve your own PR.")
             }
             errorMessage = msg
             return false

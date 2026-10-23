@@ -19,7 +19,7 @@ struct CIPanel: View {
         } else {
             VStack(spacing: 8) {
                 Image(systemName: "bolt.horizontal.circle").font(.largeTitle).foregroundStyle(.tertiary)
-                Text("GitHub·GitLab 원격이 있는 저장소에서 파이프라인을 보고 실행할 수 있습니다.")
+                Text("You can view and run pipelines in repositories with a GitHub or GitLab remote.")
                     .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             .padding(20)
@@ -43,7 +43,7 @@ struct CIPanel: View {
 
     private func header(_ target: RepoTarget) -> some View {
         HStack(spacing: 8) {
-            Text(target.provider == .gitlab ? "파이프라인" : "Actions")
+            Text(target.provider == .gitlab ? "Pipelines" : "Actions")
                 .font(.subheadline.weight(.semibold))
             if store.ciState == .loading { ProgressView().controlSize(.mini) }
             Spacer()
@@ -51,14 +51,14 @@ struct CIPanel: View {
                 Image(systemName: store.ciCurrentBranchOnly ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
             }
             .buttonStyle(.borderless)
-            .help(store.ciCurrentBranchOnly ? "모든 브랜치 보기" : "현재 브랜치(\(store.ciCurrentRef ?? "-"))만 보기")
+            .help(store.ciCurrentBranchOnly ? "Show all branches" : "Show only the current branch (\(store.ciCurrentRef ?? "-"))")
             Button { Task { await store.loadCI() } } label: { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.borderless)
-                .help("새로 고침")
+                .help("Refresh")
             Button { store.sheet = .runPipeline } label: { Image(systemName: "play.circle") }
                 .buttonStyle(.borderless)
                 .disabled(store.ciAccess == nil || store.ciBusy.contains("run"))
-                .help(target.provider == .gitlab ? "새 파이프라인 실행(브랜치·변수)" : "워크플로 실행(Run workflow)")
+                .help(target.provider == .gitlab ? "Run new pipeline (branch, variables)" : "Run workflow")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -69,21 +69,21 @@ struct CIPanel: View {
         switch store.ciState {
         case .needsAccount:
             VStack(alignment: .leading, spacing: 8) {
-                Text("파이프라인을 보려면 \(target.provider == .gitlab ? "사내 GitLab(\(target.host))" : "GitHub") 계정을 연결하세요.")
+                Text("Connect a \(target.provider == .gitlab ? String(localized: "Self-hosted GitLab (\(target.host))") : "GitHub") account to see pipelines.")
                     .font(.callout).foregroundStyle(.secondary)
-                Button("계정 연결…") { openSettings() }.buttonStyle(.link)
+                Button("Connect account…") { openSettings() }.buttonStyle(.link)
             }
             .padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         case .failed(let m):
             VStack(alignment: .leading, spacing: 8) {
                 Text(m).font(.caption).foregroundStyle(.red).textSelection(.enabled)
-                Button("다시 시도") { Task { await store.loadCI() } }.buttonStyle(.link)
+                Button("Try again") { Task { await store.loadCI() } }.buttonStyle(.link)
             }
             .padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         case .loaded where store.ciPipelines.isEmpty:
-            Text(store.ciCurrentBranchOnly ? "이 브랜치의 실행 기록이 없습니다." : "실행 기록이 없습니다.")
+            Text(store.ciCurrentBranchOnly ? "No runs for this branch." : "No runs yet.")
                 .font(.callout).foregroundStyle(.secondary)
                 .padding(12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -153,36 +153,36 @@ private struct PipelineRow: View {
                     .foregroundStyle(.orange)
                 }
                 .buttonStyle(.borderless)
-                .help("수동 실행을 기다리는 작업 \(manual)개 — 펼쳐서 실행")
+                .help("\(manual) jobs waiting to be run manually — expand to run")
             }
             if store.ciBusy.contains("pipeline:\(p.id)") {
                 ProgressView().controlSize(.mini)
             } else if p.status.isActive {
                 Button { store.cancelPipeline(p) } label: { Image(systemName: "stop.circle") }
                     .buttonStyle(.borderless)
-                    .help("실행 취소")
+                    .help("Cancel run")
             } else if p.status == .failed || p.status == .canceled {
                 Button { Task { await store.retryPipeline(p, failedOnly: true) } } label: { Image(systemName: "arrow.clockwise.circle") }
                     .buttonStyle(.borderless)
-                    .help(provider == .gitlab ? "실패·취소된 작업 다시 실행" : "실패한 작업만 다시 실행")
+                    .help(provider == .gitlab ? "Rerun failed and canceled jobs" : "Rerun failed jobs only")
             }
         }
         .contextMenu {
-            Button("브라우저에서 열기") { open(p.url) }
-            Button("커밋 보기") { store.reveal(p.sha) }
+            Button("Open in browser") { open(p.url) }
+            Button("View commit") { store.reveal(p.sha) }
             Divider()
             if p.status.isActive {
-                Button("실행 취소") { store.cancelPipeline(p) }
+                Button("Cancel run") { store.cancelPipeline(p) }
             } else if provider == .github {
-                Button("모든 작업 다시 실행") { Task { await store.retryPipeline(p, failedOnly: false) } }
-                Button("실패한 작업만 다시 실행") { Task { await store.retryPipeline(p, failedOnly: true) } }
+                Button("Rerun all jobs") { Task { await store.retryPipeline(p, failedOnly: false) } }
+                Button("Rerun failed jobs only") { Task { await store.retryPipeline(p, failedOnly: true) } }
                     .disabled(p.status != .failed && p.status != .canceled)
             } else {
-                Button("실패·취소된 작업 다시 실행") { Task { await store.retryPipeline(p, failedOnly: true) } }
+                Button("Rerun failed and canceled jobs") { Task { await store.retryPipeline(p, failedOnly: true) } }
                     .disabled(p.status != .failed && p.status != .canceled)
             }
             Divider()
-            Button("링크 복사") { store.copy(p.url) }
+            Button("Copy link") { store.copy(p.url) }
         }
     }
 }
@@ -198,7 +198,7 @@ private struct PipelineJobs: View {
                 DeploymentApproval(pipeline: pipeline, deployments: deps)
             }
             if jobs.isEmpty {
-                Text("작업 없음").font(.caption).foregroundStyle(.secondary)
+                Text("No jobs").font(.caption).foregroundStyle(.secondary)
             }
             ForEach(stages(jobs), id: \.0) { stage, list in
                 if !stage.isEmpty {
@@ -235,7 +235,7 @@ private struct JobRow: View {
             CIStatusIcon(status: job.status, size: 11)
             Text(job.name).lineLimit(1).truncationMode(.middle)
             if job.allowFailure, job.status == .failed {
-                Image(systemName: "exclamationmark.triangle").font(.caption2).foregroundStyle(.orange).help("실패해도 되는 작업")
+                Image(systemName: "exclamationmark.triangle").font(.caption2).foregroundStyle(.orange).help("Allowed to fail")
             }
             Spacer(minLength: 0)
             if let d = job.duration, d > 0 {
@@ -247,12 +247,12 @@ private struct JobRow: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { open(job.url) }
         .contextMenu {
-            Button("로그 보기(브라우저)") { open(job.url) }
-            if job.canPlay, provider == .gitlab { Button("실행") { store.playJob(job, in: pipeline) } }
-            if canRetry { Button("다시 실행") { Task { await store.retryJob(job, in: pipeline) } } }
-            if job.status.isActive, provider == .gitlab { Button("취소") { Task { await store.cancelJob(job, in: pipeline) } } }
+            Button("View log (browser)") { open(job.url) }
+            if job.canPlay, provider == .gitlab { Button("Run") { store.playJob(job, in: pipeline) } }
+            if canRetry { Button("Run again") { Task { await store.retryJob(job, in: pipeline) } } }
+            if job.status.isActive, provider == .gitlab { Button("Cancel") { Task { await store.cancelJob(job, in: pipeline) } } }
             Divider()
-            Button("링크 복사") { store.copy(job.url) }
+            Button("Copy link") { store.copy(job.url) }
         }
         .help(job.status.title)
     }
@@ -271,21 +271,21 @@ private struct JobRow: View {
             Button { store.playJob(job, in: pipeline) } label: { Image(systemName: "play.circle.fill") }
                 .buttonStyle(.borderless)
                 .foregroundStyle(Color.accentColor)
-                .help(job.status == .scheduled ? "지금 실행(예약 기다리지 않음)" : "수동 작업 실행")
+                .help(job.status == .scheduled ? "Run now (don't wait for the schedule)" : "Run manual job")
         } else if job.status.isActive, provider == .gitlab {
             Button { Task { await store.cancelJob(job, in: pipeline) } } label: { Image(systemName: "stop.circle") }
                 .buttonStyle(.borderless)
-                .help("작업 취소")
+                .help("Cancel job")
         } else if canRetry, job.status != .success {
             Button { Task { await store.retryJob(job, in: pipeline) } } label: { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.borderless)
-                .help("작업 다시 실행")
+                .help("Rerun job")
         }
     }
 
     private func duration(_ s: Double) -> String {
         let t = Int(s.rounded())
-        return t >= 60 ? "\(t / 60)분 \(t % 60)초" : "\(t)초"
+        return t >= 60 ? String(localized: "\(t / 60)m \(t % 60)s") : String(localized: "\(t)s")
     }
 }
 
@@ -298,16 +298,16 @@ private struct DeploymentApproval: View {
     var body: some View {
         let mine = deployments.filter(\.canApprove)
         VStack(alignment: .leading, spacing: 6) {
-            Label("배포 승인 대기: \(deployments.map(\.environment).joined(separator: ", "))", systemImage: "hand.raised.fill")
+            Label("Waiting for deployment approval: \(deployments.map(\.environment).joined(separator: ", "))", systemImage: "hand.raised.fill")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.orange)
             if mine.isEmpty {
-                Text("이 계정에는 승인 권한이 없습니다.").font(.caption).foregroundStyle(.secondary)
+                Text("This account can't approve.").font(.caption).foregroundStyle(.secondary)
             } else {
                 HStack {
-                    Button("승인") { store.reviewDeployment(pipeline, mine, approve: true) }
+                    Button("Approve") { store.reviewDeployment(pipeline, mine, approve: true) }
                         .buttonStyle(.borderedProminent).controlSize(.small)
-                    Button("거부") { store.reviewDeployment(pipeline, mine, approve: false) }
+                    Button("Reject") { store.reviewDeployment(pipeline, mine, approve: false) }
                         .controlSize(.small)
                 }
             }

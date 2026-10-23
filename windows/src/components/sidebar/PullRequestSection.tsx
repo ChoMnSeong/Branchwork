@@ -7,6 +7,7 @@ import { IconButton, showContextMenu, showMenuBelow, Spinner, type MenuItem } fr
 import { Section } from "./Section";
 import { CIStatusIcon } from "./CIPanel";
 import { statusInfo } from "../../lib/ci/models";
+import { t } from "../../lib/i18n";
 
 export function PullRequestSection({ store, target, openSettings }: { store: RepoStore; target: RepoTarget; openSettings: () => void }) {
   useObserve(accounts);
@@ -26,23 +27,23 @@ export function PullRequestSection({ store, target, openSettings }: { store: Rep
             <button
               className="link"
               style={{ color: "var(--text-2)", fontWeight: 500 }}
-              data-tip={candidates.length > 1 ? "이 저장소에 쓸 계정 고르기" : "이 저장소에 쓰는 계정"}
+              data-tip={candidates.length > 1 ? t("Choose the account for this repository") : t("Account for this repository")}
               onClick={(e) =>
                 showMenuBelow(e.currentTarget, [
                   ...candidates.map((a): MenuItem => ({ label: `@${a.username}`, checked: a.id === current.id, onClick: () => store.useAccount(a) })),
                   "divider",
-                  { label: "계정 추가…", onClick: openSettings },
+                  { label: t("Add account…"), onClick: openSettings },
                 ])
               }
             >
               @{current.username} ▾
             </button>
           )}
-          <IconButton small icon={<RefreshCw size={12} />} tip="목록 새로 고침" onClick={() => void store.loadPullRequests()} />
+          <IconButton small icon={<RefreshCw size={12} />} tip={t("Refresh list")} onClick={() => void store.loadPullRequests()} />
           <IconButton
             small
             icon={<Plus size={13} />}
-            tip={`현재 브랜치로 새 ${info.requestShort}`}
+            tip={t("New {0} from the current branch", info.requestShort)}
             disabled={!store.headBranch}
             onClick={() => {
               store.sheet = { kind: "createPullRequest" };
@@ -56,12 +57,11 @@ export function PullRequestSection({ store, target, openSettings }: { store: Rep
         {st.kind === "needsAccount" && (
           <div className="col" style={{ gap: 4, alignItems: "flex-start", padding: "2px 0 4px" }}>
             {accounts.accountsFor(target.provider)[0] && (
-              <button className="link" onClick={() => void store.tryExistingAccounts()} data-tip="같은 서버가 다른 주소로 쓰이는 경우, 이미 연결한 계정이 그대로 통합니다">
-                연결된 계정(@{accounts.accountsFor(target.provider)[0].username})으로 시도
-              </button>
+              <button className="link" onClick={() => void store.tryExistingAccounts()} data-tip={t("If the same server is used under another address, an account you've already connected works there too")}>
+                {t("Try with the connected account (@{0})", accounts.accountsFor(target.provider)[0].username)}</button>
             )}
             <button className="link" onClick={openSettings}>
-              {target.provider === "gitlab" ? `사내 GitLab(${target.host}) 계정 연결…` : "GitHub 계정 연결…"}
+              {target.provider === "gitlab" ? t("Connect a self-hosted GitLab ({0}) account…", target.host) : t("Connect a GitHub account…")}
             </button>
           </div>
         )}
@@ -71,7 +71,7 @@ export function PullRequestSection({ store, target, openSettings }: { store: Rep
           </div>
         )}
         {st.kind === "loading" && !store.pullRequests.length && <Spinner size={12} />}
-        {st.kind === "loaded" && !store.pullRequests.length && <div className="muted">열린 {info.requestShort} 없음</div>}
+        {st.kind === "loaded" && !store.pullRequests.length && <div className="muted">{t("No open {0}", info.requestShort)}</div>}
       </div>
       {store.pullRequests.map((pr) => (
         <div
@@ -81,9 +81,9 @@ export function PullRequestSection({ store, target, openSettings }: { store: Rep
           onClick={() => store.select({ kind: "pullRequest", number: pr.number })}
           onContextMenu={(e) =>
             showContextMenu(e, [
-              { label: "브랜치 체크아웃", onClick: () => void store.checkoutPullRequest(pr) },
-              { label: "브라우저에서 열기", onClick: () => store.openUrl(pr.url) },
-              { label: "링크 복사", onClick: () => store.copy(pr.url) },
+              { label: t("Check out branch"), onClick: () => void store.checkoutPullRequest(pr) },
+              { label: t("Open in browser"), onClick: () => store.openUrl(pr.url) },
+              { label: t("Copy link"), onClick: () => store.copy(pr.url) },
             ])
           }
         >
@@ -100,7 +100,7 @@ export function PullRequestSection({ store, target, openSettings }: { store: Rep
               )}
             </span>
             <span className="row side-sub">
-              {pr.isDraft && <span style={{ color: "var(--orange)", fontWeight: 600 }}>Draft</span>}
+              {pr.isDraft && <span style={{ color: "var(--orange)", fontWeight: 600 }}>{t("Draft")}</span>}
               <span className="ellipsis">
                 {pr.source} → {pr.target}
               </span>

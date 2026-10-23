@@ -102,20 +102,20 @@ struct TerminalPanel: View {
                 Image(systemName: "plus")
             }
             .buttonStyle(.borderless)
-            .hoverTip("새 터미널", "저장소 폴더에서 셸을 하나 더 엽니다.")
+            .hoverTip(String(localized: "New terminal"), String(localized: "Opens another shell in the repository folder."))
             Spacer(minLength: 8)
             if let s = store.activeTerminal {
                 Button { Launcher.openTerminal(at: s.directory) } label: {
                     Image(systemName: "arrow.up.forward.app")
                 }
                 .buttonStyle(.borderless)
-                .hoverTip("Terminal 앱에서 열기", "지금 폴더(\(abbreviate(s.directory)))를 macOS Terminal 앱 새 창으로 엽니다.")
+                .hoverTip(String(localized: "Open in Terminal"), String(localized: "Opens the current folder (\(abbreviate(s.directory))) in a new macOS Terminal window."))
             }
             Button { store.showTerminal = false } label: {
                 Image(systemName: "chevron.down")
             }
             .buttonStyle(.borderless)
-            .hoverTip("터미널 숨기기", "패널만 숨기고 셸은 계속 실행됩니다.", shortcut: "⌃`")
+            .hoverTip(String(localized: "Hide terminal"), String(localized: "Only the panel is hidden; shells keep running."), shortcut: "⌃`")
         }
         .font(.callout)
         .padding(.horizontal, 10)
@@ -125,12 +125,12 @@ struct TerminalPanel: View {
 
     private func ended(_ s: TerminalSession) -> some View {
         VStack(spacing: 8) {
-            Text(s.exitCode.map { "셸이 종료되었습니다 (코드 \($0))" } ?? "셸이 종료되었습니다")
+            Text(s.exitCode.map { "The shell exited (code \($0))" } ?? "The shell exited")
                 .foregroundStyle(.secondary)
             HStack {
-                Button("다시 시작") { s.start(); s.focus() }
+                Button("Restart") { s.start(); s.focus() }
                     .keyboardShortcut(.defaultAction)
-                Button("닫기") { store.closeTerminal(s) }
+                Button("Close") { store.closeTerminal(s) }
             }
         }
         .padding(16)
@@ -173,7 +173,7 @@ private struct TerminalTab: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .opacity(hovering || selected ? 1 : 0)
-            .help("터미널 닫기")
+            .help("Close terminal")
         }
         .font(.caption)
         .padding(.leading, 8)

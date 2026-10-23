@@ -5,6 +5,7 @@ import { settings } from "../../lib/settings";
 import { env } from "../../lib/env";
 import icon from "../../assets/icon.png";
 import { Button, Checkbox, Spinner } from "../shared/ui";
+import { t } from "../../lib/i18n";
 
 /** 버전과 자동 업데이트 */
 export function AboutSettings() {
@@ -12,13 +13,13 @@ export function AboutSettings() {
   useObserve(settings);
   const status =
     updater.state === "checking"
-      ? "확인하는 중…"
+      ? t("Checking…")
       : updater.state === "available"
-        ? `새 버전 ${updater.info?.version} 이(가) 있습니다`
+        ? t("Version {0} is available", updater.info?.version)
         : updater.state === "none"
-          ? "최신 버전입니다"
+          ? t("You're up to date")
           : updater.state === "error"
-            ? `확인 실패: ${updater.error}`
+            ? t("Check failed: {0}", updater.error)
             : "";
   return (
     <div className="col" style={{ gap: 14 }}>
@@ -27,24 +28,22 @@ export function AboutSettings() {
           <img src={icon} width={48} height={48} alt="" />
           <div className="col grow">
             <span style={{ fontSize: 16, fontWeight: 600 }}>Branchwork {env.version}</span>
-            <span className="hint">Git 저장소를 그래프로 보고 다루는 앱 · MIT</span>
+            <span className="hint">{t("An app for viewing and working with Git repositories as a graph · MIT")}</span>
           </div>
           <button className="link" onClick={() => void ipc.openUrl("https://github.com/ChoMnSeong/Branchwork/releases")}>
-            릴리스 노트
-          </button>
+            {t("Release notes")}</button>
         </div>
       </div>
       <div className="form-section">
-        <span className="form-section-title">자동 업데이트</span>
-        <Checkbox checked={updater.autoCheck} onChange={(v) => updater.setAutoCheck(v)} label="켤 때와 하루에 한 번 새 버전 확인" />
+        <span className="form-section-title">{t("Automatic updates")}</span>
+        <Checkbox checked={updater.autoCheck} onChange={(v) => updater.setAutoCheck(v)} label={t("Check for new versions at launch and once a day")} />
         <div className="row">
           <Button disabled={updater.state === "checking" || updater.state === "downloading"} onClick={() => void updater.check(true)}>
-            지금 확인
-          </Button>
+            {t("Check now")}</Button>
           {updater.state === "checking" && <Spinner />}
           <span className="hint grow">{status}</span>
         </div>
-        <span className="hint">새 버전이 있으면 알려 주고, 누르면 받아서 설치한 뒤 다시 시작합니다. 설치 파일은 Branchwork 서명이 맞을 때만 설치됩니다.</span>
+        <span className="hint">{t("Tells you when a new version is available; click to download, install and restart. The installer runs only if its Branchwork signature is valid.")}</span>
       </div>
     </div>
   );

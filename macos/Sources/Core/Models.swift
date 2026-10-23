@@ -136,10 +136,10 @@ enum RepoState: Hashable {
     var title: String {
         switch self {
         case .clean: return ""
-        case .merging: return "머지 진행 중"
-        case .rebasing: return "리베이스 진행 중"
-        case .cherryPicking: return "Cherry-pick 진행 중"
-        case .reverting: return "Revert 진행 중"
+        case .merging: return String(localized: "Merge in progress")
+        case .rebasing: return String(localized: "Rebase in progress")
+        case .cherryPicking: return String(localized: "Cherry-pick in progress")
+        case .reverting: return String(localized: "Revert in progress")
         }
     }
 }
@@ -166,16 +166,16 @@ enum SearchScope: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .commits: return "커밋"
-        case .files: return "파일 경로"
-        case .code: return "코드 변경"
+        case .commits: return String(localized: "Commit")
+        case .files: return String(localized: "File path")
+        case .code: return String(localized: "Code changes")
         }
     }
     var prompt: String {
         switch self {
-        case .commits: return "메시지·작성자·SHA·브랜치 검색 (⌘F)"
-        case .files: return "파일 이름이나 경로가 바뀐 커밋 찾기"
-        case .code: return "이 코드가 추가·삭제된 커밋 찾기"
+        case .commits: return String(localized: "Search messages, authors, SHAs, branches (⌘F)")
+        case .files: return String(localized: "Find commits where a file's name or path changed")
+        case .code: return String(localized: "Find commits that added or removed this code")
         }
     }
 }
@@ -269,7 +269,7 @@ struct DiffFileInfo {
     var modeSummary: String? {
         guard modeChanged, let o = oldMode, let n = newMode else { return nil }
         let exec = (o.hasSuffix("755"), n.hasSuffix("755"))
-        let note = exec == (false, true) ? " — 실행 권한이 생겼습니다" : exec == (true, false) ? " — 실행 권한이 없어졌습니다" : ""
+        let note = exec == (false, true) ? String(localized: " — now executable") : exec == (true, false) ? String(localized: " — no longer executable") : ""
         return "\(o) → \(n)\(note)"
     }
 }

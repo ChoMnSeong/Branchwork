@@ -1,4 +1,5 @@
 import type { DiffDocument, DiffFileInfo, DiffLine } from "./models";
+import { t } from "./i18n";
 
 /** 단어 단위 diff · 나란히 보기 · 줄 단위 스테이지 패치 (맥 버전 Core/DiffTools.swift 와 같은 규칙) */
 
@@ -45,12 +46,12 @@ export function wordRanges(a: string, b: string): [Array<[number, number]>, Arra
     } else if (dp[x + 1][y] >= dp[x][y + 1]) x++;
     else y++;
   }
-  const spans = (t: string[], keep: boolean[]) => {
+  const spans = (text: string[], keep: boolean[]) => {
     const out: Array<[number, number]> = [];
     let pos = 0,
       changed = 0,
       total = 0;
-    t.forEach((tok, n) => {
+    text.forEach((tok, n) => {
       const len = [...tok].length;
       const blank = !tok.trim();
       if (!keep[n]) {
@@ -103,7 +104,7 @@ export function modeSummary(info: DiffFileInfo | undefined): string | null {
   if (!info || info.newFile || info.deletedFile || !info.oldMode || !info.newMode || info.oldMode === info.newMode) return null;
   const was = info.oldMode.endsWith("755"),
     now = info.newMode.endsWith("755");
-  const note = !was && now ? " — 실행 권한이 생겼습니다" : was && !now ? " — 실행 권한이 없어졌습니다" : "";
+  const note = !was && now ? t(" — now executable") : was && !now ? t(" — no longer executable") : "";
   return `${info.oldMode} → ${info.newMode}${note}`;
 }
 

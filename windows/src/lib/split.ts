@@ -1,4 +1,5 @@
 import type { FileChange } from "./models";
+import { t } from "./i18n";
 
 export interface SplitGroup {
   id: string;
@@ -10,12 +11,12 @@ export interface SplitGroup {
 export function parseSplitPlan(text: string, changes: FileChange[]): SplitGroup[] {
   const start = text.indexOf("{"),
     end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("AI 가 나눈 결과를 읽지 못했습니다(JSON 아님). 다시 시도해 보세요.");
+  if (start < 0 || end <= start) throw new Error(t("Couldn't read the AI's split (not JSON). Please try again."));
   let data: { commits?: { message?: string; files?: string[] }[] };
   try {
     data = JSON.parse(text.slice(start, end + 1));
   } catch {
-    throw new Error("AI 가 나눈 결과를 읽지 못했습니다(JSON 형식 오류). 다시 시도해 보세요.");
+    throw new Error(t("Couldn't read the AI's split (invalid JSON). Please try again."));
   }
   const known = new Map<string, string>();
   for (const c of changes) {
@@ -36,7 +37,7 @@ export function parseSplitPlan(text: string, changes: FileChange[]): SplitGroup[
     if (files.length) groups.push({ id: crypto.randomUUID(), message: String(c.message ?? "").trim(), files });
   }
   const rest = changes.map((c) => c.path).filter((p) => !used.has(p));
-  if (rest.length) groups.push({ id: crypto.randomUUID(), message: groups.length ? "" : "Chore: 변경 사항", files: rest });
-  if (!groups.length) throw new Error("AI 가 커밋을 나누지 못했습니다.");
+  if (rest.length) groups.push({ id: crypto.randomUUID(), message: groups.length ? "" : t("Chore: update"), files: rest });
+  if (!groups.length) throw new Error(t("The AI couldn't split the commits."));
   return groups;
 }

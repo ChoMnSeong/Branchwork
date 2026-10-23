@@ -53,6 +53,7 @@ import type { RebasePlan } from "../rebase";
 import { addRecent, settings } from "../settings";
 import type { SplitGroup } from "../split";
 import { TerminalSession, type TerminalSpec } from "../terminal";
+import { t } from "../i18n";
 
 export const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
@@ -275,7 +276,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
 
   async open(folder: string): Promise<{ kind: "opened" } | { kind: "notRepository"; path: string } | { kind: "failed"; message: string }> {
     const started = Date.now();
-    this.loading = { title: `${basename(folder)} 여는 중`, step: "저장소 확인 중…" };
+    this.loading = { title: t("Opening {0}", basename(folder)), step: t("Checking repository…") };
     this.emit();
     let r;
     try {
@@ -301,12 +302,12 @@ export abstract class RepoCore extends Observable implements AgentHost {
     if (lines.length < 2) {
       this.loading = null;
       this.emit();
-      return { kind: "failed", message: "저장소 경로를 확인하지 못했습니다." };
+      return { kind: "failed", message: t("Couldn't verify the repository path.") };
     }
     this.stopWatching();
     this.resetState();
     const top = lines[0].trim();
-    this.loading = { title: `${basename(top)} 여는 중`, step: "커밋과 브랜치 읽는 중…" };
+    this.loading = { title: t("Opening {0}", basename(top)), step: t("Reading commits and branches…") };
     this.path = top;
     this.gitDir = lines[1].trim();
     addRecent(top);
@@ -453,12 +454,12 @@ export abstract class RepoCore extends Observable implements AgentHost {
   }
 
   async pickAndOpen() {
-    const p = await ipc.pickFolder("Git 저장소 폴더를 선택하세요");
+    const p = await ipc.pickFolder(t("Choose a Git repository folder"));
     if (p) await this.openOrReport(p);
   }
 
   async pickAndInit() {
-    const p = await ipc.pickFolder("새 Git 저장소를 만들 폴더를 선택하세요");
+    const p = await ipc.pickFolder(t("Choose a folder for the new Git repository"));
     if (p) await this.initRepository(p);
   }
 
@@ -472,8 +473,8 @@ export abstract class RepoCore extends Observable implements AgentHost {
   }
 
   async clone(remote: string, parent: string, folder: string) {
-    this.busy = "복제 중…";
-    if (!this.path) this.loading = { title: `${folder} 복제 중`, step: "원격 저장소에서 받는 중…" };
+    this.busy = t("Cloning…");
+    if (!this.path) this.loading = { title: t("Cloning {0}", folder), step: t("Receiving from the remote repository…") };
     this.emit();
     try {
       await git(["clone", "--", remote, folder], parent, { timeoutMs: 3_600_000, env: await accounts.gitEnvironment(null, null) });
@@ -543,7 +544,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
         if (more) commits = commits.slice(0, this.limit);
         if (wip) commits.unshift(wipCommit(head));
         if (this.loading) {
-          this.loading = { ...this.loading, step: `커밋 ${commits.length}개로 그래프 그리는 중…` };
+          this.loading = { ...this.loading, step: t("Drawing the graph with {0} commits…", commits.length) };
           this.emit();
         }
         const layout = layoutGraph(commits);
@@ -649,9 +650,9 @@ export abstract class RepoCore extends Observable implements AgentHost {
 
   /** git status 를 실행하고 걸린 시간(ms)도 */
   protected async timedStatus(): Promise<[Awaited<ReturnType<typeof git>>, number]> {
-    const t = performance.now();
+    const secs = performance.now();
     const r = await this.g(["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"]);
-    return [r, performance.now() - t];
+    return [r, performance.now() - secs];
   }
 
   /**
@@ -729,7 +730,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
     if (!this.headBranch && head) add(head, { name: "HEAD", kind: "head", isCurrent: true });
     for (const b of this.localBranches) if (b.isCurrent || !this.hiddenRefs.has(`refs/heads/${b.name}`)) add(b.target, { name: b.name, kind: "local", isCurrent: b.isCurrent });
     for (const b of this.remoteBranches) if (!this.hiddenRefs.has(`refs/remotes/${b.name}`)) add(b.target, { name: b.name, kind: "remote", isCurrent: false });
-    for (const t of this.tags) add(t.target, { name: t.name, kind: "tag", isCurrent: false });
+    for (const tag of this.tags) add(tag.target, { name: tag.name, kind: "tag", isCurrent: false });
     for (const l of map.values()) l.sort((a, b) => (a.isCurrent ? 0 : 1) - (b.isCurrent ? 0 : 1) || refOrder[a.kind] - refOrder[b.kind]);
     return map;
   }
@@ -803,7 +804,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
   // 요약 문자열
 
   get subtitle() {
-    if (!this.headBranch) return this.headHash ? `분리된 HEAD · ${short(this.headHash)}` : "";
+    if (!this.headBranch) return this.headHash ? t("Detached HEAD · {0}", short(this.headHash)) : "";
     let s = this.headBranch;
     if (this.status.upstream) {
       s += `  →  ${this.status.upstream}`;

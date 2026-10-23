@@ -15,61 +15,61 @@ struct WorkingChangesView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     if !store.status.conflicted.isEmpty {
-                        FileSection(title: "충돌", color: .red, count: store.status.conflicted.count,
-                                    actionTitle: "모두 해결됨으로 표시",
+                        FileSection(title: String(localized: "Conflict"), color: .red, count: store.status.conflicted.count,
+                                    actionTitle: String(localized: "Mark all as resolved"),
                                     action: { Task { await store.stage(store.status.conflicted) } }) {
                             ChangeList(changes: store.status.conflicted, isSelected: isOpen,
-                                       actionIcon: "checkmark.circle", actionHelp: "해결됨으로 표시(스테이지)",
+                                       actionIcon: "checkmark.circle", actionHelp: String(localized: "Mark as resolved (stage)"),
                                        onAction: { files in Task { await store.stage(files) } },
                                        onOpen: open) { c in
-                                Button("해결됨으로 표시") { Task { await store.stage([c]) } }
+                                Button("Mark as resolved") { Task { await store.stage([c]) } }
                                 Divider()
-                                Button("Finder 에서 보기") { store.revealInFinder(c) }
+                                Button("Show in Finder") { store.revealInFinder(c) }
                             }
                         }
                     }
-                    FileSection(title: "스테이지 안 된 파일", color: .orange, count: store.status.unstaged.count,
-                                actionTitle: "모두 스테이지",
+                    FileSection(title: String(localized: "Unstaged files"), color: .orange, count: store.status.unstaged.count,
+                                actionTitle: String(localized: "Stage all"),
                                 action: { Task { await store.stageAll() } }) {
                         ChangeList(changes: store.status.unstaged, isSelected: isOpen, stats: store.unstagedStats,
-                                   actionIcon: "plus.circle", actionHelp: "스테이지",
+                                   actionIcon: "plus.circle", actionHelp: String(localized: "Stage"),
                                    onAction: { files in Task { await store.stage(files) } },
                                    onOpen: open) { c in
-                            Button("스테이지") { Task { await store.stage([c]) } }
-                            Button("변경 버리기…", role: .destructive) { store.confirmDiscard(c) }
+                            Button("Stage") { Task { await store.stage([c]) } }
+                            Button("Discard changes…", role: .destructive) { store.confirmDiscard(c) }
                             Divider()
                             if c.kind != .untracked {
-                                Button("파일 히스토리") { store.openFileHistory(c.path) }
-                                Button("줄별 작성자 보기") { store.openBlame(c.path) }.disabled(c.kind == .deleted)
+                                Button("File history") { store.openFileHistory(c.path) }
+                                Button("Show blame") { store.openBlame(c.path) }.disabled(c.kind == .deleted)
                                 Divider()
                             }
-                            Button("Finder 에서 보기") { store.revealInFinder(c) }
-                            Button("경로 복사") { store.copy(c.path) }
+                            Button("Show in Finder") { store.revealInFinder(c) }
+                            Button("Copy path") { store.copy(c.path) }
                         }
                     }
-                    FileSection(title: "스테이지된 파일", color: .green, count: store.status.staged.count,
-                                actionTitle: "모두 언스테이지",
+                    FileSection(title: String(localized: "Staged files"), color: .green, count: store.status.staged.count,
+                                actionTitle: String(localized: "Unstage all"),
                                 action: { Task { await store.unstageAll() } }) {
                         ChangeList(changes: store.status.staged, isSelected: isOpen, stats: store.stagedStats,
-                                   actionIcon: "minus.circle", actionHelp: "언스테이지",
+                                   actionIcon: "minus.circle", actionHelp: String(localized: "Unstage"),
                                    onAction: { files in Task { await store.unstage(files) } },
                                    onOpen: open) { c in
-                            Button("언스테이지") { Task { await store.unstage([c]) } }
+                            Button("Unstage") { Task { await store.unstage([c]) } }
                             Divider()
                             if c.kind != .added {
-                                Button("파일 히스토리") { store.openFileHistory(c.path) }
-                                Button("줄별 작성자 보기") { store.openBlame(c.path) }.disabled(c.kind == .deleted)
+                                Button("File history") { store.openFileHistory(c.path) }
+                                Button("Show blame") { store.openBlame(c.path) }.disabled(c.kind == .deleted)
                                 Divider()
                             }
-                            Button("Finder 에서 보기") { store.revealInFinder(c) }
-                            Button("경로 복사") { store.copy(c.path) }
+                            Button("Show in Finder") { store.revealInFinder(c) }
+                            Button("Copy path") { store.copy(c.path) }
                         }
                     }
                     if store.status.isEmpty {
                         Card {
-                            Label("작업 디렉터리가 깨끗합니다", systemImage: "checkmark.circle.fill")
+                            Label("Working directory is clean", systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
-                            Text("수정한 파일이 생기면 여기에 나타납니다.")
+                            Text("Modified files appear here.")
                                 .font(.callout).foregroundStyle(.secondary)
                         }
                     }
@@ -85,16 +85,16 @@ struct WorkingChangesView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("작업 중인 변경").font(.title3.weight(.semibold))
+                Text("Uncommitted changes").font(.title3.weight(.semibold))
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.triangle.branch")
-                    Text(store.headBranch ?? "분리된 HEAD")
+                    Text(store.headBranch ?? String(localized: "Detached HEAD"))
                     if store.status.ahead > 0 { Text("↑\(store.status.ahead)") }
                     if store.status.behind > 0 { Text("↓\(store.status.behind)") }
                     if !store.status.isEmpty {
                         let total = totals
                         Text("·")
-                        Text("\(store.status.count)개 파일")
+                        Text("\(store.status.count) files")
                         if total.added + total.deleted > 0 { LineStatText(added: total.added, deleted: total.deleted) }
                     }
                 }
@@ -151,14 +151,14 @@ private struct OperationBanner: View {
                 .font(.headline)
                 .foregroundStyle(.orange)
             Text(store.status.conflicted.isEmpty
-                 ? "충돌이 모두 해결됐습니다. 계속 진행하세요."
-                 : "충돌한 파일을 편집기에서 고친 뒤 '해결됨으로 표시' 하세요.")
+                 ? "All conflicts are resolved. Continue."
+                 : "Fix the conflicted files in an editor, then click 'Mark as resolved'.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             HStack {
-                Button("중단…") { store.abortOperation() }
+                Button("Abort…") { store.abortOperation() }
                 Spacer()
-                Button("계속") { Task { await store.continueOperation() } }
+                Button("Continue") { Task { await store.continueOperation() } }
                     .buttonStyle(.borderedProminent)
                     .disabled(!store.status.conflicted.isEmpty)
             }
@@ -179,28 +179,28 @@ struct CommitComposer: View {
                     Avatar(name: me.name, email: me.email, size: 22)
                         .help("\(me.name) <\(me.email)>")
                 }
-                Text("커밋").font(.headline)
+                Text("Commit").font(.headline)
                 Spacer()
                 Button { Task { await store.planSplit() } } label: {
-                    Label("나눠서 커밋", systemImage: "square.stack.3d.up")
+                    Label("Split into commits", systemImage: "square.stack.3d.up")
                 }
                 .controlSize(.small)
                 .disabled(store.splittableChanges.count < 2 || store.aiWorking != nil || !store.status.conflicted.isEmpty)
-                .help("\(AIStore.shared.short(for: .commit)) 가 바뀐 파일을 주요 내용별로 묶어 여러 커밋으로 나눕니다. 나눈 결과를 확인·수정한 뒤 커밋합니다. 규칙은 설정 > 규칙에서.")
+                .help("\(AIStore.shared.short(for: .commit)) groups the changed files by topic and splits them into several commits. Review and edit the result, then commit. Rules are in Settings > Rules.")
                 Button { Task { await store.generateCommitMessage() } } label: {
                     if store.aiWorking != nil {
-                        HStack(spacing: 4) { ProgressView().controlSize(.mini); Text("작업 중") }
+                        HStack(spacing: 4) { ProgressView().controlSize(.mini); Text("Working") }
                     } else {
-                        Label("\(AIStore.shared.short(for: .commit))로 작성", systemImage: "sparkles")
+                        Label("Write with \(AIStore.shared.short(for: .commit))", systemImage: "sparkles")
                     }
                 }
                 .controlSize(.small)
                 .disabled(store.status.staged.isEmpty || store.aiWorking != nil)
-                .help("스테이지된 변경을 보고 \(AIStore.shared.provider.title) 가 커밋 메시지를 씁니다 (⌥⌘M). AI 는 설정 > AI 에서 바꿉니다.")
+                .help("\(AIStore.shared.provider.title) writes a commit message from the staged changes (⌥⌘M). Change the AI in Settings > AI.")
             }
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
-                    TextField("요약 (필수)", text: $store.summary)
+                    TextField("Summary (required)", text: $store.summary)
                         .textFieldStyle(.plain)
                         .font(.body.weight(.medium))
                     Text("\(store.summary.count)")
@@ -217,7 +217,7 @@ struct CommitComposer: View {
                         .padding(.horizontal, 3)
                         .padding(.vertical, 4)
                     if store.message.isEmpty {
-                        Text("자세한 설명 (선택)")
+                        Text("Description (optional)")
                             .font(.callout)
                             .foregroundStyle(.tertiary)
                             .padding(.horizontal, 8)
@@ -239,11 +239,11 @@ struct CommitComposer: View {
             }
 
             HStack {
-                Toggle("이전 커밋 수정", isOn: Binding(get: { store.amend },
+                Toggle("Amend previous commit", isOn: Binding(get: { store.amend },
                                                   set: { v in Task { await store.setAmend(v) } }))
                     .toggleStyle(.checkbox)
                     .disabled(store.headHash == nil)
-                    .help("Amend: 마지막 커밋에 합칩니다")
+                    .help("Amend: combine into the last commit")
                 Spacer()
                 Button {
                     Task { await store.commit() }
@@ -261,10 +261,10 @@ struct CommitComposer: View {
     }
 
     private var buttonTitle: String {
-        if store.amend { return "이전 커밋 수정" }
-        if store.repoState == .merging { return "머지 커밋" }
+        if store.amend { return String(localized: "Amend previous commit") }
+        if store.repoState == .merging { return String(localized: "Merge commit") }
         let n = store.status.staged.count
-        return n == 0 ? "스테이지된 파일 없음" : "\(n)개 파일 커밋  ⌘↩"
+        return n == 0 ? String(localized: "No staged files") : String(localized: "Commit \(n) files  ⌘↩")
     }
 }
 
@@ -281,7 +281,7 @@ struct CommitDetailView: View {
                 HStack(spacing: 8) {
                     Image(systemName: d.parents.count > 1 ? "arrow.triangle.merge" : "smallcircle.filled.circle")
                         .foregroundStyle(.secondary)
-                    Text(d.parents.count > 1 ? "머지 커밋" : "커밋").font(.headline)
+                    Text(d.parents.count > 1 ? "Merge commit" : "Commit").font(.headline)
                     Text(String(d.sha.prefix(8))).font(.system(.callout, design: .monospaced)).foregroundStyle(.secondary)
                     Spacer()
                     Text(Fmt.short(d.commitDate)).font(.callout).foregroundStyle(.secondary)
@@ -330,7 +330,7 @@ struct CommitDetailView: View {
                     .lineLimit(long && !bodyExpanded ? 8 : nil)
                     .fixedSize(horizontal: false, vertical: true)
                 if long {
-                    Button(bodyExpanded ? "접기" : "전체 보기") { bodyExpanded.toggle() }
+                    Button(bodyExpanded ? "Collapse" : "Show all") { bodyExpanded.toggle() }
                         .buttonStyle(.link)
                         .font(.caption)
                 }
@@ -353,7 +353,7 @@ struct CommitDetailView: View {
                 }
             }
             if d.committer != d.author || abs(d.commitDate.timeIntervalSince(d.date)) > 60 {
-                Label(d.committer == d.author ? "커밋: \(Fmt.long(d.commitDate))" : "커밋: \(d.committer) · \(Fmt.long(d.commitDate))",
+                Label(d.committer == d.author ? "Commit: \(Fmt.long(d.commitDate))" : "Commit: \(d.committer) · \(Fmt.long(d.commitDate))",
                       systemImage: "clock.arrow.circlepath")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -361,12 +361,12 @@ struct CommitDetailView: View {
             Divider()
             HStack(spacing: 6) {
                 Pill(text: String(d.sha.prefix(8)), icon: "number") { store.copy(d.sha) }
-                    .help("전체 SHA 복사")
+                    .help("Copy full SHA")
                 if !d.parents.isEmpty {
                     Image(systemName: "arrow.left").font(.caption2).foregroundStyle(.tertiary)
                     ForEach(d.parents, id: \.self) { p in
                         Pill(text: String(p.prefix(7)), icon: d.parents.count > 1 ? "arrow.triangle.merge" : nil) { store.reveal(p) }
-                            .help("부모 커밋으로 이동")
+                            .help("Go to parent commit")
                     }
                 }
                 Spacer()
@@ -377,14 +377,14 @@ struct CommitDetailView: View {
     private var claude: some View {
         Card {
             HStack {
-                Label("\(AIStore.shared.short(for: .explain)) 설명", systemImage: "sparkles")
+                Label("\(AIStore.shared.short(for: .explain)) explanation", systemImage: "sparkles")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.accentColor)
                 Spacer()
                 if store.explaining.contains(sha) {
-                    HStack(spacing: 4) { ProgressView().controlSize(.mini); Text("읽는 중").font(.caption) }
+                    HStack(spacing: 4) { ProgressView().controlSize(.mini); Text("Loading").font(.caption) }
                 } else {
-                    Button(store.explanations[sha] == nil ? "이 커밋 설명 듣기" : "다시 설명") {
+                    Button(store.explanations[sha] == nil ? "Explain this commit" : "Explain again") {
                         Task { await store.explainCommit(sha) }
                     }
                     .buttonStyle(.link)
@@ -406,7 +406,7 @@ struct CommitDetailView: View {
             let added = stats.compactMap(\.added).reduce(0, +)
             let deleted = stats.compactMap(\.deleted).reduce(0, +)
             HStack(spacing: 8) {
-                Text("변경된 파일").font(.subheadline.weight(.semibold))
+                Text("Changed files").font(.subheadline.weight(.semibold))
                 Text("\(store.detailFiles.count)").font(.subheadline).foregroundStyle(.secondary)
                 Spacer()
                 FileViewToggle()
@@ -423,10 +423,10 @@ struct CommitDetailView: View {
                        isSelected: { store.diffSource == .commit(sha: sha, change: $0, parent: d.parents.first) },
                        stats: store.detailStats,
                        onOpen: { store.openDiff(.commit(sha: sha, change: $0, parent: d.parents.first)) }) { f in
-                Button("파일 히스토리") { store.openFileHistory(f.path) }
-                Button("이 커밋 기준 줄별 작성자 보기") { store.openBlame(f.path, rev: sha) }.disabled(f.kind == .deleted)
+                Button("File history") { store.openFileHistory(f.path) }
+                Button("Show blame at this commit") { store.openBlame(f.path, rev: sha) }.disabled(f.kind == .deleted)
                 Divider()
-                Button("경로 복사") { store.copy(f.path) }
+                Button("Copy path") { store.copy(f.path) }
             }
         }
     }

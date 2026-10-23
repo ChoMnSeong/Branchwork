@@ -48,7 +48,7 @@ pub async fn update_check(app: AppHandle, pending: State<'_, PendingUpdate>, end
 /// 받은 설치 파일의 서명을 확인한 뒤 설치한다. 끝나면 화면 쪽에서 다시 시작한다.
 #[tauri::command]
 pub async fn update_install(pending: State<'_, PendingUpdate>, on_event: Channel<UpdateEvent>) -> Result<(), String> {
-    let update = pending.0.lock().unwrap().take().ok_or("확인된 업데이트가 없습니다. 다시 확인해 주세요.")?;
+    let update = pending.0.lock().unwrap().take().ok_or("No update was found. Check again.")?;
     let mut downloaded: u64 = 0;
     let progress = on_event.clone();
     update
@@ -68,7 +68,7 @@ pub async fn update_install(pending: State<'_, PendingUpdate>, on_event: Channel
 /// 자동 점검용: 받기만 하고 서명을 확인한다(설치하지 않음). 받은 바이트 수를 돌려준다.
 #[tauri::command]
 pub async fn update_verify(pending: State<'_, PendingUpdate>) -> Result<usize, String> {
-    let update = pending.0.lock().unwrap().take().ok_or("확인된 업데이트가 없습니다")?;
+    let update = pending.0.lock().unwrap().take().ok_or("No update was found")?;
     let bytes = update.download(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
     Ok(bytes.len())
 }

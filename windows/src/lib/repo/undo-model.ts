@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 /** 되돌리기의 기록 형식과 설명 글(화면·git 과 무관한 부분 — 단위 테스트용으로 따로 둔다) */
 
 /** 로컬 브랜치·태그와 HEAD 의 위치(되돌리기의 '전'과 '후') */
@@ -30,23 +31,23 @@ export function sameSnapshot(a: RefSnapshot, b: RefSnapshot) {
 export function undoSummary(p: UndoPoint): string {
   const { before, after } = p;
   const lines: string[] = [];
-  if (before.headRef !== after.headRef) lines.push(`'${shortRef(before.headRef) ?? "분리된 HEAD"}'(으)로 돌아갑니다.`);
+  if (before.headRef !== after.headRef) lines.push(t("Returns to '{0}'.", shortRef(before.headRef) ?? t("Detached HEAD")));
   if (before.headRef && before.refs[before.headRef] !== after.refs[before.headRef] && before.refs[before.headRef]) {
     lines.push(
       p.soft
-        ? "커밋을 취소하고, 그 변경은 스테이지된 상태로 남깁니다."
-        : `'${shortRef(before.headRef)}' 를 이전 커밋(${before.refs[before.headRef].slice(0, 7)})으로 되돌립니다. 커밋하지 않은 변경은 그대로 둡니다.`,
+        ? t("Undoes the commit and leaves its changes staged.")
+        : t("Moves '{0}' back to the previous commit ({1}). Uncommitted changes are kept.", shortRef(before.headRef), before.refs[before.headRef].slice(0, 7)),
     );
   }
   for (const ref of [...new Set([...Object.keys(before.refs), ...Object.keys(after.refs)])].sort()) {
     if (ref === before.headRef) continue;
     const name = shortRef(ref);
-    const kind = ref.startsWith("refs/tags/") ? "태그" : "브랜치";
+    const kind = ref.startsWith("refs/tags/") ? t("tag") : t("branch");
     const old = before.refs[ref],
       now = after.refs[ref];
-    if (!old && now) lines.push(`만든 ${kind} '${name}' 을(를) 지웁니다.`);
-    else if (old && !now) lines.push(`지운 ${kind} '${name}' 을(를) ${old.slice(0, 7)} 에 되살립니다.`);
-    else if (old && now && old !== now) lines.push(`${kind} '${name}' 을(를) ${old.slice(0, 7)} 로 되돌립니다.`);
+    if (!old && now) lines.push(t("Deletes the {0} '{1}' that was created.", kind, name));
+    else if (old && !now) lines.push(t("Restores the deleted {0} '{1}' at {2}.", kind, name, old.slice(0, 7)));
+    else if (old && now && old !== now) lines.push(t("Moves {0} '{1}' back to {2}.", kind, name, old.slice(0, 7)));
   }
   return lines.join("\n");
 }
@@ -57,16 +58,16 @@ export function undoTitle(args: string[], input: string | undefined, after: RefS
   switch (args[0]) {
     case "commit": {
       const subject = input?.split("\n")[0].trim() ?? "";
-      return (args.includes("--amend") ? "커밋 고치기" : "커밋") + (subject ? ` '${subject}'` : "");
+      return (args.includes("--amend") ? t("Amend commit") : t("Commit")) + (subject ? ` '${subject}'` : "");
     }
     case "switch":
     case "checkout":
-      if (args.includes("-c") || args.includes("-b")) return `브랜치 '${shortRef(after.headRef) ?? last}' 만들고 체크아웃`;
-      return `'${shortRef(after.headRef) ?? last.slice(0, 7)}' 체크아웃`;
+      if (args.includes("-c") || args.includes("-b")) return t("Create and check out branch '{0}'", shortRef(after.headRef) ?? last);
+      return t("Check out '{0}'", shortRef(after.headRef) ?? last.slice(0, 7));
     case "merge":
-      return args.includes("--ff-only") ? `'${last}' 까지 빨리 감기` : `'${last}' 머지`;
+      return args.includes("--ff-only") ? t("Fast-forward to '{0}'", last) : t("Merge '{0}'", last);
     case "rebase":
-      return args.includes("-i") ? "커밋 정리" : `'${last}' 위로 리베이스`;
+      return args.includes("-i") ? t("Clean up commits") : t("Rebase onto '{0}'", last);
     case "reset":
       return `Reset(${(args[1] ?? "").replace(/^--/, "")})`;
     case "cherry-pick":
@@ -76,13 +77,13 @@ export function undoTitle(args: string[], input: string | undefined, after: RefS
     case "pull":
       return "Pull";
     case "fetch":
-      return "빨리 감기";
+      return t("Fast-forward");
     case "branch":
-      return args.includes("-d") || args.includes("-D") ? `브랜치 '${last}' 삭제` : `브랜치 '${args[1] ?? last}' 만들기`;
+      return args.includes("-d") || args.includes("-D") ? t("Delete branch '{0}'", last) : t("Create branch '{0}'", args[1] ?? last);
     case "tag":
-      return args.includes("-d") ? `태그 '${last}' 삭제` : "태그 만들기";
+      return args.includes("-d") ? t("Delete tag '{0}'", last) : t("Create tag");
     case "worktree":
-      return "워크트리 만들기";
+      return t("Create worktree");
     default:
       return `git ${args[0] ?? ""}`;
   }

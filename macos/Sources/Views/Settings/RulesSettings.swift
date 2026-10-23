@@ -8,17 +8,17 @@ struct RulesSettings: View {
     var body: some View {
         Form {
             Section {
-                Text("AI 가 글을 쓸 때 지킬 규칙을 적으세요. 예: prefix 는 Feature, Fix, Hotfix 중 하나. 버튼을 누르면 자주 쓰는 규칙이 한 줄 추가됩니다.")
+                Text("Write the rules the AI should follow when writing. For example: the prefix is one of Feature, Fix, Hotfix. Click a button to add a common rule as a new line.")
                     .font(.callout).foregroundStyle(.secondary)
             }
             ForEach(InstructionKey.allCases) { key in
                 Section {
                     if let f = key.feature {
-                        Picker("쓸 AI", selection: Binding(get: { ai.featureProvider[f.rawValue] ?? "" },
+                        Picker("AI to use", selection: Binding(get: { ai.featureProvider[f.rawValue] ?? "" },
                                                           set: { ai.setFeatureProvider(f, AIProvider(rawValue: $0)) })) {
-                            Text("기본 AI (\(ai.provider.title.components(separatedBy: " (").first ?? ""))").tag("")
+                            Text("Default AI (\(ai.provider.title.components(separatedBy: " (").first ?? ""))").tag("")
                             ForEach(AIProvider.allCases) { p in
-                                Text((p.title.components(separatedBy: " (").first ?? p.title) + (ai.problem(p) == nil ? "" : " — 준비 안 됨")).tag(p.rawValue)
+                                Text((p.title.components(separatedBy: " (").first ?? p.title) + (ai.problem(p) == nil ? "" : String(localized: " — not ready"))).tag(p.rawValue)
                             }
                         }
                     }

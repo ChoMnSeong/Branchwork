@@ -6,6 +6,7 @@ import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { Button, Empty, IconButton, Spinner, StatusBadge } from "../shared/ui";
 import { ConflictView } from "./ConflictView";
+import { t } from "../../lib/i18n";
 
 const LINE_H = 18;
 const HUNK_H = 26;
@@ -28,18 +29,17 @@ export function DiffView({ store }: { store: RepoStore }) {
 
   const subtitle =
     source.kind === "working"
-      ? `${c.path} · ${c.kind === "conflicted" ? "충돌" : c.staged ? "스테이지됨" : "작업 트리"}`
+      ? `${c.path} · ${c.kind === "conflicted" ? t("Conflict") : c.staged ? t("Staged") : t("Working tree")}`
       : source.kind === "commit"
-        ? `${c.oldPath ? c.oldPath + " → " : ""}${c.path} · 커밋 ${short(source.sha)}`
+        ? t("{0}{1} · commit {2}", c.oldPath ? c.oldPath + " → " : "", c.path, short(source.sha))
         : `${c.oldPath ? c.oldPath + " → " : ""}${c.path} · ${store.target?.provider === "gitlab" ? "MR" : "PR"} #${source.number}`;
   const doc = store.diff;
 
   return (
     <div className="col grow">
       <div className="diff-head">
-        <Button size="small" onClick={() => store.closeDiff()} tip="그래프로 돌아가기 (Esc)">
-          <ChevronLeft size={14} /> 그래프
-        </Button>
+        <Button size="small" onClick={() => store.closeDiff()} tip={t("Back to graph (Esc)")}>
+          <ChevronLeft size={14} /> {" "}{t("Graph")}</Button>
         <StatusBadge kind={c.kind} />
         <div className="col grow">
           <span className="ellipsis" style={{ fontWeight: 600 }}>
@@ -51,45 +51,43 @@ export function DiffView({ store }: { store: RepoStore }) {
         </div>
         {c.kind !== "untracked" && source.kind !== "review" && (
           <>
-            <IconButton icon={<History size={15} />} aria-label="파일 히스토리" tip="파일 히스토리|이 파일을 바꾼 커밋들" onClick={() => store.openFileHistory(c.path)} />
+            <IconButton icon={<History size={15} />} aria-label={t("File history")} tip={t("File history|Commits that changed this file")} onClick={() => store.openFileHistory(c.path)} />
             {c.kind !== "deleted" && (
               <IconButton
                 icon={<ScanText size={15} />}
-                aria-label="줄별 작성자"
-                tip="줄별 작성자(blame)|줄마다 누가 언제 바꿨는지"
+                aria-label={t("Blame")}
+                tip={t("Blame|Who changed each line and when")}
                 onClick={() => store.openBlame(c.path, source.kind === "commit" ? source.sha : null)}
               />
             )}
           </>
         )}
         <div className="segmented" style={{ flex: "none" }}>
-          <button type="button" className={!store.diffSplit ? "on" : ""} data-tip="한 줄로 보기" aria-label="한 줄로 보기" onClick={() => store.setDiffSplit(false)}>
+          <button type="button" className={!store.diffSplit ? "on" : ""} data-tip={t("Unified view")} aria-label={t("Unified view")} onClick={() => store.setDiffSplit(false)}>
             <Rows3 size={14} />
           </button>
-          <button type="button" className={store.diffSplit ? "on" : ""} data-tip="나란히 보기(왼쪽 이전 · 오른쪽 이후)" aria-label="나란히 보기" onClick={() => store.setDiffSplit(true)}>
+          <button type="button" className={store.diffSplit ? "on" : ""} data-tip={t("Side by side (old on the left · new on the right)")} aria-label={t("Side by side")} onClick={() => store.setDiffSplit(true)}>
             <Columns2 size={14} />
           </button>
         </div>
         <IconButton
           className={store.diffIgnoreWhitespace ? "on" : ""}
           icon={<Space size={15} />}
-          aria-label="공백 무시"
-          tip="공백 무시|들여쓰기·공백만 바뀐 줄은 같은 것으로 봅니다(켜 두면 줄 단위 스테이지는 쓸 수 없습니다)"
+          aria-label={t("Ignore whitespace")}
+          tip={t("Ignore whitespace|Lines that only changed indentation or spaces are treated as unchanged (line staging is unavailable while on)")}
           onClick={() => store.setDiffIgnoreWhitespace(!store.diffIgnoreWhitespace)}
         />
         {source.kind === "working" &&
           (c.kind === "conflicted" ? (
-            <Button onClick={() => void store.stage([c])}>해결됨으로 표시</Button>
+            <Button onClick={() => void store.stage([c])}>{t("Mark as resolved")}</Button>
           ) : c.staged ? (
-            <Button onClick={() => void store.unstage([c])}>언스테이지</Button>
+            <Button onClick={() => void store.unstage([c])}>{t("Unstage")}</Button>
           ) : (
             <>
               <Button kind="danger" onClick={() => store.confirmDiscard(c)}>
-                변경 버리기…
-              </Button>
+                {t("Discard changes…")}</Button>
               <Button kind="primary" onClick={() => void store.stage([c])}>
-                스테이지
-              </Button>
+                {t("Stage")}</Button>
             </>
           ))}
       </div>
@@ -100,11 +98,11 @@ export function DiffView({ store }: { store: RepoStore }) {
           <Spinner size={20} />
         </div>
       ) : doc.error ? (
-        <Empty icon={<TriangleAlert size={30} />} title="변경 내용을 불러오지 못했습니다" detail={doc.error} />
+        <Empty icon={<TriangleAlert size={30} />} title={t("Couldn't load the changes")} detail={doc.error} />
       ) : store.diffImages ? (
         <ImageDiff old={store.diffImages.old} now={store.diffImages.new} />
       ) : doc.isBinary ? (
-        <Empty icon={<FileArchive size={30} />} title="바이너리 파일" detail="텍스트가 아닌 파일이라 줄 단위 비교를 표시하지 않습니다." />
+        <Empty icon={<FileArchive size={30} />} title={t("Binary file")} detail={t("This isn't a text file, so a line-by-line comparison isn't shown.")} />
       ) : !doc.lines.length ? (
         <DiffEmptyState doc={doc} ignoreWhitespace={store.diffIgnoreWhitespace} />
       ) : (
@@ -126,19 +124,19 @@ export function DiffEmptyState({ doc, ignoreWhitespace = false }: { doc: DiffDoc
   const mode = modeSummary(i);
   const rename = i.renameFrom && i.renameTo ? `${i.renameFrom} → ${i.renameTo}` : null;
   const [icon, title, detail] = i.newFile
-    ? [<FileText size={30} />, "빈 파일", "내용 없이 새로 만든 파일입니다."]
+    ? [<FileText size={30} />, t("Empty file"), t("A new file with no content.")]
     : i.deletedFile
-      ? [<Trash2 size={30} />, "빈 파일을 지웠습니다", "지운 파일에 내용이 없었습니다."]
+      ? [<Trash2 size={30} />, t("An empty file was deleted"), t("The deleted file had no content.")]
       : rename && mode
-        ? [<Pencil size={30} />, "이름과 권한만 바뀌었습니다", `${rename}\n권한 ${mode}`]
+        ? [<Pencil size={30} />, t("Only the name and permissions changed"), t("{0}\nPermissions {1}", rename, mode)]
         : rename
-          ? [<Pencil size={30} />, "이름만 바뀌었습니다", `${rename}\n내용은 그대로입니다.`]
+          ? [<Pencil size={30} />, t("Only the name changed"), t("{0}\nThe content is unchanged.", rename)]
           : mode
-            ? [<LockOpen size={30} />, "권한만 바뀌었습니다", mode]
+            ? [<LockOpen size={30} />, t("Only permissions changed"), mode]
             : [
                 <Equal size={30} />,
-                "표시할 변경 없음",
-                ignoreWhitespace ? "공백만 바뀌었습니다(공백 무시를 끄면 보입니다)." : "내용 변경 없이 권한·이름만 바뀌었을 수 있습니다.",
+                t("No changes to show"),
+                ignoreWhitespace ? t("Only whitespace changed (turn off Ignore whitespace to see it).") : t("Only permissions or the name may have changed, without content changes."),
               ];
   return <Empty icon={icon} title={title} detail={detail} />;
 }
@@ -147,19 +145,17 @@ export function DiffEmptyState({ doc, ignoreWhitespace = false }: { doc: DiffDoc
 function FileInfoBar({ doc }: { doc: DiffDocument }) {
   const i = doc.info;
   const mode = modeSummary(i);
-  const rename = i?.renameFrom && i.renameTo ? `${i.renameFrom} → ${i.renameTo}${i.similarity !== undefined && i.similarity < 100 ? ` · ${i.similarity}% 같음` : ""}` : null;
+  const rename = i?.renameFrom && i.renameTo ? `${i.renameFrom} → ${i.renameTo}${i.similarity !== undefined && i.similarity < 100 ? t(" · {0}% similar", i.similarity) : ""}` : null;
   if (!rename && !mode) return null;
   return (
     <div className="diff-info">
       {rename && (
         <span className="ellipsis">
-          <Pencil size={12} /> 이름 바뀜 {rename}
-        </span>
+          <Pencil size={12} /> {" "}{t("Renamed {0}", rename)}</span>
       )}
       {mode && (
         <span className="ellipsis">
-          <LockOpen size={12} /> 권한 바뀜 {mode}
-        </span>
+          <LockOpen size={12} /> {" "}{t("Permissions changed {0}", mode)}</span>
       )}
     </div>
   );
@@ -272,7 +268,7 @@ export function DiffBody({ store, doc, split, editable, staged }: { store: RepoS
     return (
       <div
         className={`diff-line ${l.kind} ${store.diffSelection.has(i) ? "selected" : ""} ${selectable ? "selectable" : ""}`}
-        data-tip={selectable ? "눌러서 이 줄 고르기(Shift: 범위) — 고른 줄만 스테이지할 수 있습니다" : undefined}
+        data-tip={selectable ? t("Click to select this line (Shift: range) — you can stage only the selected lines") : undefined}
         onClick={selectable ? (e) => store.toggleDiffLine(i, e.shiftKey) : undefined}
       >
         {(side === "left" || (side === "both" && sides.old)) && <span className="no">{l.oldNo ?? ""}</span>}
@@ -314,8 +310,7 @@ export function DiffBody({ store, doc, split, editable, staged }: { store: RepoS
           </div>
           {doc.truncated && (
             <div className="muted" style={{ position: "absolute", top: total + 10, left: 12 }}>
-              … 변경이 너무 길어 앞부분만 표시합니다
-            </div>
+              {t("… The diff is too long; only the beginning is shown")}</div>
           )}
         </div>
       </div>
@@ -353,21 +348,21 @@ function HunkHeader({ store, line, hunk, editable, staged }: { store: RepoStore;
       </span>
       {editable &&
         (staged ? (
-          <Button size="small" onClick={() => void store.applyLines("unstage", hunk)} tip={picked ? "고른 줄만 스테이지에서 뺍니다" : "이 덩어리를 스테이지에서 뺍니다"}>
-            {picked ? `고른 줄 언스테이지 (${picked})` : "덩어리 언스테이지"}
+          <Button size="small" onClick={() => void store.applyLines("unstage", hunk)} tip={picked ? t("Unstages only the selected lines") : t("Unstages this hunk")}>
+            {picked ? t("Unstage selected lines ({0})", picked) : t("Unstage hunk")}
           </Button>
         ) : (
           <>
-            <Button size="small" onClick={() => store.confirmDiscardLines(hunk)} tip={picked ? "고른 줄의 변경을 작업 트리에서 버립니다" : "이 덩어리의 변경을 작업 트리에서 버립니다"}>
-              {picked ? "고른 줄 버리기…" : "덩어리 버리기…"}
+            <Button size="small" onClick={() => store.confirmDiscardLines(hunk)} tip={picked ? t("Discards the selected lines' changes from the working tree") : t("Discards this hunk's changes from the working tree")}>
+              {picked ? t("Discard selected lines…") : t("Discard hunk…")}
             </Button>
             <Button
               size="small"
               kind="primary"
               onClick={() => void store.applyLines("stage", hunk)}
-              tip={picked ? "고른 줄만 스테이지합니다" : "이 덩어리만 스테이지합니다(바뀐 줄을 눌러 고르면 그 줄만)"}
+              tip={picked ? t("Stages only the selected lines") : t("Stages only this hunk (click changed lines to stage only those)")}
             >
-              {picked ? `고른 줄 스테이지 (${picked})` : "덩어리 스테이지"}
+              {picked ? t("Stage selected lines ({0})", picked) : t("Stage hunk")}
             </Button>
           </>
         ))}
@@ -379,8 +374,8 @@ function HunkHeader({ store, line, hunk, editable, staged }: { store: RepoStore;
 function ImageDiff({ old, now }: { old: string | null; now: string | null }) {
   return (
     <div className="image-diff">
-      <ImagePane title="이전" src={old} tone="red" missing="새로 추가된 파일입니다." />
-      <ImagePane title="이후" src={now} tone="green" missing="지운 파일입니다." />
+      <ImagePane title={t("Before")} src={old} tone="red" missing={t("This file was newly added.")} />
+      <ImagePane title={t("After")} src={now} tone="green" missing={t("This file was deleted.")} />
     </div>
   );
 }
@@ -406,7 +401,7 @@ function ImagePane({ title, src, tone, missing }: { title: string; src: string |
           <img src={src} alt={title} onLoad={(e) => setSize(`${e.currentTarget.naturalWidth} × ${e.currentTarget.naturalHeight}`)} />
         </div>
       ) : (
-        <Empty icon={<ImageOff size={28} />} title="없음" detail={missing} />
+        <Empty icon={<ImageOff size={28} />} title={t("None")} detail={missing} />
       )}
     </div>
   );

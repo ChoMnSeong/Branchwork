@@ -266,7 +266,7 @@ enum Parsers {
                 if s.hasPrefix("Binary files") || s.hasPrefix("GIT binary patch") { doc.isBinary = true }
                 continue
             }
-            if s.hasPrefix("\\") { push(.meta, "파일 끝에 줄바꿈 없음", nil, nil, raw: s); continue }
+            if s.hasPrefix("\\") { push(.meta, String(localized: "No newline at end of file"), nil, nil, raw: s); continue }
             let marker = s.prefix(cols)
             let raw = String(line.dropFirst(cols))
             let content = s.dropFirst(cols).replacingOccurrences(of: "\t", with: "    ")

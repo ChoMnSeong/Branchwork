@@ -243,9 +243,9 @@ extension RepoStore {
     /// 프로그램이 돌고 있으면 한 번 묻고 닫는다
     func requestCloseTerminal(_ s: TerminalSession) {
         if let program = s.foregroundProgram {
-            confirm = ConfirmRequest(title: "터미널을 닫을까요?",
-                                     message: "'\(program)'이(가) 아직 실행 중입니다. 닫으면 함께 종료됩니다.",
-                                     actionTitle: "닫기") { [weak self] in self?.closeTerminal(s) }
+            confirm = ConfirmRequest(title: String(localized: "Close the terminal?"),
+                                     message: String(localized: "'\(program)' is still running. Closing it will stop it."),
+                                     actionTitle: String(localized: "Close")) { [weak self] in self?.closeTerminal(s) }
         } else {
             closeTerminal(s)
         }

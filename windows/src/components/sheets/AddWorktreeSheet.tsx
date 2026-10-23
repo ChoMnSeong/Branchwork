@@ -6,6 +6,7 @@ import { ipc } from "../../lib/ipc";
 import type { RepoStore } from "../../lib/repo";
 import { Button, Checkbox, Segmented } from "../shared/ui";
 import { Frame, Row } from "./Frame";
+import { t } from "../../lib/i18n";
 
 export function AddWorktreeSheet({ store, close, presetBranch, start }: { store: RepoStore; close: () => void; presetBranch: string | null; start: string | null }) {
   const used = new Set(store.worktrees.map((w) => w.branch).filter(Boolean));
@@ -31,34 +32,34 @@ export function AddWorktreeSheet({ store, close, presetBranch, start }: { store:
   const valid = validBranchName(branch) && !!path.trim() && !exists;
   return (
     <Frame
-      title="새 워크트리"
-      confirm="만들기"
+      title={t("New worktree")}
+      confirm={t("Create")}
       width={580}
       canConfirm={valid}
       close={close}
       onConfirm={() => void store.addWorktree(path, branch, createNew, createNew ? start : null, runClaude, task)}
-      leftFooter="한 브랜치는 워크트리 하나에서만 체크아웃할 수 있습니다."
+      leftFooter={t("A branch can be checked out in only one worktree.")}
     >
       <Segmented
         stretch
         value={createNew ? "new" : "existing"}
         onChange={(v) => setCreateNew(v === "new")}
         options={[
-          { value: "new", label: "새 브랜치 만들기" },
-          { value: "existing", label: "기존 브랜치" },
+          { value: "new", label: t("Create new branch") },
+          { value: "existing", label: t("Existing branch") },
         ]}
       />
       {createNew ? (
         <>
-          <Row label="새 브랜치 이름">
-            <input className="input" autoFocus value={name} placeholder="feature/새-작업" onChange={(e) => setName(e.target.value)} spellCheck={false} />
+          <Row label={t("New branch name")}>
+            <input className="input" autoFocus value={name} placeholder={t("feature/new-task")} onChange={(e) => setName(e.target.value)} spellCheck={false} />
           </Row>
-          <Row label="시작 위치">
+          <Row label={t("Start point")}>
             <span className="mono">{start ? start.slice(0, 10) : store.headBranch ?? "HEAD"}</span>
           </Row>
         </>
       ) : (
-        <Row label="체크아웃할 브랜치">
+        <Row label={t("Branch to check out")}>
           <select className="select" value={existing} onChange={(e) => setExisting(e.target.value)}>
             {free.map((b) => (
               <option key={b} value={b}>
@@ -68,7 +69,7 @@ export function AddWorktreeSheet({ store, close, presetBranch, start }: { store:
           </select>
         </Row>
       )}
-      <Row label="위치">
+      <Row label={t("Location")}>
         <input
           className="input"
           value={displayPath(path)}
@@ -81,7 +82,7 @@ export function AddWorktreeSheet({ store, close, presetBranch, start }: { store:
         <Button
           size="small"
           onClick={() =>
-            void ipc.pickFolder("이 안에 워크트리를 만듭니다").then((p) => {
+            void ipc.pickFolder(t("Creates the worktree inside this folder")).then((p) => {
               if (p) {
                 setPath(joinPath(slash(p), branch ? branch.replace(/\//g, "-") : "worktree"));
                 setPathEdited(true);
@@ -89,15 +90,14 @@ export function AddWorktreeSheet({ store, close, presetBranch, start }: { store:
             })
           }
         >
-          변경…
-        </Button>
+          {t("Change…")}</Button>
       </Row>
-      {exists && <span className="error-text">이 위치에 이미 폴더가 있습니다.</span>}
+      {exists && <span className="error-text">{t("A folder already exists at this location.")}</span>}
       <Row label="">
-        <Checkbox checked={runClaude} onChange={setRunClaude} label={`만든 뒤 ${agentKind(agents.defaultKind).title.split(" (")[0]} 실행`} />
+        <Checkbox checked={runClaude} onChange={setRunClaude} label={t("Run {0} after creating", agentKind(agents.defaultKind).title.split(" (")[0])} />
       </Row>
       {runClaude && (
-        <textarea className="textarea" style={{ height: 64 }} value={task} placeholder="에이전트에게 맡길 작업 (선택) — 예: 로그인 화면에 비밀번호 찾기 추가" onChange={(e) => setTask(e.target.value)} />
+        <textarea className="textarea" style={{ height: 64 }} value={task} placeholder={t("Task for the agent (optional) — e.g. add password recovery to the login screen")} onChange={(e) => setTask(e.target.value)} />
       )}
     </Frame>
   );

@@ -62,7 +62,7 @@ extension RepoStore {
         fileHistoryDiff = nil
         let base = e.commit.parents.first ?? emptyTree
         guard let r = try? await Git.run(["diff", "--no-ext-diff", "-M", base, e.commit.id, "--", e.path], in: url) else {
-            fileHistoryDiff = DiffDocument(error: "이 커밋의 변경을 읽지 못했습니다.")
+            fileHistoryDiff = DiffDocument(error: String(localized: "Couldn't read this commit's changes."))
             return
         }
         let doc = await Task.detached { Parsers.diff(r.output) }.value

@@ -5,6 +5,7 @@ import { ipc } from "../ipc";
 import type { FileChange } from "../models";
 import { parseSplitPlan, type SplitGroup } from "../split";
 import { RepoHosting } from "./hosting";
+import { t } from "../i18n";
 
 /** AI: 커밋 메시지·설명·PR 글, 나눠서 커밋 */
 export abstract class RepoAI extends RepoHosting {
@@ -26,16 +27,16 @@ export abstract class RepoAI extends RepoHosting {
     if (!this.path || this.aiWorking) return;
     const changes = this.splittableChanges;
     if (changes.length < 2) {
-      this.errorMessage = "나눌 변경이 두 파일 이상이어야 합니다.";
+      this.errorMessage = t("Splitting needs changes in at least two files.");
       this.emit();
       return;
     }
     if (this.status.conflicted.length) {
-      this.errorMessage = "충돌을 먼저 해결하세요.";
+      this.errorMessage = t("Resolve the conflicts first.");
       this.emit();
       return;
     }
-    this.aiWorking = `${ai.shortFor("commit")} 가 변경을 주요 내용별로 나누는 중…`;
+    this.aiWorking = t("{0} is splitting the changes by topic…", ai.shortFor("commit"));
     this.aiNotice = null;
     this.emit();
     try {
@@ -60,7 +61,7 @@ export abstract class RepoAI extends RepoHosting {
       const prompt = `Branch: ${this.headBranch ?? "(detached HEAD)"}\n\nRecent commit messages (style reference):\n${recent || "(none)"}\n\nChanged files (use these exact paths):\n${list}\n\nChanges:\n${clipped.text}`;
       const text = await ai.write("commit", Prompts.split, prompt, "medium");
       this.splitPlan = parseSplitPlan(text, changes);
-      if (clipped.omitted > 0) this.aiNotice = `변경이 길어 앞부분만 보고 나눴습니다(${Math.floor(clipped.omitted / 1000)}K자 생략).`;
+      if (clipped.omitted > 0) this.aiNotice = t("The diff was long, so only the beginning was used for splitting ({0}K characters omitted).", Math.floor(clipped.omitted / 1000));
       this.sheet = { kind: "splitCommits" };
     } catch (e) {
       this.errorMessage = describe(e);
@@ -75,14 +76,14 @@ export abstract class RepoAI extends RepoHosting {
     const plan = groups.filter((g) => g.files.length && g.message.trim());
     if (!this.path || !plan.length || this.busy != null) return false;
     const byPath = new Map(this.splittableChanges.map((c) => [c.path, c]));
-    this.busy = "커밋 나누는 중…";
+    this.busy = t("Splitting commits…");
     this.emit();
     let done = 0;
     try {
       if (this.headHash) await this.g(["reset", "-q"]);
       else await this.g(["rm", "--cached", "-r", "-q", "--ignore-unmatch", "."]);
       for (const g of plan) {
-        this.busy = `커밋 ${done + 1}/${plan.length} 만드는 중…`;
+        this.busy = t("Creating commit {0}/{1}…", done + 1, plan.length);
         this.emit();
         const paths = g.files.flatMap((p) => {
           const c = byPath.get(p);
@@ -97,7 +98,7 @@ export abstract class RepoAI extends RepoHosting {
       this.splitPlan = null;
       return true;
     } catch (e) {
-      this.errorMessage = `${plan.length}개 중 ${done}개를 커밋하고 멈췄습니다.\n\n${describe(e)}`;
+      this.errorMessage = t("Committed {1} of {0} and stopped.\n\n{2}", plan.length, done, describe(e));
       return false;
     } finally {
       this.busy = null;
@@ -112,13 +113,13 @@ export abstract class RepoAI extends RepoHosting {
 
   async generateCommitMessage() {
     if (!this.path || this.aiWorking) return;
-    this.aiWorking = `${ai.shortFor("commit")} 가 커밋 메시지를 쓰는 중…`;
+    this.aiWorking = t("{0} is writing the commit message…", ai.shortFor("commit"));
     this.aiNotice = null;
     this.emit();
     try {
       const diff = (await this.g(["diff", "--cached", "--no-ext-diff", "-M", "--stat", "--patch"])).stdout;
       if (!diff.trim()) {
-        this.errorMessage = "스테이지된 변경이 없습니다. 먼저 파일을 스테이지하세요.";
+        this.errorMessage = t("No staged changes. Stage files first.");
         return;
       }
       let recent = "";
@@ -133,7 +134,7 @@ export abstract class RepoAI extends RepoHosting {
       const [s, b] = splitMessage(text);
       this.summary = s;
       this.message = b;
-      if (clipped.omitted > 0) this.aiNotice = `변경이 길어 앞부분만 ${ai.shortFor("commit")} 에 보냈습니다(${Math.floor(clipped.omitted / 1000)}K자 생략).`;
+      if (clipped.omitted > 0) this.aiNotice = t("The diff was long, so only the beginning was sent to {0} ({1}K characters omitted).", ai.shortFor("commit"), Math.floor(clipped.omitted / 1000));
     } catch (e) {
       this.errorMessage = describe(e);
     } finally {
@@ -152,7 +153,7 @@ export abstract class RepoAI extends RepoHosting {
       ).stdout;
       const clipped = clip(show);
       let text = await ai.write("explain", Prompts.explain, clipped.text, "medium");
-      if (clipped.omitted > 0) text += "\n\n(변경이 길어 앞부분만 보고 설명했습니다.)";
+      if (clipped.omitted > 0) text += t("\n\n(The diff was long, so only the beginning was explained.)");
       this.explanations = { ...this.explanations, [sha]: text };
     } catch (e) {
       this.errorMessage = describe(e);
@@ -164,14 +165,14 @@ export abstract class RepoAI extends RepoHosting {
 
   /** PR 제목·본문 초안: base 이후 커밋들과 diff 로 작성 */
   async draftPullRequest(base: string): Promise<[string, string] | null> {
-    const t = this.target;
-    if (!this.path || !t) return null;
-    const baseRef = this.remoteBranches.some((b) => b.name === `${t.remote}/${base}`) ? `${t.remote}/${base}` : base;
+    const target = this.target;
+    if (!this.path || !target) return null;
+    const baseRef = this.remoteBranches.some((b) => b.name === `${target.remote}/${base}`) ? `${target.remote}/${base}` : base;
     try {
       const log = (await this.g(["log", "--format=- %s%n%b", `${baseRef}..HEAD`])).stdout;
       const diff = (await this.g(["diff", "--no-ext-diff", "--stat", "--patch", `${baseRef}...HEAD`])).stdout;
       if (!log.trim() && !diff.trim()) {
-        this.errorMessage = `'${base}' 와 비교해 새 커밋이 없습니다.`;
+        this.errorMessage = t("No new commits compared with '{0}'.", base);
         this.emit();
         return null;
       }

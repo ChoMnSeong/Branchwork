@@ -4,6 +4,7 @@ import { changeId, fileDir, fileName, type FileChange, type LineStat } from "../
 import { useObserve } from "../../lib/observable";
 import { settings } from "../../lib/settings";
 import { IconButton, LineStatText, Segmented, showContextMenu, StatusBadge, type MenuItem } from "../shared/ui";
+import { t } from "../../lib/i18n";
 
 /** 변경 파일 보기 방식(목록/트리) — 작업 영역과 커밋 상세가 함께 쓴다 */
 export function useFileViewMode(): "list" | "tree" {
@@ -18,8 +19,8 @@ export function FileViewToggle() {
       value={mode}
       onChange={(v) => settings.set("fileViewMode", v)}
       options={[
-        { value: "list", label: <List size={14} />, tip: "목록으로 보기" },
-        { value: "tree", label: <ListTree size={14} />, tip: "폴더 트리로 보기" },
+        { value: "list", label: <List size={14} />, tip: t("Show as list") },
+        { value: "tree", label: <ListTree size={14} />, tip: t("Show as folder tree") },
       ]}
     />
   );
@@ -108,7 +109,7 @@ export function ChangeList({
           </span>
         )}
         <span className="spacer" />
-        {stat && (stat.added !== null && stat.deleted !== null ? <LineStatText added={stat.added} deleted={stat.deleted} /> : <span className="faint" style={{ fontSize: 11 }}>바이너리</span>)}
+        {stat && (stat.added !== null && stat.deleted !== null ? <LineStatText added={stat.added} deleted={stat.deleted} /> : <span className="faint" style={{ fontSize: 11 }}>{t("Binary")}</span>)}
         {action && (
           <IconButton
             small
@@ -152,7 +153,7 @@ export function ChangeList({
                 small
                 className="act"
                 icon={action.icon}
-                tip={action.tip + " — 폴더 전체"}
+                tip={action.tip + t(" — whole folder")}
                 onClick={(e) => {
                   e.stopPropagation();
                   action.run(r.files);

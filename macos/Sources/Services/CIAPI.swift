@@ -163,7 +163,7 @@ enum CIAPI {
     static func pendingDeployments(_ t: RepoTarget, token: String, apiBase: String, run: Int) async throws -> [CIDeployment] {
         let req = try Hosting.request(.github, repo(t, apiBase) + "/actions/runs/\(run)/pending_deployments", token: token)
         return try await Hosting.send([GHPending].self, req).map {
-            CIDeployment(environmentID: $0.environment.id, environment: $0.environment.name ?? "환경 \($0.environment.id)",
+            CIDeployment(environmentID: $0.environment.id, environment: $0.environment.name ?? String(localized: "Environment \($0.environment.id)"),
                          canApprove: $0.currentUserCanApprove ?? false)
         }
     }

@@ -23,20 +23,20 @@ struct UndoPoint: Identifiable {
     var summary: String {
         var lines: [String] = []
         if before.headRef != after.headRef {
-            lines.append("'\(Self.short(before.headRef) ?? "분리된 HEAD")'(으)로 돌아갑니다.")
+            lines.append(String(localized: "Returns to '\(Self.short(before.headRef) ?? String(localized: "Detached HEAD"))'."))
         }
         if let ref = before.headRef, before.refs[ref] != after.refs[ref], let old = before.refs[ref] {
             lines.append(soft
-                ? "커밋을 취소하고, 그 변경은 스테이지된 상태로 남깁니다."
-                : "'\(Self.short(ref) ?? ref)' 를 이전 커밋(\(old.prefix(7)))으로 되돌립니다. 커밋하지 않은 변경은 그대로 둡니다.")
+                ? String(localized: "Undoes the commit and leaves its changes staged.")
+                : String(localized: "Moves '\(Self.short(ref) ?? ref)' back to the previous commit (\(old.prefix(7))). Uncommitted changes are kept."))
         }
         for ref in Set(before.refs.keys).union(after.refs.keys).sorted() where ref != before.headRef {
             let name = Self.short(ref) ?? ref
-            let kind = ref.hasPrefix("refs/tags/") ? "태그" : "브랜치"
+            let kind = ref.hasPrefix("refs/tags/") ? String(localized: "tag") : String(localized: "branch")
             switch (before.refs[ref], after.refs[ref]) {
-            case (nil, _?): lines.append("만든 \(kind) '\(name)' 을(를) 지웁니다.")
-            case (let old?, nil): lines.append("지운 \(kind) '\(name)' 을(를) \(old.prefix(7)) 에 되살립니다.")
-            case (let old?, let new?) where old != new: lines.append("\(kind) '\(name)' 을(를) \(old.prefix(7)) 로 되돌립니다.")
+            case (nil, _?): lines.append(String(localized: "Deletes the \(kind) '\(name)' that was created."))
+            case (let old?, nil): lines.append(String(localized: "Restores the deleted \(kind) '\(name)' at \(old.prefix(7))."))
+            case (let old?, let new?) where old != new: lines.append(String(localized: "Moves \(kind) '\(name)' back to \(old.prefix(7))."))
             default: break
             }
         }
@@ -84,28 +84,28 @@ extension RepoStore {
         switch args.first {
         case "commit":
             let subject = input?.split(separator: "\n").first.map { String($0).trimmed } ?? ""
-            return (args.contains("--amend") ? "커밋 고치기" : "커밋") + (subject.isEmpty ? "" : " '\(subject)'")
+            return (args.contains("--amend") ? String(localized: "Amend commit") : String(localized: "Commit")) + (subject.isEmpty ? "" : " '\(subject)'")
         case "switch", "checkout":
-            if args.contains("-c") || args.contains("-b") { return "브랜치 '\(UndoPoint.short(after.headRef) ?? last)' 만들고 체크아웃" }
-            return "'\(UndoPoint.short(after.headRef) ?? String(last.prefix(7)))' 체크아웃"
-        case "merge": return args.contains("--ff-only") ? "'\(last)' 까지 빨리 감기" : "'\(last)' 머지"
-        case "rebase": return args.contains("-i") ? "커밋 정리" : "'\(last)' 위로 리베이스"
+            if args.contains("-c") || args.contains("-b") { return String(localized: "Create and check out branch '\(UndoPoint.short(after.headRef) ?? last)'") }
+            return String(localized: "Check out '\(UndoPoint.short(after.headRef) ?? String(last.prefix(7)))'")
+        case "merge": return args.contains("--ff-only") ? String(localized: "Fast-forward to '\(last)'") : String(localized: "Merge '\(last)'")
+        case "rebase": return args.contains("-i") ? String(localized: "Clean up commits") : String(localized: "Rebase onto '\(last)'")
         case "reset": return "Reset(\(args.dropFirst().first?.replacingOccurrences(of: "--", with: "") ?? ""))"
         case "cherry-pick": return "Cherry-pick"
         case "revert": return "Revert"
         case "pull": return "Pull"
-        case "fetch": return "빨리 감기"
-        case "branch": return args.contains("-d") || args.contains("-D") ? "브랜치 '\(last)' 삭제" : "브랜치 '\(args.dropFirst().first ?? last)' 만들기"
-        case "tag": return args.contains("-d") ? "태그 '\(last)' 삭제" : "태그 만들기"
-        case "worktree": return "워크트리 만들기"
+        case "fetch": return String(localized: "Fast-forward")
+        case "branch": return args.contains("-d") || args.contains("-D") ? String(localized: "Delete branch '\(last)'") : String(localized: "Create branch '\(args.dropFirst().first ?? last)'")
+        case "tag": return args.contains("-d") ? String(localized: "Delete tag '\(last)'") : String(localized: "Create tag")
+        case "worktree": return String(localized: "Create worktree")
         default: return "git \(args.first ?? "")"
         }
     }
 
     func confirmUndo() {
         guard let p = undoStack.last else { return }
-        confirm = ConfirmRequest(title: "「\(p.title)」을(를) 되돌릴까요?", message: p.summary,
-                                 actionTitle: "되돌리기", destructive: false) { [weak self] in
+        confirm = ConfirmRequest(title: String(localized: "Undo “\(p.title)”?"), message: p.summary,
+                                 actionTitle: String(localized: "Undo"), destructive: false) { [weak self] in
             await self?.undo()
         }
     }
@@ -115,10 +115,10 @@ extension RepoStore {
         guard let p = undoStack.last, let url, busy == nil else { return }
         guard let now = await refSnapshot(), now == p.after else {
             undoStack.removeAll()
-            errorMessage = "그 뒤로 저장소가 바뀌어(다른 곳에서 커밋·체크아웃 등) 「\(p.title)」을(를) 되돌릴 수 없습니다."
+            errorMessage = String(localized: "The repository changed since then (a commit, checkout, etc. elsewhere), so “\(p.title)” can't be undone.")
             return
         }
-        busy = "되돌리는 중…"
+        busy = String(localized: "Undoing…")
         defer { busy = nil }
         do {
             // 커밋을 취소하면 그 메시지를 입력 칸에 돌려 놓는다
@@ -153,7 +153,7 @@ extension RepoStore {
             }
             undoStack.removeLast()
         } catch {
-            errorMessage = "되돌리지 못했습니다.\n\n" + describe(error)
+            errorMessage = String(localized: "Couldn't undo.\n\n") + describe(error)
         }
         await reload()
     }

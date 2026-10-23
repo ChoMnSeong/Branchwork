@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 // 맥 버전(Models.swift)과 같은 모델
 
 export const WIP_ID = "__WORKING_TREE__";
@@ -140,10 +141,10 @@ export type RepoState = "clean" | "merging" | "rebasing" | "cherryPicking" | "re
 
 export const repoStateTitle: Record<RepoState, string> = {
   clean: "",
-  merging: "머지 진행 중",
-  rebasing: "리베이스 진행 중",
-  cherryPicking: "Cherry-pick 진행 중",
-  reverting: "Revert 진행 중",
+  merging: t("Merge in progress"),
+  rebasing: t("Rebase in progress"),
+  cherryPicking: t("Cherry-pick in progress"),
+  reverting: t("Revert in progress"),
 };
 
 /** 파일 하나의 추가·삭제 줄 수(바이너리면 null) */
@@ -159,9 +160,9 @@ export interface Identity {
 
 export type SearchScope = "commits" | "files" | "code";
 export const searchScopes: { id: SearchScope; title: string; prompt: string }[] = [
-  { id: "commits", title: "커밋", prompt: "메시지·작성자·SHA·브랜치 검색 (Ctrl+F)" },
-  { id: "files", title: "파일 경로", prompt: "파일 이름이나 경로가 바뀐 커밋 찾기" },
-  { id: "code", title: "코드 변경", prompt: "이 코드가 추가·삭제된 커밋 찾기" },
+  { id: "commits", title: t("Commit"), prompt: t("Search messages, authors, SHAs, branches (Ctrl+F)") },
+  { id: "files", title: t("File path"), prompt: t("Find commits where a file's name or path changed") },
+  { id: "code", title: t("Code changes"), prompt: t("Find commits that added or removed this code") },
 ];
 
 export type Selection = { kind: "wip" } | { kind: "commit"; sha: string } | { kind: "pullRequest"; number: number };

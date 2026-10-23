@@ -4,6 +4,7 @@ import { choiceLines, choiceTitle, type ConflictBlock, type ConflictDocument } f
 import type { FileChange } from "../../lib/models";
 import type { RepoStore } from "../../lib/repo";
 import { Button, showMenuBelow, Spinner } from "../shared/ui";
+import { t } from "../../lib/i18n";
 
 /** 충돌 해결: 충돌 블록마다 내 것 · 상대 것 · 둘 다 · 직접 고치기를 고르고, 다 고르면 저장하고 해결됨으로 표시 (맥 버전 ConflictView) */
 export function ConflictView({ store, change }: { store: RepoStore; change: FileChange }) {
@@ -26,21 +27,18 @@ function NoMarkers({ store, change }: { store: RepoStore; change: FileChange }) 
   return (
     <div className="empty">
       <TriangleAlert size={30} />
-      <div className="big">충돌 표시가 없는 충돌</div>
-      <div>한쪽에서 파일을 지웠거나 바이너리 파일입니다. 파일을 남길지 지울지 고르세요.</div>
+      <div className="big">{t("Conflict without conflict markers")}</div>
+      <div>{t("One side deleted the file, or it's a binary file. Choose whether to keep or delete it.")}</div>
       <div className="row" style={{ gap: 8, marginTop: 4 }}>
-        <Button onClick={() => void store.resolveDeleted(change, false)}>이 파일 지우기</Button>
+        <Button onClick={() => void store.resolveDeleted(change, false)}>{t("Delete this file")}</Button>
         <Button kind="primary" onClick={() => void store.resolveDeleted(change, true)}>
-          이 파일 남기기
-        </Button>
+          {t("Keep this file")}</Button>
       </div>
       <div className="row" style={{ gap: 8 }}>
         <Button size="small" onClick={() => void store.resolveWholeFile(change, true)}>
-          내 것으로({sides.ours})
-        </Button>
+          {t("Use mine ({0})", sides.ours)}</Button>
         <Button size="small" onClick={() => void store.resolveWholeFile(change, false)}>
-          상대 것으로({sides.theirs})
-        </Button>
+          {t("Use theirs ({0})", sides.theirs)}</Button>
       </div>
     </div>
   );
@@ -55,30 +53,28 @@ function Resolver({ store, change, doc }: { store: RepoStore; change: FileChange
       <div className="conflict-bar">
         <TriangleAlert size={15} style={{ color: "var(--orange)" }} />
         <span style={{ fontWeight: 600 }}>
-          충돌 {doc.blocks.length}곳 — {done}곳 골랐습니다
-        </span>
+          {t("{0} conflicts — {1} chosen", doc.blocks.length, done)}</span>
         <span className="spacer" />
         <Button
           size="small"
-          tip="블록마다 고르지 않고 파일 전체를 한쪽으로 바로 해결합니다"
+          tip={t("Resolves the whole file to one side at once instead of choosing block by block")}
           onClick={(e) =>
             showMenuBelow(e.currentTarget, [
-              { label: `모두 내 것(${sides.ours})`, onClick: () => void store.resolveWholeFile(change, true) },
-              { label: `모두 상대 것(${sides.theirs})`, onClick: () => void store.resolveWholeFile(change, false) },
+              { label: t("All mine ({0})", sides.ours), onClick: () => void store.resolveWholeFile(change, true) },
+              { label: t("All theirs ({0})", sides.theirs), onClick: () => void store.resolveWholeFile(change, false) },
             ])
           }
         >
-          파일 전체를 <ChevronDown size={12} />
+          {t("Whole file")}{" "}<ChevronDown size={12} />
         </Button>
         <Button
           size="small"
           kind="primary"
           disabled={!all || !!store.busy}
-          tip={all ? "고른 대로 파일을 저장하고 스테이지합니다" : "모든 충돌 블록을 골라야 저장할 수 있습니다"}
+          tip={all ? t("Saves the file as chosen and stages it") : t("Choose every conflict block before saving")}
           onClick={() => void store.saveConflictResolution(change)}
         >
-          저장하고 해결됨으로 표시
-        </Button>
+          {t("Save and mark as resolved")}</Button>
       </div>
       <div className="conflict-scroll">
         {doc.segments.map((s, i) =>
@@ -101,8 +97,7 @@ function TextSegment({ lines }: { lines: string[] }) {
       {short && (
         <>
           <button type="button" className="link" style={{ fontFamily: "var(--font)", fontSize: 11.5, padding: "2px 0" }} onClick={() => setExpanded(true)}>
-            … {lines.length - 6}줄 더 보기
-          </button>
+            {t("… show {0} more lines", lines.length - 6)}</button>
           {lines.slice(-3).map((l, i) => (
             <div key={`t${i}`}>{l || " "}</div>
           ))}
@@ -123,22 +118,20 @@ function BlockCard({ store, block, sides }: { store: RepoStore; block: ConflictB
         <>
           <div className="row" style={{ gap: 6 }}>
             <Check size={14} style={{ color: "var(--green)" }} />
-            <span style={{ fontWeight: 600, color: "var(--green)" }}>고름: {choiceTitle(choice)}</span>
+            <span style={{ fontWeight: 600, color: "var(--green)" }}>{t("Chosen: {0}", choiceTitle(choice))}</span>
             <span className="spacer" />
             <Button size="small" onClick={() => store.chooseConflict(block.id, null)}>
-              다시 고르기
-            </Button>
+              {t("Choose again")}</Button>
           </div>
           <Code lines={choiceLines(block, choice)} tone="chosen" />
         </>
       ) : editing ? (
         <>
-          <span style={{ fontWeight: 600 }}>직접 고치기</span>
+          <span style={{ fontWeight: 600 }}>{t("Edit manually")}</span>
           <textarea className="conflict-edit" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} />
           <div className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
             <Button size="small" onClick={() => setEditing(false)}>
-              취소
-            </Button>
+              {t("Cancel")}</Button>
             <Button
               size="small"
               kind="primary"
@@ -147,33 +140,30 @@ function BlockCard({ store, block, sides }: { store: RepoStore; block: ConflictB
                 setEditing(false);
               }}
             >
-              이렇게 쓰기
-            </Button>
+              {t("Use this")}</Button>
           </div>
         </>
       ) : (
         <>
           <div className="conflict-sides">
-            <Side title={`내 것 · ${sides.ours}`} label={block.oursLabel} lines={block.ours} tone="ours" />
-            <Side title={`상대 것 · ${sides.theirs}`} label={block.theirsLabel} lines={block.theirs} tone="theirs" />
+            <Side title={t("Mine · {0}", sides.ours)} label={block.oursLabel} lines={block.ours} tone="ours" />
+            <Side title={t("Theirs · {0}", sides.theirs)} label={block.theirsLabel} lines={block.theirs} tone="theirs" />
           </div>
           <div className="row" style={{ gap: 6 }}>
             <Button size="small" onClick={() => store.chooseConflict(block.id, { kind: "ours" })}>
-              내 것
-            </Button>
+              {t("Mine")}</Button>
             <Button size="small" onClick={() => store.chooseConflict(block.id, { kind: "theirs" })}>
-              상대 것
-            </Button>
+              {t("Theirs")}</Button>
             <Button
               size="small"
               onClick={(e) =>
                 showMenuBelow(e.currentTarget, [
-                  { label: "내 것 먼저", onClick: () => store.chooseConflict(block.id, { kind: "oursThenTheirs" }) },
-                  { label: "상대 것 먼저", onClick: () => store.chooseConflict(block.id, { kind: "theirsThenOurs" }) },
+                  { label: t("Mine first"), onClick: () => store.chooseConflict(block.id, { kind: "oursThenTheirs" }) },
+                  { label: t("Theirs first"), onClick: () => store.chooseConflict(block.id, { kind: "theirsThenOurs" }) },
                 ])
               }
             >
-              둘 다 <ChevronDown size={12} />
+              {t("Both")}{" "}<ChevronDown size={12} />
             </Button>
             <Button
               size="small"
@@ -182,8 +172,7 @@ function BlockCard({ store, block, sides }: { store: RepoStore; block: ConflictB
                 setEditing(true);
               }}
             >
-              직접 고치기…
-            </Button>
+              {t("Edit manually…")}</Button>
           </div>
         </>
       )}
@@ -205,7 +194,7 @@ function Side({ title, label, lines, tone }: { title: string; label: string; lin
 function Code({ lines, tone }: { lines: string[]; tone: "ours" | "theirs" | "chosen" }) {
   return (
     <div className={`conflict-code ${tone}`}>
-      {lines.length ? lines.map((l, i) => <div key={i}>{l || " "}</div>) : <div className="muted">(비어 있음)</div>}
+      {lines.length ? lines.map((l, i) => <div key={i}>{l || " "}</div>) : <div className="muted">{t("(empty)")}</div>}
     </div>
   );
 }

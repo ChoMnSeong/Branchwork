@@ -55,6 +55,8 @@ mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 lipo -create "${BINS[@]}" -output "$CONTENTS/MacOS/$BIN"
 cp "$ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
+# 화면 번역(한국어 글자가 키, <언어>.lproj/Localizable.strings)
+cp -R "$ROOT/Resources/Localizations/"*.lproj "$CONTENTS/Resources/"
 cp "$REPO/LICENSE" "$CONTENTS/Resources/LICENSE.txt"
 cp "$ROOT/Vendor/SwiftTerm/LICENSE" "$CONTENTS/Resources/SwiftTerm-LICENSE.txt"
 

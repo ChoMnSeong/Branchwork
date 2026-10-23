@@ -2,6 +2,7 @@ import { samePath } from "./env";
 import { Observable } from "./observable";
 import { RepoStore } from "./repo";
 import { settings } from "./settings";
+import { t } from "./i18n";
 
 /**
  * 열린 저장소 탭 목록. 여러 저장소·워크트리를 탭으로 열어 두고 오간다.
@@ -12,10 +13,10 @@ class Workspace extends Observable {
   activeId: string | null = null;
   /** 시작할 때 탭을 복원하는 중(로딩 화면) */
   restoring = true;
-  restoreStep = "준비 중…";
+  restoreStep = t("Preparing…");
 
   get active(): RepoStore | null {
-    return this.tabs.find((t) => t.id === this.activeId) ?? this.tabs[0] ?? null;
+    return this.tabs.find((tab) => tab.id === this.activeId) ?? this.tabs[0] ?? null;
   }
 
   private make(): RepoStore {
@@ -57,7 +58,7 @@ class Workspace extends Observable {
     // 보이는 탭을 먼저, 나머지는 뒤에서 차례로
     const order = [sel, ...valid.map((_, i) => i).filter((i) => i !== sel)];
     for (const i of order) {
-      this.restoreStep = valid.length > 1 ? `탭 ${done + 1}/${valid.length} 여는 중 · ${valid[i].split(/[\\/]/).pop()}` : "저장소 여는 중…";
+      this.restoreStep = valid.length > 1 ? t("Opening tab {0}/{1} · {2}", done + 1, valid.length, valid[i].split(/[\\/]/).pop()) : t("Opening repository…");
       this.emit();
       await this.tabs[i].openInPlace(valid[i]);
       done++;
@@ -81,7 +82,7 @@ class Workspace extends Observable {
 
   /** 이미 열린 저장소면 그 탭으로, 아니면 새 탭에서 연다 */
   async openInNewTab(path: string) {
-    const existing = this.tabs.find((t) => samePath(t.path, path));
+    const existing = this.tabs.find((tab) => samePath(tab.path, path));
     if (existing) {
       this.select(existing.id);
       return;
@@ -103,21 +104,21 @@ class Workspace extends Observable {
 
   /** 지금 보이는 탭만 파일 변경에 바로 반응한다 */
   private markActive() {
-    for (const t of this.tabs) t.isActive = t.id === this.activeId;
+    for (const tab of this.tabs) tab.isActive = tab.id === this.activeId;
   }
 
   selectRelative(d: number) {
     if (this.tabs.length < 2) return;
-    const i = this.tabs.findIndex((t) => t.id === this.activeId);
+    const i = this.tabs.findIndex((tab) => tab.id === this.activeId);
     this.select(this.tabs[(i + d + this.tabs.length) % this.tabs.length].id);
   }
 
   closeTab(id: string) {
-    const i = this.tabs.findIndex((t) => t.id === id);
+    const i = this.tabs.findIndex((tab) => tab.id === id);
     if (i < 0) return;
     const s = this.tabs[i];
     s.close();
-    this.tabs = this.tabs.filter((t) => t.id !== id);
+    this.tabs = this.tabs.filter((tab) => tab.id !== id);
     if (!this.tabs.length) {
       this.newTab();
     } else if (this.activeId === id) {
@@ -129,9 +130,9 @@ class Workspace extends Observable {
 
   /** 이 탭만 남기고 나머지를 닫는다 */
   closeOthers(id: string) {
-    const keep = this.tabs.find((t) => t.id === id);
+    const keep = this.tabs.find((tab) => tab.id === id);
     if (!keep) return;
-    for (const t of this.tabs) if (t !== keep) t.close();
+    for (const tab of this.tabs) if (tab !== keep) tab.close();
     this.tabs = [keep];
     this.select(id);
     this.persist();
@@ -140,7 +141,7 @@ class Workspace extends Observable {
 
   /** 모든 탭을 닫고 빈 탭 하나만 둔다 */
   closeAll() {
-    for (const t of this.tabs) t.close();
+    for (const tab of this.tabs) tab.close();
     this.tabs = [];
     this.newTab();
     this.persist();
@@ -150,7 +151,7 @@ class Workspace extends Observable {
   persist() {
     if (this.restoring) return;
     const paths: string[] = [];
-    for (const t of this.tabs) if (t.path && !paths.some((p) => samePath(p, t.path))) paths.push(t.path);
+    for (const tab of this.tabs) if (tab.path && !paths.some((p) => samePath(p, tab.path))) paths.push(tab.path);
     settings.set("openTabs", paths);
     const a = this.active;
     if (a?.path) settings.set("selectedTab", a.path);

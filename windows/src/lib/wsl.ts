@@ -1,5 +1,6 @@
 import { env, isWindows, joinPath, toWslPath } from "./env";
 import { ipc } from "./ipc";
+import { t } from "./i18n";
 
 /**
  * WSL(Windows 안의 리눅스)에서 도구를 실행하기.
@@ -67,7 +68,7 @@ export async function findCommand(distro: string, name: string): Promise<FindRes
     const found = lines.find((l) => l.startsWith("found:"));
     if (found) return { path: found.slice(6), detail: "" };
     const nf = lines.find((l) => l.startsWith("notfound:"));
-    return { path: null, detail: nf ? nf.slice(9) : (clean(r.stderr).trim() || `wsl.exe 종료 코드 ${r.status}`).slice(0, 300) };
+    return { path: null, detail: nf ? nf.slice(9) : (clean(r.stderr).trim() || t("wsl.exe exit code {0}", r.status)).slice(0, 300) };
   } catch (e) {
     return { path: null, detail: String(e).slice(0, 300) };
   }

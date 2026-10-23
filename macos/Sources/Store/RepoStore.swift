@@ -199,7 +199,7 @@ final class RepoStore: Identifiable {
     @discardableResult
     func open(_ folder: URL) async -> OpenResult {
         let started = Date()
-        loading = LoadingInfo(title: "\(folder.lastPathComponent) 여는 중", step: "저장소 확인 중…")
+        loading = LoadingInfo(title: String(localized: "Opening \(folder.lastPathComponent)"), step: String(localized: "Checking repository…"))
         defer { if url == nil { loading = nil } }
         let r: GitResult
         do {
@@ -212,11 +212,11 @@ final class RepoStore: Identifiable {
             return .failed(r.stderr.trimmed)
         }
         let lines = r.output.split(separator: "\n").map(String.init)
-        guard lines.count >= 2 else { return .failed("저장소 경로를 확인하지 못했습니다.") }
+        guard lines.count >= 2 else { return .failed(String(localized: "Couldn't verify the repository path.")) }
 
         resetState()
         let top = URL(fileURLWithPath: lines[0], isDirectory: true)
-        loading = LoadingInfo(title: "\(top.lastPathComponent) 여는 중", step: "커밋과 브랜치 읽는 중…")
+        loading = LoadingInfo(title: String(localized: "Opening \(top.lastPathComponent)"), step: String(localized: "Reading commits and branches…"))
         url = top
         let git = URL(fileURLWithPath: lines[1], isDirectory: true)
         gitDir = git
@@ -300,8 +300,8 @@ final class RepoStore: Identifiable {
         p.canChooseDirectories = true
         p.canChooseFiles = false
         p.allowsMultipleSelection = false
-        p.prompt = "열기"
-        p.message = "Git 저장소 폴더를 선택하세요"
+        p.prompt = String(localized: "Open")
+        p.message = String(localized: "Choose a Git repository folder")
         if p.runModal() == .OK, let u = p.url {
             Task { await openOrReport(u) }
         }
@@ -312,8 +312,8 @@ final class RepoStore: Identifiable {
         p.canChooseDirectories = true
         p.canChooseFiles = false
         p.canCreateDirectories = true
-        p.prompt = "여기에 만들기"
-        p.message = "새 Git 저장소를 만들 폴더를 선택하세요"
+        p.prompt = String(localized: "Create here")
+        p.message = String(localized: "Choose a folder for the new Git repository")
         if p.runModal() == .OK, let u = p.url {
             Task { await initRepository(at: u) }
         }
@@ -329,8 +329,8 @@ final class RepoStore: Identifiable {
     }
 
     func clone(remote: String, parent: URL, folder: String) async {
-        busy = "복제 중…"
-        if url == nil { loading = LoadingInfo(title: "\(folder) 복제 중", step: "원격 저장소에서 받는 중…") }
+        busy = String(localized: "Cloning…")
+        if url == nil { loading = LoadingInfo(title: String(localized: "Cloning \(folder)"), step: String(localized: "Receiving from the remote repository…")) }
         do {
             try await Git.run(["clone", "--", remote, folder], in: parent, timeout: 3600,
                               env: AccountStore.shared.gitEnvironment(target: nil, repoPath: nil))
@@ -413,7 +413,7 @@ final class RepoStore: Identifiable {
                 let more = commits.count > limit
                 if more { commits.removeLast(commits.count - limit) }
                 if wip { commits.insert(.wip(parent: head), at: 0) }
-                if loading != nil { loading?.step = "커밋 \(commits.count)개로 그래프 그리는 중…" }
+                if loading != nil { loading?.step = String(localized: "Drawing the graph with \(commits.count) commits…") }
                 let list = commits
                 let layout = await Task.detached(priority: .userInitiated) { GraphLayout.compute(list) }.value
                 graph = (list, layout, more)

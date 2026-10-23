@@ -5,17 +5,18 @@ import { settings } from "./settings";
 import type { TerminalSession } from "./terminal";
 import { tools, type ToolId } from "./tools";
 import { tempFile, withWslEnv, wslArgs } from "./wsl";
+import { t } from "./i18n";
 
 /** 세션 상태: Claude Code 는 훅 이벤트로 자세히, 다른 에이전트는 실행 중/종료만 */
 export type AgentStatus = "starting" | "working" | "permission" | "waiting" | "running" | "ended";
 
 export const agentStatusTitle: Record<AgentStatus, string> = {
-  starting: "입력 대기",
-  working: "작업 중",
-  permission: "권한 요청",
-  waiting: "입력 대기",
-  running: "실행 중",
-  ended: "종료됨",
+  starting: t("Waiting for input"),
+  working: t("Working"),
+  permission: t("Needs permission"),
+  waiting: t("Waiting for input"),
+  running: t("Running"),
+  ended: t("Ended"),
 };
 
 export const isActiveStatus = (s: AgentStatus) => s === "working" || s === "permission" || s === "running";
@@ -36,10 +37,10 @@ export const agentKinds: AgentKindInfo[] = [
     title: "Claude Code",
     tool: "claude",
     modes: [
-      { value: "", label: "기본 (매번 묻기)" },
-      { value: "acceptEdits", label: "파일 편집 자동 승인" },
-      { value: "plan", label: "계획만 세우기" },
-      { value: "auto", label: "자동" },
+      { value: "", label: t("Default (ask every time)") },
+      { value: "acceptEdits", label: t("Auto-approve file edits") },
+      { value: "plan", label: t("Plan only") },
+      { value: "auto", label: t("Auto") },
     ],
   },
   {
@@ -47,9 +48,9 @@ export const agentKinds: AgentKindInfo[] = [
     title: "Codex (ChatGPT)",
     tool: "codex",
     modes: [
-      { value: "", label: "기본" },
-      { value: "read-only", label: "읽기 전용" },
-      { value: "workspace-write", label: "작업 폴더 쓰기 허용" },
+      { value: "", label: t("Default") },
+      { value: "read-only", label: t("Read-only") },
+      { value: "workspace-write", label: t("Allow writing to the working folder") },
     ],
   },
   {
@@ -57,10 +58,10 @@ export const agentKinds: AgentKindInfo[] = [
     title: "Gemini CLI",
     tool: "gemini",
     modes: [
-      { value: "", label: "기본 (매번 묻기)" },
-      { value: "auto_edit", label: "파일 편집 자동 승인" },
-      { value: "plan", label: "계획만 세우기(읽기 전용)" },
-      { value: "yolo", label: "모두 자동" },
+      { value: "", label: t("Default (ask every time)") },
+      { value: "auto_edit", label: t("Auto-approve file edits") },
+      { value: "plan", label: t("Plan only (read-only)") },
+      { value: "yolo", label: t("Fully automatic") },
     ],
   },
 ];
@@ -81,7 +82,7 @@ export interface AgentSession {
 /** 세션을 띄울 저장소 창(탭) — 순환 참조를 피하려고 필요한 것만 */
 export interface AgentHost {
   newTerminal(path: string, spec?: { program?: string; args?: string[]; env?: Record<string, string>; title?: string; cwd?: string }): TerminalSession;
-  focusTerminal(t: TerminalSession): void;
+  focusTerminal(term: TerminalSession): void;
 }
 
 const events = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PermissionRequest", "Notification", "Stop", "SessionEnd"];
@@ -135,10 +136,10 @@ class AgentCenter extends Observable {
   }
 
   private async json(name: string): Promise<Record<string, unknown> | null> {
-    const t = await ipc.readText(joinPath(this.dir, name));
-    if (!t) return null;
+    const text = await ipc.readText(joinPath(this.dir, name));
+    if (!text) return null;
     try {
-      return JSON.parse(t);
+      return JSON.parse(text);
     } catch {
       return null;
     }
@@ -192,8 +193,8 @@ class AgentCenter extends Observable {
       const kind = (meta.kind as AgentKind) ?? "claude";
       // 훅이 없는 에이전트는 터미널이 살아 있으면 실행 중
       if (kind !== "claude" && !state) status = "running";
-      const t = this.terminals.get(id);
-      if (!t || !t.term.running) status = "ended";
+      const term = this.terminals.get(id);
+      if (!term || !term.term.running) status = "ended";
       list.push({ id, kind, path: String(meta.path ?? ""), task: String(meta.task ?? ""), created, status, detail, updated });
     }
     list.sort((a, b) => b.created - a.created);
@@ -214,22 +215,22 @@ class AgentCenter extends Observable {
   async start(host: AgentHost, kind: AgentKind, path: string, task: string, mode: string | null) {
     const info = agentKind(kind);
     const cmd = tools.command(info.tool);
-    if (!cmd) throw new Error(`${info.title} 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 WSL 에서 찾아 주세요.`);
+    if (!cmd) throw new Error(t("Couldn't find {0}. Locate the executable in Settings > Tools or find it in WSL.", info.title));
     const inWsl = cmd.kind === "wsl";
     settings.set("agentKind", kind);
     const id = crypto.randomUUID().toLowerCase();
-    const t = task.trim();
-    const meta = { id, kind, path, task: t, created: Date.now() / 1000 };
+    const text = task.trim();
+    const meta = { id, kind, path, task: text, created: Date.now() / 1000 };
     await ipc.writeText(joinPath(this.dir, id + ".meta"), JSON.stringify(meta));
     let args: string[];
     if (kind === "claude") {
       args = ["--settings", inWsl ? toWslPath(this.hooksWslFile) : this.hooksFile];
       if (mode) args.push("--permission-mode", mode);
-      if (t) args.push(t);
+      if (text) args.push(text);
     } else if (kind === "codex") {
-      args = [...(mode ? ["--sandbox", mode] : []), ...(t ? [t] : [])];
+      args = [...(mode ? ["--sandbox", mode] : []), ...(text ? [text] : [])];
     } else {
-      args = [...(mode ? ["--approval-mode", mode] : []), ...(t ? ["-i", t] : [])];
+      args = [...(mode ? ["--approval-mode", mode] : []), ...(text ? ["-i", text] : [])];
     }
     const title = info.title.split(" (")[0];
     let term: TerminalSession;
@@ -256,8 +257,8 @@ class AgentCenter extends Observable {
   }
 
   focus(s: AgentSession) {
-    const t = this.terminals.get(s.id);
-    if (t) t.host.focusTerminal(t.term);
+    const term = this.terminals.get(s.id);
+    if (term) term.host.focusTerminal(term.term);
   }
 
   stop(s: AgentSession) {

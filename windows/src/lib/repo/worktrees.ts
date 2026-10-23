@@ -4,6 +4,7 @@ import { git } from "../git";
 import { worktreeStats, type Worktree, type WorktreeStats } from "../models";
 import * as P from "../parsers";
 import { RepoRebase } from "./rebase";
+import { t } from "../i18n";
 
 /** 워크트리·에이전트 세션 */
 export abstract class RepoWorktrees extends RepoRebase {
@@ -17,24 +18,24 @@ export abstract class RepoWorktrees extends RepoRebase {
     const args = ["worktree", "add"];
     if (createNew) args.push("-b", branch, path, ...(start ? [start] : []));
     else args.push(path, branch);
-    if (!(await this.run("워크트리 만드는 중…", args))) return false;
+    if (!(await this.run(t("Creating worktree…"), args))) return false;
     if (launchClaude) await this.startAgent(path, task);
     return true;
   }
 
   confirmRemove(w: Worktree, force = false) {
     this.ask({
-      title: `워크트리 '${basename(w.path)}'을(를) 제거할까요?`,
+      title: t("Remove worktree '{0}'?", basename(w.path)),
       message: force
-        ? `${w.path}\n커밋하지 않은 변경도 함께 지워집니다.`
-        : `${w.path}\n폴더가 지워지고, 브랜치와 커밋은 그대로 남습니다. 커밋하지 않은 변경이 있으면 git 이 거부합니다.`,
-      actionTitle: force ? "강제 제거" : "제거",
-      action: () => this.run("워크트리 제거 중…", ["worktree", "remove", ...(force ? ["--force"] : []), w.path]),
+        ? t("{0}\nUncommitted changes are deleted too.", w.path)
+        : t("{0}\nThe folder is deleted; the branch and commits stay. git refuses if there are uncommitted changes.", w.path),
+      actionTitle: force ? t("Force remove") : t("Remove"),
+      action: () => this.run(t("Removing worktree…"), ["worktree", "remove", ...(force ? ["--force"] : []), w.path]),
     });
   }
 
   pruneWorktrees() {
-    return this.run("워크트리 정리 중…", ["worktree", "prune"]);
+    return this.run(t("Pruning worktrees…"), ["worktree", "prune"]);
   }
 
   /** 코딩 에이전트(Claude Code·Codex·Gemini CLI)를 아래 터미널 탭에서 시작 */

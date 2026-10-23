@@ -91,5 +91,5 @@ pub fn run() {
             update::app_restart,
         ])
         .run(tauri::generate_context!())
-        .expect("Branchwork 를 시작하지 못했습니다");
+        .expect("Couldn't start Branchwork");
 }

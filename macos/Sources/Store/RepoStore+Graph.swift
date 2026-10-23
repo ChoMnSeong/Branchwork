@@ -75,66 +75,66 @@ extension RepoStore {
         let sourceIsLocal = localBranches.contains { $0.name == source }
 
         if await isAncestor(sourceRef, of: targetRef) {
-            dropRequest = DropRequest(title: "'\(source)'은(는) 이미 '\(target)'에 들어 있습니다",
-                                      message: "머지할 새 커밋이 없습니다.", choices: [])
+            dropRequest = DropRequest(title: String(localized: "'\(source)' is already in '\(target)'"),
+                                      message: String(localized: "No new commits to merge."), choices: [])
             return
         }
         var choices: [DropChoice] = []
         // 대상이 원본의 조상이면 머지 커밋 없이 앞으로 옮기기만 하면 된다
         if targetIsLocal, await isAncestor(targetRef, of: sourceRef) {
             if target == current {
-                choices.append(DropChoice(title: "'\(target)'(현재)을(를) '\(source)'까지 빨리 감기 (fast-forward)") { [weak self] in
-                    await self?.run("빨리 감는 중…", ["merge", "--ff-only", source])
+                choices.append(DropChoice(title: String(localized: "Fast-forward '\(target)' (current) to '\(source)'")) { [weak self] in
+                    await self?.run(String(localized: "Fast-forwarding…"), ["merge", "--ff-only", source])
                 })
             } else {
-                choices.append(DropChoice(title: "'\(target)'을(를) '\(source)'까지 빨리 감기 (fast-forward)") { [weak self] in
-                    await self?.run("빨리 감는 중…", ["fetch", ".", "\(sourceRef):refs/heads/\(target)"])
+                choices.append(DropChoice(title: String(localized: "Fast-forward '\(target)' to '\(source)'")) { [weak self] in
+                    await self?.run(String(localized: "Fast-forwarding…"), ["fetch", ".", "\(sourceRef):refs/heads/\(target)"])
                 })
             }
         }
         if target == current {
-            choices.append(DropChoice(title: "'\(source)'을(를) '\(target)'(현재)에 머지") { [weak self] in
+            choices.append(DropChoice(title: String(localized: "Merge '\(source)' into '\(target)' (current)")) { [weak self] in
                 await self?.merge(source)
             })
-            choices.append(DropChoice(title: "'\(target)'(현재)을(를) '\(source)' 위로 리베이스") { [weak self] in
+            choices.append(DropChoice(title: String(localized: "Rebase '\(target)' (current) onto '\(source)'")) { [weak self] in
                 await self?.rebase(onto: source)
             })
         } else if source == current {
             // 가장 흔한 경우: 작업한 브랜치(현재)를 main 같은 브랜치에 합치기
             if targetIsLocal {
-                choices.append(DropChoice(title: "'\(source)'(현재)을(를) '\(target)'에 머지 — '\(target)' 체크아웃") { [weak self] in
+                choices.append(DropChoice(title: String(localized: "Merge '\(source)' (current) into '\(target)' — checks out '\(target)'")) { [weak self] in
                     await self?.mergeBranch(source, into: target)
                 })
             }
-            choices.append(DropChoice(title: "'\(source)'(현재)을(를) '\(target)' 위로 리베이스") { [weak self] in
+            choices.append(DropChoice(title: String(localized: "Rebase '\(source)' (current) onto '\(target)'")) { [weak self] in
                 await self?.rebase(onto: target)
             })
-            choices.append(DropChoice(title: "'\(target)'을(를) '\(source)'(현재)에 머지") { [weak self] in
+            choices.append(DropChoice(title: String(localized: "Merge '\(target)' into '\(source)' (current)")) { [weak self] in
                 await self?.merge(target)
             })
         } else {
             if targetIsLocal {
-                choices.append(DropChoice(title: "'\(target)' 체크아웃 후 '\(source)' 머지") { [weak self] in
-                    guard let self, await self.run("체크아웃 중…", ["switch", target]) else { return }
+                choices.append(DropChoice(title: String(localized: "Check out '\(target)', then merge '\(source)'")) { [weak self] in
+                    guard let self, await self.run(String(localized: "Checking out…"), ["switch", target]) else { return }
                     await self.merge(source)
                 })
             }
             if sourceIsLocal {
-                choices.append(DropChoice(title: "'\(source)' 체크아웃 후 '\(target)' 위로 리베이스") { [weak self] in
-                    guard let self, await self.run("체크아웃 중…", ["switch", source]) else { return }
+                choices.append(DropChoice(title: String(localized: "Check out '\(source)', then rebase onto '\(target)'")) { [weak self] in
+                    guard let self, await self.run(String(localized: "Checking out…"), ["switch", source]) else { return }
                     await self.rebase(onto: target)
                 })
             }
         }
         dropRequest = DropRequest(title: "'\(source)'  →  '\(target)'",
-                                  message: choices.isEmpty ? "여기에서 할 수 있는 작업이 없습니다." : "무엇을 할까요? 충돌이 나면 오른쪽에서 해결할 수 있습니다.",
+                                  message: choices.isEmpty ? String(localized: "There's nothing you can do here.") : String(localized: "What would you like to do? If there are conflicts, you can resolve them on the right."),
                                   choices: choices)
     }
 
     /// source 를 target 브랜치에 머지. target 이 현재 브랜치가 아니면 먼저 체크아웃한다(머지는 체크아웃한 브랜치에만 할 수 있다).
     func mergeBranch(_ source: String, into target: String) async {
         if target != headBranch {
-            guard await run("'\(target)' 체크아웃 중…", ["switch", target]) else { return }
+            guard await run(String(localized: "Checking out '\(target)'…"), ["switch", target]) else { return }
         }
         await merge(source)
     }
@@ -153,20 +153,20 @@ extension RepoStore {
         let short = commit.short
         var choices: [DropChoice] = []
         if source == headBranch {
-            choices.append(DropChoice(title: "이 커밋(\(short))을 '\(source)'(현재)에 머지") { [weak self] in
+            choices.append(DropChoice(title: String(localized: "Merge this commit (\(short)) into '\(source)' (current)")) { [weak self] in
                 await self?.merge(commit.id)
             })
-            choices.append(DropChoice(title: "'\(source)'(현재)을(를) 이 커밋(\(short)) 위로 리베이스") { [weak self] in
+            choices.append(DropChoice(title: String(localized: "Rebase '\(source)' (current) onto this commit (\(short))")) { [weak self] in
                 await self?.rebase(onto: commit.id)
             })
         } else if localBranches.contains(where: { $0.name == source }) {
-            choices.append(DropChoice(title: "'\(source)' 체크아웃 후 이 커밋(\(short)) 위로 리베이스") { [weak self] in
-                guard let self, await self.run("체크아웃 중…", ["switch", source]) else { return }
+            choices.append(DropChoice(title: String(localized: "Check out '\(source)', then rebase onto this commit (\(short))")) { [weak self] in
+                guard let self, await self.run(String(localized: "Checking out…"), ["switch", source]) else { return }
                 await self.rebase(onto: commit.id)
             })
         }
-        dropRequest = DropRequest(title: "'\(source)'  →  커밋 \(short)",
-                                  message: choices.isEmpty ? "여기에서 할 수 있는 작업이 없습니다." : "무엇을 할까요?",
+        dropRequest = DropRequest(title: String(localized: "'\(source)'  →  commit \(short)"),
+                                  message: choices.isEmpty ? String(localized: "There's nothing you can do here.") : String(localized: "What would you like to do?"),
                                   choices: choices)
     }
 
@@ -176,17 +176,17 @@ extension RepoStore {
         let short = String(sha.prefix(7))
         var choices: [DropChoice] = []
         if target == headBranch {
-            choices.append(DropChoice(title: "커밋 \(short)을(를) '\(target)'(현재)에 cherry-pick") { [weak self] in
+            choices.append(DropChoice(title: String(localized: "Cherry-pick commit \(short) onto '\(target)' (current)")) { [weak self] in
                 await self?.cherryPick(sha)
             })
         } else if localBranches.contains(where: { $0.name == target }) {
-            choices.append(DropChoice(title: "'\(target)' 체크아웃 후 커밋 \(short) cherry-pick") { [weak self] in
-                guard let self, await self.run("체크아웃 중…", ["switch", target]) else { return }
+            choices.append(DropChoice(title: String(localized: "Check out '\(target)', then cherry-pick commit \(short)")) { [weak self] in
+                guard let self, await self.run(String(localized: "Checking out…"), ["switch", target]) else { return }
                 await self.cherryPick(sha)
             })
         }
-        dropRequest = DropRequest(title: "커밋 \(short)  →  '\(target)'",
-                                  message: choices.isEmpty ? "원격 브랜치에는 바로 cherry-pick 할 수 없습니다." : "무엇을 할까요?",
+        dropRequest = DropRequest(title: String(localized: "Commit \(short)  →  '\(target)'"),
+                                  message: choices.isEmpty ? String(localized: "You can't cherry-pick onto a remote branch directly.") : String(localized: "What would you like to do?"),
                                   choices: choices)
     }
 }
@@ -200,33 +200,33 @@ struct RefMenu: View {
         switch ref.kind {
         case .local, .remote:
             if let b = store.branch(named: ref.name) {
-                Button(b.isRemote ? "체크아웃 (로컬 추적 브랜치)" : "체크아웃") { Task { await store.checkout(b) } }
+                Button(b.isRemote ? "Check out (local tracking branch)" : "Check out") { Task { await store.checkout(b) } }
                     .disabled(b.isCurrent)
                 if let current = store.headBranch, !b.isCurrent {
-                    Button("'\(b.name)'을(를) '\(current)'에 머지") { Task { await store.merge(b.name) } }
-                    Button("'\(current)'을(를) '\(b.name)' 위로 리베이스") { Task { await store.rebase(onto: b.name) } }
+                    Button("Merge '\(b.name)' into '\(current)'") { Task { await store.merge(b.name) } }
+                    Button("Rebase '\(current)' onto '\(b.name)'") { Task { await store.rebase(onto: b.name) } }
                 }
                 MergeIntoMenu(source: b.name)
                 Divider()
-                Button("여기서 새 브랜치…") { store.requestNewBranch(from: b.target, label: b.name) }
+                Button("New branch from here…") { store.requestNewBranch(from: b.target, label: b.name) }
                 if !b.isRemote {
-                    Button("새 워크트리에서 체크아웃…") { store.sheet = .addWorktree(branch: b.name, start: nil) }
+                    Button("Check out in a new worktree…") { store.sheet = .addWorktree(branch: b.name, start: nil) }
                         .disabled(b.isCurrent || store.worktree(using: b.name) != nil)
                     Button("Push") { Task { await store.pushBranch(b) } }
                 }
-                Button("이름 복사") { store.copy(b.name) }
-                Button("그래프에서 숨기기") { Task { await store.setHidden(b, true) } }
+                Button("Copy name") { store.copy(b.name) }
+                Button("Hide from graph") { Task { await store.setHidden(b, true) } }
                     .disabled(b.isCurrent)
                 Divider()
-                Button(b.isRemote ? "원격에서 삭제…" : "삭제…", role: .destructive) { store.confirmDelete(b) }
+                Button(b.isRemote ? "Delete from remote…" : "Delete…", role: .destructive) { store.confirmDelete(b) }
                     .disabled(b.isCurrent)
             }
         case .tag:
             if let t = store.tags.first(where: { $0.name == ref.name }) {
-                Button("태그 Push") { Task { await store.pushTag(t) } }
-                Button("이름 복사") { store.copy(t.name) }
+                Button("Push tag") { Task { await store.pushTag(t) } }
+                Button("Copy name") { store.copy(t.name) }
                 Divider()
-                Button("태그 삭제…", role: .destructive) { store.deleteTag(t) }
+                Button("Delete tag…", role: .destructive) { store.deleteTag(t) }
             }
         case .head:
             EmptyView()
@@ -242,9 +242,9 @@ struct MergeIntoMenu: View {
     var body: some View {
         let targets = store.mergeTargets(excluding: source)
         if !targets.isEmpty {
-            Menu("'\(source)'을(를) 다른 브랜치에 머지") {
+            Menu("Merge '\(source)' into another branch") {
                 ForEach(targets) { t in
-                    Button(t.isCurrent ? "\(t.name) (현재)" : t.name) { Task { await store.mergeBranch(source, into: t.name) } }
+                    Button(t.isCurrent ? String(localized: "\(t.name) (current)") : t.name) { Task { await store.mergeBranch(source, into: t.name) } }
                 }
             }
         }

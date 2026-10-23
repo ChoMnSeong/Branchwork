@@ -9,6 +9,7 @@ import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { Button, Spinner } from "../shared/ui";
 import { Frame, Row } from "./Frame";
+import { t } from "../../lib/i18n";
 
 /** https://host/a/b.git, git@host:a/b.git → "b" */
 function guessName(url: string) {
@@ -37,7 +38,7 @@ export function CloneSheet({ store, close }: { store: RepoStore; close: () => vo
     void (async () => {
       try {
         const token = await accounts.token(a);
-        if (!token) throw new Error("토큰이 없습니다. 설정에서 계정을 다시 연결하세요.");
+        if (!token) throw new Error(t("No token. Reconnect the account in Settings."));
         const list = await Hosting.repositories(a.provider, token, accountApiBase(a));
         if (!cancelled) setRepos(list);
       } catch (e) {
@@ -65,8 +66,8 @@ export function CloneSheet({ store, close }: { store: RepoStore; close: () => vo
 
   return (
     <Frame
-      title="저장소 복제"
-      confirm="복제"
+      title={t("Clone repository")}
+      confirm={t("Clone")}
       width={600}
       canConfirm={!!remote.trim() && !!folder.trim()}
       close={close}
@@ -78,7 +79,7 @@ export function CloneSheet({ store, close }: { store: RepoStore; close: () => vo
       {accounts.accounts.length > 0 && (
         <div className="form-section">
           <div className="row">
-            <span className="form-section-title grow">내 저장소</span>
+            <span className="form-section-title grow">{t("My repositories")}</span>
             <select className="select" style={{ width: 260 }} value={accountID ?? ""} onChange={(e) => setAccountID(e.target.value)}>
               {accounts.accounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -87,7 +88,7 @@ export function CloneSheet({ store, close }: { store: RepoStore; close: () => vo
               ))}
             </select>
           </div>
-          <input className="input" placeholder="검색" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input className="input" placeholder={t("Search")} value={query} onChange={(e) => setQuery(e.target.value)} />
           <div style={{ height: 180, overflow: "auto", border: "1px solid var(--border)", borderRadius: 6, background: "var(--input)" }}>
             {loadingRepos ? (
               <div className="empty">
@@ -123,22 +124,21 @@ export function CloneSheet({ store, close }: { store: RepoStore; close: () => vo
         </div>
       )}
       <Row label="URL">
-        <input className="input" autoFocus value={remote} placeholder="https://github.com/사용자/저장소.git" onChange={(e) => setURL(e.target.value)} spellCheck={false} />
+        <input className="input" autoFocus value={remote} placeholder={t("https://github.com/user/repo.git")} onChange={(e) => setURL(e.target.value)} spellCheck={false} />
       </Row>
-      <Row label="위치">
+      <Row label={t("Location")}>
         <span className="ellipsis grow">{displayPath(parent)}</span>
         <Button
           size="small"
           onClick={() =>
-            void ipc.pickFolder("복제할 위치", parent).then((p) => {
+            void ipc.pickFolder(t("Clone into"), parent).then((p) => {
               if (p) setParent(slash(p));
             })
           }
         >
-          변경…
-        </Button>
+          {t("Change…")}</Button>
       </Row>
-      <Row label="폴더 이름">
+      <Row label={t("Folder name")}>
         <input
           className="input"
           value={folder}

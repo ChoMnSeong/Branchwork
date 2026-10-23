@@ -107,9 +107,9 @@ extension RepoStore {
     // MARK: 버튼
 
     func playJob(_ job: CIJob, in p: CIPipeline) {
-        confirm = ConfirmRequest(title: "'\(job.name)' 작업을 실행할까요?",
-                                 message: "\(p.ref) · 파이프라인 #\(p.number)" + (job.stage.isEmpty ? "" : " · \(job.stage) 단계"),
-                                 actionTitle: "실행", destructive: false) { [weak self] in
+        confirm = ConfirmRequest(title: String(localized: "Run the '\(job.name)' job?"),
+                                 message: String(localized: "\(p.ref) · pipeline #\(p.number)") + (job.stage.isEmpty ? "" : String(localized: " · \(job.stage) stages")),
+                                 actionTitle: String(localized: "Run"), destructive: false) { [weak self] in
             await self?.ciAction("job:\(job.id)", refresh: p) { c in
                 try await CIAPI.play(c.target, token: c.token, apiBase: c.apiBase, job: job.id)
             }
@@ -135,9 +135,9 @@ extension RepoStore {
     }
 
     func cancelPipeline(_ p: CIPipeline) {
-        confirm = ConfirmRequest(title: "파이프라인 #\(p.number)을(를) 취소할까요?",
-                                 message: "\(p.ref) 에서 실행 중인 작업이 멈춥니다.",
-                                 actionTitle: "실행 취소") { [weak self] in
+        confirm = ConfirmRequest(title: String(localized: "Cancel pipeline #\(p.number)?"),
+                                 message: String(localized: "Running work in \(p.ref) will stop."),
+                                 actionTitle: String(localized: "Cancel run")) { [weak self] in
             await self?.ciAction("pipeline:\(p.id)", refresh: p) { c in
                 try await CIAPI.cancel(c.target, token: c.token, apiBase: c.apiBase, pipeline: p.id)
             }
@@ -147,9 +147,9 @@ extension RepoStore {
     /// GitHub 환경 보호 규칙의 배포 승인·거부
     func reviewDeployment(_ p: CIPipeline, _ deployments: [CIDeployment], approve: Bool) {
         let names = deployments.map(\.environment).joined(separator: ", ")
-        confirm = ConfirmRequest(title: approve ? "'\(names)' 배포를 승인할까요?" : "'\(names)' 배포를 거부할까요?",
+        confirm = ConfirmRequest(title: approve ? String(localized: "Approve the '\(names)' deployment?") : String(localized: "Reject the '\(names)' deployment?"),
                                  message: "\(p.name) #\(p.number) · \(p.ref)",
-                                 actionTitle: approve ? "승인" : "거부", destructive: !approve) { [weak self] in
+                                 actionTitle: approve ? String(localized: "Approve") : String(localized: "Reject"), destructive: !approve) { [weak self] in
             await self?.ciAction("pipeline:\(p.id)", refresh: p) { c in
                 try await CIAPI.review(c.target, token: c.token, apiBase: c.apiBase, run: p.id,
                                        environments: deployments.map(\.environmentID), approve: approve)
@@ -204,9 +204,9 @@ extension RepoStore {
         guard let h = error as? HostingError, h.status == 403 || h.status == 404 else { return base }
         switch provider {
         case .gitlab:
-            return base + "\n\n실행하려면 토큰에 api 권한이 있어야 하고(read_api 만으로는 안 됨), 프로젝트에서 Developer 이상이어야 합니다. 보호된 브랜치·환경이면 그 권한도 필요합니다."
+            return base + String(localized: "\n\nTo run it, your token needs the api scope (read_api is not enough) and you need Developer or higher on the project. Protected branches and environments need those permissions too.")
         case .github:
-            return base + "\n\n실행하려면 토큰에 Actions 쓰기 권한이 있어야 합니다(클래식 토큰은 repo, 세분화 토큰은 Actions: Read and write). 설정에서 계정을 다시 연결해 보세요."
+            return base + String(localized: "\n\nTo run it, your token needs write access to Actions (classic token: repo; fine-grained token: Actions: Read and write). Try reconnecting the account in Settings.")
         }
     }
 }

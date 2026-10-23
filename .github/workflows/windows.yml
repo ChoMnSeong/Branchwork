@@ -182,7 +182,7 @@ jobs:
           }
           "@
           foreach ($theme in @("light", "dark")) {
-            $settings = @{ openTabs = @($repo); selectedTab = $repo; theme = $theme; autoUpdate = $false; sidebarMode = "list" } | ConvertTo-Json
+            $settings = @{ openTabs = @($repo); selectedTab = $repo; theme = $theme; language = "ko"; autoUpdate = $false; sidebarMode = "list" } | ConvertTo-Json
             [IO.File]::WriteAllText((Join-Path $data "settings.json"), $settings)
             $p = Start-Process -FilePath $exe -PassThru
             $deadline = (Get-Date).AddSeconds(60)

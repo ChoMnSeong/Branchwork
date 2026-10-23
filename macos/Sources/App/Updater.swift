@@ -81,7 +81,7 @@ final class UpdateCenter {
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard (resp as? HTTPURLResponse)?.statusCode == 200,
                   let list = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-                throw AIError.failed("GitHub", "릴리스 정보를 받지 못했습니다(\((resp as? HTTPURLResponse)?.statusCode ?? 0)).")
+                throw AIError.failed("GitHub", String(localized: "Couldn't get release information (\((resp as? HTTPURLResponse)?.statusCode ?? 0))."))
             }
             lastChecked = Date()
             let macReleases = list.filter { r in
@@ -131,7 +131,7 @@ final class UpdateCenter {
         do {
             let dest = Bundle.main.bundleURL
             guard FileManager.default.isWritableFile(atPath: dest.deletingLastPathComponent().path) else {
-                throw AIError.failed("업데이트", "\(dest.deletingLastPathComponent().path) 에 쓸 권한이 없습니다. 릴리스 페이지에서 직접 받아 설치해 주세요.")
+                throw AIError.failed(String(localized: "Update"), String(localized: "No permission to write to \(dest.deletingLastPathComponent().path). Download and install it from the releases page."))
             }
             let newApp = try await prepare(r, bundleID: Bundle.main.bundleIdentifier)
             phase = .installing
@@ -155,17 +155,17 @@ final class UpdateCenter {
                 .first { $0.hasSuffix(r.zipName) }?.split(separator: " ").first.map(String.init)
             let actual = SHA256.hash(data: try Data(contentsOf: zipFile)).map { String(format: "%02x", $0) }.joined()
             guard let expected, expected.lowercased() == actual else {
-                throw AIError.failed("업데이트", "받은 파일의 SHA-256 이 릴리스와 다릅니다. 설치하지 않았습니다.")
+                throw AIError.failed(String(localized: "Update"), String(localized: "The downloaded file's SHA-256 doesn't match the release. It wasn't installed."))
             }
         }
         let unzip = try await Shell.run("/usr/bin/ditto", ["-x", "-k", zipFile.path, work.path], cwd: work, timeout: 120)
-        guard unzip.status == 0 else { throw AIError.failed("업데이트", "압축을 풀지 못했습니다: \(unzip.stderr)") }
+        guard unzip.status == 0 else { throw AIError.failed(String(localized: "Update"), String(localized: "Couldn't extract: \(unzip.stderr)")) }
         let newApp = work.appendingPathComponent("Branchwork.app")
         guard let newID = Bundle(url: newApp)?.bundleIdentifier, newID == bundleID else {
-            throw AIError.failed("업데이트", "받은 파일이 Branchwork 가 아닙니다. 설치하지 않았습니다.")
+            throw AIError.failed(String(localized: "Update"), String(localized: "The downloaded file isn't Branchwork. It wasn't installed."))
         }
         let verify = try await Shell.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", newApp.path], cwd: work, timeout: 120)
-        guard verify.status == 0 else { throw AIError.failed("업데이트", "받은 앱의 서명이 온전하지 않습니다: \(verify.stderr)") }
+        guard verify.status == 0 else { throw AIError.failed(String(localized: "Update"), String(localized: "The downloaded app's signature is invalid: \(verify.stderr)")) }
         return newApp
     }
 
@@ -192,7 +192,7 @@ final class UpdateCenter {
 
     private func download(_ url: URL, to file: URL) async throws {
         let (bytes, resp) = try await URLSession.shared.bytes(from: url)
-        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw AIError.failed("업데이트", "파일을 받지 못했습니다.") }
+        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw AIError.failed(String(localized: "Update"), String(localized: "Couldn't download the file.")) }
         let total = resp.expectedContentLength > 0 ? Double(resp.expectedContentLength) : nil
         FileManager.default.createFile(atPath: file.path, contents: nil)
         let handle = try FileHandle(forWritingTo: file)
@@ -219,7 +219,7 @@ final class UpdateCenter {
         if let window { window.makeKeyAndOrderFront(nil); NSApp.activate(); return }
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 300),
                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        w.title = "Branchwork 업데이트"
+        w.title = String(localized: "Branchwork update")
         w.isReleasedWhenClosed = false
         w.contentViewController = NSHostingController(rootView: UpdateView())
         w.center()
@@ -245,23 +245,23 @@ struct UpdateView: View {
         VStack(alignment: .leading, spacing: 12) {
             switch center.phase {
             case .checking:
-                HStack { ProgressView().controlSize(.small); Text("새 버전을 확인하는 중…") }
+                HStack { ProgressView().controlSize(.small); Text("Checking for a new version…") }
             case .upToDate, .idle:
-                Label("Branchwork \(UpdateCenter.currentVersion) 이(가) 가장 새 버전입니다.", systemImage: "checkmark.circle.fill")
+                Label("Branchwork \(UpdateCenter.currentVersion) is the latest version.", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
-                HStack { Spacer(); Button("확인") { center.closeWindow() }.keyboardShortcut(.defaultAction) }
+                HStack { Spacer(); Button("OK") { center.closeWindow() }.keyboardShortcut(.defaultAction) }
             case .failed(let m):
-                Label("업데이트를 하지 못했습니다", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                Label("Couldn't update", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 Text(m).font(.callout).textSelection(.enabled)
                 HStack {
-                    if let u = center.latest?.pageURL { Link("릴리스 페이지 열기", destination: u) }
+                    if let u = center.latest?.pageURL { Link("Open releases page", destination: u) }
                     Spacer()
-                    Button("닫기") { center.closeWindow() }
+                    Button("Close") { center.closeWindow() }
                 }
             case .available, .downloading, .installing:
                 if let r = center.latest {
-                    Text("새 버전 \(r.version) 이(가) 나왔습니다").font(.title3.weight(.semibold))
-                    Text("지금 버전 \(UpdateCenter.currentVersion) → \(r.version)" + (r.date.map { " · \($0)" } ?? ""))
+                    Text("Version \(r.version) is out").font(.title3.weight(.semibold))
+                    Text(String(localized: "Current version \(UpdateCenter.currentVersion) → \(r.version)") + (r.date.map { " · \($0)" } ?? ""))
                         .font(.callout).foregroundStyle(.secondary)
                     if !r.notes.isEmpty {
                         ScrollView {
@@ -274,19 +274,19 @@ struct UpdateView: View {
                     }
                     if center.phase == .available {
                         HStack {
-                            Button("이 버전 건너뛰기") { center.skip() }
+                            Button("Skip this version") { center.skip() }
                             Spacer()
-                            Button("나중에") { center.closeWindow() }
-                            Button("지금 업데이트") { Task { await center.install() } }
+                            Button("Later") { center.closeWindow() }
+                            Button("Update now") { Task { await center.install() } }
                                 .keyboardShortcut(.defaultAction)
                                 .buttonStyle(.borderedProminent)
                         }
                     } else {
                         ProgressView(value: center.progress ?? 0)
-                        Text(center.phase == .installing ? "설치하는 중… 끝나면 다시 시작합니다" : "받는 중…")
+                        Text(center.phase == .installing ? "Installing… Branchwork restarts when done" : "Downloading…")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Text("받은 파일은 릴리스의 SHA-256 과 서명이 맞을 때만 설치됩니다. 업데이트 뒤 처음 켤 때 키체인 접근을 다시 물을 수 있습니다.")
+                    Text("A downloaded file is installed only if its SHA-256 and signature match the release. After updating, you may be asked again for Keychain access on first launch.")
                         .font(.caption).foregroundStyle(.tertiary)
                 }
             }

@@ -8,12 +8,12 @@ enum AgentStatus: String {
 
     var title: String {
         switch self {
-        case .starting: return "입력 대기"
-        case .working: return "작업 중"
-        case .permission: return "권한 요청"
-        case .waiting: return "입력 대기"
-        case .running: return "실행 중"
-        case .ended: return "종료됨"
+        case .starting: return String(localized: "Waiting for input")
+        case .working: return String(localized: "Working")
+        case .permission: return String(localized: "Needs permission")
+        case .waiting: return String(localized: "Waiting for input")
+        case .running: return String(localized: "Running")
+        case .ended: return String(localized: "Ended")
         }
     }
 
@@ -44,9 +44,9 @@ enum AgentKind: String, CaseIterable, Identifiable {
     /// 권한 모드: (값, 이름)
     var modes: [(String, String)] {
         switch self {
-        case .claude: return [("", "기본 (매번 묻기)"), ("acceptEdits", "파일 편집 자동 승인"), ("plan", "계획만 세우기"), ("auto", "자동")]
-        case .codex: return [("", "기본"), ("read-only", "읽기 전용"), ("workspace-write", "작업 폴더 쓰기 허용")]
-        case .gemini: return [("", "기본 (매번 묻기)"), ("auto_edit", "파일 편집 자동 승인"), ("plan", "계획만 세우기(읽기 전용)"), ("yolo", "모두 자동")]
+        case .claude: return [("", String(localized: "Default (ask every time)")), ("acceptEdits", String(localized: "Auto-approve file edits")), ("plan", String(localized: "Plan only")), ("auto", String(localized: "Auto"))]
+        case .codex: return [("", String(localized: "Default")), ("read-only", String(localized: "Read-only")), ("workspace-write", String(localized: "Allow writing to the working folder"))]
+        case .gemini: return [("", String(localized: "Default (ask every time)")), ("auto_edit", String(localized: "Auto-approve file edits")), ("plan", String(localized: "Plan only (read-only)")), ("yolo", String(localized: "Fully automatic"))]
         }
     }
 
@@ -227,7 +227,7 @@ final class AgentCenter {
     /// 폴더에서 에이전트를 새 Terminal 창으로 띄운다. task 가 있으면 첫 요청으로 보낸다.
     func start(_ kind: AgentKind, in path: String, task: String, permissionMode: String? = nil) throws {
         guard let exe = ToolStore.shared.path(kind.tool) else {
-            throw AIError.notConfigured("\(kind.title) 를 찾지 못했습니다. 설정 > 도구에서 실행 파일을 불러오거나 설치하세요.")
+            throw AIError.notConfigured(String(localized: "Couldn't find \(kind.title). Locate the executable in Settings > Tools or install it."))
         }
         UserDefaults.standard.set(kind.rawValue, forKey: "agentKind")
         let id = UUID().uuidString.lowercased()

@@ -8,8 +8,8 @@ struct FileViewToggle: View {
 
     var body: some View {
         Picker("", selection: $mode) {
-            Image(systemName: "list.bullet").tag("list").help("목록으로 보기")
-            Image(systemName: "list.bullet.indent").tag("tree").help("폴더 트리로 보기")
+            Image(systemName: "list.bullet").tag("list").help("Show as list")
+            Image(systemName: "list.bullet.indent").tag("tree").help("Show as folder tree")
         }
         .pickerStyle(.segmented)
         .labelsHidden()
@@ -153,7 +153,7 @@ private struct FolderRow: View {
             if let actionIcon, hover {
                 Button(action: action) { Image(systemName: actionIcon) }
                     .buttonStyle(.borderless)
-                    .help(actionHelp + " — 폴더 전체")
+                    .help(actionHelp + String(localized: " — whole folder"))
             }
         }
         .padding(.vertical, 3)

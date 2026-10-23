@@ -14,7 +14,7 @@ struct CreatePullRequestSheet: View {
     var body: some View {
         let provider = store.target?.provider ?? .github
         VStack(alignment: .leading, spacing: 12) {
-            Text("새 \(provider.requestName)").font(.title3.weight(.semibold))
+            Text("New \(provider.requestName)").font(.title3.weight(.semibold))
             HStack {
                 Text(store.headBranch ?? "").font(.system(.body, design: .monospaced))
                 Image(systemName: "arrow.right").foregroundStyle(.secondary)
@@ -24,7 +24,7 @@ struct CreatePullRequestSheet: View {
                 .labelsHidden()
                 .frame(maxWidth: 220)
             }
-            TextField("제목", text: $title)
+            TextField("Title", text: $title)
                 .textFieldStyle(.roundedBorder)
             TextEditor(text: $bodyText)
                 .font(.body)
@@ -37,18 +37,18 @@ struct CreatePullRequestSheet: View {
                 Toggle("Draft", isOn: $draft)
                 Spacer()
                 if generating { ProgressView().controlSize(.small) }
-                Button { generate() } label: { Label("\(AIStore.shared.short(for: .pullRequest))로 작성", systemImage: "sparkles") }
+                Button { generate() } label: { Label("Write with \(AIStore.shared.short(for: .pullRequest))", systemImage: "sparkles") }
                     .disabled(generating || base.isEmpty)
             }
             if store.status.upstream == nil || store.status.ahead > 0 {
-                Text("만들기 전에 현재 브랜치를 \(store.target?.remote ?? "원격")에 Push 합니다.")
+                Text("Pushes the current branch to \(store.target?.remote ?? String(localized: "Remotes")) before creating.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             HStack {
                 Spacer()
-                Button("취소", role: .cancel) { dismiss() }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("만들기") {
+                Button("Create") {
                     let t = title.trimmed, b = bodyText, target = base, d = draft
                     dismiss()
                     Task { await store.createPullRequest(title: t, body: b, base: target, draft: d) }

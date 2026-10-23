@@ -10,6 +10,7 @@ import { settings } from "../settings";
 import { CIAPI, type CIAccess } from "./api";
 import { type CIDeployment, type CIInput, type CIJob, type CIPipeline, type CIWorkflow, isActiveCI } from "./models";
 import { pipelineVariables } from "./yaml";
+import { t } from "../i18n";
 
 /** 저장소 탭마다 하나: 파이프라인 목록·작업·버튼 동작 */
 export class CIStore extends Observable {
@@ -49,12 +50,12 @@ export class CIStore extends Observable {
 
   /** PR·MR 과 같은 계정을 쓴다 */
   async access(): Promise<CIAccess | null> {
-    const t = this.repo.target;
+    const target = this.repo.target;
     const a = this.repo.hostingAccount;
-    if (!t || !a) return null;
+    if (!target || !a) return null;
     const token = await accounts.token(a);
     if (!token) return null;
-    return { target: t, token, apiBase: a.provider === "github" ? "https://api.github.com" : a.server + "/api/v4" };
+    return { target: target, token, apiBase: a.provider === "github" ? "https://api.github.com" : a.server + "/api/v4" };
   }
 
   get hasAccess() {
@@ -71,9 +72,9 @@ export class CIStore extends Observable {
 
   /** 실행할 수 있는 브랜치: 이 저장소 원격의 브랜치(현재 브랜치가 맨 앞) */
   get branches(): string[] {
-    const t = this.repo.target;
-    if (!t) return [];
-    const names = this.repo.remoteBranches.filter((b) => branchRemote(b) === t.remote && !branchShort(b).endsWith("HEAD")).map(branchShort);
+    const target = this.repo.target;
+    if (!target) return [];
+    const names = this.repo.remoteBranches.filter((b) => branchRemote(b) === target.remote && !branchShort(b).endsWith("HEAD")).map(branchShort);
     const cur = this.currentRef;
     const i = cur ? names.indexOf(cur) : -1;
     if (i > 0) names.unshift(...names.splice(i, 1));
@@ -86,9 +87,9 @@ export class CIStore extends Observable {
     return i === undefined ? null : this.repo.entries[i].commit.subject;
   }
 
-  private same(t: RepoTarget) {
+  private same(target: RepoTarget) {
     const cur = this.repo.target;
-    return !!cur && cur.host === t.host && cur.path === t.path && cur.provider === t.provider;
+    return !!cur && cur.host === target.host && cur.path === target.path && cur.provider === target.provider;
   }
 
   /** 받은 파이프라인 목록을 보여 준다(커밋마다 가장 최근 것도 정리) */
@@ -115,12 +116,12 @@ export class CIStore extends Observable {
   }
 
   async load(silent = false, withJobs = true) {
-    const t = this.repo.target;
-    if (!t) return this.reset();
-    if (!this.repo.hostingAccount && accounts.accountsFor(t.provider).length) await accounts.discoverAlias(t, true);
+    const target = this.repo.target;
+    if (!target) return this.reset();
+    if (!this.repo.hostingAccount && accounts.accountsFor(target.provider).length) await accounts.discoverAlias(target, true);
     const c = await this.access();
     if (!c) {
-      if (t.provider === "gitlab") accounts.suggestedGitLabServer = `https://${t.host}`;
+      if (target.provider === "gitlab") accounts.suggestedGitLabServer = `https://${target.host}`;
       this.pipelines = [];
       this.state = { kind: "needsAccount" };
       this.emit();
@@ -132,7 +133,7 @@ export class CIStore extends Observable {
     }
     try {
       const list = await CIAPI.pipelines(c, this.currentBranchOnly ? this.currentRef : null);
-      if (!this.same(t)) return;
+      if (!this.same(target)) return;
       const before = new Map(this.pipelines.map((p) => [p.id, p.status]));
       this.showPipelines(list);
       const ids = new Set(list.map((p) => p.id));
@@ -140,12 +141,12 @@ export class CIStore extends Observable {
       for (const k of [...this.deployments.keys()]) if (!ids.has(k)) this.deployments.delete(k);
       this.emit();
       // 최근 파이프라인은 작업까지 읽어 둔다(수동 실행 대기 ▶ 표시·승인 대기)
-      const recent = !withJobs ? [] : t.provider === "gitlab" ? list.slice(0, 5) : list.filter((p) => p.status === "waiting");
+      const recent = !withJobs ? [] : target.provider === "gitlab" ? list.slice(0, 5) : list.filter((p) => p.status === "waiting");
       for (const p of recent) {
         if (!this.jobs.has(p.id) || before.get(p.id) !== p.status || isActiveCI(p.status)) await this.loadJobs(p, true);
       }
     } catch (e) {
-      if (!this.same(t)) return;
+      if (!this.same(target)) return;
       // 자동 새로 고침이 한 번 실패한 것으로 목록을 지우지 않는다
       if (!silent || !this.pipelines.length) this.state = { kind: "failed", message: describe(e) };
       this.emit();
@@ -174,9 +175,9 @@ export class CIStore extends Observable {
 
   playJob(job: CIJob, p: CIPipeline) {
     this.repo.ask({
-      title: `'${job.name}' 작업을 실행할까요?`,
-      message: `${p.ref} · 파이프라인 #${p.number}` + (job.stage ? ` · ${job.stage} 단계` : ""),
-      actionTitle: "실행",
+      title: t("Run the '{0}' job?", job.name),
+      message: t("{0} · pipeline #{1}", p.ref, p.number) + (job.stage ? t(" · {0} stages", job.stage) : ""),
+      actionTitle: t("Run"),
       destructive: false,
       action: () => this.act(`job:${job.id}`, p, (c) => CIAPI.play(c, job.id)),
     });
@@ -196,9 +197,9 @@ export class CIStore extends Observable {
 
   cancelPipeline(p: CIPipeline) {
     this.repo.ask({
-      title: `파이프라인 #${p.number}을(를) 취소할까요?`,
-      message: `${p.ref} 에서 실행 중인 작업이 멈춥니다.`,
-      actionTitle: "실행 취소",
+      title: t("Cancel pipeline #{0}?", p.number),
+      message: t("Running work in {0} will stop.", p.ref),
+      actionTitle: t("Cancel run"),
       action: () => this.act(`pipeline:${p.id}`, p, (c) => CIAPI.cancelPipeline(c, p.id)),
     });
   }
@@ -207,9 +208,9 @@ export class CIStore extends Observable {
   reviewDeployment(p: CIPipeline, deps: CIDeployment[], approve: boolean) {
     const names = deps.map((d) => d.environment).join(", ");
     this.repo.ask({
-      title: approve ? `'${names}' 배포를 승인할까요?` : `'${names}' 배포를 거부할까요?`,
+      title: approve ? t("Approve the '{0}' deployment?", names) : t("Reject the '{0}' deployment?", names),
       message: `${p.name} #${p.number} · ${p.ref}`,
-      actionTitle: approve ? "승인" : "거부",
+      actionTitle: approve ? t("Approve") : t("Reject"),
       destructive: !approve,
       action: () =>
         this.act(`pipeline:${p.id}`, p, (c) =>
@@ -271,6 +272,6 @@ export function ciError(e: unknown, provider: Provider): string {
   const base = describe(e);
   if (!(e instanceof Hosting.HostingError) || (e.status !== 403 && e.status !== 404)) return base;
   return provider === "gitlab"
-    ? base + "\n\n실행하려면 토큰에 api 권한이 있어야 하고(read_api 만으로는 안 됨), 프로젝트에서 Developer 이상이어야 합니다. 보호된 브랜치·환경이면 그 권한도 필요합니다."
-    : base + "\n\n실행하려면 토큰에 Actions 쓰기 권한이 있어야 합니다(클래식 토큰은 repo, 세분화 토큰은 Actions: Read and write). 설정에서 계정을 다시 연결해 보세요.";
+    ? base + t("\n\nTo run it, your token needs the api scope (read_api is not enough) and you need Developer or higher on the project. Protected branches and environments need those permissions too.")
+    : base + t("\n\nTo run it, your token needs write access to Actions (classic token: repo; fine-grained token: Actions: Read and write). Try reconnecting the account in Settings.");
 }

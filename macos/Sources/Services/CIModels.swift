@@ -41,18 +41,18 @@ enum CIStatus: String, Hashable {
 
     var title: String {
         switch self {
-        case .created: return "생성됨"
-        case .waiting: return "대기 중"
-        case .pending: return "대기열"
-        case .running: return "실행 중"
-        case .success: return "성공"
-        case .failed: return "실패"
-        case .canceled: return "취소됨"
-        case .skipped: return "건너뜀"
-        case .manual: return "수동 실행 대기"
-        case .scheduled: return "예약됨"
-        case .neutral: return "완료"
-        case .unknown: return "알 수 없음"
+        case .created: return String(localized: "Created")
+        case .waiting: return String(localized: "Waiting")
+        case .pending: return String(localized: "Queued")
+        case .running: return String(localized: "Running")
+        case .success: return String(localized: "Succeeded")
+        case .failed: return String(localized: "Failed")
+        case .canceled: return String(localized: "Canceled")
+        case .skipped: return String(localized: "Skipped")
+        case .manual: return String(localized: "Waiting to be run manually")
+        case .scheduled: return String(localized: "Scheduled")
+        case .neutral: return String(localized: "Done")
+        case .unknown: return String(localized: "Unknown")
         }
     }
 
@@ -108,12 +108,12 @@ struct CIPipeline: Identifiable, Hashable {
     var eventTitle: String {
         switch event {
         case "push": return "push"
-        case "web", "workflow_dispatch": return "수동"
-        case "schedule": return "예약"
+        case "web", "workflow_dispatch": return String(localized: "Manual")
+        case "schedule": return String(localized: "Scheduled")
         case "merge_request_event", "pull_request", "pull_request_target": return "MR·PR"
         case "api": return "API"
-        case "trigger", "repository_dispatch": return "트리거"
-        case "parent_pipeline", "pipeline", "workflow_run": return "연결"
+        case "trigger", "repository_dispatch": return String(localized: "Trigger")
+        case "parent_pipeline", "pipeline", "workflow_run": return String(localized: "Connect")
         default: return event
         }
     }

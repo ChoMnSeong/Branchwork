@@ -4,6 +4,7 @@ import { keyLabel } from "../../lib/env";
 import { laneColor, stableHash } from "../../lib/format";
 import type { ChangeKind, RefLabel } from "../../lib/models";
 import { Observable, useObserve } from "../../lib/observable";
+import { t } from "../../lib/i18n";
 
 // MARK: 기본 컨트롤
 
@@ -94,14 +95,14 @@ export function Avatar({ name, email, size = 28, url }: { name: string; email: s
 }
 
 const kindInfo: Record<ChangeKind, { letter: string; color: string; tip: string }> = {
-  added: { letter: "A", color: "rgb(46,158,92)", tip: "추가됨" },
-  modified: { letter: "M", color: "rgb(219,140,26)", tip: "수정됨" },
-  deleted: { letter: "D", color: "rgb(219,66,77)", tip: "삭제됨" },
-  renamed: { letter: "R", color: "rgb(41,133,245)", tip: "이름 변경" },
-  copied: { letter: "C", color: "rgb(41,133,245)", tip: "복사됨" },
-  typeChanged: { letter: "T", color: "rgb(219,140,26)", tip: "유형 변경" },
-  untracked: { letter: "N", color: "rgb(46,158,92)", tip: "새 파일(추적 안 됨)" },
-  conflicted: { letter: "!", color: "rgb(191,26,51)", tip: "충돌" },
+  added: { letter: "A", color: "rgb(46,158,92)", tip: t("Added") },
+  modified: { letter: "M", color: "rgb(219,140,26)", tip: t("Modified") },
+  deleted: { letter: "D", color: "rgb(219,66,77)", tip: t("Deleted") },
+  renamed: { letter: "R", color: "rgb(41,133,245)", tip: t("Renamed") },
+  copied: { letter: "C", color: "rgb(41,133,245)", tip: t("Copied") },
+  typeChanged: { letter: "T", color: "rgb(219,140,26)", tip: t("Type changed") },
+  untracked: { letter: "N", color: "rgb(46,158,92)", tip: t("New file (untracked)") },
+  conflicted: { letter: "!", color: "rgb(191,26,51)", tip: t("Conflict") },
 };
 
 export function StatusBadge({ kind }: { kind: ChangeKind }) {

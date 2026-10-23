@@ -4,6 +4,7 @@ import { ipc } from "../ipc";
 import { repoStateTitle } from "../models";
 import { makePlan, planProblem, rebaseItem, rebaseTodo, shellQuote, type RebaseItem, type RebasePlan } from "../rebase";
 import { RepoDrop } from "./drop";
+import { t } from "../i18n";
 
 /** 인터랙티브 리베이스(커밋 정리): 현재 브랜치의 커밋을 합치기·순서 바꾸기·메시지 고치기·빼기 (맥 버전 RepoStore+Rebase.swift) */
 export abstract class RepoRebase extends RepoDrop {
@@ -15,17 +16,17 @@ export abstract class RepoRebase extends RepoDrop {
       this.errorMessage = m;
       this.emit();
     };
-    if (this.repoState !== "clean") return fail(`${repoStateTitle[this.repoState]}인 동안에는 커밋을 정리할 수 없습니다.`);
-    if (!(await this.isAncestor(sha, "HEAD"))) return fail(`현재 브랜치 '${branch}'에 들어 있는 커밋만 정리할 수 있습니다.`);
+    if (this.repoState !== "clean") return fail(t("You can't clean up commits right now ({0}).", repoStateTitle[this.repoState]));
+    if (!(await this.isAncestor(sha, "HEAD"))) return fail(t("You can only clean up commits that are on the current branch '{0}'.", branch));
     const parent = await gitRaw(["rev-parse", "--verify", "-q", `${sha}^`], this.path);
     const base = parent.status === 0 ? parent.stdout.trim() : null;
     const r = await gitRaw(["log", "--format=%H%x1f%P%x1f%an%x1f%B%x1e", base ? `${base}..HEAD` : "HEAD"], this.path);
-    if (r.status !== 0) return fail("커밋 목록을 읽지 못했습니다.");
+    if (r.status !== 0) return fail(t("Couldn't read the commit list."));
     const items: RebaseItem[] = [];
     for (const rec of r.stdout.split("\x1e")) {
       const f = rec.replace(/^[\r\n]+|[\r\n]+$/g, "").split("\x1f");
       if (f.length < 4) continue;
-      if (f[1].split(" ").filter(Boolean).length > 1) return fail("정리할 구간에 머지 커밋이 있습니다. 머지 커밋보다 위의 커밋부터 골라 주세요.");
+      if (f[1].split(" ").filter(Boolean).length > 1) return fail(t("There's a merge commit in the range. Pick a commit above the merge commit."));
       items.push(rebaseItem(f[0], f.slice(3).join("\x1f").replace(/\r\n/g, "\n").replace(/^\n+|\n+$/g, ""), f[2]));
     }
     if (!items.length) return;
@@ -47,11 +48,11 @@ export abstract class RepoRebase extends RepoDrop {
       for (const i of plan.items) if (i.action === "reword") await ipc.writeText(file(`msg-${i.sha}`), i.newMessage);
       await ipc.writeText(file("todo"), rebaseTodo(plan, (sha) => file(`msg-${sha}`)));
     } catch (e) {
-      this.errorMessage = "정리 계획을 쓰지 못했습니다.\n\n" + describe(e);
+      this.errorMessage = t("Couldn't write the cleanup plan.\n\n") + describe(e);
       this.emit();
       return;
     }
-    const ok = await this.run("커밋 정리 중…", ["-c", `sequence.editor=cp ${shellQuote(file("todo"))}`, "rebase", "-i", "--autostash", plan.base ?? "--root"]);
+    const ok = await this.run(t("Cleaning up commits…"), ["-c", `sequence.editor=cp ${shellQuote(file("todo"))}`, "rebase", "-i", "--autostash", plan.base ?? "--root"]);
     this.rebasePlan = null;
     // 충돌로 멈추면 남은 메시지 고치기에 파일이 필요하다
     if (ok && this.repoState === "clean") await ipc.remove(dir);

@@ -8,9 +8,9 @@ struct FileInspectView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                Button { store.closeFileInspect() } label: { Label("그래프", systemImage: "chevron.left") }
+                Button { store.closeFileInspect() } label: { Label("Graph", systemImage: "chevron.left") }
                     .keyboardShortcut(.escape, modifiers: [])
-                    .help("그래프로 돌아가기 (Esc)")
+                    .help("Back to graph (Esc)")
                 Image(systemName: inspect.mode == .history ? "clock.arrow.circlepath" : "person.text.rectangle")
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 0) {
@@ -20,13 +20,13 @@ struct FileInspectView: View {
                 Spacer()
                 if store.fileInspectLoading { ProgressView().controlSize(.small) }
                 Picker("", selection: Binding(get: { inspect.mode }, set: { store.setFileInspectMode($0) })) {
-                    Text("히스토리").tag(FileInspect.Mode.history)
-                    Text("줄별 작성자").tag(FileInspect.Mode.blame)
+                    Text("History").tag(FileInspect.Mode.history)
+                    Text("Blame").tag(FileInspect.Mode.blame)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .fixedSize()
-                .help("이 파일을 바꾼 커밋들 / 줄마다 누가 언제 바꿨는지")
+                .help("Commits that changed this file / who changed each line and when")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -34,7 +34,7 @@ struct FileInspectView: View {
             Divider()
 
             if let error = store.fileInspectError {
-                ContentUnavailableView("읽지 못했습니다", systemImage: "exclamationmark.triangle", description: Text(error))
+                ContentUnavailableView("Couldn't read", systemImage: "exclamationmark.triangle", description: Text(error))
             } else if inspect.mode == .history {
                 HistoryPane()
             } else {
@@ -45,8 +45,8 @@ struct FileInspectView: View {
 
     private var subtitle: String {
         switch inspect.mode {
-        case .history: return "\(inspect.path) · 커밋 \(store.fileHistory.count)개"
-        case .blame: return "\(inspect.path) · " + (inspect.rev.map { "커밋 \($0.prefix(7)) 기준" } ?? "작업 트리 기준")
+        case .history: return String(localized: "\(inspect.path) · \(store.fileHistory.count) commits")
+        case .blame: return "\(inspect.path) · " + (inspect.rev.map { String(localized: "As of commit \($0.prefix(7))") } ?? String(localized: "As of the working tree"))
         }
     }
 }
@@ -68,7 +68,7 @@ private struct HistoryPane: View {
                             Text(e.commit.author)
                             Text(Fmt.short(e.commit.date))
                             if e.path != store.fileInspect?.path {
-                                Text("이전 이름: \(e.path)").foregroundStyle(.orange)
+                                Text("Previous name: \(e.path)").foregroundStyle(.orange)
                             }
                         }
                         .font(.caption)
@@ -79,9 +79,9 @@ private struct HistoryPane: View {
                 }
                 .tag(e.id)
                 .contextMenu {
-                    Button("그래프에서 이 커밋 보기") { store.closeFileInspect(); store.reveal(e.commit.id) }
-                    Button("이 커밋 기준 줄별 작성자 보기") { store.openBlame(e.path, rev: e.commit.id) }
-                    Button("SHA 복사") { store.copy(e.commit.id) }
+                    Button("Show this commit in the graph") { store.closeFileInspect(); store.reveal(e.commit.id) }
+                    Button("Show blame at this commit") { store.openBlame(e.path, rev: e.commit.id) }
+                    Button("Copy SHA") { store.copy(e.commit.id) }
                 }
             }
             .frame(minHeight: 90, idealHeight: CGFloat(min(8, max(2, store.fileHistory.count))) * 38 + 12, maxHeight: 420)
@@ -89,9 +89,9 @@ private struct HistoryPane: View {
             Group {
                 if let doc = store.fileHistoryDiff {
                     if let error = doc.error {
-                        ContentUnavailableView("변경을 읽지 못했습니다", systemImage: "exclamationmark.triangle", description: Text(error))
+                        ContentUnavailableView("Couldn't read the changes", systemImage: "exclamationmark.triangle", description: Text(error))
                     } else if doc.isBinary {
-                        ContentUnavailableView("바이너리 파일", systemImage: "doc.zipper")
+                        ContentUnavailableView("Binary file", systemImage: "doc.zipper")
                     } else if doc.lines.isEmpty {
                         DiffEmptyState(doc: doc)
                     } else {
@@ -100,7 +100,7 @@ private struct HistoryPane: View {
                 } else if !store.fileHistory.isEmpty {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if !store.fileInspectLoading {
-                    ContentUnavailableView("히스토리 없음", systemImage: "clock", description: Text("아직 커밋되지 않은 파일입니다."))
+                    ContentUnavailableView("No history", systemImage: "clock", description: Text("This file hasn't been committed yet."))
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 160, idealHeight: 600, maxHeight: .infinity)
@@ -142,7 +142,7 @@ private struct BlamePane: View {
         .background(Color(nsColor: .textBackgroundColor))
         .overlay {
             if lines.isEmpty && !store.fileInspectLoading {
-                ContentUnavailableView("내용 없음", systemImage: "doc", description: Text("빈 파일이거나 아직 커밋되지 않았습니다."))
+                ContentUnavailableView("No content", systemImage: "doc", description: Text("The file is empty or not committed yet."))
             }
         }
     }
@@ -152,7 +152,7 @@ private struct BlamePane: View {
         if l.startsBlock {
             HStack(spacing: 6) {
                 if l.uncommitted {
-                    Text("커밋하지 않음").foregroundStyle(.orange)
+                    Text("Not committed").foregroundStyle(.orange)
                 } else {
                     AuthorAvatar(name: l.author, email: l.email, size: 14)
                     Text(l.author).lineLimit(1).frame(maxWidth: 80, alignment: .leading)
@@ -164,7 +164,7 @@ private struct BlamePane: View {
             .font(.system(size: 11))
             .padding(.horizontal, 8)
             .contentShape(Rectangle())
-            .help(l.uncommitted ? "아직 커밋하지 않은 줄" : "\(l.summary)\n\(l.author) · \(Fmt.long(l.date))\n눌러서 그래프에서 이 커밋 보기")
+            .help(l.uncommitted ? "Uncommitted line" : "\(l.summary)\n\(l.author) · \(Fmt.long(l.date))\nClick to show this commit in the graph")
             .onTapGesture {
                 guard !l.uncommitted else { return }
                 store.closeFileInspect()

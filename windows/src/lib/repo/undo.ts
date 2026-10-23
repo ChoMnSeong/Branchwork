@@ -1,6 +1,7 @@
 import { gitRaw } from "../git";
 import { RepoActions } from "./actions";
 import { sameSnapshot, shortRef, undoSummary, undoTitle, type RefSnapshot } from "./undo-model";
+import { t } from "../i18n";
 
 export type { RefSnapshot, UndoPoint } from "./undo-model";
 
@@ -35,7 +36,7 @@ export abstract class RepoUndo extends RepoActions {
   confirmUndo() {
     const p = this.undoStack[this.undoStack.length - 1];
     if (!p) return;
-    this.ask({ title: `「${p.title}」을(를) 되돌릴까요?`, message: undoSummary(p), actionTitle: "되돌리기", destructive: false, action: () => this.undo() });
+    this.ask({ title: t("Undo “{0}”?", p.title), message: undoSummary(p), actionTitle: t("Undo"), destructive: false, action: () => this.undo() });
   }
 
   /** 마지막 작업을 되돌린다. 그 뒤로 저장소가 바뀌었으면(터미널에서 커밋 등) 엉뚱하게 되돌리지 않도록 하지 않는다. */
@@ -45,10 +46,10 @@ export abstract class RepoUndo extends RepoActions {
     const now = await this.refSnapshot();
     if (!now || !sameSnapshot(now, p.after)) {
       this.undoStack = [];
-      this.showError(`그 뒤로 저장소가 바뀌어(다른 곳에서 커밋·체크아웃 등) 「${p.title}」을(를) 되돌릴 수 없습니다.`);
+      this.showError(t("The repository changed since then (a commit, checkout, etc. elsewhere), so “{0}” can't be undone.", p.title));
       return;
     }
-    this.busy = "되돌리는 중…";
+    this.busy = t("Undoing…");
     this.emit();
     try {
       // 커밋을 취소하면 그 메시지를 입력 칸에 돌려 놓는다
@@ -78,7 +79,7 @@ export abstract class RepoUndo extends RepoActions {
       }
       this.undoStack = this.undoStack.slice(0, -1);
     } catch (e) {
-      this.showError("되돌리지 못했습니다.\n\n" + String(e instanceof Error ? e.message : e));
+      this.showError(t("Couldn't undo.\n\n") + String(e instanceof Error ? e.message : e));
     }
     this.busy = null;
     await this.reload();

@@ -10,30 +10,30 @@ struct AgentsPanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("워크트리").font(.headline)
+                    Text("Worktrees").font(.headline)
                     Text("\(store.worktrees.count)").foregroundStyle(.secondary)
                     Spacer()
                     if agents.sessions.contains(where: { $0.status == .ended }) {
-                        Button("종료된 세션 지우기") { agents.clearEnded() }
+                        Button("Clear ended sessions") { agents.clearEnded() }
                             .buttonStyle(.borderless).font(.caption)
                     }
                     Button { store.sheet = .addWorktree(branch: nil, start: nil) } label: { Image(systemName: "plus") }
                         .buttonStyle(.borderless)
-                        .help("새 워크트리")
+                        .help("New worktree")
                 }
 
                 HStack(spacing: 6) {
                     Button { store.sheet = .startAgent(path: nil) } label: {
-                        Label("세션 시작", systemImage: "sparkles")
+                        Label("Start session", systemImage: "sparkles")
                             .frame(maxWidth: .infinity)
                     }
                     .controlSize(.large)
-                    .help("에이전트 세션 시작 — Claude Code·Codex·Gemini CLI 중 하나로, 작업할 워크트리와 맡길 일을 고릅니다")
+                    .help("Start agent session — choose Claude Code, Codex or Gemini CLI, a worktree to work in, and a task")
                     Button { if let u = store.url { store.startAgent(in: u.path) } } label: {
                         Image(systemName: "bolt.fill")
                     }
                     .controlSize(.large)
-                    .help("지금 이 워크트리에서 \(agents.defaultKind.title) 바로 시작")
+                    .help("Start \(agents.defaultKind.title) in this worktree now")
                 }
 
                 ForEach(store.worktrees) { w in
@@ -46,13 +46,13 @@ struct AgentsPanel: View {
                 let known = Set(store.worktrees.map { AgentCenter.normalize($0.path) })
                 let others = agents.sessions.filter { !known.contains(AgentCenter.normalize($0.path)) && $0.status != .ended }
                 if !others.isEmpty {
-                    Text("다른 폴더의 세션").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 6)
+                    Text("Sessions in other folders").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 6)
                     ForEach(others) { s in
                         SessionRow(session: s, showPath: true)
                     }
                 }
 
-                Text("여기서 시작한 세션만 상태가 보입니다. 세션을 누르면 그 Terminal 창으로 이동합니다.")
+                Text("Only sessions started here show their status. Click a session to go to its Terminal window.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 4)
@@ -83,7 +83,7 @@ private struct WorktreeCard: View {
             HStack(spacing: 6) {
                 Image(systemName: worktree.isMain ? "house" : "arrow.triangle.branch")
                     .foregroundStyle(.secondary)
-                Text(worktree.branch ?? "분리된 HEAD")
+                Text(worktree.branch ?? String(localized: "Detached HEAD"))
                     .font(.headline)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -92,25 +92,25 @@ private struct WorktreeCard: View {
                 if hover {
                     Button { store.sheet = .startAgent(path: worktree.path) } label: { Image(systemName: "sparkles") }
                         .buttonStyle(.borderless)
-                        .help("이 워크트리에서 에이전트 세션 시작")
+                        .help("Start an agent session in this worktree")
                 }
             }
 
             if let stats {
                 HStack(spacing: 8) {
                     if stats.isClean && stats.ahead == 0 && stats.behind == 0 {
-                        Text("변경 없음").foregroundStyle(.secondary)
+                        Text("No changes").foregroundStyle(.secondary)
                     }
-                    if stats.added > 0 { Text("+\(stats.added)").foregroundStyle(.green).help("새 파일") }
+                    if stats.added > 0 { Text("+\(stats.added)").foregroundStyle(.green).help("New file") }
                     if stats.modified > 0 {
                         Label("\(stats.modified)", systemImage: "pencil").labelStyle(.titleAndIcon)
-                            .foregroundStyle(.orange).help("수정한 파일")
+                            .foregroundStyle(.orange).help("Modified files")
                     }
-                    if stats.deleted > 0 { Text("−\(stats.deleted)").foregroundStyle(.red).help("삭제한 파일") }
-                    if stats.conflicted > 0 { Text("!\(stats.conflicted)").foregroundStyle(.red).help("충돌") }
+                    if stats.deleted > 0 { Text("−\(stats.deleted)").foregroundStyle(.red).help("Deleted file") }
+                    if stats.conflicted > 0 { Text("!\(stats.conflicted)").foregroundStyle(.red).help("Conflict") }
                     if !stats.isClean && (stats.ahead > 0 || stats.behind > 0) { Divider().frame(height: 10) }
-                    if stats.ahead > 0 { Text("↑\(stats.ahead)").foregroundStyle(.blue).help("원격에 올리지 않은 커밋") }
-                    if stats.behind > 0 { Text("↓\(stats.behind)").foregroundStyle(.orange).help("원격에서 받지 않은 커밋") }
+                    if stats.ahead > 0 { Text("↑\(stats.ahead)").foregroundStyle(.blue).help("Commits not pushed to the remote") }
+                    if stats.behind > 0 { Text("↓\(stats.behind)").foregroundStyle(.orange).help("Commits not pulled from the remote") }
                 }
                 .font(.callout.monospacedDigit().weight(.medium))
             }
@@ -131,16 +131,16 @@ private struct WorktreeCard: View {
             Task { await store.openOrReport(URL(fileURLWithPath: worktree.path, isDirectory: true)) }
         }
         .contextMenu {
-            Button("에이전트 세션 시작…") { store.sheet = .startAgent(path: worktree.path) }
-            Button("Branchwork 에서 열기") {
+            Button("Start agent session…") { store.sheet = .startAgent(path: worktree.path) }
+            Button("Open in Branchwork") {
                 Task { await store.openOrReport(URL(fileURLWithPath: worktree.path, isDirectory: true)) }
             }
             .disabled(isCurrent)
-            Button("Finder 에서 보기") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: worktree.path)]) }
-            Button("아래 터미널에서 열기") { store.newTerminal(in: worktree.path) }
-            Button("Terminal 앱에서 열기") { Launcher.openTerminal(at: worktree.path) }
+            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: worktree.path)]) }
+            Button("Open in the terminal below") { store.newTerminal(in: worktree.path) }
+            Button("Open in Terminal") { Launcher.openTerminal(at: worktree.path) }
             Divider()
-            Button("워크트리 제거…", role: .destructive) { store.confirmRemove(worktree) }
+            Button("Remove worktree…", role: .destructive) { store.confirmRemove(worktree) }
                 .disabled(worktree.isMain || isCurrent)
         }
     }
@@ -178,19 +178,19 @@ private struct SessionRow: View {
         .font(.callout)
         .contentShape(Rectangle())
         .onTapGesture { agents.focus(session) }
-        .help(session.status == .ended ? "끝난 세션" : "눌러서 Terminal 창으로 이동")
+        .help(session.status == .ended ? "Ended sessions" : "Click to go to the Terminal window")
         .contextMenu {
-            Button("Terminal 창으로 이동") { agents.focus(session) }
+            Button("Go to Terminal window") { agents.focus(session) }
                 .disabled(session.status == .ended)
-            Button("같은 곳에서 새 세션") { store.startAgent(in: session.path, kind: session.kind) }
+            Button("New session in the same place") { store.startAgent(in: session.path, kind: session.kind) }
             Divider()
             if session.status == .ended {
-                Button("목록에서 지우기") { agents.remove(id: session.id) }
+                Button("Remove from list") { agents.remove(id: session.id) }
             } else {
-                Button("세션 끝내기…", role: .destructive) {
-                    store.confirm = ConfirmRequest(title: "\(session.kind.title) 세션을 끝낼까요?",
+                Button("End session…", role: .destructive) {
+                    store.confirm = ConfirmRequest(title: String(localized: "End the \(session.kind.title) session?"),
                                                    message: session.task.isEmpty ? session.path : session.task,
-                                                   actionTitle: "끝내기") { agents.stop(session) }
+                                                   actionTitle: String(localized: "End")) { agents.stop(session) }
                 }
             }
         }
@@ -237,43 +237,43 @@ struct StartAgentSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("에이전트 세션 시작").font(.title3.weight(.semibold)).padding([.top, .horizontal], 20)
+            Text("Start agent session").font(.title3.weight(.semibold)).padding([.top, .horizontal], 20)
             Form {
-                Picker("에이전트", selection: $kind) {
+                Picker("Agents", selection: $kind) {
                     ForEach(AgentKind.allCases) { k in
-                        Text(tools.path(k.tool) == nil ? "\(k.title) (없음)" : k.title).tag(k)
+                        Text(tools.path(k.tool) == nil ? String(localized: "\(k.title) (none)") : k.title).tag(k)
                     }
                 }
                 .pickerStyle(.segmented)
                 if tools.path(kind.tool) == nil {
-                    Text("\(kind.title) 실행 파일을 찾지 못했습니다. 설정(⌘,) > 도구에서 불러오거나 설치하세요.")
+                    Text("Couldn't find the \(kind.title) executable. Locate it in Settings (⌘,) > Tools or install it.")
                         .font(.caption).foregroundStyle(.red)
                 }
-                Picker("작업할 곳", selection: $target) {
+                Picker("Where to work", selection: $target) {
                     ForEach(store.worktrees) { w in
                         Text(label(w)).tag(w.path)
                     }
                     Divider()
-                    Text("새 워크트리 만들기…").tag("")
+                    Text("Create new worktree…").tag("")
                 }
                 if target.isEmpty {
-                    TextField("새 브랜치 이름", text: $newBranch, prompt: Text("feature/ai-작업"))
-                    LabeledContent("위치", value: newBranch.trimmed.isEmpty ? "-" : (store.defaultWorktreePath(for: newBranch.trimmed) as NSString).abbreviatingWithTildeInPath)
+                    TextField("New branch name", text: $newBranch, prompt: Text("feature/ai-work"))
+                    LabeledContent("Location", value: newBranch.trimmed.isEmpty ? "-" : (store.defaultWorktreePath(for: newBranch.trimmed) as NSString).abbreviatingWithTildeInPath)
                 }
-                TextField("맡길 작업", text: $task, prompt: Text("예: 로그인 실패 시 잠금 처리 추가하고 테스트까지"), axis: .vertical)
+                TextField("Task", text: $task, prompt: Text("e.g. add a lockout after failed logins, including tests"), axis: .vertical)
                     .lineLimit(3...6)
-                Picker("권한 모드", selection: $mode) {
+                Picker("Permission mode", selection: $mode) {
                     ForEach(kind.modes, id: \.0) { m in Text(m.1).tag(m.0) }
                 }
             }
             .formStyle(.grouped)
             HStack {
-                Text("새 Terminal 창에서 실행되고, 상태는 에이전트 탭에 표시됩니다.")
+                Text("Runs in a new Terminal window; its status is shown in the Agents tab.")
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button("취소", role: .cancel) { dismiss() }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("시작") { start() }
+                Button("Start") { start() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(tools.path(kind.tool) == nil || (target.isEmpty && !validBranch))
             }
@@ -292,8 +292,8 @@ struct StartAgentSheet: View {
     }
 
     private func label(_ w: Worktree) -> String {
-        let name = w.branch ?? "분리된 HEAD"
-        return w.path == store.url?.path ? "\(name)  (지금 연 곳)" : name
+        let name = w.branch ?? String(localized: "Detached HEAD")
+        return w.path == store.url?.path ? String(localized: "\(name)  (opened here)") : name
     }
 
     private func start() {

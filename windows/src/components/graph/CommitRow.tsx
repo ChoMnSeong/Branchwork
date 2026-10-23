@@ -11,6 +11,7 @@ import { Avatar, showContextMenu, tip } from "../shared/ui";
 import { AVATAR, LANE_W, LEFT_PAD, ROW_H, type GraphColumns } from "./metrics";
 import { CIStatusIcon } from "../sidebar/CIPanel";
 import { statusInfo, type CIPipeline } from "../../lib/ci/models";
+import { t } from "../../lib/i18n";
 
 export const CommitRow = memo(function CommitRow({
   store,
@@ -105,10 +106,9 @@ export const CommitRow = memo(function CommitRow({
       <div className="msg" style={{ paddingLeft: 8 }}>
         {wip ? (
           <>
-            <i className="muted">// 작업 중인 변경</i>
+            <i className="muted">{t("// Uncommitted changes")}</i>
             <span className="wip-chip" style={{ background: `color-mix(in srgb, ${tint} 18%, transparent)` }}>
-              {wipCount}개 파일
-            </span>
+              {t("{0} files", wipCount)}</span>
           </>
         ) : (
           <>
@@ -118,7 +118,7 @@ export const CommitRow = memo(function CommitRow({
             {ci && (
               <span
                 className="ci-badge"
-                data-tip={`CI: ${statusInfo[ci.status].title} · ${ci.name ? ci.name + " " : ""}#${ci.number} — 눌러서 브라우저로`}
+                data-tip={t("CI: {0} · {1}#{2} — click to open in the browser", statusInfo[ci.status].title, ci.name ? ci.name + " " : "", ci.number)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => store.openUrl(ci.url)}
               >
@@ -192,10 +192,10 @@ function RefPill({ store, group, tint }: { store: RepoStore; group: RefGroup; ti
   const solid = group.isCurrent;
   const target = group.local ?? group.remotes[0] ?? group.name;
   const tipText = [
-    group.local ? `로컬: ${group.local}${group.isCurrent ? " (현재)" : ""}` : "",
-    group.remotes.length ? `원격: ${group.remotes.join(", ")}` : "",
-    group.isTag ? `태그: ${group.name}` : "",
-    branch ? "더블클릭: 체크아웃 · 다른 브랜치 줄로 끌어 놓기: 머지·리베이스 · 우클릭: 메뉴" : "",
+    group.local ? t("Local: {0}{1}", group.local, group.isCurrent ? t(" (current)") : "") : "",
+    group.remotes.length ? t("Remote: {0}", group.remotes.join(", ")) : "",
+    group.isTag ? t("Tag: {0}", group.name) : "",
+    branch ? t("Double-click: check out · Drag onto another branch's row: merge or rebase · Right-click: menu") : "",
   ]
     .filter(Boolean)
     .join("\n");

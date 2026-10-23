@@ -24,23 +24,26 @@ enum Palette {
 }
 
 enum Fmt {
+    // 화면 언어에 맞춘 날짜 형식
     private static let relative: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "ko_KR")
+        f.locale = AppLanguage.locale
         f.unitsStyle = .short
         return f
     }()
 
     private static let day: DateFormatter = {
         let f = DateFormatter()
-        f.dateFormat = "yyyy.MM.dd"
+        f.locale = AppLanguage.locale
+        f.dateStyle = .short
         return f
     }()
 
     private static let full: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ko_KR")
-        f.dateFormat = "yyyy년 M월 d일 a h:mm"
+        f.locale = AppLanguage.locale
+        f.dateStyle = .long
+        f.timeStyle = .short
         return f
     }()
 
@@ -107,14 +110,14 @@ struct StatusBadge: View {
 
     private var help: String {
         switch kind {
-        case .added: return "추가됨"
-        case .modified: return "수정됨"
-        case .deleted: return "삭제됨"
-        case .renamed: return "이름 변경"
-        case .copied: return "복사됨"
-        case .typeChanged: return "유형 변경"
-        case .untracked: return "새 파일(추적 안 됨)"
-        case .conflicted: return "충돌"
+        case .added: return String(localized: "Added")
+        case .modified: return String(localized: "Modified")
+        case .deleted: return String(localized: "Deleted")
+        case .renamed: return String(localized: "Renamed")
+        case .copied: return String(localized: "Copied")
+        case .typeChanged: return String(localized: "Type changed")
+        case .untracked: return String(localized: "New file (untracked)")
+        case .conflicted: return String(localized: "Conflict")
         }
     }
 }
@@ -244,7 +247,7 @@ struct FileRow: View {
                     if let a = stat.added, let d = stat.deleted {
                         LineStatText(added: a, deleted: d)
                     } else {
-                        Text("바이너리").font(.caption2).foregroundStyle(.tertiary)
+                        Text("Binary").font(.caption2).foregroundStyle(.tertiary)
                     }
                 }
                 .fixedSize()

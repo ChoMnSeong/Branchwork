@@ -31,7 +31,7 @@ extension RepoStore {
     }
 
     func fetch() async {
-        if await run("Fetch 중…", ["fetch", "--all", "--prune"], network: true) {
+        if await run(String(localized: "Fetching…"), ["fetch", "--all", "--prune"], network: true) {
             await loadPullRequests()
             await refreshCIBadges()
         }
@@ -45,24 +45,24 @@ extension RepoStore {
         case .merge: args.append("--no-rebase")
         case .rebase: args.append("--rebase")
         }
-        await run("Pull 중…", args, network: true)
+        await run(String(localized: "Pulling…"), args, network: true)
     }
 
     func push(force: Bool = false) async {
         guard let branch = headBranch, headHash != nil else {
-            errorMessage = "Push 할 브랜치가 없습니다. 분리된 HEAD 이거나 아직 커밋이 없습니다."
+            errorMessage = String(localized: "There's no branch to push. HEAD is detached or there are no commits yet.")
             return
         }
         var args = ["push"]
         if force { args.append("--force-with-lease") }
         if status.upstream == nil {
             guard let remote = defaultRemote else {
-                errorMessage = "원격 저장소가 없습니다. 터미널에서 `git remote add origin <URL>` 로 먼저 추가하세요."
+                errorMessage = String(localized: "No remote repository. Add one first in a terminal with `git remote add origin <URL>`.")
                 return
             }
             args += ["-u", remote, branch]
         }
-        if await run("Push 중…", args, network: true) {
+        if await run(String(localized: "Pushing…"), args, network: true) {
             await loadPullRequests()
             // 올리자마자 파이프라인이 생기므로 조금 뒤에 읽는다
             try? await Task.sleep(for: .seconds(3))
@@ -73,17 +73,17 @@ extension RepoStore {
     func pushBranch(_ b: Branch) async {
         if b.isCurrent { await push(); return }
         guard let remote = b.upstream.flatMap({ $0.split(separator: "/").first.map(String.init) }) ?? defaultRemote else {
-            errorMessage = "원격 저장소가 없습니다."
+            errorMessage = String(localized: "No remote repository.")
             return
         }
-        await run("Push 중…", ["push"] + (b.upstream == nil ? ["-u"] : []) + [remote, b.name], network: true)
+        await run(String(localized: "Pushing…"), ["push"] + (b.upstream == nil ? ["-u"] : []) + [remote, b.name], network: true)
     }
 
     func checkout(_ b: Branch) async {
         if !b.isRemote, let w = worktree(using: b.name) {
-            confirm = ConfirmRequest(title: "'\(b.name)'은(는) 다른 워크트리에서 쓰는 중입니다",
-                                     message: "\(w.path)\n한 브랜치는 워크트리 하나에서만 체크아웃할 수 있습니다. 그 워크트리를 열까요?",
-                                     actionTitle: "워크트리 열기", destructive: false) { [weak self] in
+            confirm = ConfirmRequest(title: String(localized: "'\(b.name)' is in use by another worktree"),
+                                     message: String(localized: "\(w.path)\nA branch can be checked out in only one worktree. Open that worktree?"),
+                                     actionTitle: String(localized: "Open worktree"), destructive: false) { [weak self] in
                 await self?.openOrReport(URL(fileURLWithPath: w.path, isDirectory: true))
             }
             return
@@ -91,17 +91,17 @@ extension RepoStore {
         if b.isRemote {
             let short = b.shortName
             if localBranches.contains(where: { $0.name == short }) {
-                await run("체크아웃 중…", ["switch", short])
+                await run(String(localized: "Checking out…"), ["switch", short])
             } else {
-                await run("체크아웃 중…", ["switch", "-c", short, "--track", b.name])
+                await run(String(localized: "Checking out…"), ["switch", "-c", short, "--track", b.name])
             }
         } else if !b.isCurrent {
-            await run("체크아웃 중…", ["switch", b.name])
+            await run(String(localized: "Checking out…"), ["switch", b.name])
         }
     }
 
     func checkoutDetached(_ sha: String) async {
-        await run("체크아웃 중…", ["switch", "--detach", sha])
+        await run(String(localized: "Checking out…"), ["switch", "--detach", sha])
     }
 
     func requestNewBranch(from start: String? = nil, label: String? = nil) {
@@ -111,57 +111,57 @@ extension RepoStore {
 
     func createBranch(_ name: String, at start: String, checkout: Bool) async {
         let args = checkout ? ["switch", "-c", name, start] : ["branch", name, start]
-        await run("브랜치 만드는 중…", args)
+        await run(String(localized: "Creating branch…"), args)
     }
 
     func confirmDelete(_ b: Branch) {
         if b.isRemote {
             guard let remote = b.remote else { return }
-            confirm = ConfirmRequest(title: "원격 브랜치 '\(b.name)'을(를) 삭제할까요?",
-                                     message: "\(remote) 서버에서 브랜치가 삭제됩니다. 다른 사람도 쓰는 브랜치라면 주의하세요.",
-                                     actionTitle: "원격에서 삭제") { [weak self] in
-                await self?.run("원격 브랜치 삭제 중…", ["push", remote, "--delete", b.shortName], network: true)
+            confirm = ConfirmRequest(title: String(localized: "Delete remote branch '\(b.name)'?"),
+                                     message: String(localized: "The branch will be deleted on the \(remote) server. Be careful if others use it too."),
+                                     actionTitle: String(localized: "Delete from remote")) { [weak self] in
+                await self?.run(String(localized: "Deleting remote branch…"), ["push", remote, "--delete", b.shortName], network: true)
             }
         } else {
-            confirm = ConfirmRequest(title: "브랜치 '\(b.name)'을(를) 삭제할까요?",
-                                     message: "머지되지 않은 커밋이 있으면 git 이 삭제를 거부합니다. 그때는 '강제 삭제'를 쓰세요.",
-                                     actionTitle: "삭제") { [weak self] in
-                await self?.run("브랜치 삭제 중…", ["branch", "-d", b.name])
+            confirm = ConfirmRequest(title: String(localized: "Delete branch '\(b.name)'?"),
+                                     message: String(localized: "git refuses to delete a branch with unmerged commits. Use 'Force delete' in that case."),
+                                     actionTitle: String(localized: "Delete")) { [weak self] in
+                await self?.run(String(localized: "Deleting branch…"), ["branch", "-d", b.name])
             }
         }
     }
 
     func confirmForceDelete(_ b: Branch) {
-        confirm = ConfirmRequest(title: "브랜치 '\(b.name)'을(를) 강제로 삭제할까요?",
-                                 message: "머지되지 않은 커밋도 함께 버려집니다.",
-                                 actionTitle: "강제 삭제") { [weak self] in
-            await self?.run("브랜치 삭제 중…", ["branch", "-D", b.name])
+        confirm = ConfirmRequest(title: String(localized: "Force delete branch '\(b.name)'?"),
+                                 message: String(localized: "Unmerged commits are discarded too."),
+                                 actionTitle: String(localized: "Force delete")) { [weak self] in
+            await self?.run(String(localized: "Deleting branch…"), ["branch", "-D", b.name])
         }
     }
 
     func merge(_ name: String) async {
-        await run("머지 중…", ["merge", name])
+        await run(String(localized: "Merging…"), ["merge", name])
     }
 
     func rebase(onto name: String) async {
-        await run("리베이스 중…", ["rebase", name])
+        await run(String(localized: "Rebasing…"), ["rebase", name])
     }
 
     func cherryPick(_ sha: String) async {
-        await run("Cherry-pick 중…", ["cherry-pick", sha])
+        await run(String(localized: "Cherry-picking…"), ["cherry-pick", sha])
     }
 
     func revert(_ sha: String) async {
-        await run("Revert 중…", ["revert", "--no-edit", sha])
+        await run(String(localized: "Reverting…"), ["revert", "--no-edit", sha])
     }
 
     func reset(to sha: String, mode: ResetMode) {
         let action: @MainActor () async -> Void = { [weak self] in
-            await self?.run("Reset 중…", ["reset", "--\(mode.rawValue)", sha])
+            await self?.run(String(localized: "Resetting…"), ["reset", "--\(mode.rawValue)", sha])
         }
         if mode == .hard {
-            confirm = ConfirmRequest(title: "\(String(sha.prefix(7)))(으)로 Hard reset 할까요?",
-                                     message: "커밋하지 않은 변경과 이후 커밋이 현재 브랜치에서 사라집니다.",
+            confirm = ConfirmRequest(title: String(localized: "Hard reset to \(String(sha.prefix(7)))?"),
+                                     message: String(localized: "Uncommitted changes and later commits are removed from the current branch."),
                                      actionTitle: "Hard reset", action: action)
         } else {
             Task { await action() }
@@ -170,19 +170,19 @@ extension RepoStore {
 
     func createTag(_ name: String, message: String, at sha: String) async {
         let args = message.trimmed.isEmpty ? ["tag", name, sha] : ["tag", "-a", name, "-m", message, sha]
-        await run("태그 만드는 중…", args)
+        await run(String(localized: "Creating tag…"), args)
     }
 
     func deleteTag(_ t: Tag) {
-        confirm = ConfirmRequest(title: "태그 '\(t.name)'을(를) 삭제할까요?",
-                                 message: "로컬 태그만 삭제됩니다.", actionTitle: "삭제") { [weak self] in
-            await self?.run("태그 삭제 중…", ["tag", "-d", t.name])
+        confirm = ConfirmRequest(title: String(localized: "Delete tag '\(t.name)'?"),
+                                 message: String(localized: "Only the local tag is deleted."), actionTitle: String(localized: "Delete")) { [weak self] in
+            await self?.run(String(localized: "Deleting tag…"), ["tag", "-d", t.name])
         }
     }
 
     func pushTag(_ t: Tag) async {
-        guard let remote = defaultRemote else { errorMessage = "원격 저장소가 없습니다."; return }
-        await run("태그 Push 중…", ["push", remote, "refs/tags/" + t.name], network: true)
+        guard let remote = defaultRemote else { errorMessage = String(localized: "No remote repository."); return }
+        await run(String(localized: "Pushing tag…"), ["push", remote, "refs/tags/" + t.name], network: true)
     }
 
     // MARK: 스태시
@@ -191,19 +191,19 @@ extension RepoStore {
         var args = ["stash", "push"]
         if includeUntracked { args.append("--include-untracked") }
         if !message.trimmed.isEmpty { args += ["-m", message.trimmed] }
-        await run("Stash 중…", args)
+        await run(String(localized: "Stashing…"), args)
     }
 
-    func stashApply(_ s: Stash) async { await run("Stash 적용 중…", ["stash", "apply", s.ref]) }
+    func stashApply(_ s: Stash) async { await run(String(localized: "Applying stash…"), ["stash", "apply", s.ref]) }
 
     func stashPop(_ s: Stash? = nil) async {
-        await run("Stash Pop 중…", ["stash", "pop"] + (s.map { [$0.ref] } ?? []))
+        await run(String(localized: "Popping stash…"), ["stash", "pop"] + (s.map { [$0.ref] } ?? []))
     }
 
     func stashDrop(_ s: Stash) {
-        confirm = ConfirmRequest(title: "\(s.ref)을(를) 버릴까요?", message: s.message,
-                                 actionTitle: "버리기") { [weak self] in
-            await self?.run("Stash 버리는 중…", ["stash", "drop", s.ref])
+        confirm = ConfirmRequest(title: String(localized: "Discard \(s.ref)?"), message: s.message,
+                                 actionTitle: String(localized: "Discard")) { [weak self] in
+            await self?.run(String(localized: "Dropping stash…"), ["stash", "drop", s.ref])
         }
     }
 
@@ -211,50 +211,50 @@ extension RepoStore {
 
     func stage(_ changes: [FileChange]) async {
         guard !changes.isEmpty else { return }
-        await run("스테이지 중…", ["add", "-A", "--"] + changes.flatMap(\.paths))
+        await run(String(localized: "Staging…"), ["add", "-A", "--"] + changes.flatMap(\.paths))
     }
 
     func unstage(_ changes: [FileChange]) async {
         guard !changes.isEmpty else { return }
         let paths = changes.flatMap(\.paths)
         if headHash == nil {
-            await run("언스테이지 중…", ["rm", "--cached", "-r", "-q", "--"] + paths)
+            await run(String(localized: "Unstaging…"), ["rm", "--cached", "-r", "-q", "--"] + paths)
         } else {
-            await run("언스테이지 중…", ["restore", "--staged", "--"] + paths)
+            await run(String(localized: "Unstaging…"), ["restore", "--staged", "--"] + paths)
         }
     }
 
-    func stageAll() async { await run("스테이지 중…", ["add", "-A"]) }
+    func stageAll() async { await run(String(localized: "Staging…"), ["add", "-A"]) }
 
     func unstageAll() async {
         if headHash == nil {
-            await run("언스테이지 중…", ["rm", "--cached", "-r", "-q", "."])
+            await run(String(localized: "Unstaging…"), ["rm", "--cached", "-r", "-q", "."])
         } else {
-            await run("언스테이지 중…", ["reset", "-q"])
+            await run(String(localized: "Unstaging…"), ["reset", "-q"])
         }
     }
 
     func confirmDiscard(_ c: FileChange) {
-        confirm = ConfirmRequest(title: "'\(c.fileName)'의 변경을 버릴까요?",
-                                 message: c.kind == .untracked ? "추적하지 않는 새 파일이 삭제됩니다." : "작업 트리의 수정 내용이 사라집니다.",
-                                 actionTitle: "변경 버리기") { [weak self] in
+        confirm = ConfirmRequest(title: String(localized: "Discard changes to '\(c.fileName)'?"),
+                                 message: c.kind == .untracked ? String(localized: "Untracked new files will be deleted.") : String(localized: "Your edits in the working tree will be lost."),
+                                 actionTitle: String(localized: "Discard changes")) { [weak self] in
             if c.kind == .untracked {
-                await self?.run("변경 버리는 중…", ["clean", "-f", "-q", "--", c.path])
+                await self?.run(String(localized: "Discarding changes…"), ["clean", "-f", "-q", "--", c.path])
             } else {
-                await self?.run("변경 버리는 중…", ["restore", "--worktree", "--"] + c.paths)
+                await self?.run(String(localized: "Discarding changes…"), ["restore", "--worktree", "--"] + c.paths)
             }
         }
     }
 
     func confirmDiscardAll() {
-        confirm = ConfirmRequest(title: "모든 변경을 버릴까요?",
-                                 message: "스테이지된 것과 안 된 것, 추적하지 않는 새 파일까지 모두 사라집니다. 되돌릴 수 없습니다.",
-                                 actionTitle: "모두 버리기") { [weak self] in
+        confirm = ConfirmRequest(title: String(localized: "Discard all changes?"),
+                                 message: String(localized: "Staged and unstaged changes and untracked new files will all be lost. This can't be undone."),
+                                 actionTitle: String(localized: "Discard all")) { [weak self] in
             guard let self else { return }
             if self.headHash != nil {
-                guard await self.run("되돌리는 중…", ["reset", "--hard", "-q"]) else { return }
+                guard await self.run(String(localized: "Undoing…"), ["reset", "--hard", "-q"]) else { return }
             }
-            await self.run("정리 중…", ["clean", "-fd", "-q"])
+            await self.run(String(localized: "Cleaning up…"), ["clean", "-fd", "-q"])
         }
     }
 
@@ -279,7 +279,7 @@ extension RepoStore {
         let text = [summary.trimmed, message.trimmed].filter { !$0.isEmpty }.joined(separator: "\n\n")
         var args = ["commit", "-F", "-"]
         if amend { args.append("--amend") }
-        if await run("커밋 중…", args, input: text + "\n") {
+        if await run(String(localized: "Committing…"), args, input: text + "\n") {
             summary = ""
             message = ""
             amend = false
@@ -298,9 +298,9 @@ extension RepoStore {
         case .reverting: args = ["revert", "--abort"]
         case .clean: return
         }
-        confirm = ConfirmRequest(title: "\(repoState.title)을(를) 중단할까요?",
-                                 message: "작업을 시작하기 전 상태로 돌아갑니다.", actionTitle: "중단") { [weak self] in
-            await self?.run("중단하는 중…", args)
+        confirm = ConfirmRequest(title: String(localized: "Abort the current operation (\(repoState.title))?"),
+                                 message: String(localized: "Returns to the state before the operation started."), actionTitle: String(localized: "Abort")) { [weak self] in
+            await self?.run(String(localized: "Aborting…"), args)
             self?.summary = ""
             self?.message = ""
         }
@@ -308,9 +308,9 @@ extension RepoStore {
 
     func continueOperation() async {
         switch repoState {
-        case .rebasing: await run("리베이스 계속…", ["rebase", "--continue"])
-        case .cherryPicking: await run("Cherry-pick 계속…", ["cherry-pick", "--continue"])
-        case .reverting: await run("Revert 계속…", ["revert", "--continue"])
+        case .rebasing: await run(String(localized: "Continuing rebase…"), ["rebase", "--continue"])
+        case .cherryPicking: await run(String(localized: "Continuing cherry-pick…"), ["cherry-pick", "--continue"])
+        case .reverting: await run(String(localized: "Continuing revert…"), ["revert", "--continue"])
         case .merging: await commit()
         case .clean: break
         }

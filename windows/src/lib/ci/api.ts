@@ -2,6 +2,7 @@ import * as Hosting from "../hosting";
 import type { RepoTarget } from "../models";
 import { type CIDeployment, type CIJob, type CIPipeline, type CIWorkflow, githubStatus, gitlabStatus } from "./models";
 import { dispatchInputs } from "./yaml";
+import { t } from "../i18n";
 
 interface GLPipeline { id: number; iid?: number; sha: string; ref: string; status: string; source?: string; created_at?: string; web_url: string; name?: string | null; user?: { username: string } | null }
 interface GLJob { id: number; name: string; stage: string; status: string; web_url: string; allow_failure?: boolean; duration?: number | null }
@@ -130,7 +131,7 @@ export const CIAPI = {
 
   async pendingDeployments(c: CIAccess, run: number): Promise<CIDeployment[]> {
     const list = await Hosting.send<GHPending[]>("github", `${repoBase(c)}/actions/runs/${run}/pending_deployments`, c.token);
-    return list.map((p) => ({ environmentID: p.environment.id, environment: p.environment.name ?? `환경 ${p.environment.id}`, canApprove: !!p.current_user_can_approve }));
+    return list.map((p) => ({ environmentID: p.environment.id, environment: p.environment.name ?? t("Environment {0}", p.environment.id), canApprove: !!p.current_user_can_approve }));
   },
 
   review: (c: CIAccess, run: number, environments: number[], approve: boolean) =>

@@ -4,6 +4,7 @@ import { describe } from "../../lib/git";
 import type { Provider } from "../../lib/models";
 import type { RepoStore } from "../../lib/repo";
 import { Button, Checkbox, IconButton, Modal, Spinner } from "../shared/ui";
+import { t } from "../../lib/i18n";
 
 interface Variable {
   id: number;
@@ -97,23 +98,22 @@ export function RunPipelineSheet({ store, close }: { store: RepoStore; close: ()
 
   return (
     <Modal
-      title={provider === "gitlab" ? "파이프라인 실행" : "워크플로 실행"}
+      title={provider === "gitlab" ? t("Run pipeline") : t("Run workflow")}
       width={540}
       onClose={close}
       footer={
         <>
           {loading && <Spinner />}
           <span className="spacer" />
-          <Button onClick={close}>취소</Button>
+          <Button onClick={close}>{t("Cancel")}</Button>
           <Button kind="primary" disabled={!canRun} onClick={run}>
-            실행
-          </Button>
+            {t("Run")}</Button>
         </>
       }
     >
       <div className="col" style={{ gap: 12 }}>
         <div className="form-row">
-          <label>브랜치</label>
+          <label>{t("Branch")}</label>
           <div className="row">
             {branches.length ? (
               <select className="select grow" value={ref} onChange={(e) => setRef(e.target.value)}>
@@ -124,7 +124,7 @@ export function RunPipelineSheet({ store, close }: { store: RepoStore; close: ()
                 ))}
               </select>
             ) : (
-              <input className="input grow" placeholder="브랜치 이름" value={ref} onChange={(e) => setRef(e.target.value)} />
+              <input className="input grow" placeholder={t("Branch name")} value={ref} onChange={(e) => setRef(e.target.value)} />
             )}
           </div>
         </div>
@@ -132,16 +132,16 @@ export function RunPipelineSheet({ store, close }: { store: RepoStore; close: ()
         {provider === "gitlab" ? (
           <div className="col" style={{ gap: 8 }}>
             <div className="row">
-              <span style={{ fontWeight: 600 }}>변수</span>
+              <span style={{ fontWeight: 600 }}>{t("Variables")}</span>
               <span className="spacer" />
               <IconButton
                 small
                 icon={<span style={{ fontSize: 15, lineHeight: 1 }}>+</span>}
-                tip="변수 추가"
+                tip={t("Add variable")}
                 onClick={() => setVariables((vs) => [...vs, { id: nextVarID++, key: "", value: "", description: "", options: [], fixed: false }])}
               />
             </div>
-            {!variables.length && <span className="muted">변수 없이 실행합니다.</span>}
+            {!variables.length && <span className="muted">{t("Runs without variables.")}</span>}
             <div className="col" style={{ gap: 8, maxHeight: 300, overflow: "auto" }}>
               {variables.map((v) => (
                 <div key={v.id} className="col" style={{ gap: 2 }}>
@@ -151,7 +151,7 @@ export function RunPipelineSheet({ store, close }: { store: RepoStore; close: ()
                         {v.key}
                       </span>
                     ) : (
-                      <input className="input mono" style={{ width: 170, flex: "none" }} placeholder="이름" value={v.key} onChange={(e) => update(v.id, { key: e.target.value })} />
+                      <input className="input mono" style={{ width: 170, flex: "none" }} placeholder={t("Name")} value={v.key} onChange={(e) => update(v.id, { key: e.target.value })} />
                     )}
                     {v.options.length ? (
                       <select className="select grow" value={v.value} onChange={(e) => update(v.id, { value: e.target.value })}>
@@ -162,9 +162,9 @@ export function RunPipelineSheet({ store, close }: { store: RepoStore; close: ()
                         ))}
                       </select>
                     ) : (
-                      <input className="input grow" placeholder="값" value={v.value} onChange={(e) => update(v.id, { value: e.target.value })} />
+                      <input className="input grow" placeholder={t("Value")} value={v.value} onChange={(e) => update(v.id, { value: e.target.value })} />
                     )}
-                    <IconButton small icon={<span style={{ fontSize: 15, lineHeight: 1 }}>−</span>} tip="이 변수 빼기" onClick={() => setVariables((vs) => vs.filter((x) => x.id !== v.id))} />
+                    <IconButton small icon={<span style={{ fontSize: 15, lineHeight: 1 }}>−</span>} tip={t("Remove this variable")} onClick={() => setVariables((vs) => vs.filter((x) => x.id !== v.id))} />
                   </div>
                   {v.description && <span className="muted" style={{ fontSize: 11.5 }}>{v.description}</span>}
                 </div>
@@ -176,11 +176,11 @@ export function RunPipelineSheet({ store, close }: { store: RepoStore; close: ()
             {loadError}
           </span>
         ) : !workflows.length ? (
-          <span className="muted">{loading ? "워크플로를 읽는 중…" : "이 브랜치에는 'Run workflow'(workflow_dispatch)가 있는 워크플로가 없습니다."}</span>
+          <span className="muted">{loading ? t("Reading the workflow…") : t("This branch has no workflow with 'Run workflow' (workflow_dispatch).")}</span>
         ) : (
           <>
             <div className="form-row">
-              <label>워크플로</label>
+              <label>{t("Workflow")}</label>
               <div className="row">
                 <select className="select grow" value={workflowID ?? ""} onChange={(e) => pick(workflows, Number(e.target.value), values)}>
                   {workflows.map((w) => (

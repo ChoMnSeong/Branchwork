@@ -134,7 +134,7 @@ pub fn pty_spawn(
 #[tauri::command]
 pub fn pty_write(state: tauri::State<'_, Ptys>, id: String, data: String) -> Result<(), String> {
     let mut map = state.0.lock().unwrap();
-    let h = map.get_mut(&id).ok_or("터미널이 이미 닫혔습니다")?;
+    let h = map.get_mut(&id).ok_or("The terminal is already closed")?;
     h.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
     h.writer.flush().map_err(|e| e.to_string())
 }

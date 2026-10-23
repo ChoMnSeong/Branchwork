@@ -71,7 +71,7 @@ describe("AI 요청", () => {
 
   it("거절·오류를 알아듣게 알린다", async () => {
     httpReply = { status: 200, body: JSON.stringify({ content: [], stop_reason: "refusal" }) };
-    await expect(ai.complete("S", "P", "low", "anthropic")).rejects.toThrow(/거절/);
+    await expect(ai.complete("S", "P", "low", "anthropic")).rejects.toThrow(/declined/);
     httpReply = { status: 401, body: JSON.stringify({ error: { message: "bad key" } }) };
     await expect(ai.complete("S", "P", "low", "openai")).rejects.toThrow(/401/);
   });
@@ -109,7 +109,7 @@ describe("AI 요청", () => {
 
   it("없는 CLI 는 설정 > 도구로 안내", async () => {
     tools.state.codex = { path: null, source: "none", version: null };
-    await expect(ai.complete("S", "P", "low", "codex")).rejects.toThrow(/도구/);
+    await expect(ai.complete("S", "P", "low", "codex")).rejects.toThrow(/Tools/);
   });
 
   it("OpenAI 모델 목록은 글 생성 모델만", async () => {

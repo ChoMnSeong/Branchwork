@@ -9,6 +9,7 @@ import { settings } from "../settings";
 const IMAGE_EXT: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", bmp: "image/bmp", ico: "image/x-icon", tif: "image/tiff", tiff: "image/tiff" };
 import * as P from "../parsers";
 import { EMPTY_TREE, RepoCore } from "./core";
+import { t } from "../i18n";
 
 /** 선택한 커밋·작업 영역의 상세와 diff */
 export abstract class RepoSelection extends RepoCore {
@@ -58,7 +59,7 @@ export abstract class RepoSelection extends RepoCore {
 
   /** 그래프에 아직 없는 오래된 커밋이면 기록을 더 불러와(2000 → 8000 → …) 찾아 보여 준다 */
   protected async revealLoadingHistory(sha: string) {
-    this.busy = "이전 기록 불러오는 중…";
+    this.busy = t("Loading earlier history…");
     this.emit();
     while (!this.commitIndex.has(sha) && this.hasMore && this.limit < 1_000_000) {
       this.limit *= 4;
@@ -68,7 +69,7 @@ export abstract class RepoSelection extends RepoCore {
     if (this.commitIndex.has(sha)) {
       this.select({ kind: "commit", sha });
       this.scrollTarget = sha;
-    } else this.errorMessage = "이 커밋은 그래프에 포함되지 않는 기록에 있습니다.";
+    } else this.errorMessage = t("This commit is in history that isn't shown in the graph.");
     this.emit();
   }
 
@@ -110,13 +111,13 @@ export abstract class RepoSelection extends RepoCore {
   get conflictSides(): { ours: string; theirs: string } {
     switch (this.repoState) {
       case "rebasing":
-        return { ours: "기준(위로 올리는 곳)", theirs: "내 커밋" };
+        return { ours: t("Base (being rebased onto)"), theirs: t("My commit") };
       case "cherryPicking":
-        return { ours: "현재 브랜치", theirs: "가져오는 커밋" };
+        return { ours: t("Current branch"), theirs: t("Incoming commit") };
       case "reverting":
-        return { ours: "현재 브랜치", theirs: "되돌리는 변경" };
+        return { ours: t("Current branch"), theirs: t("Reverting change") };
       default:
-        return { ours: "현재 브랜치", theirs: "머지하는 브랜치" };
+        return { ours: t("Current branch"), theirs: t("Branch being merged") };
     }
   }
 
@@ -144,22 +145,22 @@ export abstract class RepoSelection extends RepoCore {
     try {
       await ipc.writeText(joinPath(this.path, c.path), text);
     } catch (e) {
-      this.errorMessage = "파일을 저장하지 못했습니다.\n\n" + describe(e);
+      this.errorMessage = t("Couldn't save the file.\n\n") + describe(e);
       this.emit();
       return;
     }
-    if (await this.run("해결됨으로 표시 중…", ["add", "--", c.path])) this.closeConflict();
+    if (await this.run(t("Marking as resolved…"), ["add", "--", c.path])) this.closeConflict();
   }
 
   /** 파일 전체를 한쪽으로(git checkout --ours/--theirs) */
   async resolveWholeFile(c: FileChange, ours: boolean) {
-    if (!(await this.run("충돌 해결 중…", ["checkout", ours ? "--ours" : "--theirs", "--", c.path]))) return;
-    if (await this.run("해결됨으로 표시 중…", ["add", "--", c.path])) this.closeConflict();
+    if (!(await this.run(t("Resolving conflict…"), ["checkout", ours ? "--ours" : "--theirs", "--", c.path]))) return;
+    if (await this.run(t("Marking as resolved…"), ["add", "--", c.path])) this.closeConflict();
   }
 
   /** 한쪽이 지운 파일: 남기기(스테이지) 또는 지우기 */
   async resolveDeleted(c: FileChange, keep: boolean) {
-    if (await this.run("충돌 해결 중…", keep ? ["add", "--", c.path] : ["rm", "-q", "--", c.path])) this.closeConflict();
+    if (await this.run(t("Resolving conflict…"), keep ? ["add", "--", c.path] : ["rm", "-q", "--", c.path])) this.closeConflict();
   }
 
   closeConflict() {
@@ -299,7 +300,7 @@ export abstract class RepoSelection extends RepoCore {
     const patch = buildPatch(doc, [hunk], picked.size ? picked : null, action !== "stage");
     if (!patch) return;
     const args = ["apply", "--recount", "--whitespace=nowarn", ...(action === "stage" ? ["--cached"] : action === "unstage" ? ["--cached", "--reverse"] : ["--reverse"]), "-"];
-    const label = action === "stage" ? "스테이지 중…" : action === "unstage" ? "언스테이지 중…" : "변경 버리는 중…";
+    const label = action === "stage" ? t("Staging…") : action === "unstage" ? t("Unstaging…") : t("Discarding changes…");
     if (await this.run(label, args, { input: patch })) {
       this.diffSelection = new Set();
       this.diffAnchor = null;
@@ -310,9 +311,9 @@ export abstract class RepoSelection extends RepoCore {
   confirmDiscardLines(hunk: number) {
     const n = this.selectedCount(hunk);
     this.confirm = {
-      title: n ? `고른 줄 ${n}개의 변경을 버릴까요?` : "이 덩어리의 변경을 버릴까요?",
-      message: "작업 트리에서 그 부분이 커밋된(스테이지된) 상태로 돌아갑니다. 되돌릴 수 없습니다.",
-      actionTitle: "버리기",
+      title: n ? t("Discard changes in {0} selected lines?", n) : t("Discard the changes in this hunk?"),
+      message: t("That part of the working tree returns to its committed (staged) state. This can't be undone."),
+      actionTitle: t("Discard"),
       destructive: true,
       action: () => this.applyLines("discard", hunk),
     };

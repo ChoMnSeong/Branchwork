@@ -164,10 +164,10 @@ final class AccountStore {
     func connectGitLab(server: String, token: String) async throws -> HostAccount {
         let base = Self.normalizeServer(server)
         guard let host = URL(string: base)?.host?.lowercased(), !host.isEmpty else {
-            throw GitError(command: "gitlab", message: "서버 주소를 확인하세요. 예: https://gitlab.회사.co.kr")
+            throw GitError(command: "gitlab", message: String(localized: "Check the server address. Example: https://gitlab.example.com"))
         }
         if host == "gitlab.com" || host.hasSuffix(".gitlab.com") {
-            throw GitError(command: "gitlab", message: "지금은 사내(자체 호스팅) GitLab 만 연결할 수 있습니다. 회사 GitLab 서버 주소를 넣어 주세요.")
+            throw GitError(command: "gitlab", message: String(localized: "Only self-hosted GitLab can be connected for now. Enter your GitLab server address."))
         }
         return try await add(.gitlab, server: base, token: token)
     }
@@ -191,11 +191,11 @@ final class AccountStore {
     /// gh CLI 에 로그인돼 있는 GitHub 계정을 가져온다
     @discardableResult
     func importGitHubCLI() async throws -> HostAccount {
-        guard let gh = ghPath else { throw GitError(command: "gh", message: "gh CLI 를 찾지 못했습니다.") }
+        guard let gh = ghPath else { throw GitError(command: "gh", message: String(localized: "Couldn't find the gh CLI.")) }
         let r = try await Shell.run(gh, ["auth", "token"], cwd: FileManager.default.temporaryDirectory)
         let t = r.output.trimmed
         guard r.status == 0, !t.isEmpty else {
-            throw GitError(command: "gh", message: r.stderr.trimmed.isEmpty ? "gh 에 로그인돼 있지 않습니다. 터미널에서 `gh auth login` 을 먼저 하세요." : r.stderr.trimmed)
+            throw GitError(command: "gh", message: r.stderr.trimmed.isEmpty ? String(localized: "You're not logged in to gh. Run `gh auth login` in a terminal first.") : r.stderr.trimmed)
         }
         return try await connectGitHub(token: t)
     }

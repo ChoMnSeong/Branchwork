@@ -46,7 +46,7 @@ extension RepoStore {
 
     /// 그래프에 아직 없는 오래된 커밋이면 기록을 더 불러와(2000 → 8000 → …) 찾아 보여 준다.
     private func revealLoadingHistory(_ sha: String) async {
-        busy = "이전 기록 불러오는 중…"
+        busy = String(localized: "Loading earlier history…")
         while commitIndex[sha] == nil, hasMore, limit < 1_000_000 {
             limit *= 4
             await reload()
@@ -56,7 +56,7 @@ extension RepoStore {
             select(.commit(sha))
             scrollTarget = sha
         } else {
-            errorMessage = "이 커밋은 그래프에 포함되지 않는 기록에 있습니다."
+            errorMessage = String(localized: "This commit is in history that isn't shown in the graph.")
         }
     }
 

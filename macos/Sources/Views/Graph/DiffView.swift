@@ -13,10 +13,10 @@ struct DiffView: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Button { store.closeDiff() } label: {
-                    Label("그래프", systemImage: "chevron.left")
+                    Label("Graph", systemImage: "chevron.left")
                 }
                 .keyboardShortcut(.escape, modifiers: [])
-                .help("그래프로 돌아가기 (Esc)")
+                .help("Back to graph (Esc)")
 
                 StatusBadge(kind: change.kind)
                 VStack(alignment: .leading, spacing: 0) {
@@ -44,13 +44,13 @@ struct DiffView: View {
             ConflictView(change: c)
         } else if let doc = store.diff {
             if let error = doc.error {
-                ContentUnavailableView("변경 내용을 불러오지 못했습니다", systemImage: "exclamationmark.triangle",
+                ContentUnavailableView("Couldn't load the changes", systemImage: "exclamationmark.triangle",
                                        description: Text(error))
             } else if let images = store.diffImages {
                 ImageDiffView(images: images)
             } else if doc.isBinary {
-                ContentUnavailableView("바이너리 파일", systemImage: "doc.zipper",
-                                       description: Text("텍스트가 아닌 파일이라 줄 단위 비교를 표시하지 않습니다."))
+                ContentUnavailableView("Binary file", systemImage: "doc.zipper",
+                                       description: Text("This isn't a text file, so a line-by-line comparison isn't shown."))
             } else if doc.lines.isEmpty {
                 DiffEmptyState(doc: doc, ignoreWhitespace: store.diffIgnoreWhitespace)
             } else {
@@ -65,10 +65,10 @@ struct DiffView: View {
     private var subtitle: String {
         switch source {
         case .working(let c):
-            let where_ = c.kind == .conflicted ? "충돌" : (c.staged ? "스테이지됨" : "작업 트리")
+            let where_ = c.kind == .conflicted ? String(localized: "Conflict") : (c.staged ? String(localized: "Staged") : String(localized: "Working tree"))
             return "\(c.path) · \(where_)"
         case .commit(let sha, let c, _):
-            return "\(c.oldPath.map { "\($0) → " } ?? "")\(c.path) · 커밋 \(sha.prefix(7))"
+            return String(localized: "\(c.oldPath.map { "\($0) → " } ?? "")\(c.path) · commit \(sha.prefix(7))")
         case .review(let n, let c, _):
             return "\(c.oldPath.map { "\($0) → " } ?? "")\(c.path) · \(store.target?.provider.requestShort ?? "PR") #\(n)"
         }
@@ -80,15 +80,15 @@ struct DiffView: View {
         if c.kind != .untracked, !isReview {
             Button { store.openFileHistory(c.path) } label: { Image(systemName: "clock.arrow.circlepath") }
                 .buttonStyle(.borderless)
-                .help("파일 히스토리 — 이 파일을 바꾼 커밋들")
-                .accessibilityLabel("파일 히스토리")
+                .help("File history — commits that changed this file")
+                .accessibilityLabel("File history")
             if c.kind != .deleted {
                 Button {
                     if case .commit(let sha, _, _) = source { store.openBlame(c.path, rev: sha) } else { store.openBlame(c.path) }
                 } label: { Image(systemName: "person.text.rectangle") }
                     .buttonStyle(.borderless)
-                    .help("줄별 작성자(blame) — 줄마다 누가 언제 바꿨는지")
-                    .accessibilityLabel("줄별 작성자")
+                    .help("Blame — who changed each line and when")
+                    .accessibilityLabel("Blame")
             }
         }
     }
@@ -99,8 +99,8 @@ struct DiffView: View {
     private var viewOptions: some View {
         HStack(spacing: 6) {
             Picker("", selection: Binding(get: { store.diffSplit }, set: { store.diffSplit = $0 })) {
-                Image(systemName: "list.bullet").help("한 줄로 보기").accessibilityLabel("한 줄로 보기").tag(false)
-                Image(systemName: "rectangle.split.2x1").help("나란히 보기(왼쪽 이전 · 오른쪽 이후)").accessibilityLabel("나란히 보기").tag(true)
+                Image(systemName: "list.bullet").help("Unified view").accessibilityLabel("Unified view").tag(false)
+                Image(systemName: "rectangle.split.2x1").help("Side by side (old on the left · new on the right)").accessibilityLabel("Side by side").tag(true)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -114,9 +114,9 @@ struct DiffView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel("공백 무시")
-            .accessibilityValue(on ? "켬" : "끔")
-            .help("공백 무시\(on ? "(켜짐)" : "") — 들여쓰기·공백만 바뀐 줄은 같은 것으로 봅니다(켜 두면 줄 단위 스테이지는 쓸 수 없습니다)")
+            .accessibilityLabel("Ignore whitespace")
+            .accessibilityValue(on ? "On" : "Off")
+            .help("Ignore whitespace\(on ? String(localized: " (on)") : "") — lines that only changed indentation or spaces are treated as unchanged (line staging is unavailable while on)")
         }
     }
 
@@ -124,12 +124,12 @@ struct DiffView: View {
     private func actions(_ c: FileChange) -> some View {
         if case .working = source {
             if c.kind == .conflicted {
-                Button("해결됨으로 표시") { Task { await store.stage([c]) } }
+                Button("Mark as resolved") { Task { await store.stage([c]) } }
             } else if c.staged {
-                Button("언스테이지") { Task { await store.unstage([c]) } }
+                Button("Unstage") { Task { await store.unstage([c]) } }
             } else {
-                Button("변경 버리기…", role: .destructive) { store.confirmDiscard(c) }
-                Button("스테이지") { Task { await store.stage([c]) } }
+                Button("Discard changes…", role: .destructive) { store.confirmDiscard(c) }
+                Button("Stage") { Task { await store.stage([c]) } }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -144,14 +144,14 @@ struct DiffEmptyState: View {
     var body: some View {
         let i = doc.info
         let (title, icon, detail): (String, String, String) = {
-            if i.newFile { return ("빈 파일", "doc", "내용 없이 새로 만든 파일입니다.") }
-            if i.deletedFile { return ("빈 파일을 지웠습니다", "trash", "지운 파일에 내용이 없었습니다.") }
+            if i.newFile { return (String(localized: "Empty file"), "doc", String(localized: "A new file with no content.")) }
+            if i.deletedFile { return (String(localized: "An empty file was deleted"), "trash", String(localized: "The deleted file had no content.")) }
             let rename = i.renamed ? "\(i.renameFrom ?? "") → \(i.renameTo ?? "")" : nil
-            if let rename, let mode = i.modeSummary { return ("이름과 권한만 바뀌었습니다", "pencil", "\(rename)\n권한 \(mode)") }
-            if let rename { return ("이름만 바뀌었습니다", "pencil", "\(rename)\n내용은 그대로입니다.") }
-            if let mode = i.modeSummary { return ("권한만 바뀌었습니다", "lock.open", mode) }
-            if ignoreWhitespace { return ("표시할 변경 없음", "equal.circle", "공백만 바뀌었습니다(공백 무시를 끄면 보입니다).") }
-            return ("표시할 변경 없음", "equal.circle", "내용 변경 없이 권한·이름만 바뀌었을 수 있습니다.")
+            if let rename, let mode = i.modeSummary { return (String(localized: "Only the name and permissions changed"), "pencil", String(localized: "\(rename)\nPermissions \(mode)")) }
+            if let rename { return (String(localized: "Only the name changed"), "pencil", String(localized: "\(rename)\nThe content is unchanged.")) }
+            if let mode = i.modeSummary { return (String(localized: "Only permissions changed"), "lock.open", mode) }
+            if ignoreWhitespace { return (String(localized: "No changes to show"), "equal.circle", String(localized: "Only whitespace changed (turn off Ignore whitespace to see it).")) }
+            return (String(localized: "No changes to show"), "equal.circle", String(localized: "Only permissions or the name may have changed, without content changes."))
         }()
         ContentUnavailableView(title, systemImage: icon, description: Text(detail))
     }
@@ -197,7 +197,7 @@ struct DiffLinesView: View {
                     }
                 }
                 if doc.truncated {
-                    Text("… 변경이 너무 길어 앞부분만 표시합니다")
+                    Text("… The diff is too long; only the beginning is shown")
                         .foregroundStyle(.secondary)
                         .padding(12)
                 }
@@ -268,9 +268,9 @@ private struct FileInfoBar: View {
 
     var body: some View {
         let items: [(String, String)] = [
-            info.renamed ? ("pencil", "이름 바뀜  \(info.renameFrom ?? "") → \(info.renameTo ?? "")"
-                            + (info.similarity.map { $0 < 100 ? " · \($0)% 같음" : "" } ?? "")) : nil,
-            info.modeSummary.map { ("lock.open", "권한 바뀜  \($0)") },
+            info.renamed ? ("pencil", String(localized: "Renamed  \(info.renameFrom ?? "") → \(info.renameTo ?? "")")
+                            + (info.similarity.map { $0 < 100 ? String(localized: " · \($0)% similar") : "" } ?? "")) : nil,
+            info.modeSummary.map { ("lock.open", String(localized: "Permissions changed  \($0)")) },
         ].compactMap { $0 }
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: 3) {
@@ -300,7 +300,7 @@ private struct Selectable: ViewModifier {
             content
                 .contentShape(Rectangle())
                 .onTapGesture { store.toggleDiffLine(line, extend: NSEvent.modifierFlags.contains(.shift)) }
-                .help("눌러서 이 줄 고르기(Shift: 범위) — 고른 줄만 스테이지할 수 있습니다")
+                .help("Click to select this line (Shift: range) — you can stage only the selected lines")
         } else {
             content
         }
@@ -326,18 +326,18 @@ private struct HunkHeader: View {
             Spacer(minLength: 8)
             if editable {
                 if staged {
-                    Button(picked > 0 ? "고른 줄 언스테이지 (\(picked))" : "덩어리 언스테이지") {
+                    Button(picked > 0 ? "Unstage selected lines (\(picked))" : "Unstage hunk") {
                         Task { await store.applyLines(.unstage, hunk: hunk) }
                     }
-                    .help(picked > 0 ? "고른 줄만 스테이지에서 뺍니다" : "이 덩어리를 스테이지에서 뺍니다")
+                    .help(picked > 0 ? "Unstages only the selected lines" : "Unstages this hunk")
                 } else {
-                    Button(picked > 0 ? "고른 줄 버리기…" : "덩어리 버리기…") { store.confirmDiscardLines(hunk: hunk) }
-                        .help(picked > 0 ? "고른 줄의 변경을 작업 트리에서 버립니다" : "이 덩어리의 변경을 작업 트리에서 버립니다")
-                    Button(picked > 0 ? "고른 줄 스테이지 (\(picked))" : "덩어리 스테이지") {
+                    Button(picked > 0 ? "Discard selected lines…" : "Discard hunk…") { store.confirmDiscardLines(hunk: hunk) }
+                        .help(picked > 0 ? "Discards the selected lines' changes from the working tree" : "Discards this hunk's changes from the working tree")
+                    Button(picked > 0 ? "Stage selected lines (\(picked))" : "Stage hunk") {
                         Task { await store.applyLines(.stage, hunk: hunk) }
                     }
                     .buttonStyle(.borderedProminent)
-                    .help(picked > 0 ? "고른 줄만 스테이지합니다" : "이 덩어리만 스테이지합니다(바뀐 줄을 눌러 고르면 그 줄만)")
+                    .help(picked > 0 ? "Stages only the selected lines" : "Stages only this hunk (click changed lines to stage only those)")
                 }
             }
         }
@@ -430,9 +430,9 @@ private struct ImageDiffView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            pane("이전", images.old, tint: .red)
+            pane(String(localized: "Before"), images.old, tint: .red)
             Divider()
-            pane("이후", images.new, tint: .green)
+            pane(String(localized: "After"), images.new, tint: .green)
         }
         .background(Color(nsColor: .textBackgroundColor))
     }
@@ -467,8 +467,8 @@ private struct ImageDiffView: View {
                     .overlay(Rectangle().strokeBorder(tint.opacity(0.5)))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ContentUnavailableView(data == nil ? "없음" : "열 수 없는 이미지", systemImage: "photo",
-                                       description: Text(data == nil ? (title == "이전" ? "새로 추가된 파일입니다." : "지운 파일입니다.") : ""))
+                ContentUnavailableView(data == nil ? "None" : "Can't open this image", systemImage: "photo",
+                                       description: Text(data == nil ? (title == String(localized: "Before") ? "This file was newly added." : "This file was deleted.") : ""))
             }
         }
         .padding(12)

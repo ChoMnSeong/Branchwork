@@ -2,7 +2,7 @@
 
 Branchwork 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 요청은 [이슈](https://github.com/ChoMnSeong/Branchwork/issues/new/choose)로, 코드는 PR 로 보내 주세요.
 
-> **English** — Issues and PRs are welcome in English too. The codebase, UI text and comments are in Korean; please follow the conventions below.
+> **English** — Issues and PRs are welcome in English too. UI text in the code is English (translated into 20 languages); code comments are in Korean. Please follow the conventions below.
 
 ## 시작하기
 
@@ -58,7 +58,11 @@ windows/src-tauri/src/  프로세스 실행·pty·파일 감시·HTTP·자격 �
 
 ### 화면과 글
 
-- 화면 글은 한국어. 짧은 명사·동사형(「스테이지」, 「브랜치 만들기…」), 설명은 「~합니다」.
+- **화면 글은 코드에 영어로** 쓰고, 그 영어가 번역의 키입니다. 짧고 문장형 대소문자(sentence case), 메뉴·버튼은 동사형(「Stage」, 「Create branch…」).
+  - 맥: SwiftUI 의 `Text("…")`·`Button("…")` 등은 그대로 번역되고, 그 밖의 글자(오류 메시지 등)는 `String(localized: "…")`.
+  - Windows: `t("…")`, 값은 `t("Commit {0} files", n)` 처럼 `{0}`·`{1}`.
+  - 번역: 맥 `macos/Resources/Localizations/<언어>.lproj/Localizable.strings`, Windows `windows/src/locales/<언어>.json`. 새 글자를 넣었으면 같은 PR 에서 한국어(`ko`)는 꼭, 다른 언어는 할 수 있는 만큼 채워 주세요(없으면 영어로 보입니다).
+  - 기본 화면 언어는 영어이고, 설정 > 화면에서 바꿉니다.
 - **아이콘 버튼의 뜻은 글자 대신 마우스를 올렸을 때**(맥 `.help(…)`, Windows `tip=` / `data-tip`) 보여 줍니다.
 - 되돌리기 어려운 동작(삭제·강제 Push·Reset hard·배포 실행·세션 종료)은 확인을 한 번 받습니다.
 - 라이트·다크 두 테마에서 모두 확인합니다. 색은 맥 시스템 색 / Windows CSS 변수(`--text`, `--accent` …)만 씁니다.

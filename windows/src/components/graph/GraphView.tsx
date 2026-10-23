@@ -6,6 +6,7 @@ import type { RepoStore } from "../../lib/repo";
 import { Button, Empty, showMenuBelow, Spinner } from "../shared/ui";
 import { CommitRow } from "./CommitRow";
 import { ROW_H, graphColumns, graphWidth } from "./metrics";
+import { t } from "../../lib/i18n";
 
 export function GraphView({ store }: { store: RepoStore }) {
   useObserve(store);
@@ -55,13 +56,12 @@ export function GraphView({ store }: { store: RepoStore }) {
     <div className="col grow" style={{ background: "var(--surface)" }}>
       <SearchBar store={store} />
       <div className="graph-header">
-        <span style={{ width: cols.ref, paddingLeft: 10 }}>브랜치 / 태그</span>
-        <span style={{ width: cols.graph, paddingLeft: 6 }}>그래프</span>
+        <span style={{ width: cols.ref, paddingLeft: 10 }}>{t("Branch / Tag")}</span>
+        <span style={{ width: cols.graph, paddingLeft: 6 }}>{t("Graph")}</span>
         <span className="grow" style={{ paddingLeft: 8, flex: 1, minWidth: 0 }}>
-          커밋 메시지
-        </span>
-        {cols.author && <span style={{ width: 120, paddingLeft: 8 }}>작성자</span>}
-        {cols.date && <span style={{ width: 90 }}>날짜</span>}
+          {t("Commit message")}</span>
+        {cols.author && <span style={{ width: 120, paddingLeft: 8 }}>{t("Author")}</span>}
+        {cols.date && <span style={{ width: 90 }}>{t("Date")}</span>}
         {cols.sha && <span style={{ width: 64 }}>SHA</span>}
       </div>
       <div
@@ -79,7 +79,7 @@ export function GraphView({ store }: { store: RepoStore }) {
         }}
       >
         {entries.length === 0 ? (
-          <Empty icon={<CircleDashed size={34} strokeWidth={1.4} />} title="아직 커밋이 없습니다" detail="파일을 만들고 오른쪽에서 첫 커밋을 해 보세요." />
+          <Empty icon={<CircleDashed size={34} strokeWidth={1.4} />} title={t("No commits yet")} detail={t("Create a file and make your first commit on the right.")} />
         ) : (
           <div style={{ height: entries.length * ROW_H + (store.hasMore ? 56 : 0), position: "relative" }}>
             {entries.slice(first, last).map((e, k) => {
@@ -103,7 +103,7 @@ export function GraphView({ store }: { store: RepoStore }) {
             })}
             {store.hasMore && (
               <div style={{ position: "absolute", top: entries.length * ROW_H + 12, left: 0, right: 0, textAlign: "center" }}>
-                <Button onClick={() => void store.loadMore()}>커밋 더 불러오기</Button>
+                <Button onClick={() => void store.loadMore()}>{t("Load more commits")}</Button>
               </div>
             )}
           </div>
@@ -124,10 +124,10 @@ function SearchBar({ store }: { store: RepoStore }) {
   const scope = searchScopes.find((s) => s.id === store.searchScope)!;
   let result = "";
   if (store.isSearching) {
-    if (!store.searchMatches.length) result = store.searching ? "찾는 중…" : "결과 없음";
+    if (!store.searchMatches.length) result = store.searching ? t("Searching…") : t("No results");
     else {
       result = `${store.searchPosition ?? "–"}/${store.searchMatches.length}`;
-      if (store.searchUnloaded > 0) result += ` · 그래프 밖 ${store.searchUnloaded}`;
+      if (store.searchUnloaded > 0) result += t(" · {0} outside the graph", store.searchUnloaded);
     }
   }
   return (
@@ -152,7 +152,7 @@ function SearchBar({ store }: { store: RepoStore }) {
         />
         {store.searching && <Spinner size={12} />}
         {store.searchText && (
-          <button className="icon-btn small" data-tip="검색 지우기 (Esc)" onClick={() => store.clearSearch()}>
+          <button className="icon-btn small" data-tip={t("Clear search (Esc)")} onClick={() => store.clearSearch()}>
             <X size={13} />
           </button>
         )}
@@ -161,7 +161,7 @@ function SearchBar({ store }: { store: RepoStore }) {
         className="select"
         style={{ width: 110, height: 28, padding: "0 6px", flex: "none" }}
         value={store.searchScope}
-        data-tip="검색 대상"
+        data-tip={t("Search in")}
         onChange={(e) => store.setSearch(store.searchText, e.target.value as SearchScope)}
       >
         {searchScopes.map((s) => (
@@ -177,17 +177,16 @@ function SearchBar({ store }: { store: RepoStore }) {
             {result}
           </span>
           <div className="tool-group">
-            <button className="tool" disabled={!store.searchMatches.length} data-tip="이전 결과 (Shift+Enter · Shift+F3)" onClick={() => store.previousMatch()}>
+            <button className="tool" disabled={!store.searchMatches.length} data-tip={t("Previous result (Shift+Enter · Shift+F3)")} onClick={() => store.previousMatch()}>
               <ChevronUp size={15} />
             </button>
-            <button className="tool" disabled={!store.searchMatches.length} data-tip="다음 결과 (Enter · F3)" onClick={() => store.nextMatch()}>
+            <button className="tool" disabled={!store.searchMatches.length} data-tip={t("Next result (Enter · F3)")} onClick={() => store.nextMatch()}>
               <ChevronDown size={15} />
             </button>
           </div>
           {store.searchUnloaded > 0 && store.hasMore && (
             <Button size="small" onClick={() => void store.loadMoreForSearch()}>
-              더 불러와서 찾기
-            </Button>
+              {t("Load more and search")}</Button>
           )}
         </>
       )}
@@ -204,18 +203,18 @@ function GraphFilterButton({ store }: { store: RepoStore }) {
       type="button"
       className={`tool ${active ? "on" : ""}`}
       style={{ gap: 4, color: active ? "var(--accent)" : undefined }}
-      aria-label="그래프 거르기"
-      data-tip="그래프 거르기|현재 브랜치만 보기, 숨긴 브랜치(사이드바 우클릭으로 숨김) 다시 보이기"
+      aria-label={t("Filter graph")}
+      data-tip={t("Filter graph|Show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)")}
       onClick={(e) =>
         showMenuBelow(e.currentTarget, [
-          { label: "현재 브랜치만 보기", checked: store.graphCurrentOnly, onClick: () => void store.setCurrentOnly(!store.graphCurrentOnly) },
+          { label: t("Show only the current branch"), checked: store.graphCurrentOnly, onClick: () => void store.setCurrentOnly(!store.graphCurrentOnly) },
           "divider",
-          { label: hidden ? `숨긴 브랜치 ${hidden}개 모두 보이기` : "숨긴 브랜치 없음", disabled: !hidden, onClick: () => void store.showAllBranches() },
+          { label: hidden ? t("Show all {0} hidden branches", hidden) : t("No hidden branches"), disabled: !hidden, onClick: () => void store.showAllBranches() },
         ])
       }
     >
       <ListFilter size={15} />
-      {store.graphCurrentOnly ? <span style={{ fontSize: 11.5 }}>현재 브랜치만</span> : hidden > 0 ? <span style={{ fontSize: 11.5 }}>숨김 {hidden}</span> : null}
+      {store.graphCurrentOnly ? <span style={{ fontSize: 11.5 }}>{t("Current branch only")}</span> : hidden > 0 ? <span style={{ fontSize: 11.5 }}>{t("Hidden {0}", hidden)}</span> : null}
     </button>
   );
 }

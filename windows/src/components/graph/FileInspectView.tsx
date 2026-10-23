@@ -7,6 +7,7 @@ import { useObserve } from "../../lib/observable";
 import type { RepoStore } from "../../lib/repo";
 import { Avatar, Button, Empty, Segmented, Spinner, tip } from "../shared/ui";
 import { DiffBody, DiffEmptyState } from "./DiffView";
+import { t } from "../../lib/i18n";
 
 const BLAME_H = 18;
 
@@ -22,14 +23,13 @@ export function FileInspectView({ store }: { store: RepoStore }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [store]);
-  const subtitle = f.mode === "history" ? `${f.path} · 커밋 ${store.fileHistory.length}개` : `${f.path} · ${f.rev ? `커밋 ${short(f.rev)} 기준` : "작업 트리 기준"}`;
+  const subtitle = f.mode === "history" ? t("{0} · {1} commits", f.path, store.fileHistory.length) : `${f.path} · ${f.rev ? t("As of commit {0}", short(f.rev)) : t("As of the working tree")}`;
 
   return (
     <div className="col grow" style={{ minHeight: 0 }}>
       <div className="diff-head">
-        <Button size="small" onClick={() => store.closeFileInspect()} tip="그래프로 돌아가기 (Esc)">
-          <ChevronLeft size={14} /> 그래프
-        </Button>
+        <Button size="small" onClick={() => store.closeFileInspect()} tip={t("Back to graph (Esc)")}>
+          <ChevronLeft size={14} /> {" "}{t("Graph")}</Button>
         <span className="muted" style={{ display: "inline-flex" }}>
           {f.mode === "history" ? <History size={16} /> : <ScanText size={16} />}
         </span>
@@ -46,13 +46,13 @@ export function FileInspectView({ store }: { store: RepoStore }) {
           value={f.mode}
           onChange={(m) => store.setFileInspectMode(m)}
           options={[
-            { value: "history", label: "히스토리", tip: "이 파일을 바꾼 커밋들" },
-            { value: "blame", label: "줄별 작성자", tip: "줄마다 누가 언제 바꿨는지" },
+            { value: "history", label: t("History"), tip: t("Commits that changed this file") },
+            { value: "blame", label: t("Blame"), tip: t("Who changed each line and when") },
           ]}
         />
       </div>
       {store.fileInspectError ? (
-        <Empty icon={<TriangleAlert size={30} />} title="읽지 못했습니다" detail={store.fileInspectError} />
+        <Empty icon={<TriangleAlert size={30} />} title={t("Couldn't read")} detail={store.fileInspectError} />
       ) : f.mode === "history" ? (
         <HistoryPane store={store} />
       ) : (
@@ -78,7 +78,7 @@ function HistoryPane({ store }: { store: RepoStore }) {
               store.closeFileInspect();
               store.reveal(e.commit.id);
             }}
-            data-tip={tip(e.commit.subject, `${e.commit.author} · ${longDate(e.commit.date)}\n더블클릭: 그래프에서 이 커밋 보기`)}
+            data-tip={tip(e.commit.subject, t("{0} · {1}\nDouble-click: show this commit in the graph", e.commit.author, longDate(e.commit.date)))}
           >
             <Avatar name={e.commit.author} email={e.commit.email} size={20} url={avatars.url(e.commit.email, e.commit.author)} />
             <div className="col grow" style={{ minWidth: 0 }}>
@@ -86,7 +86,7 @@ function HistoryPane({ store }: { store: RepoStore }) {
               <span className="side-sub row" style={{ gap: 6 }}>
                 <span>{e.commit.author}</span>
                 <span>{shortDate(e.commit.date)}</span>
-                {e.path !== store.fileInspect?.path && <span style={{ color: "var(--orange)" }}>이전 이름: {e.path}</span>}
+                {e.path !== store.fileInspect?.path && <span style={{ color: "var(--orange)" }}>{t("Previous name: {0}", e.path)}</span>}
               </span>
             </div>
             <span className="mono muted" style={{ fontSize: 11.5 }}>
@@ -101,12 +101,12 @@ function HistoryPane({ store }: { store: RepoStore }) {
             <Spinner size={20} />
           </div>
         ) : store.fileInspectLoading ? null : (
-          <Empty icon={<Clock size={30} />} title="히스토리 없음" detail="아직 커밋되지 않은 파일입니다." />
+          <Empty icon={<Clock size={30} />} title={t("No history")} detail={t("This file hasn't been committed yet.")} />
         )
       ) : doc.error ? (
-        <Empty icon={<TriangleAlert size={30} />} title="변경을 읽지 못했습니다" detail={doc.error} />
+        <Empty icon={<TriangleAlert size={30} />} title={t("Couldn't read the changes")} detail={doc.error} />
       ) : doc.isBinary ? (
-        <Empty icon={<FileArchive size={30} />} title="바이너리 파일" />
+        <Empty icon={<FileArchive size={30} />} title={t("Binary file")} />
       ) : !doc.lines.length ? (
         <DiffEmptyState doc={doc} />
       ) : (
@@ -138,13 +138,13 @@ function BlamePane({ store }: { store: RepoStore }) {
       el.removeEventListener("scroll", update);
     };
   }, []);
-  if (!lines.length && !store.fileInspectLoading) return <Empty icon={<ScanText size={30} />} title="내용 없음" detail="빈 파일이거나 아직 커밋되지 않았습니다." />;
+  if (!lines.length && !store.fileInspectLoading) return <Empty icon={<ScanText size={30} />} title={t("No content")} detail={t("The file is empty or not committed yet.")} />;
   const first = Math.max(0, Math.floor(vp.top / BLAME_H) - 20);
   const last = Math.min(lines.length, Math.ceil((vp.top + vp.height) / BLAME_H) + 20);
   const age = (l: BlameLine) => {
     if (isUncommittedLine(l)) return "color-mix(in srgb, var(--orange) 12%, transparent)";
-    const t = newest > oldest ? (l.date - oldest) / (newest - oldest) : 1;
-    return `color-mix(in srgb, var(--accent) ${Math.round(4 + 16 * t)}%, transparent)`;
+    const secs = newest > oldest ? (l.date - oldest) / (newest - oldest) : 1;
+    return `color-mix(in srgb, var(--accent) ${Math.round(4 + 16 * secs)}%, transparent)`;
   };
   return (
     <div className="diff-scroll" ref={ref}>
@@ -155,7 +155,7 @@ function BlamePane({ store }: { store: RepoStore }) {
               <span
                 className="blame-gutter"
                 style={{ background: age(l), cursor: l.startsBlock && !isUncommittedLine(l) ? "pointer" : undefined }}
-                data-tip={l.startsBlock ? (isUncommittedLine(l) ? "아직 커밋하지 않은 줄" : tip(l.summary, `${l.author} · ${longDate(l.date)}\n눌러서 그래프에서 이 커밋 보기`)) : undefined}
+                data-tip={l.startsBlock ? (isUncommittedLine(l) ? t("Uncommitted line") : tip(l.summary, t("{0} · {1}\nClick to show this commit in the graph", l.author, longDate(l.date)))) : undefined}
                 onClick={() => {
                   if (!l.startsBlock || isUncommittedLine(l)) return;
                   store.closeFileInspect();
@@ -164,7 +164,7 @@ function BlamePane({ store }: { store: RepoStore }) {
               >
                 {l.startsBlock &&
                   (isUncommittedLine(l) ? (
-                    <span style={{ color: "var(--orange)" }}>커밋하지 않음</span>
+                    <span style={{ color: "var(--orange)" }}>{t("Not committed")}</span>
                   ) : (
                     <>
                       <Avatar name={l.author} email={l.email} size={14} url={avatars.url(l.email, l.author)} />

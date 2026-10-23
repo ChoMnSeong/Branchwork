@@ -17,41 +17,41 @@ struct AddWorktreeSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("새 워크트리").font(.title3.weight(.semibold)).padding([.top, .horizontal], 20)
+            Text("New worktree").font(.title3.weight(.semibold)).padding([.top, .horizontal], 20)
             Form {
-                Picker("브랜치", selection: $createNew) {
-                    Text("새 브랜치 만들기").tag(true)
-                    Text("기존 브랜치").tag(false)
+                Picker("Branch", selection: $createNew) {
+                    Text("Create new branch").tag(true)
+                    Text("Existing branch").tag(false)
                 }
                 .pickerStyle(.segmented)
                 if createNew {
-                    TextField("새 브랜치 이름", text: $name, prompt: Text("feature/새-작업"))
-                    LabeledContent("시작 위치", value: start.map { String($0.prefix(10)) } ?? store.headBranch ?? "HEAD")
+                    TextField("New branch name", text: $name, prompt: Text("feature/new-task"))
+                    LabeledContent("Start point", value: start.map { String($0.prefix(10)) } ?? store.headBranch ?? "HEAD")
                 } else {
-                    Picker("체크아웃할 브랜치", selection: $existing) {
+                    Picker("Branch to check out", selection: $existing) {
                         ForEach(freeBranches, id: \.self) { Text($0).tag($0) }
                     }
                 }
-                LabeledContent("위치") {
+                LabeledContent("Location") {
                     HStack {
                         TextField("", text: Binding(get: { path }, set: { path = $0; pathEdited = true }))
                             .textFieldStyle(.roundedBorder)
-                        Button("변경…") { choose() }
+                        Button("Change…") { choose() }
                     }
                 }
-                Toggle("만든 뒤 \(AgentCenter.shared.defaultKind.title) 실행", isOn: $runClaude)
+                Toggle("Run \(AgentCenter.shared.defaultKind.title) after creating", isOn: $runClaude)
                 if runClaude {
-                    TextField("에이전트에게 맡길 작업 (선택)", text: $task, prompt: Text("예: 로그인 화면에 비밀번호 찾기 추가"), axis: .vertical)
+                    TextField("Task for the agent (optional)", text: $task, prompt: Text("e.g. add password recovery to the login screen"), axis: .vertical)
                         .lineLimit(2...4)
                 }
             }
             .formStyle(.grouped)
             HStack {
-                Text("한 브랜치는 워크트리 하나에서만 체크아웃할 수 있습니다.").font(.caption).foregroundStyle(.secondary)
+                Text("A branch can be checked out in only one worktree.").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button("취소", role: .cancel) { dismiss() }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("만들기") {
+                Button("Create") {
                     let b = branch, p = path, new = createNew, s = createNew ? start : nil, c = runClaude, t = task
                     dismiss()
                     Task { await store.addWorktree(path: p, branch: b, createNew: new, start: s, launchClaude: c, task: t) }
@@ -99,7 +99,7 @@ struct AddWorktreeSheet: View {
         p.canChooseDirectories = true
         p.canChooseFiles = false
         p.canCreateDirectories = true
-        p.prompt = "이 안에 만들기"
+        p.prompt = String(localized: "Create inside")
         if p.runModal() == .OK, let u = p.url {
             path = u.appendingPathComponent(branch.isEmpty ? "worktree" : branch.replacingOccurrences(of: "/", with: "-")).path
             pathEdited = true
