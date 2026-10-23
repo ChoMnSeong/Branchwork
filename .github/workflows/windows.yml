@@ -1,7 +1,8 @@
 name: Windows
 
 # PR: 타입 검사·단위 테스트 → 점검용 빌드 한 번 → 실제 앱 자동 점검.
-# 배포(v* 태그)·수동 실행: 위에 더해 서명한 설치 파일 빌드, 자동 업데이트 서명 점검, README 스크린샷.
+# 배포(v* 태그)·수동 실행: 위에 더해 서명한 배포 파일(설치 파일·포터블 zip·latest.json), 자동 업데이트 서명 점검, README 스크린샷.
+# v* 태그는 점검까지 통과하면 배포 파일을 그 태그의 릴리스(없으면 초안)에 올린다.
 # main 은 PR 로만 바뀌므로(이미 PR 에서 점검함) 합친 뒤 main 에서 다시 돌리지 않는다.
 on:
   push:
@@ -14,6 +15,9 @@ on:
 concurrency:
   group: windows-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -68,6 +72,38 @@ jobs:
             npx tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
           fi
 
+      # 점검용 빌드가 target/release/gitrochi.exe 를 0.0.1 로 덮어쓰기 전에 만든다
+      - name: 배포 파일 (포터블 zip · sha256 · latest.json)
+        if: env.FULL == 'true'
+        shell: bash
+        run: |
+          ver="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "v$ver" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::태그 $GITHUB_REF_NAME 와 tauri.conf.json 버전 $ver 이 다릅니다. 버전을 올린 커밋에 태그를 다세요."
+            exit 1
+          fi
+          nsis=src-tauri/target/release/bundle/nsis
+          setup="Gitrochi_${ver}_x64-setup.exe"
+          zip="Gitrochi_${ver}_x64_portable.zip"
+          out="$(cygpath -m "$RUNNER_TEMP")/release"
+          stage="$(cygpath -m "$RUNNER_TEMP")/portable"
+          mkdir -p "$out" "$stage"
+          cp "$nsis/$setup" "$out/"
+          cp src-tauri/target/release/gitrochi.exe "$stage/Gitrochi.exe"
+          cp ../LICENSE "$stage/LICENSE.txt"
+          (cd "$stage" && 7z a -tzip "$out/$zip" Gitrochi.exe LICENSE.txt >/dev/null)
+          # Git Bash 의 sha256sum 이 이름 앞에 붙이는 *(바이너리 표시)는 빼서 맥과 같은 「해시  이름」으로
+          (cd "$out" && sha256sum "$setup" "$zip" | sed 's/ \*/  /' > "Gitrochi_${ver}_windows.sha256")
+          if [ -f "$nsis/$setup.sig" ]; then
+            cp "$nsis/$setup.sig" "$out/"
+            # notes 는 비워서 만든다 — 관리자가 게시하기 전에 넣는다(CONTRIBUTING.md 「릴리스」)
+            node scripts/latest-json.mjs "$ver" "$setup" "$nsis/$setup.sig" > "$out/latest.json"
+          elif [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "::error::업데이트 서명($setup.sig)이 없습니다. release 환경의 TAURI_SIGNING_PRIVATE_KEY 를 확인하세요."
+            exit 1
+          fi
+          ls -l "$out"
+
       - name: Branchwork 0.3.5 설치에서 이어받기
         if: env.FULL == 'true'
         shell: pwsh
@@ -93,15 +129,13 @@ jobs:
           $checks.GetEnumerator() | ForEach-Object { Write-Host "$(if ($_.Value) { 'OK  ' } else { 'FAIL' }) $($_.Key)" }
           if ($checks.Values -contains $false) { Write-Error "Upgrade from Branchwork 0.3.5 failed"; exit 1 }
 
-      - name: 설치 파일 올리기
+      - name: 배포 파일 올리기
         if: env.FULL == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: gitrochi-windows
-          path: |
-            windows/src-tauri/target/release/bundle/nsis/*.exe
-            windows/src-tauri/target/release/bundle/nsis/*.sig
-            windows/src-tauri/target/release/gitrochi.exe
+          path: ${{ runner.temp }}/release/*
+          if-no-files-found: error
 
       - name: 점검용 빌드(업데이트 서버 http 허용 — 배포 파일과는 별개)
         shell: bash
@@ -269,3 +303,40 @@ jobs:
             ${{ env.ST_ROOT }}/selftest-result.json
             ${{ env.ST_ROOT }}/selftest.png
           if-no-files-found: ignore
+
+  # 릴리스에 파일을 올려야 해서 쓰기 권한은 태그 실행의 이 작업에만 준다(빌드 작업은 PR 에서도 돈다).
+  # 앱의 업데이트 확인은 초안을 보지 않으므로, 관리자가 노트를 쓰고 '게시'해야 사용자에게 간다.
+  release:
+    name: 릴리스에 올리기
+    needs: build
+    if: github.ref_type == 'tag'
+    environment: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    # 맥(macos.yml 「배포 파일」)과 같은 그룹으로 하나씩 돈다: 먼저 도는 쪽이 초안을 만들고 다음 쪽은 그 초안에 올린다
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: gitrochi-windows
+          path: dist
+
+      - name: 릴리스에 올리기
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          # gh release view 는 초안도 태그 이름으로 찾는다(쓰기 권한이 있는 토큰)
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --draft --verify-tag --title "Gitrochi ${tag#v}" --notes ""
+          gh release upload "$tag" dist/* --clobber
+          {
+            echo "### Windows 배포 파일 → $tag"
+            echo '```'
+            cat dist/*.sha256
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
