@@ -91,7 +91,7 @@ struct ChangeList<MenuContent: View>: View {
             ForEach(FileTree.rows(changes, collapsed: collapsed)) { row in
                 switch row.kind {
                 case .folder(let path, let name, let files):
-                    FolderRow(name: name, count: files.count, expanded: !collapsed.contains(path),
+                    FolderRow(path: path, name: name, count: files.count, expanded: !collapsed.contains(path),
                               actionIcon: actionIcon, actionHelp: actionHelp,
                               action: { onAction(files) },
                               toggle: { toggle(path) })
@@ -125,6 +125,8 @@ struct ChangeList<MenuContent: View>: View {
 }
 
 private struct FolderRow: View {
+    @Environment(RepoStore.self) private var store
+    let path: String
     let name: String
     let count: Int
     let expanded: Bool
@@ -161,5 +163,9 @@ private struct FolderRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: toggle)
         .onHover { hover = $0 }
+        .contextMenu {
+            Button("Show in Finder") { store.revealInFinder(path: path) }
+            Button("Copy path") { store.copy(path) }
+        }
     }
 }

@@ -426,6 +426,7 @@ struct CommitDetailView: View {
                 Button("File history") { store.openFileHistory(f.path) }
                 Button("Show blame at this commit") { store.openBlame(f.path, rev: sha) }.disabled(f.kind == .deleted)
                 Divider()
+                Button("Show in Finder") { store.revealInFinder(f) }
                 Button("Copy path") { store.copy(f.path) }
             }
         }

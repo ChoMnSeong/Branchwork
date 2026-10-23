@@ -91,6 +91,10 @@ struct DiffView: View {
                     .accessibilityLabel("Blame")
             }
         }
+        Button { store.revealInFinder(c) } label: { Image(systemName: "folder") }
+            .buttonStyle(.borderless)
+            .help("Show in Finder")
+            .accessibilityLabel("Show in Finder")
     }
 
     private var isReview: Bool { if case .review = source { return true } else { return false } }

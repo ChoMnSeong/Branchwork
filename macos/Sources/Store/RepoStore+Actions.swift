@@ -318,9 +318,16 @@ extension RepoStore {
 
     // MARK: - 기타
 
-    func revealInFinder(_ c: FileChange) {
+    func revealInFinder(_ c: FileChange) { revealInFinder(path: c.path) }
+
+    /// 저장소 안 경로를 Finder 에서 고른다. 지워진 파일이면 남아 있는 가장 가까운 폴더를 연다.
+    func revealInFinder(path: String) {
         guard let url else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([url.appendingPathComponent(c.path)])
+        var target = url.appendingPathComponent(path)
+        while !FileManager.default.fileExists(atPath: target.path), target.path.count > url.path.count {
+            target = target.deletingLastPathComponent()
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([target])
     }
 
     func copy(_ text: String) {
