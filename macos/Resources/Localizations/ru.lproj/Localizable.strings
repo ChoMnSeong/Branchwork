@@ -1,12 +1,5 @@
 /* Branchwork — ru. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork открыт прямо из загрузок и работает из временного расположения, поэтому не может заменить сам себя. Переместите его в папку «Программы», откройте снова и затем обновите.";
-"Couldn't replace the app: %@" = "Не удалось заменить приложение: %1$@";
-"Downloaded and verified — ready to install." = "Загружено и проверено — можно устанавливать.";
-"Enter an administrator password to update Branchwork in %@." = "Введите пароль администратора, чтобы обновить Branchwork в %1$@.";
-"The release has no SHA-256 file. It wasn't installed." = "В релизе нет файла SHA-256. Обновление не установлено.";
-"The release has no update signature. It wasn't installed." = "В релизе нет подписи обновления. Обновление не установлено.";
-"The update signature doesn't match. It wasn't installed." = "Подпись обновления не совпадает. Обновление не установлено.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff слишком длинный, поэтому объяснено только его начало.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nТребуется аутентификация. Один раз выполните push/pull в терминале, чтобы сохранить учётные данные (Связка ключей или SSH-ключ), затем повторите попытку.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nТокену нужна область доступа api, а одобрить этот MR могут только пользователи с правом его одобрения.";
@@ -139,6 +132,7 @@
 "Branches hidden from the graph — right-click to show again" = "Ветки, скрытые из графа, — щёлкните правой кнопкой, чтобы снова показать";
 "Branches pinned to the top" = "Ветки, закреплённые вверху";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ — последняя версия.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork открыт прямо из загрузок и работает из временного расположения, поэтому не может заменить сам себя. Переместите его в папку «Программы», откройте снова и затем обновите.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Чтобы применить изменение, Branchwork перезапустится. Если нет истории коммитов, на которую можно ориентироваться, ИИ тоже пишет на этом языке.";
 "Branchwork update" = "Обновление Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Переносит новые коммиты из удалённого репозитория в текущую ветку. Новых коммитов: %1$lld.";
@@ -276,6 +270,7 @@
 "Couldn't read the commit list." = "Не удалось прочитать список коммитов.";
 "Couldn't read the split result (not JSON). Please try again." = "Не удалось прочитать результат разбиения (ответ не в формате JSON). Повторите попытку.";
 "Couldn't read this commit's changes." = "Не удалось прочитать изменения этого коммита.";
+"Couldn't replace the app: %@" = "Не удалось заменить приложение: %1$@";
 "Couldn't run %@: %@" = "Не удалось запустить %1$@: %2$@";
 "Couldn't save the file.\n\n" = "Не удалось сохранить файл.\n\n";
 "Couldn't split the commits." = "Не удалось разбить на коммиты.";
@@ -358,6 +353,7 @@
 "Down" = "Вниз";
 "Down (earlier)" = "Вниз (раньше)";
 "Download again" = "Загрузить снова";
+"Downloaded and verified — ready to install." = "Загружено и проверено — можно устанавливать.";
 "Downloading…" = "Загрузка…";
 "Draft" = "Черновик";
 "Drawing the graph with %lld commits…" = "Построение графа (коммитов: %1$lld)…";
@@ -375,6 +371,7 @@
 "End the %@ session?" = "Завершить сеанс %1$@?";
 "Ended" = "Завершён";
 "Ended sessions" = "Завершённые сеансы";
+"Enter an administrator password to update Branchwork in %@." = "Введите пароль администратора, чтобы обновить Branchwork в %1$@.";
 "Enter the server address." = "Введите адрес сервера.";
 "Enter your %@ key in Settings > AI." = "Введите ключ %1$@ в разделе Настройки > AI.";
 "Environment %lld" = "Окружение %1$lld";
@@ -800,10 +797,13 @@
 "The language changes when Branchwork restarts." = "Язык сменится после перезапуска Branchwork.";
 "The new message is empty." = "Новое сообщение пустое.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Префикс — одно из: Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
+"The release has no SHA-256 file. It wasn't installed." = "В релизе нет файла SHA-256. Обновление не установлено.";
+"The release has no update signature. It wasn't installed." = "В релизе нет подписи обновления. Обновление не установлено.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "С тех пор репозиторий изменился (коммит, переключение и т. п. в другом месте), поэтому «%1$@» отменить нельзя.";
 "The shell exited" = "Оболочка завершилась";
 "The shell exited (code %d)" = "Оболочка завершилась (код %1$d)";
 "The tracked remote branch was deleted" = "Отслеживаемая удалённая ветка удалена";
+"The update signature doesn't match. It wasn't installed." = "Подпись обновления не совпадает. Обновление не установлено.";
 "Theirs" = "Их";
 "Theirs first" = "Сначала их";
 "Theirs · %@" = "Их · %1$@";

@@ -1,12 +1,5 @@
 /* Branchwork — id. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork dibuka langsung dari unduhan dan berjalan dari lokasi sementara, sehingga tidak dapat menggantikan dirinya sendiri. Pindahkan ke folder Aplikasi, buka lagi, lalu perbarui.";
-"Couldn't replace the app: %@" = "Tidak dapat mengganti aplikasi: %1$@";
-"Downloaded and verified — ready to install." = "Sudah diunduh dan diverifikasi — siap diinstal.";
-"Enter an administrator password to update Branchwork in %@." = "Masukkan kata sandi administrator untuk memperbarui Branchwork di %1$@.";
-"The release has no SHA-256 file. It wasn't installed." = "Rilis tidak memiliki file SHA-256. Pembaruan tidak diinstal.";
-"The release has no update signature. It wasn't installed." = "Rilis tidak memiliki tanda tangan pembaruan. Pembaruan tidak diinstal.";
-"The update signature doesn't match. It wasn't installed." = "Tanda tangan pembaruan tidak cocok. Pembaruan tidak diinstal.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff terlalu panjang, jadi hanya bagian awal yang dijelaskan.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nAutentikasi diperlukan. Lakukan push/pull sekali di terminal untuk menyimpan kredensial Anda (Rantai Kunci atau kunci SSH), lalu coba lagi.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken memerlukan scope api, dan hanya orang yang berhak menyetujui MR ini yang dapat menyetujuinya.";
@@ -130,6 +123,7 @@
 "Branches hidden from the graph — right-click to show again" = "Branch yang disembunyikan dari grafik — klik kanan untuk menampilkannya lagi";
 "Branches pinned to the top" = "Branch yang disematkan di atas";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ adalah versi terbaru.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork dibuka langsung dari unduhan dan berjalan dari lokasi sementara, sehingga tidak dapat menggantikan dirinya sendiri. Pindahkan ke folder Aplikasi, buka lagi, lalu perbarui.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork dimulai ulang untuk menerapkan perubahan. Jika tidak ada riwayat commit yang bisa diikuti, AI juga menulis dalam bahasa ini.";
 "Branchwork update" = "Pembaruan Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Mengambil %1$lld commit baru dari remote ke branch saat ini.";
@@ -260,6 +254,7 @@
 "Couldn't read the commit list." = "Tidak dapat membaca daftar commit.";
 "Couldn't read the split result (not JSON). Please try again." = "Tidak dapat membaca hasil pemecahan (bukan JSON). Silakan coba lagi.";
 "Couldn't read this commit's changes." = "Tidak dapat membaca perubahan commit ini.";
+"Couldn't replace the app: %@" = "Tidak dapat mengganti aplikasi: %1$@";
 "Couldn't run %@: %@" = "Tidak dapat menjalankan %1$@: %2$@";
 "Couldn't save the file.\n\n" = "Tidak dapat menyimpan file.\n\n";
 "Couldn't split the commits." = "Tidak dapat memecah commit.";
@@ -338,6 +333,7 @@
 "Down" = "Turun";
 "Down (earlier)" = "Turun (lebih awal)";
 "Download again" = "Unduh lagi";
+"Downloaded and verified — ready to install." = "Sudah diunduh dan diverifikasi — siap diinstal.";
 "Downloading…" = "Mengunduh…";
 "Draft" = "Draf";
 "Drawing the graph with %lld commits…" = "Menggambar grafik dengan %1$lld commit…";
@@ -353,6 +349,7 @@
 "End the %@ session?" = "Akhiri sesi %1$@?";
 "Ended" = "Berakhir";
 "Ended sessions" = "Sesi yang telah berakhir";
+"Enter an administrator password to update Branchwork in %@." = "Masukkan kata sandi administrator untuk memperbarui Branchwork di %1$@.";
 "Enter the server address." = "Masukkan alamat server.";
 "Enter your %@ key in Settings > AI." = "Masukkan kunci %1$@ Anda di Pengaturan > AI.";
 "Executable" = "File eksekusi";
@@ -754,10 +751,13 @@
 "The language changes when Branchwork restarts." = "Bahasa berubah setelah Branchwork dimulai ulang.";
 "The new message is empty." = "Pesan baru kosong.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Prefix adalah salah satu dari Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
+"The release has no SHA-256 file. It wasn't installed." = "Rilis tidak memiliki file SHA-256. Pembaruan tidak diinstal.";
+"The release has no update signature. It wasn't installed." = "Rilis tidak memiliki tanda tangan pembaruan. Pembaruan tidak diinstal.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "Repositori telah berubah sejak saat itu (commit, checkout, dll. di tempat lain), jadi “%1$@” tidak dapat diurungkan.";
 "The shell exited" = "Shell telah berhenti";
 "The shell exited (code %d)" = "Shell telah berhenti (kode %1$d)";
 "The tracked remote branch was deleted" = "Branch remote yang dilacak telah dihapus";
+"The update signature doesn't match. It wasn't installed." = "Tanda tangan pembaruan tidak cocok. Pembaruan tidak diinstal.";
 "Theirs" = "Milik mereka";
 "Theirs first" = "Milik mereka dulu";
 "Theirs · %@" = "Milik mereka · %1$@";

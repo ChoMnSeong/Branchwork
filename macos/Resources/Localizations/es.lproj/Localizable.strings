@@ -1,12 +1,5 @@
 /* Branchwork — es. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork se abrió directamente desde la descarga y se está ejecutando desde una ubicación temporal, así que no puede reemplazarse a sí mismo. Muévelo a la carpeta Aplicaciones, vuelve a abrirlo y luego actualízalo.";
-"Couldn't replace the app: %@" = "No se pudo reemplazar la app: %1$@";
-"Downloaded and verified — ready to install." = "Descargada y verificada: lista para instalar.";
-"Enter an administrator password to update Branchwork in %@." = "Introduce una contraseña de administrador para actualizar Branchwork en %1$@.";
-"The release has no SHA-256 file. It wasn't installed." = "La versión publicada no tiene archivo SHA-256. No se instaló.";
-"The release has no update signature. It wasn't installed." = "La versión publicada no tiene firma de actualización. No se instaló.";
-"The update signature doesn't match. It wasn't installed." = "La firma de la actualización no coincide. No se instaló.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(El diff era largo, así que solo se explicó el principio.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nSe requiere autenticación. Haz push/pull una vez en una terminal para guardar tus credenciales (Llavero o clave SSH) y vuelve a intentarlo.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nEl token necesita el ámbito api, y solo pueden aprobar este MR las personas con permiso para aprobarlo.";
@@ -134,6 +127,7 @@
 "Branches hidden from the graph — right-click to show again" = "Ramas ocultas del grafo: haz clic derecho para volver a mostrarlas";
 "Branches pinned to the top" = "Ramas fijadas arriba";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ es la versión más reciente.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork se abrió directamente desde la descarga y se está ejecutando desde una ubicación temporal, así que no puede reemplazarse a sí mismo. Muévelo a la carpeta Aplicaciones, vuelve a abrirlo y luego actualízalo.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork se reinicia para aplicar el cambio. Si no hay historial de commits que seguir, la IA también redacta en este idioma.";
 "Branchwork update" = "Actualización de Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Trae a la rama actual los commits nuevos del remoto (%1$lld).";
@@ -265,6 +259,7 @@
 "Couldn't read the commit list." = "No se pudo leer la lista de commits.";
 "Couldn't read the split result (not JSON). Please try again." = "No se pudo leer el resultado de la división (no es JSON). Inténtalo de nuevo.";
 "Couldn't read this commit's changes." = "No se pudieron leer los cambios de este commit.";
+"Couldn't replace the app: %@" = "No se pudo reemplazar la app: %1$@";
 "Couldn't run %@: %@" = "No se pudo ejecutar %1$@: %2$@";
 "Couldn't save the file.\n\n" = "No se pudo guardar el archivo.\n\n";
 "Couldn't split the commits." = "No se pudieron dividir los commits.";
@@ -347,6 +342,7 @@
 "Down" = "Bajar";
 "Down (earlier)" = "Bajar (antes)";
 "Download again" = "Descargar de nuevo";
+"Downloaded and verified — ready to install." = "Descargada y verificada: lista para instalar.";
 "Downloading…" = "Descargando…";
 "Draft" = "Borrador";
 "Drawing the graph with %lld commits…" = "Dibujando el grafo de commits (%1$lld)…";
@@ -364,6 +360,7 @@
 "End the %@ session?" = "¿Finalizar la sesión de %1$@?";
 "Ended" = "Finalizada";
 "Ended sessions" = "Sesiones finalizadas";
+"Enter an administrator password to update Branchwork in %@." = "Introduce una contraseña de administrador para actualizar Branchwork en %1$@.";
 "Enter the server address." = "Indica la dirección del servidor.";
 "Enter your %@ key in Settings > AI." = "Indica tu clave de %1$@ en Ajustes > IA.";
 "Environment %lld" = "Entorno %1$lld";
@@ -777,10 +774,13 @@
 "The language changes when Branchwork restarts." = "El idioma cambia cuando Branchwork se reinicia.";
 "The new message is empty." = "El nuevo mensaje está vacío.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "El prefijo es uno de Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
+"The release has no SHA-256 file. It wasn't installed." = "La versión publicada no tiene archivo SHA-256. No se instaló.";
+"The release has no update signature. It wasn't installed." = "La versión publicada no tiene firma de actualización. No se instaló.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "El repositorio cambió desde entonces (un commit, checkout, etc. en otro lugar), así que no se puede deshacer “%1$@”.";
 "The shell exited" = "El shell terminó";
 "The shell exited (code %d)" = "El shell terminó (código %1$d)";
 "The tracked remote branch was deleted" = "Se eliminó la rama remota a la que se hacía seguimiento";
+"The update signature doesn't match. It wasn't installed." = "La firma de la actualización no coincide. No se instaló.";
 "Theirs" = "Suyo";
 "Theirs first" = "Primero el suyo";
 "Theirs · %@" = "Suyo · %1$@";

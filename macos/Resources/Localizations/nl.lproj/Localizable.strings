@@ -1,12 +1,5 @@
 /* Branchwork — nl. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork is rechtstreeks vanuit de download geopend en draait vanaf een tijdelijke locatie, dus het kan zichzelf niet vervangen. Verplaats het naar de map Apps, open het opnieuw en werk het daarna bij.";
-"Couldn't replace the app: %@" = "Kan de app niet vervangen: %1$@";
-"Downloaded and verified — ready to install." = "Gedownload en gecontroleerd — klaar om te installeren.";
-"Enter an administrator password to update Branchwork in %@." = "Voer een beheerderswachtwoord in om Branchwork in %1$@ bij te werken.";
-"The release has no SHA-256 file. It wasn't installed." = "De release heeft geen SHA-256-bestand. De update is niet geïnstalleerd.";
-"The release has no update signature. It wasn't installed." = "De release heeft geen updatehandtekening. De update is niet geïnstalleerd.";
-"The update signature doesn't match. It wasn't installed." = "De updatehandtekening klopt niet. De update is niet geïnstalleerd.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(De diff was lang, dus alleen het begin is uitgelegd.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nAuthenticatie vereist. Voer één keer push/pull uit in een terminal zodat je inloggegevens worden opgeslagen (Sleutelhanger of SSH-sleutel), en probeer het opnieuw.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nHet token heeft de scope api nodig, en alleen wie deze MR mag goedkeuren, kan hem goedkeuren.";
@@ -129,6 +122,7 @@
 "Branches hidden from the graph — right-click to show again" = "Branches die in de graaf verborgen zijn — klik met rechts om ze weer te tonen";
 "Branches pinned to the top" = "Bovenaan vastgezette branches";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ is de nieuwste versie.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork is rechtstreeks vanuit de download geopend en draait vanaf een tijdelijke locatie, dus het kan zichzelf niet vervangen. Verplaats het naar de map Apps, open het opnieuw en werk het daarna bij.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork start opnieuw om de wijziging toe te passen. Als er geen commitgeschiedenis is om te volgen, schrijft de AI ook in deze taal.";
 "Branchwork update" = "Branchwork-update";
 "Brings %lld new commits from the remote into the current branch." = "Haalt nieuwe commits (%1$lld) van de remote binnen in de huidige branch.";
@@ -257,6 +251,7 @@
 "Couldn't read the commit list." = "Kan de commitlijst niet lezen.";
 "Couldn't read the split result (not JSON). Please try again." = "Kan het resultaat van de opsplitsing niet lezen (geen JSON). Probeer het opnieuw.";
 "Couldn't read this commit's changes." = "Kan de wijzigingen van deze commit niet lezen.";
+"Couldn't replace the app: %@" = "Kan de app niet vervangen: %1$@";
 "Couldn't run %@: %@" = "Kan %1$@ niet uitvoeren: %2$@";
 "Couldn't save the file.\n\n" = "Kan het bestand niet opslaan.\n\n";
 "Couldn't split the commits." = "Kan de commits niet opsplitsen.";
@@ -336,6 +331,7 @@
 "Down" = "Omlaag";
 "Down (earlier)" = "Omlaag (eerder)";
 "Download again" = "Opnieuw downloaden";
+"Downloaded and verified — ready to install." = "Gedownload en gecontroleerd — klaar om te installeren.";
 "Downloading…" = "Bezig met downloaden…";
 "Draft" = "Concept";
 "Drawing the graph with %lld commits…" = "Graaf wordt getekend met %1$lld commit(s)…";
@@ -353,6 +349,7 @@
 "End the %@ session?" = "Sessie van %1$@ beëindigen?";
 "Ended" = "Beëindigd";
 "Ended sessions" = "Beëindigde sessies";
+"Enter an administrator password to update Branchwork in %@." = "Voer een beheerderswachtwoord in om Branchwork in %1$@ bij te werken.";
 "Enter the server address." = "Voer het serveradres in.";
 "Enter your %@ key in Settings > AI." = "Voer je sleutel voor %1$@ in bij Instellingen > AI.";
 "Environment %lld" = "Omgeving %1$lld";
@@ -754,10 +751,13 @@
 "The language changes when Branchwork restarts." = "De taal verandert wanneer Branchwork opnieuw start.";
 "The new message is empty." = "Het nieuwe bericht is leeg.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Het prefix is een van Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
+"The release has no SHA-256 file. It wasn't installed." = "De release heeft geen SHA-256-bestand. De update is niet geïnstalleerd.";
+"The release has no update signature. It wasn't installed." = "De release heeft geen updatehandtekening. De update is niet geïnstalleerd.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "De repository is sindsdien gewijzigd (een commit, checkout enz. elders), dus “%1$@” kan niet ongedaan worden gemaakt.";
 "The shell exited" = "De shell is beëindigd";
 "The shell exited (code %d)" = "De shell is beëindigd (code %1$d)";
 "The tracked remote branch was deleted" = "De gevolgde remote-branch is verwijderd";
+"The update signature doesn't match. It wasn't installed." = "De updatehandtekening klopt niet. De update is niet geïnstalleerd.";
 "Theirs" = "Hun versie";
 "Theirs first" = "Eerst hun versie";
 "Theirs · %@" = "Hun versie · %1$@";

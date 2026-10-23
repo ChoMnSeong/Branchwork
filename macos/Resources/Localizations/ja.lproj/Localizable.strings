@@ -1,12 +1,5 @@
 /* Branchwork — ja. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "ダウンロードした場所から直接開いたため、Branchwork は一時的な場所で実行されており、自分自身を置き換えられません。アプリケーションフォルダに移動して開き直してから、アップデートしてください。";
-"Couldn't replace the app: %@" = "アプリを置き換えられませんでした: %1$@";
-"Downloaded and verified — ready to install." = "ダウンロードと確認が完了しました — すぐにインストールできます。";
-"Enter an administrator password to update Branchwork in %@." = "%1$@ の Branchwork をアップデートするには、管理者パスワードを入力してください。";
-"The release has no SHA-256 file. It wasn't installed." = "リリースに SHA-256 ファイルがありません。インストールしませんでした。";
-"The release has no update signature. It wasn't installed." = "リリースにアップデート署名がありません。インストールしませんでした。";
-"The update signature doesn't match. It wasn't installed." = "アップデート署名が一致しません。インストールしませんでした。";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(差分が長いため、先頭部分だけを見て説明しました。)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n認証が必要です。ターミナルで一度 push/pull を実行して資格情報 (キーチェーンまたは SSH キー) を保存してから、もう一度お試しください。";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nトークンに api スコープが必要です。また、この MR を承認できるのは、承認権限を持つユーザーだけです。";
@@ -139,6 +132,7 @@
 "Branches hidden from the graph — right-click to show again" = "グラフで非表示にしたブランチ — 右クリックで再表示";
 "Branches pinned to the top" = "上部に固定したブランチ";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ は最新バージョンです。";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "ダウンロードした場所から直接開いたため、Branchwork は一時的な場所で実行されており、自分自身を置き換えられません。アプリケーションフォルダに移動して開き直してから、アップデートしてください。";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "変更を適用するため Branchwork を再起動します。参考にするコミット履歴がない場合は、AI もこの言語で書きます。";
 "Branchwork update" = "Branchwork のアップデート";
 "Brings %lld new commits from the remote into the current branch." = "リモートの新しいコミット %1$lld 件を現在のブランチに取り込みます。";
@@ -277,6 +271,7 @@
 "Couldn't read the commit list." = "コミット一覧を読み取れませんでした。";
 "Couldn't read the split result (not JSON). Please try again." = "分割結果を読み取れませんでした (JSON ではありません)。もう一度お試しください。";
 "Couldn't read this commit's changes." = "このコミットの変更を読み取れませんでした。";
+"Couldn't replace the app: %@" = "アプリを置き換えられませんでした: %1$@";
 "Couldn't run %@: %@" = "%1$@ を実行できませんでした: %2$@";
 "Couldn't save the file.\n\n" = "ファイルを保存できませんでした。\n\n";
 "Couldn't split the commits." = "コミットを分割できませんでした。";
@@ -359,6 +354,7 @@
 "Down" = "下へ";
 "Down (earlier)" = "下へ (古い方へ)";
 "Download again" = "再ダウンロード";
+"Downloaded and verified — ready to install." = "ダウンロードと確認が完了しました — すぐにインストールできます。";
 "Downloading…" = "ダウンロードしています…";
 "Draft" = "ドラフト";
 "Drawing the graph with %lld commits…" = "%1$lld 件のコミットでグラフを描画しています…";
@@ -376,6 +372,7 @@
 "End the %@ session?" = "%1$@ のセッションを終了しますか？";
 "Ended" = "終了済み";
 "Ended sessions" = "終了したセッション";
+"Enter an administrator password to update Branchwork in %@." = "%1$@ の Branchwork をアップデートするには、管理者パスワードを入力してください。";
 "Enter the server address." = "サーバーのアドレスを入力してください。";
 "Enter your %@ key in Settings > AI." = "設定 > AI で %1$@ のキーを入力してください。";
 "Environment %lld" = "環境 %1$lld";
@@ -801,10 +798,13 @@
 "The language changes when Branchwork restarts." = "言語は Branchwork の再起動後に切り替わります。";
 "The new message is empty." = "新しいメッセージが空です。";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "プレフィックスは Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove のいずれか";
+"The release has no SHA-256 file. It wasn't installed." = "リリースに SHA-256 ファイルがありません。インストールしませんでした。";
+"The release has no update signature. It wasn't installed." = "リリースにアップデート署名がありません。インストールしませんでした。";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "その後リポジトリが変更されたため (別の場所でのコミットやチェックアウトなど)、「%1$@」を元に戻せません。";
 "The shell exited" = "シェルが終了しました";
 "The shell exited (code %d)" = "シェルが終了しました (コード %1$d)";
 "The tracked remote branch was deleted" = "追跡していたリモートブランチが削除されました";
+"The update signature doesn't match. It wasn't installed." = "アップデート署名が一致しません。インストールしませんでした。";
 "Theirs" = "相手側";
 "Theirs first" = "相手側を先に";
 "Theirs · %@" = "相手側 · %1$@";

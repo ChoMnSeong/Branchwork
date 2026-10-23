@@ -1,12 +1,5 @@
 /* Branchwork — cs. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork byl otevřen přímo ze stažených souborů a běží z dočasného umístění, takže se nemůže sám nahradit. Přesuňte ho do složky Aplikace, znovu ho otevřete a pak aktualizujte.";
-"Couldn't replace the app: %@" = "Aplikaci se nepodařilo nahradit: %1$@";
-"Downloaded and verified — ready to install." = "Staženo a ověřeno — připraveno k instalaci.";
-"Enter an administrator password to update Branchwork in %@." = "Zadejte heslo správce, abyste mohli aktualizovat Branchwork v %1$@.";
-"The release has no SHA-256 file. It wasn't installed." = "Vydání neobsahuje soubor SHA-256. Aktualizace nebyla nainstalována.";
-"The release has no update signature. It wasn't installed." = "Vydání neobsahuje podpis aktualizace. Aktualizace nebyla nainstalována.";
-"The update signature doesn't match. It wasn't installed." = "Podpis aktualizace neodpovídá. Aktualizace nebyla nainstalována.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Změny byly dlouhé, proto byl vysvětlen jen jejich začátek.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nJe vyžadováno ověření. Jednou proveďte push/pull v terminálu, aby se uložily přihlašovací údaje (Klíčenka nebo klíč SSH), a pak to zkuste znovu.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken potřebuje rozsah api a tento MR mohou schválit jen lidé, kteří k tomu mají oprávnění.";
@@ -134,6 +127,7 @@
 "Branches hidden from the graph — right-click to show again" = "Větve skryté v grafu — znovu je zobrazíte kliknutím pravým tlačítkem";
 "Branches pinned to the top" = "Větve připnuté nahoře";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ je nejnovější verze.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork byl otevřen přímo ze stažených souborů a běží z dočasného umístění, takže se nemůže sám nahradit. Přesuňte ho do složky Aplikace, znovu ho otevřete a pak aktualizujte.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Aby se změna projevila, Branchwork se restartuje. Pokud není k dispozici historie commitů, podle které by se AI mohla řídit, píše AI také v tomto jazyce.";
 "Branchwork update" = "Aktualizace Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Přenese nové commity (%1$lld) ze vzdáleného repozitáře do aktuální větve.";
@@ -265,6 +259,7 @@
 "Couldn't read the commit list." = "Seznam commitů se nepodařilo přečíst.";
 "Couldn't read the split result (not JSON). Please try again." = "Výsledek rozdělení se nepodařilo přečíst (není to JSON). Zkuste to prosím znovu.";
 "Couldn't read this commit's changes." = "Změny v tomto commitu se nepodařilo přečíst.";
+"Couldn't replace the app: %@" = "Aplikaci se nepodařilo nahradit: %1$@";
 "Couldn't run %@: %@" = "Nepodařilo se spustit %1$@: %2$@";
 "Couldn't save the file.\n\n" = "Soubor se nepodařilo uložit.\n\n";
 "Couldn't split the commits." = "Commity se nepodařilo rozdělit.";
@@ -347,6 +342,7 @@
 "Down" = "Dolů";
 "Down (earlier)" = "Dolů (dříve)";
 "Download again" = "Stáhnout znovu";
+"Downloaded and verified — ready to install." = "Staženo a ověřeno — připraveno k instalaci.";
 "Downloading…" = "Stahování…";
 "Draft" = "Koncept";
 "Drawing the graph with %lld commits…" = "Vykreslování grafu (commity: %1$lld)…";
@@ -364,6 +360,7 @@
 "End the %@ session?" = "Ukončit relaci %1$@?";
 "Ended" = "Ukončeno";
 "Ended sessions" = "Ukončené relace";
+"Enter an administrator password to update Branchwork in %@." = "Zadejte heslo správce, abyste mohli aktualizovat Branchwork v %1$@.";
 "Enter the server address." = "Zadejte adresu serveru.";
 "Enter your %@ key in Settings > AI." = "Zadejte svůj klíč %1$@ v Nastavení > AI.";
 "Environment %lld" = "Prostředí %1$lld";
@@ -779,10 +776,13 @@
 "The language changes when Branchwork restarts." = "Jazyk se změní po restartu Branchwork.";
 "The new message is empty." = "Nová zpráva je prázdná.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Předpona je jedna z: Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
+"The release has no SHA-256 file. It wasn't installed." = "Vydání neobsahuje soubor SHA-256. Aktualizace nebyla nainstalována.";
+"The release has no update signature. It wasn't installed." = "Vydání neobsahuje podpis aktualizace. Aktualizace nebyla nainstalována.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "Repozitář se od té doby změnil (jinde proběhl commit, přepnutí větve apod.), proto „%1$@“ nelze vrátit zpět.";
 "The shell exited" = "Shell skončil";
 "The shell exited (code %d)" = "Shell skončil (kód %1$d)";
 "The tracked remote branch was deleted" = "Sledovaná vzdálená větev byla smazána";
+"The update signature doesn't match. It wasn't installed." = "Podpis aktualizace neodpovídá. Aktualizace nebyla nainstalována.";
 "Theirs" = "Jejich";
 "Theirs first" = "Nejdřív jejich";
 "Theirs · %@" = "Jejich · %1$@";

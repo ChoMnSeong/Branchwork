@@ -1,12 +1,5 @@
 /* Branchwork — tr. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork doğrudan indirilenler konumundan açıldığı için geçici bir konumdan çalışıyor ve kendini değiştiremiyor. Uygulamalar klasörüne taşıyın, yeniden açın ve ardından güncelleyin.";
-"Couldn't replace the app: %@" = "Uygulama değiştirilemedi: %1$@";
-"Downloaded and verified — ready to install." = "İndirildi ve doğrulandı — yüklemeye hazır.";
-"Enter an administrator password to update Branchwork in %@." = "%1$@ konumundaki Branchwork'ü güncellemek için bir yönetici parolası girin.";
-"The release has no SHA-256 file. It wasn't installed." = "Sürümde SHA-256 dosyası yok. Güncelleme yüklenmedi.";
-"The release has no update signature. It wasn't installed." = "Sürümde güncelleme imzası yok. Güncelleme yüklenmedi.";
-"The update signature doesn't match. It wasn't installed." = "Güncelleme imzası eşleşmiyor. Güncelleme yüklenmedi.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff uzun olduğu için yalnızca baş kısmı açıklandı.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nKimlik doğrulaması gerekiyor. Terminalde bir kez push/pull yaparak kimlik bilgilerinizi kaydedin (Anahtar Zinciri veya SSH anahtarı), sonra tekrar deneyin.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken'ın api kapsamına sahip olması gerekir. Bu MR'ı yalnızca onaylama yetkisi olan kişiler onaylayabilir.";
@@ -134,6 +127,7 @@
 "Branches hidden from the graph — right-click to show again" = "Grafikte gizlenen dallar — yeniden göstermek için sağ tıklayın";
 "Branches pinned to the top" = "En üste sabitlenen dallar";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ en son sürüm.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork doğrudan indirilenler konumundan açıldığı için geçici bir konumdan çalışıyor ve kendini değiştiremiyor. Uygulamalar klasörüne taşıyın, yeniden açın ve ardından güncelleyin.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Değişikliği uygulamak için Branchwork yeniden başlar. Örnek alınacak commit geçmişi olmadığında yapay zeka da bu dilde yazar.";
 "Branchwork update" = "Branchwork güncellemesi";
 "Brings %lld new commits from the remote into the current branch." = "Uzak depodaki %1$lld yeni commit'i geçerli dala çeker.";
@@ -266,6 +260,7 @@
 "Couldn't read the commit list." = "Commit listesi okunamadı.";
 "Couldn't read the split result (not JSON). Please try again." = "Bölme sonucu okunamadı (JSON değil). Lütfen tekrar deneyin.";
 "Couldn't read this commit's changes." = "Bu commit'in değişiklikleri okunamadı.";
+"Couldn't replace the app: %@" = "Uygulama değiştirilemedi: %1$@";
 "Couldn't run %@: %@" = "%1$@ çalıştırılamadı: %2$@";
 "Couldn't save the file.\n\n" = "Dosya kaydedilemedi.\n\n";
 "Couldn't split the commits." = "Commit'lere bölünemedi.";
@@ -348,6 +343,7 @@
 "Down" = "Aşağı";
 "Down (earlier)" = "Aşağı (daha eski)";
 "Download again" = "Yeniden indir";
+"Downloaded and verified — ready to install." = "İndirildi ve doğrulandı — yüklemeye hazır.";
 "Downloading…" = "İndiriliyor…";
 "Draft" = "Taslak";
 "Drawing the graph with %lld commits…" = "%1$lld commit ile grafik çiziliyor…";
@@ -365,6 +361,7 @@
 "End the %@ session?" = "%1$@ oturumu sonlandırılsın mı?";
 "Ended" = "Sonlandı";
 "Ended sessions" = "Sonlanan oturumlar";
+"Enter an administrator password to update Branchwork in %@." = "%1$@ konumundaki Branchwork'ü güncellemek için bir yönetici parolası girin.";
 "Enter the server address." = "Sunucu adresini girin.";
 "Enter your %@ key in Settings > AI." = "%1$@ anahtarınızı Ayarlar > AI bölümüne girin.";
 "Environment %lld" = "Ortam %1$lld";
@@ -786,10 +783,13 @@
 "The language changes when Branchwork restarts." = "Dil, Branchwork yeniden başladığında değişir.";
 "The new message is empty." = "Yeni mesaj boş.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Önek şunlardan biri olmalı: Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
+"The release has no SHA-256 file. It wasn't installed." = "Sürümde SHA-256 dosyası yok. Güncelleme yüklenmedi.";
+"The release has no update signature. It wasn't installed." = "Sürümde güncelleme imzası yok. Güncelleme yüklenmedi.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "Depo o zamandan beri değişti (başka bir yerde commit, dal geçişi vb.), bu nedenle “%1$@” geri alınamaz.";
 "The shell exited" = "Kabuk sonlandı";
 "The shell exited (code %d)" = "Kabuk sonlandı (kod %1$d)";
 "The tracked remote branch was deleted" = "İzlenen uzak dal silindi";
+"The update signature doesn't match. It wasn't installed." = "Güncelleme imzası eşleşmiyor. Güncelleme yüklenmedi.";
 "Theirs" = "Onlarınki";
 "Theirs first" = "Önce onlarınki";
 "Theirs · %@" = "Onlarınki · %1$@";
