@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { makePlan, planChanged, planProblem, rebaseItem, rebaseTodo, shellQuote } from "../src/lib/rebase";
-import { undoTitle } from "../src/lib/repo/undo-model";
+import { makePlan, planChanged, planProblem, rebaseItem, rebaseTodo, shellQuote } from "@/entities/git/lib/rebase";
+import { undoTitle } from "@/entities/repo/lib/undo-model";
 
 const plan = () => makePlan("base", [rebaseItem("e", "add e", "d"), rebaseItem("d", "add d", "d"), rebaseItem("c", "add c", "d"), rebaseItem("b", "add b\n\n본문", "d")]);
 

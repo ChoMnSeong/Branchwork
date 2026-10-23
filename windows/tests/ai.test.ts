@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
 // 백엔드 호출을 가짜로 바꿔 각 AI 에 보내는 요청 모양만 확인한다
 const calls: { kind: string; args: unknown[] }[] = [];
 let httpReply: { status: number; body: string } = { status: 200, body: "{}" };
 let runReply = { status: 0, stdout: "요약 줄\n\n본문", stderr: "" };
 
-vi.mock("../src/lib/ipc", () => ({
+vi.mock("@/shared/api/ipc", () => ({
   ipc: {
     http: vi.fn(async (...args: unknown[]) => {
       calls.push({ kind: "http", args });
@@ -24,8 +23,8 @@ vi.mock("../src/lib/ipc", () => ({
   },
 }));
 
-const { ai } = await import("../src/lib/ai");
-const { tools } = await import("../src/lib/tools");
+const { ai } = await import("@/entities/ai/model/ai");
+const { tools } = await import("@/shared/platform/tools");
 
 beforeEach(() => {
   calls.length = 0;
@@ -142,7 +141,7 @@ describe("규칙·나눠서 커밋", () => {
   });
 
   it("AI 가 나눈 JSON 을 계획으로(모르는 경로는 버리고 빠진 파일은 모음)", async () => {
-    const { parseSplitPlan } = await import("../src/lib/split");
+    const { parseSplitPlan } = await import("@/entities/git/lib/split");
     const ch = (path: string, oldPath: string | null = null) => ({ path, oldPath, kind: "modified" as const, staged: false });
     const changes = [ch("a.ts"), ch("b.ts"), ch("new.ts", "old.ts"), ch("left.md")];
     const text = 'Sure:\n```json\n{"commits":[{"message":"Feature: A","files":["a.ts","ghost.ts","./b.ts"]},{"message":"Refactoring: 이름","files":["old.ts","a.ts"]}]}\n```';

@@ -186,7 +186,7 @@ macos/     맥 앱(SwiftUI)
   Sources/Services  GitHub·GitLab·CI/CD·AI·계정·에이전트·도구·프로필 사진
   Sources/Views     화면
   Resources/ Tools/ Vendor/SwiftTerm/  build.sh
-windows/   Windows 앱(Tauri 2 + React): src-tauri(Rust), src/lib(상태·로직), src/components(화면), tests
+windows/   Windows 앱(Tauri 2 + React): src-tauri(Rust), src(Feature-Sliced Design: app·pages·widgets·features·entities·shared), tests
 docs/      README 이미지와 데모 저장소 스크립트
 ```
 

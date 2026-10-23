@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseConflict, resolveConflict, type ConflictChoice } from "../src/lib/conflict";
+import { type ConflictChoice, parseConflict, resolveConflict } from "@/entities/git/lib/conflict";
 
 describe("충돌 해결", () => {
   const text = "1\n<<<<<<< HEAD\ntwo-main\n=======\ntwo-other\n>>>>>>> other\n3\n<<<<<<< HEAD\nf-main\n=======\nf-other\n>>>>>>> other\n4\n";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sameSnapshot, undoSummary, undoTitle, type RefSnapshot } from "../src/lib/repo/undo-model";
+import { type RefSnapshot, sameSnapshot, undoSummary, undoTitle } from "@/entities/repo/lib/undo-model";
 
 const snap = (refs: Record<string, string>, headRef: string | null, head: string | null): RefSnapshot => ({ refs, headRef, head });
 

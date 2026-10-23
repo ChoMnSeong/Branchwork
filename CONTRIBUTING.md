@@ -26,18 +26,32 @@ macos/Sources/
   Store/     RepoStore(탭 하나의 상태) + 기능별 확장 RepoStore+Actions·+Selection·+CI …
   Services/  GitHub·GitLab(Hosting), CI/CD, AI, 계정, 에이전트, 도구, 프로필 사진, 터미널 세션
   Views/     Graph · Sidebar · Inspector · Settings · Sheets · Shared
-windows/src/
-  lib/       상태·로직. lib/repo/ 는 RepoStore 를 기능별 단계 클래스로 나눈 것(core → … → terminal)
-  components/ graph · sidebar · inspector · settings · sheets · shared
+windows/src/            Feature-Sliced Design — 위 계층이 아래 계층만 가져온다
+  app/       시작(main·start)·탭 껍데기·단축키·전역 스타일·자동 점검(selftest)
+  pages/     repo(저장소 화면) · welcome(시작 화면)
+  widgets/   commit-graph · diff-viewer · inspector · sidebar · toolbar · tab-bar · terminal-panel · settings · dialog-host · update-dialog
+  features/  사용자 동작 하나씩: create-branch · create-tag · stash-changes · clone-repo · add-worktree · create-pull-request ·
+             interactive-rebase · split-commits · resolve-conflict · run-pipeline · start-agent · git-menus(우클릭 메뉴)
+  entities/  git(모델·파서·그래프·diff) · repo(RepoStore) · hosting · ci · ai · agent · terminal · avatar · workspace
+  shared/    api(ipc) · config(env·settings) · platform(git 실행·도구·WSL·업데이트) · i18n · lib · ui(기본 부품·테마) · assets
 windows/src-tauri/src/  프로세스 실행·pty·파일 감시·HTTP·자격 증명(Rust)
 ```
+
+Windows 폴더 규칙(어기면 `windows/tests/architecture.test.ts` 가 실패합니다):
+
+- 계층은 `app → pages → widgets → features → entities → shared`. **아래 계층만** 가져오고, 같은 계층의 다른 조각은 가져오지 않습니다(엔티티끼리, `shared` 세그먼트끼리는 허용).
+- 다른 조각은 **공개 API(`index.ts`)로만** 가져옵니다: `import { Sidebar } from "@/widgets/sidebar"`. 조각 안에서는 상대 경로.
+- `index.ts` 는 다른 조각이 쓰는 이름만 밝혀 다시 내보냅니다(`export *` 금지).
+- 조각 안 파일은 세그먼트 폴더에 둡니다: `ui/`(화면·CSS) · `model/`(상태) · `api/`(외부 호출) · `lib/`(순수 함수) · `config/`.
+- 조각 사이에 순환 참조를 만들지 않습니다. 아래 조각이 위 조각을 알아야 하면 필요한 것만 담은 인터페이스를 아래에 둡니다(예: `CIHost`, `AgentHost`).
+- 스타일은 그 화면 조각의 `ui/*.css` 에(컴포넌트에서 `import "./x.css"`). 색·글꼴 토큰과 배치 도우미는 `app/styles/global.css`.
 
 ## 규칙
 
 ### 두 플랫폼은 같이
 
 - **기능은 맥과 Windows 에 함께** 넣습니다. 한쪽만 되는 기능이면 PR 에 이유를 적어 주세요.
-- 이름과 나누는 방식을 맞춥니다: 맥 `RepoStore+CI.swift` ↔ Windows `lib/ci/store.ts`, `Views/Sheets/X.swift` ↔ `components/sheets/X.tsx`. 한쪽 코드를 읽으면 다른 쪽을 찾을 수 있게.
+- 이름과 나누는 방식을 맞춥니다: 맥 `RepoStore+CI.swift` ↔ Windows `entities/ci/model/store.ts`, `Views/Sheets/NewBranchSheet.swift` ↔ `features/create-branch/ui/NewBranchSheet.tsx`. 한쪽 코드를 읽으면 다른 쪽을 찾을 수 있게.
 - git 동작은 새로 만들지 않고 **시스템 `git` 을 호출**합니다(맥 `Git.run`, Windows `git()` / `this.g()`). 출력은 기계용 형식(`--porcelain=v2 -z`, `--format=…%x1f…`)으로 받아 `Parsers` 로 해석합니다.
 
 ### 코드
@@ -50,7 +64,7 @@ windows/src-tauri/src/  프로세스 실행·pty·파일 감시·HTTP·자격 �
 - **TypeScript**
   - `strict` · 쓰지 않는 변수·import 금지(`tsc` 가 막습니다). `any` 대신 정확한 타입.
   - 상태는 `Observable` 을 상속한 클래스 + 바뀐 뒤 `this.emit()`, 화면은 `useObserve(store)`.
-  - 백엔드 호출은 `lib/ipc.ts` 를 거칩니다. 컴포넌트에서 `invoke` 를 바로 부르지 않습니다.
+  - 백엔드 호출은 `shared/api`(`ipc`)를 거칩니다. 컴포넌트에서 `invoke` 를 바로 부르지 않습니다.
   - 큰따옴표, 세미콜론, 화살표 함수 위주. 한 파일이 400줄을 넘으면 나눌 때가 됐다는 신호입니다.
 - **Rust**: `cargo fmt`. Windows 에서 띄우는 프로세스는 콘솔 창이 뜨지 않게(`CREATE_NO_WINDOW`).
 - **주석**: 한국어로, **왜** 그렇게 하는지를 씁니다. 무엇을 하는지는 코드가 말하게. 공개 타입·함수는 `///`(Swift) · `/** */`(TS) 한 줄 설명.
@@ -61,7 +75,7 @@ windows/src-tauri/src/  프로세스 실행·pty·파일 감시·HTTP·자격 �
 - **화면 글은 코드에 영어로** 쓰고, 그 영어가 번역의 키입니다. 짧고 문장형 대소문자(sentence case), 메뉴·버튼은 동사형(「Stage」, 「Create branch…」).
   - 맥: SwiftUI 의 `Text("…")`·`Button("…")` 등은 그대로 번역되고, 그 밖의 글자(오류 메시지 등)는 `String(localized: "…")`.
   - Windows: `t("…")`, 값은 `t("Commit {0} files", n)` 처럼 `{0}`·`{1}`.
-  - 번역: 맥 `macos/Resources/Localizations/<언어>.lproj/Localizable.strings`, Windows `windows/src/locales/<언어>.json`. 새 글자를 넣었으면 같은 PR 에서 한국어(`ko`)는 꼭, 다른 언어는 할 수 있는 만큼 채워 주세요(없으면 영어로 보입니다).
+  - 번역: 맥 `macos/Resources/Localizations/<언어>.lproj/Localizable.strings`, Windows `windows/src/shared/i18n/locales/<언어>.json`. 새 글자를 넣었으면 같은 PR 에서 한국어(`ko`)는 꼭, 다른 언어는 할 수 있는 만큼 채워 주세요(없으면 영어로 보입니다).
   - 기본 화면 언어는 영어이고, 설정 > 화면에서 바꿉니다.
 - **아이콘 버튼의 뜻은 글자 대신 마우스를 올렸을 때**(맥 `.help(…)`, Windows `tip=` / `data-tip`) 보여 줍니다.
 - 되돌리기 어려운 동작(삭제·강제 Push·Reset hard·배포 실행·세션 종료)은 확인을 한 번 받습니다.
@@ -77,7 +91,7 @@ windows/src-tauri/src/  프로세스 실행·pty·파일 감시·HTTP·자격 �
 ### 테스트
 
 - 파서·그래프·YAML 처럼 순수한 로직은 `windows/tests/*.test.ts` 에 단위 테스트를 더합니다.
-- Windows 에 화면·동작을 더했다면 `windows/src/selftest.ts` 에 실제 앱으로 해 보는 항목을 하나 더합니다. 푸시하면 GitHub Actions 의 Windows 서버에서 돕니다.
+- Windows 에 화면·동작을 더했다면 `windows/src/app/selftest.ts` 에 실제 앱으로 해 보는 항목을 하나 더합니다. 푸시하면 GitHub Actions 의 Windows 서버에서 돕니다.
 - 외부 서버가 필요한 기능은 `windows/tests/mock-ai-server.mjs` 에 가짜 응답을 더해 점검합니다.
 
 ## 커밋 메시지

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dispatchInputs, pipelineVariables } from "../src/lib/ci/yaml";
-import { githubStatus, gitlabStatus } from "../src/lib/ci/models";
+import { dispatchInputs, pipelineVariables } from "@/entities/ci/lib/yaml";
+import { githubStatus, gitlabStatus } from "@/entities/ci/model/types";
 
 describe("workflow_dispatch 입력값", () => {
   it("입력값(선택·참거짓·여러 줄 설명)을 읽는다", () => {
@@ -89,7 +89,7 @@ describe("상태", () => {
 
 describe("브랜치별 보기", () => {
   it("가장 최근에 돈 브랜치부터, 브랜치 안은 원래 순서대로", async () => {
-    const { groupByBranch } = await import("../src/lib/ci/models");
+    const { groupByBranch } = await import("@/entities/ci/model/types");
     const p = (id: number, ref: string) => ({ id, ref }) as never;
     const g = groupByBranch([p(5, "main"), p(4, "feature/a"), p(3, "main"), p(2, "fix/b"), p(1, "feature/a")]);
     expect(g.map((x) => x.ref)).toEqual(["main", "feature/a", "fix/b"]);

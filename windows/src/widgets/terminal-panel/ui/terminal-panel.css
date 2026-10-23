@@ -1,0 +1,104 @@
+/* widgets/terminal-panel — 아래 터미널 패널 */
+@import "@xterm/xterm/css/xterm.css";
+
+.hsplitter {
+  height: 8px;
+  margin: -4px 0;
+  cursor: row-resize;
+  z-index: 5;
+  flex: none;
+  position: relative;
+}
+
+.term-panel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--term-bg);
+  flex: none;
+  min-height: 0;
+}
+
+.term-head {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.term-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  min-width: 0;
+  scrollbar-width: none;
+}
+
+.term-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.term-tab:hover {
+  background: var(--hover);
+}
+
+.term-tab.on {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.term-tab .x {
+  visibility: hidden;
+}
+
+.term-tab:hover .x,
+.term-tab.on .x {
+  visibility: visible;
+}
+
+.term-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  padding: 4px 0 2px 8px;
+}
+
+.term-mount {
+  position: absolute;
+  inset: 4px 0 2px 8px;
+}
+
+.terminal-host {
+  width: 100%;
+  height: 100%;
+}
+
+.term-ended {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.term-ended .box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}

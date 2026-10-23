@@ -1,0 +1,155 @@
+/* 앱 전체: 색·글꼴 토큰, 기본 요소, 배치 도우미 클래스, 스크롤 막대.
+   화면 부품의 스타일은 각 조각의 ui/*.css 에 있다. */
+
+:root {
+  --font: "Segoe UI Variable Text", "Segoe UI", "Malgun Gothic", "맑은 고딕", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Cascadia Code", Consolas, "D2Coding", "SF Mono", Menlo, "Malgun Gothic", monospace;
+
+  --bg: #f3f3f4;
+  --surface: #ffffff;
+  --sidebar: #f7f7f8;
+  --bar: #f0f0f2;
+  --card: #ffffff;
+  --input: #ffffff;
+  --border: #e2e2e5;
+  --border-strong: #cfcfd4;
+  --text: #1d1d1f;
+  --text-2: #6b6b72;
+  --text-3: #9a9aa2;
+  --accent: #2f6fec;
+  --accent-soft: rgba(47, 111, 236, 0.16);
+  --accent-text: #ffffff;
+  --hover: rgba(0, 0, 0, 0.05);
+  --select: rgba(47, 111, 236, 0.18);
+  --danger: #d1343e;
+  --green: #2a9a55;
+  --orange: #d9800f;
+  --red: #d63b46;
+  --hit: rgba(255, 196, 0, 0.18);
+  --hit-bar: #f2b600;
+  --term-bg: #fcfcfc;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --radius: 6px;
+  color-scheme: light;
+}
+
+/* 다크: 설정 > 화면에서 고르거나 시스템을 따른다(lib/theme.ts 가 시작할 때 data-theme 을 넣는다) */
+:root[data-theme="dark"] {
+  --bg: #1e1e21;
+  --surface: #242427;
+  --sidebar: #212124;
+  --bar: #2a2a2e;
+  --card: #2b2b2f;
+  --input: #1c1c1f;
+  --border: #38383d;
+  --border-strong: #4a4a50;
+  --text: #e8e8ea;
+  --text-2: #a3a3ab;
+  --text-3: #75757d;
+  --accent: #4c8dff;
+  --accent-soft: rgba(76, 141, 255, 0.2);
+  --hover: rgba(255, 255, 255, 0.06);
+  --select: rgba(76, 141, 255, 0.24);
+  --danger: #ff5c66;
+  --green: #3fbf6f;
+  --orange: #f0a030;
+  --red: #ff6670;
+  --hit: rgba(255, 200, 0, 0.14);
+  --term-bg: #1c1c1f;
+  --shadow: 0 10px 32px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+.selectable {
+  user-select: text;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.muted {
+  color: var(--text-2);
+}
+
+.faint {
+  color: var(--text-3);
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--text) 35%, transparent);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

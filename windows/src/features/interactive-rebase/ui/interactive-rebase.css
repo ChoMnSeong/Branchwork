@@ -1,0 +1,39 @@
+/* features/interactive-rebase — 커밋 정리 목록 */
+
+/* 커밋 정리(인터랙티브 리베이스) */
+.rebase-list {
+  gap: 6px;
+  max-height: 480px;
+  overflow: auto;
+}
+
+.rebase-item {
+  padding: 8px;
+  border-radius: 8px;
+  --tone: var(--text-3);
+  border: 1px solid color-mix(in srgb, var(--tone) 22%, transparent);
+  background: color-mix(in srgb, var(--tone) 5%, transparent);
+}
+
+.rebase-item.reword {
+  --tone: var(--accent);
+}
+
+.rebase-item.squash,
+.rebase-item.fixup {
+  --tone: #8a5cd6;
+}
+
+.rebase-item.drop {
+  --tone: var(--red);
+}
+
+.rebase-item:not(.pick) {
+  border-color: color-mix(in srgb, var(--tone) 45%, transparent);
+  background: color-mix(in srgb, var(--tone) 9%, transparent);
+}
+
+.rebase-item.drop .rebase-subject {
+  text-decoration: line-through;
+  color: var(--text-2);
+}

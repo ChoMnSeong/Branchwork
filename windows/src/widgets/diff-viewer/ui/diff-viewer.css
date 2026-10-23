@@ -1,0 +1,238 @@
+/* widgets/diff-viewer — diff·이미지·파일 기록·blame */
+
+.diff-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bar);
+  flex: none;
+}
+
+.diff-scroll {
+  flex: 1;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--surface);
+  user-select: text;
+}
+
+/* 긴 줄은 칸 안에서 줄바꿈(가로 스크롤 없이 모두 보이게) */
+.diff-line {
+  display: flex;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 18px;
+  min-height: 18px;
+  min-width: 0;
+}
+
+.diff-line .txt {
+  flex: 1;
+  min-width: 0;
+  padding-right: 6px;
+}
+
+.diff-line .no {
+  width: var(--no-w, 48px);
+  text-align: right;
+  color: var(--text-3);
+  flex: none;
+  user-select: none;
+  padding-right: 4px;
+}
+
+.diff-line .mk {
+  width: 22px;
+  text-align: center;
+  flex: none;
+  user-select: none;
+}
+
+.diff-line.added {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+
+.diff-line.added .mk {
+  color: var(--green);
+}
+
+.diff-line.removed {
+  background: color-mix(in srgb, var(--red) 13%, transparent);
+}
+
+.diff-line.removed .mk {
+  color: var(--red);
+}
+
+.diff-line.hunk {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  padding: 3px 0;
+}
+
+/* "파일 끝에 줄바꿈 없음" */
+.diff-note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+/* 이름·권한이 바뀌었으면 줄 목록 위에 */
+.diff-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: none;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+.diff-info svg {
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+
+.diff-line.selectable {
+  cursor: pointer;
+}
+
+.diff-line.selected {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.diff-word {
+  color: inherit;
+  border-radius: 2px;
+}
+
+.diff-line.added .diff-word {
+  background: color-mix(in srgb, var(--green) 34%, transparent);
+}
+
+.diff-line.removed .diff-word {
+  background: color-mix(in srgb, var(--red) 32%, transparent);
+}
+
+.diff-hunk {
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 0;
+  min-width: 0;
+}
+
+/* 나란히 보기: 정확히 반씩 나누고, 높이는 더 긴(줄바꿈된) 쪽에 맞춘다 */
+.diff-split-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.diff-split-row > .diff-line:first-child {
+  border-right: 1px solid var(--border);
+}
+
+.diff-line.empty-cell {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+/* 이미지 비교 */
+.image-diff {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+  background: var(--surface);
+}
+
+.image-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  min-height: 0;
+}
+
+.image-pane + .image-pane {
+  border-left: 1px solid var(--border);
+}
+
+/* 작은 이미지는 키우지 않고 원래 크기로, 체크 무늬는 이미지 뒤에만 */
+.image-frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-frame img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border: 1px solid color-mix(in srgb, var(--green) 50%, transparent);
+  background: repeating-conic-gradient(color-mix(in srgb, var(--text) 8%, transparent) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+
+.image-frame.red img {
+  border-color: color-mix(in srgb, var(--red) 50%, transparent);
+}
+
+/* 파일 히스토리 · blame */
+.history-list {
+  flex: none;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+  padding: 2px 6px;
+  background: var(--surface);
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: default;
+}
+
+.history-row:hover {
+  background: var(--hover);
+}
+
+.history-row.on {
+  background: var(--select);
+}
+
+.blame-gutter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 250px;
+  flex: none;
+  padding: 0 8px;
+  font-family: var(--font);
+  font-size: 11px;
+  overflow: hidden;
+}
+
+/* blame 은 한 줄씩(줄바꿈 없이 가로 스크롤) */
+.diff-line.blame-line {
+  white-space: pre;
+  overflow-wrap: normal;
+  min-width: max-content;
+}
+
+.blame-line.block-start {
+  border-top: 1px solid var(--border);
+}

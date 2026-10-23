@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildPatch, canEditLines, diffSides, modeSummary, splitRows, wordRanges } from "../src/lib/diff";
-import { newFileDiff, parseDiff } from "../src/lib/parsers";
+import { buildPatch, canEditLines, diffSides, modeSummary, splitRows, wordRanges } from "@/entities/git/lib/diff";
+import { newFileDiff, parseDiff } from "@/entities/git/lib/parsers";
 
 const DIFF = [
   "diff --git a/f.txt b/f.txt",

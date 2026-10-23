@@ -1,0 +1,238 @@
+/* widgets/commit-graph — 커밋 그래프와 검색 */
+
+.searchbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.search-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--input);
+  min-width: 0;
+}
+
+.search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.search-field input {
+  border: none;
+  outline: none;
+  background: none;
+  flex: 1;
+  min-width: 0;
+  user-select: text;
+}
+
+.graph-header {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding-right: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--bar);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+/* 좁아져도 머리줄 글자가 세로로 쌓이지 않게 */
+.graph-header > span {
+  flex: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 좁아서 그래프 칸이 잘렸으면 오른쪽 끝을 흐리게 */
+.graph-clipped {
+  mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+}
+
+.graph-scroll {
+  flex: 1;
+  overflow: auto;
+  outline: none;
+  position: relative;
+  min-height: 0;
+}
+
+.commit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 12px;
+  height: 28px;
+  font-size: 12.5px;
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.commit-row:hover {
+  background: var(--hover);
+}
+
+.commit-row.selected {
+  background: var(--select);
+}
+
+.commit-row.hit {
+  background: var(--hit);
+  box-shadow: inset 3px 0 0 var(--hit-bar);
+}
+
+.commit-row.selected.hit {
+  background: var(--select);
+}
+
+.commit-row.miss {
+  opacity: 0.32;
+}
+
+.commit-row.drop {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-soft);
+}
+
+.ref-col {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  padding-left: 6px;
+  flex: none;
+  min-width: 0;
+}
+
+.ref-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 150px;
+  line-height: 16px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.ref-pill .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.ref-pill.solid {
+  font-weight: 700;
+}
+
+.ref-more {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 0 4px;
+  border-radius: 999px;
+  flex: none;
+}
+
+.ref-line {
+  flex: 1;
+  height: 1.5px;
+  min-width: 6px;
+}
+
+.avatar-node {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+}
+
+.avatar-node img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.commit-row .msg {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  overflow: hidden;
+}
+
+/* 메시지 앞 레인 색 막대 */
+.commit-row .msg-bar {
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  flex: none;
+  margin-right: 4px;
+}
+
+/* 제목은 끝까지 보이게 먼저, 본문 첫 줄은 남는 자리에 흐리게 */
+.commit-row .msg-subject {
+  flex: 0 1 auto;
+  min-width: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 본문은 제목이 다 보이고 남는 자리만 쓰고, 그 자리가 좁으면(조각만 보이면) 아예 숨긴다 */
+.commit-row .msg-body {
+  flex: 1 1 0;
+  min-width: 0;
+  container-type: inline-size;
+  color: var(--text-2);
+}
+
+.commit-row .msg-body > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container (max-width: 70px) {
+  .commit-row .msg-body > span {
+    display: none;
+  }
+}
+
+.commit-row .msg-time {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.wip-chip {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 0 6px;
+  border-radius: 999px;
+}

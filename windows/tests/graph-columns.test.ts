@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { graphColumns, graphWidth } from "../src/components/graph/metrics";
-import { bodyPreview } from "../src/lib/parsers";
+import { graphColumns, graphWidth } from "@/widgets/commit-graph/lib/metrics";
+import { bodyPreview } from "@/entities/git/lib/parsers";
 
 const msg = (w: number, c: ReturnType<typeof graphColumns>) => w - (c.ref + c.graph + 32 + (c.time ? 90 : 0));
 

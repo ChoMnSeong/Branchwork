@@ -1,0 +1,56 @@
+/* widgets/tab-bar — 맨 위 탭 줄 */
+
+.tabbar {
+  height: 38px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 6px;
+  gap: 2px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.tab {
+  height: 32px;
+  min-width: 120px;
+  max-width: 220px;
+  flex: 1 1 180px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 12px;
+  border-radius: 8px 8px 0 0;
+  color: var(--text-2);
+  position: relative;
+}
+
+.tab:hover {
+  background: var(--hover);
+}
+
+.tab.on {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-bottom-color: var(--surface);
+  margin-bottom: -1px;
+  height: 33px;
+}
+
+.tab .close {
+  opacity: 0;
+}
+
+.tab:hover .close,
+.tab.on .close {
+  opacity: 1;
+}
+
+.tabbar-end {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  gap: 2px;
+  padding-left: 4px;
+}

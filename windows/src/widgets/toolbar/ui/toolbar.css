@@ -1,0 +1,39 @@
+/* widgets/toolbar — 저장소 도구 막대 */
+
+.toolbar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex: none;
+}
+
+.toolbar .title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: 4px;
+  line-height: 1.2;
+}
+
+.toolbar .title .name {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.toolbar .title .sub {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  padding: 0 12px;
+  white-space: nowrap;
+}

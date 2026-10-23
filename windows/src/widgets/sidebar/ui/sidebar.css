@@ -1,0 +1,81 @@
+/* widgets/sidebar — 왼쪽 사이드바 */
+
+.side-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 6px 12px;
+}
+
+.side-section {
+  margin-top: 8px;
+}
+
+.side-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  height: 24px;
+}
+
+.side-head .chev {
+  transition: transform 0.12s;
+}
+
+.side-head.collapsed .chev {
+  transform: rotate(-90deg);
+}
+
+/* CI/CD 브랜치별 보기 */
+.ci-branch-head {
+  gap: 6px;
+  font-weight: 600;
+}
+
+.ci-branch-head .chev {
+  transition: transform 0.12s;
+  transform: rotate(90deg);
+  flex: none;
+  color: var(--text-3);
+}
+
+.ci-branch-head.collapsed .chev {
+  transform: none;
+}
+
+.wt-card {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wt-card.current {
+  border: 1.5px solid var(--accent);
+}
+
+.wt-card .hover-only {
+  visibility: hidden;
+}
+
+.wt-card:hover .hover-only {
+  visibility: visible;
+}
+
+.session-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 3px 2px;
+  border-radius: 5px;
+}
+
+.session-row:hover {
+  background: var(--hover);
+}

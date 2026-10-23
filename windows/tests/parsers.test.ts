@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { layoutGraph } from "../src/lib/graph";
-import { parseDiff, parseLog, parseNameStatus, parseNumstat, parseRefs, parseStatus, parseTrack, parseWorktrees } from "../src/lib/parsers";
+import { layoutGraph } from "@/entities/git/lib/graph";
+import { parseDiff, parseLog, parseNameStatus, parseNumstat, parseRefs, parseStatus, parseTrack, parseWorktrees } from "@/entities/git/lib/parsers";
 
 const US = "\u001f",
   RS = "\u001e";
@@ -106,7 +106,7 @@ describe("graph", () => {
 });
 
 describe("WSL 경로", async () => {
-  const { toWslPath, wslDistroOf } = await import("../src/lib/env");
+  const { toWslPath, wslDistroOf } = await import("@/shared/config/env");
   it("Windows 경로 → WSL 경로", () => {
     expect(toWslPath("C:\\Users\\me\\repo")).toBe("/mnt/c/Users/me/repo");
     expect(toWslPath("D:/a/_temp/st/repo")).toBe("/mnt/d/a/_temp/st/repo");
@@ -121,7 +121,7 @@ describe("WSL 경로", async () => {
 });
 
 describe("믿을 수 없는 저장소(dubious ownership)", async () => {
-  const { unsafeRepository } = await import("../src/lib/git");
+  const { unsafeRepository } = await import("@/shared/platform/git");
   it("git 이 알려 준 경로를 꺼낸다", () => {
     const err = `fatal: detected dubious ownership in repository at '//wsl.localhost/Ubuntu/home/me/repo'
 '//wsl.localhost/Ubuntu/home/me/repo' is owned by:
@@ -136,7 +136,7 @@ To add an exception for this directory, call:
   });
 });
 
-import { parseBlame, parseFileHistory } from "../src/lib/parsers";
+import { parseBlame, parseFileHistory } from "@/entities/git/lib/parsers";
 
 describe("파일 히스토리 · blame", () => {
   it("히스토리: 커밋마다 그때의 경로", () => {
