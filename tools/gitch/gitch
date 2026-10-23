@@ -761,7 +761,9 @@ repo_hooks_dir() {   # 저장소의 실제 훅 폴더 (워크트리여도 공용
 }
 
 repo_hook_script() {   # 보조 훅 내용 (Apple git 처럼 전역 훅을 모르는 git 용)
-  local ev="$1" g; g=$(gitsw_cmd_path)
+  local ev="$1" g miss=":"; g=$(gitsw_cmd_path)
+  # gitch 가 없으면 커밋·push 때만 한 줄로 알린다 (전역 훅이 있으면 그쪽이 이미 알림)
+  case "$ev" in pre-commit|pre-push) miss="echo \"$(missing_gitch_msg "$g")\" >&2" ;; esac
   # 이 git 이 전역 훅(gitsw-<이벤트>)을 이미 실행했으면 gitch 검사는 건너뛰고 기존 훅(.local)만 이어서 실행
   if [ "$ev" = pre-push ]; then
     cat <<EOF
@@ -769,6 +771,7 @@ repo_hook_script() {   # 보조 훅 내용 (Apple git 처럼 전역 훅을 모�
 # gitswitch-lock — gitch 보조 훅 (gitch 가 관리, 새 git 은 전역 훅이 먼저 검사)
 g="$g"
 if [ ! -x "\$g" ] || git hook list $ev 2>/dev/null | grep -qx gitsw-$ev; then
+  [ -x "\$g" ] || git hook list $ev 2>/dev/null | grep -qx gitsw-$ev || $miss
   if [ -x "\$0.local" ]; then exec "\$0.local" "\$@"; fi
   cat > /dev/null
   exit 0
@@ -785,8 +788,8 @@ EOF
 #!/bin/sh
 # gitswitch-lock — gitch 보조 훅 (gitch 가 관리, 새 git 은 전역 훅이 먼저 검사)
 g="$g"
-if [ -x "\$g" ] && ! git hook list $ev 2>/dev/null | grep -qx gitsw-$ev; then
-  "\$g" _hook --fallback $ev "\$@" || exit \$?
+if ! git hook list $ev 2>/dev/null | grep -qx gitsw-$ev; then
+  if [ -x "\$g" ]; then "\$g" _hook --fallback $ev "\$@" || exit \$?; else $miss; fi
 fi
 if [ -x "\$0.local" ]; then exec "\$0.local" "\$@"; fi
 exit 0
@@ -1273,17 +1276,29 @@ apply_safety_settings() {
   [ "$(git config --global --get user.useConfigOnly)" = true ] || git config --global user.useConfigOnly true
 }
 
-write_dispatcher() {
-  local g; g=$(gitsw_cmd_path)
-  mkdir -p "$DATA_DIR" || return 1
-  cat > "$HOOK_DISPATCHER" <<EOF
+missing_gitch_msg() {   # $1 gitch 경로 — 훅이 gitch 를 못 찾았을 때 한 줄 (따옴표·$ 없이: 훅 스크립트의 echo 안에 들어간다)
+  printf '%s' "[gitch] $(tilde "$1") 를 찾을 수 없어 검사를 건너뜁니다 — Gitrochi 설정 > CLI 에서 다시 설치하세요"
+}
+
+dispatcher_text() {   # $1 gitch 경로 → 전역 훅 연결 스크립트 내용
+  cat <<EOF
 #!/bin/sh
-# gitch 훅 연결 (gitch install 이 관리) — gitch 가 없으면 아무 것도 하지 않음
-g="$g"
-[ -x "\$g" ] || exit 0
+# gitch 훅 연결 (gitch install 이 관리) — gitch 가 없으면 막지 않고, 커밋·push 때 한 줄로 알린다
+g="$1"
+if [ ! -x "\$g" ]; then
+  case "\$1" in pre-commit|pre-push) echo "$(missing_gitch_msg "$1")" >&2 ;; esac
+  exit 0
+fi
 exec "\$g" _hook "\$@"
 EOF
-  chmod +x "$HOOK_DISPATCHER"
+}
+
+write_dispatcher() {   # 임시 파일에 쓰고 바꿔 넣는다 — 다른 git 이 읽는 중이어도 반쯤 쓴 내용을 보지 않게
+  local t
+  mkdir -p "$DATA_DIR" || return 1
+  t=$(mktemp "$DATA_DIR/hook.XXXXXX") || return 1
+  if dispatcher_text "$(gitsw_cmd_path)" > "$t" && chmod +x "$t" && mv -f "$t" "$HOOK_DISPATCHER"; then return 0; fi
+  rm -f "$t"; return 1
 }
 
 install_global_hooks() {   # git 설정 기반 훅 등록 (모든 저장소/워크트리/husky 저장소에 적용)
@@ -1384,6 +1399,10 @@ hook_main() {   # [--fallback] <이벤트> [인자...] — 보조 훅 스크립�
   local ev
   [ "$1" = --fallback ] && shift
   ev="$1"; shift
+  # 앱을 업데이트하면 gitch 만 바뀌고 연결 스크립트는 그대로라, 내용이 다르면 여기서 새로 쓴다 (못 쓰면 그대로 둔다)
+  if [ -f "$HOOK_DISPATCHER" ] && [ "$(cat "$HOOK_DISPATCHER" 2>/dev/null)" != "$(dispatcher_text "$(gitsw_cmd_path)")" ]; then
+    write_dispatcher 2>/dev/null
+  fi
   if hook_skip all || ! load_config || [ "$(git rev-parse --is-bare-repository 2>/dev/null)" = true ]; then
     [ "$ev" = pre-push ] && cat >/dev/null
     return 0

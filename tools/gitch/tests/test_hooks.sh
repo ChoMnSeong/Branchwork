@@ -1,4 +1,4 @@
-# shellcheck shell=bash
+# shellcheck shell=bash disable=SC2088  # 화면 표시용 ~ 문자열
 # 전역 검사 훅: 작성자 / 비밀값 / 큰 파일 / AI 표기 / push 검사 / 보조 훅
 
 hook_repo() {   # alice 잠금 저장소 + 원격 → cd
@@ -6,6 +6,29 @@ hook_repo() {   # alice 잠금 저장소 + 원격 → cd
   mk_remote_seeded github-alice alice/hk alice@example.com
   gitch clone alice alice/hk "$HOME/Develop/alice/hk" >/dev/null 2>&1 || fail "clone 실패"
   cd "$HOME/Develop/alice/hk" || fail cd
+}
+
+test_hook_warns_once_when_gitch_is_missing() {
+  hook_repo
+  rm "$HOME/bin/gitch"   # 앱을 지웠거나 디스크 이미지를 꺼낸 것처럼
+  echo a > a; git add a
+  run git commit -q -m a; assert_ok "gitch 가 없어도 커밋은 된다"
+  assert_out "[gitch] ~/bin/gitch 를 찾을 수 없어 검사를 건너뜁니다"
+  [ "$(printf '%s\n' "$OUT" | grep -c '검사를 건너뜁니다')" -eq 1 ] || fail "커밋 한 번에 알림은 한 줄\n$OUT"
+  run git push -q origin HEAD; assert_ok "gitch 가 없어도 push 는 된다"
+  [ "$(printf '%s\n' "$OUT" | grep -c '검사를 건너뜁니다')" -eq 1 ] || fail "push 한 번에 알림은 한 줄\n$OUT"
+}
+
+test_hook_rewrites_old_dispatcher() {
+  hook_repo
+  local d="$HOME/.local/share/gitsw/hook"
+  [ -f "$d" ] || fail "훅 연결 스크립트가 없음"
+  # 예전 gitch 가 쓴 연결 스크립트 (gitch 가 없으면 말없이 넘어감)
+  printf '#!/bin/sh\ng="%s"\n[ -x "$g" ] || exit 0\nexec "$g" _hook "$@"\n' "$HOME/bin/gitch" > "$d"
+  echo a > a; git add a
+  run git commit -q -m a; assert_ok
+  grep -q '검사를 건너뜁니다' "$d" || fail "훅이 돈 뒤에는 새 연결 스크립트여야 함\n$(cat "$d")"
+  [ -x "$d" ] || fail "새 연결 스크립트에 실행 권한이 없음"
 }
 
 test_hook_blocks_wrong_identity() {

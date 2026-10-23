@@ -106,6 +106,7 @@ gitch report --today       # 오늘 누가(사람/claude/codex) 어디에 무엇
 - `gitch.ignore` 로 저장소를 검사에서 뺄 수 있다: `gitch ignore` / `gitch ignore --off`.
 - `user.useConfigOnly=true` 를 켜서, 규칙 밖 저장소에서 `me@컴퓨터이름` 같은 엉뚱한 작성자로 커밋되지 않게 한다.
 - 설정 파일이 깨지면 커밋을 막지 않고 경고만 한다 (`gitch doctor` 로 확인).
+- gitch 를 찾지 못하면(앱을 지웠거나 옮김) 커밋 · push 는 막지 않고 `[gitch] ~/bin/gitch 를 찾을 수 없어 검사를 건너뜁니다` 한 줄로 알린다. 훅 연결 스크립트는 gitch 가 바뀌면 다음 훅 실행 때 스스로 새로 쓴다.
 - `--no-verify` 는 git 자체 기능이라 훅으로 막을 수 없다. AI 는 Claude 훅이 막는다.
 
 ## AI 연동
@@ -172,7 +173,7 @@ git config 형식이다. `gitch config set|add|unset <키> <값>` 으로 바꾸�
 | `~/.config/gitsw/config` | 설정 |
 | `~/.local/state/gitsw/actions.jsonl` | 작업 기록 (`gitch report`) |
 | `~/.local/state/gitsw/backups/` | gitch 가 고치기 전 파일 백업 (내용이 바뀐 것만, 날짜 폴더 최근 30개. 다른 이름의 폴더는 지우지 않음) |
-| `~/.local/share/gitsw/hook` | git 훅 연결 스크립트 (gitch 가 없으면 아무것도 안 함) |
+| `~/.local/share/gitsw/hook` | git 훅 연결 스크립트 (gitch 가 없으면 막지 않고 커밋 · push 때 한 줄로 알림) |
 | `refs/gitsw/backup/*` (저장소 안) | `gitch rescue` 백업 (최근 30개, push 안 됨) |
 
 ## (선택) push 를 Touch ID 로 승인하기
