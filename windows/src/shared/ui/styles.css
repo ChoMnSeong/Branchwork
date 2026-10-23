@@ -590,6 +590,66 @@
   min-height: 18px;
 }
 
+/* The app icon breathes once every 3.2 s; the glows brighten with it (macOS: GitrochiMark in LoadingView.swift) */
+.loading .mark {
+  position: relative;
+  width: 176px;
+  height: 176px;
+  transform: scale(0.985);
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
+.loading .mark::before {
+  content: "";
+  position: absolute;
+  inset: -26px;
+  border-radius: 50%;
+  background: radial-gradient(circle closest-side, rgba(61, 89, 255, 0.36) 31%, rgba(61, 89, 255, 0) 95%);
+  opacity: 0.61;
+  animation: glow 3.2s ease-in-out infinite;
+}
+
+.loading .mark img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* over the newest (green) commit of the icon */
+.loading .mark span {
+  position: absolute;
+  left: calc(71.6% - 24.5px);
+  top: calc(64.8% - 24.5px);
+  width: 49px;
+  height: 49px;
+  border-radius: 50%;
+  background: radial-gradient(circle closest-side, rgba(74, 222, 128, 0.55), rgba(74, 222, 128, 0));
+  mix-blend-mode: plus-lighter;
+  opacity: 0;
+  animation: glow 3.2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  50% {
+    transform: scale(1.01);
+  }
+}
+
+@keyframes glow {
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading .mark,
+  .loading .mark::before,
+  .loading .mark span {
+    animation: none;
+  }
+}
+
 .empty {
   flex: 1;
   display: flex;
