@@ -1,11 +1,10 @@
 import { CopyPlus, Download, FolderOpen, TriangleAlert } from "lucide-react";
 import type { RepoStore } from "@/entities/repo";
 import { ipc } from "@/shared/api";
-import icon from "@/shared/assets/icon.png";
 import { basename, displayPath, recents, removeRecent, settings } from "@/shared/config";
 import { t } from "@/shared/i18n";
 import { useObserve } from "@/shared/lib";
-import { tools } from "@/shared/platform";
+import { appIcon, tools } from "@/shared/platform";
 import { Button, showContextMenu } from "@/shared/ui";
 import "./welcome-page.css";
 
@@ -18,7 +17,7 @@ export function WelcomePage({ store }: { store: RepoStore; gitMissing?: boolean 
   return (
     <div className="welcome">
       <div className="welcome-main">
-        <img src={icon} width={112} height={112} alt="" />
+        <img src={appIcon.current.image} width={112} height={112} alt="" />
         <div style={{ fontSize: 28, fontWeight: 700 }}>Branchwork</div>
         <div className="muted">{t("An app for viewing and working with Git repositories as a graph")}</div>
         {gitMissing && (

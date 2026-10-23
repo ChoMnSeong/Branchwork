@@ -1,12 +1,5 @@
 /* Branchwork — zh-Hans. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork 是直接从下载位置打开的，正在临时位置运行，无法替换自身。请将它移到“应用程序”文件夹，重新打开后再更新。";
-"Couldn't replace the app: %@" = "无法替换应用：%1$@";
-"Downloaded and verified — ready to install." = "已下载并验证 — 可以立即安装。";
-"Enter an administrator password to update Branchwork in %@." = "输入管理员密码以更新 %1$@ 中的 Branchwork。";
-"The release has no SHA-256 file. It wasn't installed." = "发布中没有 SHA-256 文件，未安装。";
-"The release has no update signature. It wasn't installed." = "发布中没有更新签名，未安装。";
-"The update signature doesn't match. It wasn't installed." = "更新签名不匹配，未安装。";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n（差异较长，因此只解释了开头部分。）";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n需要身份验证。请在终端中执行一次 push/pull 以保存凭据（钥匙串或 SSH 密钥），然后重试。";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\n令牌需要 api 权限范围，并且只有有权批准此 MR 的人才能批准。";
@@ -98,6 +91,7 @@
 "An empty file was deleted" = "已删除一个空文件";
 "Another account's token" = "其他账户的令牌";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "任何兼容 OpenAI 格式 (/chat/completions) 的服务器均可使用。示例：Ollama http://localhost:11434/v1";
+"App icon" = "应用图标";
 "Appearance" = "外观";
 "Applies the most recently stashed changes (Pop)." = "应用最近一次贮藏的更改（弹出）。";
 "Applies to every AI feature, together with the rules written for each feature below." = "适用于所有 AI 功能，并与下方各功能单独编写的规则一同生效。";
@@ -138,6 +132,7 @@
 "Branches hidden from the graph — right-click to show again" = "已从提交图中隐藏的分支 — 右键单击可重新显示";
 "Branches pinned to the top" = "置顶的分支";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ 已是最新版本。";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork 是直接从下载位置打开的，正在临时位置运行，无法替换自身。请将它移到“应用程序”文件夹，重新打开后再更新。";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork 将重新启动以应用更改。没有可参考的提交历史时，AI 也会使用此语言书写。";
 "Branchwork update" = "Branchwork 更新";
 "Brings %lld new commits from the remote into the current branch." = "将远程的 %1$lld 个新提交拉取到当前分支。";
@@ -159,6 +154,7 @@
 "Changes" = "更改";
 "Changes %lld" = "更改 %1$lld";
 "Changes requested: " = "请求更改： ";
+"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "更改程序坞、访达和启动台中的图标。新图标会随更新提供。";
 "Change…" = "更改…";
 "Check failed: %@" = "检查失败：%1$@";
 "Check for new versions at launch and once a day" = "启动时及每天检查一次新版本";
@@ -261,6 +257,7 @@
 "Copy message" = "复制信息";
 "Copy name" = "复制名称";
 "Copy path" = "复制路径";
+"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "无法写入 Branchwork 所在的文件夹，因此未能更改访达中的图标。Branchwork 运行期间，程序坞图标仍会改变。";
 "Couldn't complete the operation" = "无法完成操作";
 "Couldn't download the file." = "无法下载文件。";
 "Couldn't extract: %@" = "无法解压：%1$@";
@@ -275,6 +272,7 @@
 "Couldn't read the commit list." = "无法读取提交列表。";
 "Couldn't read the split result (not JSON). Please try again." = "无法读取拆分结果（不是 JSON）。请重试。";
 "Couldn't read this commit's changes." = "无法读取此提交的更改。";
+"Couldn't replace the app: %@" = "无法替换应用：%1$@";
 "Couldn't run %@: %@" = "无法运行 %1$@：%2$@";
 "Couldn't save the file.\n\n" = "无法保存文件。\n\n";
 "Couldn't split the commits." = "无法拆分提交。";
@@ -357,6 +355,7 @@
 "Down" = "下移";
 "Down (earlier)" = "下移（更早）";
 "Download again" = "重新下载";
+"Downloaded and verified — ready to install." = "已下载并验证 — 可以立即安装。";
 "Downloading…" = "正在下载…";
 "Draft" = "草稿";
 "Drawing the graph with %lld commits…" = "正在用 %1$lld 个提交绘制提交图…";
@@ -374,6 +373,7 @@
 "End the %@ session?" = "要结束 %1$@ 会话吗？";
 "Ended" = "已结束";
 "Ended sessions" = "已结束的会话";
+"Enter an administrator password to update Branchwork in %@." = "输入管理员密码以更新 %1$@ 中的 Branchwork。";
 "Enter the server address." = "请输入服务器地址。";
 "Enter your %@ key in Settings > AI." = "请在“设置 > AI”中输入你的 %1$@ 密钥。";
 "Environment %lld" = "环境 %1$lld";
@@ -711,6 +711,7 @@
 "Server error %lld: %@" = "服务器错误 %1$lld：%2$@";
 "Sessions in other folders" = "其他文件夹中的会话";
 "Set manually" = "手动设置";
+"Shadow" = "暗影";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "在下方终端面板中打开的 Shell（zsh、bash、fish 等）";
 "Show all" = "全部显示";
 "Show all %lld hidden branches" = "显示全部 %1$lld 个已隐藏的分支";
@@ -799,10 +800,13 @@
 "The language changes when Branchwork restarts." = "Branchwork 重新启动后语言才会更改。";
 "The new message is empty." = "新信息为空。";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "前缀为 Feature、Fix、Hotfix、Refactoring、Style、Chore、Remove 之一";
+"The release has no SHA-256 file. It wasn't installed." = "发布中没有 SHA-256 文件，未安装。";
+"The release has no update signature. It wasn't installed." = "发布中没有更新签名，未安装。";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "此后仓库已发生变化（在其他地方进行了提交、检出等），因此无法撤销“%1$@”。";
 "The shell exited" = "Shell 已退出";
 "The shell exited (code %d)" = "Shell 已退出（代码 %1$d）";
 "The tracked remote branch was deleted" = "跟踪的远程分支已被删除";
+"The update signature doesn't match. It wasn't installed." = "更新签名不匹配，未安装。";
 "Theirs" = "对方的";
 "Theirs first" = "对方的在前";
 "Theirs · %@" = "对方的 · %1$@";

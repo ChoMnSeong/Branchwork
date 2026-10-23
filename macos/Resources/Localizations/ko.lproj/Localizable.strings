@@ -1,12 +1,5 @@
 /* Branchwork — ko. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "다운로드한 곳에서 바로 열어서 macOS 가 임시 위치에서 실행하고 있어, 스스로 바꿔 넣을 수 없습니다. 응용 프로그램 폴더로 옮겨 다시 연 뒤 업데이트하세요.";
-"Couldn't replace the app: %@" = "앱을 바꿔 넣지 못했습니다: %1$@";
-"Downloaded and verified — ready to install." = "받아서 확인까지 마쳤습니다 — 바로 설치할 수 있습니다.";
-"Enter an administrator password to update Branchwork in %@." = "%1$@ 에 있는 Branchwork 를 업데이트하려면 관리자 암호를 입력하세요.";
-"The release has no SHA-256 file. It wasn't installed." = "릴리스에 SHA-256 파일이 없습니다. 설치하지 않았습니다.";
-"The release has no update signature. It wasn't installed." = "릴리스에 업데이트 서명이 없습니다. 설치하지 않았습니다.";
-"The update signature doesn't match. It wasn't installed." = "업데이트 서명이 맞지 않습니다. 설치하지 않았습니다.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(변경이 길어 앞부분만 보고 설명했습니다.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n인증이 필요합니다. 터미널에서 한 번 push/pull 해서 자격 증명(키체인·SSH 키)을 저장한 뒤 다시 시도하세요.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\n토큰에 api 권한이 있어야 하고, 승인은 그 MR 을 승인할 수 있는 사람만 할 수 있습니다.";
@@ -98,6 +91,7 @@
 "An empty file was deleted" = "빈 파일을 지웠습니다";
 "Another account's token" = "다른 계정의 토큰";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "OpenAI 형식(/chat/completions)을 받는 서버라면 무엇이든 됩니다. 예: Ollama http://localhost:11434/v1";
+"App icon" = "앱 아이콘";
 "Appearance" = "화면";
 "Applies the most recently stashed changes (Pop)." = "가장 최근에 보관한 변경을 꺼냅니다(Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "아래 기능마다 따로 적은 규칙과 함께 모든 AI 기능에 적용됩니다.";
@@ -138,6 +132,7 @@
 "Branches hidden from the graph — right-click to show again" = "그래프에서 숨긴 브랜치 — 우클릭으로 다시 보이기";
 "Branches pinned to the top" = "맨 위에 고정한 브랜치";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ 이(가) 가장 새 버전입니다.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "다운로드한 곳에서 바로 열어서 macOS 가 임시 위치에서 실행하고 있어, 스스로 바꿔 넣을 수 없습니다. 응용 프로그램 폴더로 옮겨 다시 연 뒤 업데이트하세요.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "바꾸면 앱을 다시 시작해 적용합니다. AI 가 쓰는 글도 커밋 기록이 없으면 이 언어로 씁니다.";
 "Branchwork update" = "Branchwork 업데이트";
 "Brings %lld new commits from the remote into the current branch." = "원격의 새 커밋 %1$lld개를 현재 브랜치로 가져옵니다.";
@@ -158,6 +153,7 @@
 "Changes" = "변경";
 "Changes %lld" = "변경 %1$lld";
 "Changes requested: " = "변경 요청: ";
+"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Dock·Finder·Launchpad 의 아이콘이 바뀝니다. 새 아이콘은 업데이트로 추가됩니다.";
 "Change…" = "변경…";
 "Check failed: %@" = "확인 실패: %1$@";
 "Check for new versions at launch and once a day" = "켤 때와 하루에 한 번 새 버전 확인";
@@ -259,6 +255,7 @@
 "Copy message" = "메시지 복사";
 "Copy name" = "이름 복사";
 "Copy path" = "경로 복사";
+"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Branchwork 폴더에 쓸 권한이 없어 Finder 아이콘은 바꾸지 못했습니다. Dock 아이콘은 Branchwork 가 켜져 있는 동안 바뀝니다.";
 "Couldn't complete the operation" = "작업을 완료하지 못했습니다";
 "Couldn't download the file." = "파일을 받지 못했습니다.";
 "Couldn't extract: %@" = "압축을 풀지 못했습니다: %1$@";
@@ -273,6 +270,7 @@
 "Couldn't read the commit list." = "커밋 목록을 읽지 못했습니다.";
 "Couldn't read the split result (not JSON). Please try again." = "나눈 결과를 읽지 못했습니다(JSON 아님). 다시 시도해 보세요.";
 "Couldn't read this commit's changes." = "이 커밋의 변경을 읽지 못했습니다.";
+"Couldn't replace the app: %@" = "앱을 바꿔 넣지 못했습니다: %1$@";
 "Couldn't run %@: %@" = "%1$@ 을(를) 실행하지 못했습니다: %2$@";
 "Couldn't save the file.\n\n" = "파일을 저장하지 못했습니다.\n\n";
 "Couldn't split the commits." = "커밋을 나누지 못했습니다.";
@@ -355,6 +353,7 @@
 "Down" = "아래로";
 "Down (earlier)" = "아래로(먼저로)";
 "Download again" = "다시 받기";
+"Downloaded and verified — ready to install." = "받아서 확인까지 마쳤습니다 — 바로 설치할 수 있습니다.";
 "Downloading…" = "받는 중…";
 "Drawing the graph with %lld commits…" = "커밋 %1$lld개로 그래프 그리는 중…";
 "Drop" = "빼기";
@@ -371,6 +370,7 @@
 "End the %@ session?" = "%1$@ 세션을 끝낼까요?";
 "Ended" = "종료됨";
 "Ended sessions" = "끝난 세션";
+"Enter an administrator password to update Branchwork in %@." = "%1$@ 에 있는 Branchwork 를 업데이트하려면 관리자 암호를 입력하세요.";
 "Enter the server address." = "서버 주소를 입력하세요.";
 "Enter your %@ key in Settings > AI." = "설정 > AI 에서 %1$@ 키를 입력하세요.";
 "Environment %lld" = "환경 %1$lld";
@@ -701,6 +701,7 @@
 "Server error %lld: %@" = "서버 오류 %1$lld: %2$@";
 "Sessions in other folders" = "다른 폴더의 세션";
 "Set manually" = "직접 지정";
+"Shadow" = "그림자";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "아래 터미널 패널에서 여는 셸(zsh·bash·fish 등)";
 "Show all" = "전체 보기";
 "Show all %lld hidden branches" = "숨긴 브랜치 %1$lld개 모두 보이기";
@@ -787,10 +788,13 @@
 "The language changes when Branchwork restarts." = "언어는 앱을 다시 시작하면 바뀝니다.";
 "The new message is empty." = "고칠 메시지가 비어 있습니다.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "prefix 는 Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove 중 하나";
+"The release has no SHA-256 file. It wasn't installed." = "릴리스에 SHA-256 파일이 없습니다. 설치하지 않았습니다.";
+"The release has no update signature. It wasn't installed." = "릴리스에 업데이트 서명이 없습니다. 설치하지 않았습니다.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "그 뒤로 저장소가 바뀌어(다른 곳에서 커밋·체크아웃 등) 「%1$@」을(를) 되돌릴 수 없습니다.";
 "The shell exited" = "셸이 종료되었습니다";
 "The shell exited (code %d)" = "셸이 종료되었습니다 (코드 %1$d)";
 "The tracked remote branch was deleted" = "추적하던 원격 브랜치가 삭제됨";
+"The update signature doesn't match. It wasn't installed." = "업데이트 서명이 맞지 않습니다. 설치하지 않았습니다.";
 "Theirs" = "상대 것";
 "Theirs first" = "상대 것 먼저";
 "Theirs · %@" = "상대 것 · %1$@";

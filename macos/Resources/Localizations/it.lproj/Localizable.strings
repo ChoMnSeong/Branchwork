@@ -1,12 +1,5 @@
 /* Branchwork — it. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork è stato aperto direttamente dal download e viene eseguito da una posizione temporanea, quindi non può sostituirsi da solo. Spostalo nella cartella Applicazioni, riaprilo e poi aggiorna.";
-"Couldn't replace the app: %@" = "Impossibile sostituire l'app: %1$@";
-"Downloaded and verified — ready to install." = "Scaricato e verificato: pronto per l'installazione.";
-"Enter an administrator password to update Branchwork in %@." = "Inserisci una password di amministratore per aggiornare Branchwork in %1$@.";
-"The release has no SHA-256 file. It wasn't installed." = "La release non ha un file SHA-256. L'aggiornamento non è stato installato.";
-"The release has no update signature. It wasn't installed." = "La release non ha una firma di aggiornamento. L'aggiornamento non è stato installato.";
-"The update signature doesn't match. It wasn't installed." = "La firma dell'aggiornamento non corrisponde. Non è stato installato.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Il diff era lungo, quindi è stata spiegata solo la parte iniziale.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nÈ necessaria l'autenticazione. Esegui una volta push/pull in un terminale per salvare le credenziali (Portachiavi o chiave SSH), poi riprova.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nIl token richiede lo scope api e solo chi può approvare questa MR può approvarla.";
@@ -94,6 +87,7 @@
 "An empty file was deleted" = "È stato eliminato un file vuoto";
 "Another account's token" = "Token di un altro account";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Funziona con qualsiasi server che accetti il formato OpenAI (/chat/completions). Esempio: Ollama http://localhost:11434/v1";
+"App icon" = "Icona dell'app";
 "Appearance" = "Aspetto";
 "Applies the most recently stashed changes (Pop)." = "Applica le ultime modifiche salvate nello stash (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Si applica a tutte le funzioni AI, insieme alle regole scritte per ciascuna funzione qui sotto.";
@@ -130,6 +124,7 @@
 "Branches hidden from the graph — right-click to show again" = "Branch nascosti dal grafico — fai clic destro per mostrarli di nuovo";
 "Branches pinned to the top" = "Branch fissati in alto";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ è la versione più recente.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork è stato aperto direttamente dal download e viene eseguito da una posizione temporanea, quindi non può sostituirsi da solo. Spostalo nella cartella Applicazioni, riaprilo e poi aggiorna.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork si riavvia per applicare la modifica. Se non c'è una cronologia dei commit da seguire, anche l'AI scrive in questa lingua.";
 "Branchwork update" = "Aggiornamento di Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Porta nel branch corrente i nuovi commit dal remoto (%1$lld).";
@@ -149,6 +144,7 @@
 "Changes" = "Modifiche";
 "Changes %lld" = "Modifiche %1$lld";
 "Changes requested: " = "Modifiche richieste: ";
+"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Cambia l'icona nel Dock, nel Finder e nel Launchpad. Le nuove icone arrivano con gli aggiornamenti.";
 "Change…" = "Cambia…";
 "Check failed: %@" = "Verifica non riuscita: %1$@";
 "Check for new versions at launch and once a day" = "Cerca nuove versioni all'avvio e una volta al giorno";
@@ -244,6 +240,7 @@
 "Copy message" = "Copia messaggio";
 "Copy name" = "Copia nome";
 "Copy path" = "Copia percorso";
+"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Impossibile cambiare l'icona nel Finder perché la cartella di Branchwork non è scrivibile. L'icona nel Dock cambia comunque mentre Branchwork è in esecuzione.";
 "Couldn't complete the operation" = "Impossibile completare l'operazione";
 "Couldn't download the file." = "Impossibile scaricare il file.";
 "Couldn't extract: %@" = "Impossibile estrarre: %1$@";
@@ -258,6 +255,7 @@
 "Couldn't read the commit list." = "Impossibile leggere l'elenco dei commit.";
 "Couldn't read the split result (not JSON). Please try again." = "Impossibile leggere il risultato della suddivisione (non è JSON). Riprova.";
 "Couldn't read this commit's changes." = "Impossibile leggere le modifiche di questo commit.";
+"Couldn't replace the app: %@" = "Impossibile sostituire l'app: %1$@";
 "Couldn't run %@: %@" = "Impossibile eseguire %1$@: %2$@";
 "Couldn't save the file.\n\n" = "Impossibile salvare il file.\n\n";
 "Couldn't split the commits." = "Impossibile suddividere i commit.";
@@ -340,6 +338,7 @@
 "Down" = "Giù";
 "Down (earlier)" = "Giù (precedente)";
 "Download again" = "Scarica di nuovo";
+"Downloaded and verified — ready to install." = "Scaricato e verificato: pronto per l'installazione.";
 "Downloading…" = "Download in corso…";
 "Draft" = "Bozza";
 "Drawing the graph with %lld commits…" = "Disegno del grafico con %1$lld commit…";
@@ -357,6 +356,7 @@
 "End the %@ session?" = "Terminare la sessione %1$@?";
 "Ended" = "Terminata";
 "Ended sessions" = "Sessioni terminate";
+"Enter an administrator password to update Branchwork in %@." = "Inserisci una password di amministratore per aggiornare Branchwork in %1$@.";
 "Enter the server address." = "Inserisci l'indirizzo del server.";
 "Enter your %@ key in Settings > AI." = "Inserisci la chiave %1$@ in Impostazioni > AI.";
 "Environment %lld" = "Ambiente %1$lld";
@@ -685,6 +685,7 @@
 "Server error %lld: %@" = "Errore del server %1$lld: %2$@";
 "Sessions in other folders" = "Sessioni in altre cartelle";
 "Set manually" = "Impostato manualmente";
+"Shadow" = "Ombra";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell aperta nel pannello del terminale in basso (zsh, bash, fish, ecc.)";
 "Show all" = "Mostra tutto";
 "Show all %lld hidden branches" = "Mostra tutti i branch nascosti (%1$lld)";
@@ -770,10 +771,13 @@
 "The language changes when Branchwork restarts." = "La lingua cambia al riavvio di Branchwork.";
 "The new message is empty." = "Il nuovo messaggio è vuoto.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Il prefisso è uno tra Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
+"The release has no SHA-256 file. It wasn't installed." = "La release non ha un file SHA-256. L'aggiornamento non è stato installato.";
+"The release has no update signature. It wasn't installed." = "La release non ha una firma di aggiornamento. L'aggiornamento non è stato installato.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "Nel frattempo il repository è cambiato (un commit, un checkout, ecc. altrove), quindi non è possibile annullare “%1$@”.";
 "The shell exited" = "La shell è terminata";
 "The shell exited (code %d)" = "La shell è terminata (codice %1$d)";
 "The tracked remote branch was deleted" = "Il branch remoto tracciato è stato eliminato";
+"The update signature doesn't match. It wasn't installed." = "La firma dell'aggiornamento non corrisponde. Non è stato installato.";
 "Theirs" = "Loro versione";
 "Theirs first" = "Prima la loro";
 "Theirs · %@" = "Loro versione · %1$@";

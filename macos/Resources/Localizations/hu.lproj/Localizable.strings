@@ -1,12 +1,5 @@
 /* Branchwork — hu. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "A Branchwork közvetlenül a letöltésből lett megnyitva, és ideiglenes helyről fut, ezért nem tudja lecserélni önmagát. Helyezze át az Alkalmazások mappába, nyissa meg újra, majd frissítsen.";
-"Couldn't replace the app: %@" = "Nem sikerült lecserélni az alkalmazást: %1$@";
-"Downloaded and verified — ready to install." = "Letöltve és ellenőrizve — telepíthető.";
-"Enter an administrator password to update Branchwork in %@." = "Adjon meg egy rendszergazdai jelszót a(z) %1$@ helyen lévő Branchwork frissítéséhez.";
-"The release has no SHA-256 file. It wasn't installed." = "A kiadásban nincs SHA-256 fájl, ezért nem történt telepítés.";
-"The release has no update signature. It wasn't installed." = "A kiadásban nincs frissítési aláírás, ezért nem történt telepítés.";
-"The update signature doesn't match. It wasn't installed." = "A frissítés aláírása nem egyezik, ezért nem történt telepítés.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(A diff hosszú volt, ezért csak az eleje kapott magyarázatot.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nHitelesítés szükséges. Futtasson egyszer push/pull parancsot egy terminálban a hitelesítő adatok mentéséhez (kulcskarika vagy SSH-kulcs), majd próbálja újra.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nA tokennek api hatókör kell, és csak az hagyhatja jóvá, aki jogosult ennek az MR-nek a jóváhagyására.";
@@ -96,6 +89,7 @@
 "An empty file was deleted" = "Üres fájl törölve";
 "Another account's token" = "Másik fiók tokenje";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Bármely szerver használható, amely elfogadja az OpenAI formátumot (/chat/completions). Példa: Ollama http://localhost:11434/v1";
+"App icon" = "Alkalmazásikon";
 "Appearance" = "Megjelenés";
 "Applies the most recently stashed changes (Pop)." = "Alkalmazza a legutóbbi stash módosításait (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Minden AI-funkcióra vonatkozik, az alább funkciónként megadott szabályokkal együtt.";
@@ -135,6 +129,7 @@
 "Branches hidden from the graph — right-click to show again" = "A gráfból elrejtett ágak — jobb kattintással újra megjeleníthetők";
 "Branches pinned to the top" = "Felülre rögzített ágak";
 "Branchwork %@ is the latest version." = "A Branchwork %1$@ a legújabb verzió.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "A Branchwork közvetlenül a letöltésből lett megnyitva, és ideiglenes helyről fut, ezért nem tudja lecserélni önmagát. Helyezze át az Alkalmazások mappába, nyissa meg újra, majd frissítsen.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "A módosítás alkalmazásához a Branchwork újraindul. Ha nincs követendő commitelőzmény, az AI is ezen a nyelven ír.";
 "Branchwork update" = "Branchwork-frissítés";
 "Brings %lld new commits from the remote into the current branch." = "Lehúzza a távoli tároló új commitjait (%1$lld) az aktuális ágba.";
@@ -155,6 +150,7 @@
 "Changes" = "Módosítások";
 "Changes %lld" = "Módosítások %1$lld";
 "Changes requested: " = "Módosítást kért: ";
+"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Megváltoztatja az ikont a Dockban, a Finderben és a Launchpadben. Új ikonok a frissítésekkel érkeznek.";
 "Change…" = "Módosítás…";
 "Check failed: %@" = "Az ellenőrzés sikertelen: %1$@";
 "Check for new versions at launch and once a day" = "Új verziók keresése indításkor és naponta egyszer";
@@ -253,6 +249,7 @@
 "Copy message" = "Üzenet másolása";
 "Copy name" = "Név másolása";
 "Copy path" = "Útvonal másolása";
+"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "A Finderben nem sikerült megváltoztatni az ikont, mert a Branchwork mappája nem írható. A Dock ikonja ettől még megváltozik, amíg a Branchwork fut.";
 "Couldn't complete the operation" = "Nem sikerült befejezni a műveletet";
 "Couldn't download the file." = "Nem sikerült letölteni a fájlt.";
 "Couldn't extract: %@" = "Nem sikerült kibontani: %1$@";
@@ -267,6 +264,7 @@
 "Couldn't read the commit list." = "Nem sikerült beolvasni a commitlistát.";
 "Couldn't read the split result (not JSON). Please try again." = "Nem sikerült értelmezni a felosztás eredményét (nem JSON). Próbálja újra.";
 "Couldn't read this commit's changes." = "Nem sikerült beolvasni a commit módosításait.";
+"Couldn't replace the app: %@" = "Nem sikerült lecserélni az alkalmazást: %1$@";
 "Couldn't run %@: %@" = "%1$@ futtatása sikertelen: %2$@";
 "Couldn't save the file.\n\n" = "Nem sikerült menteni a fájlt.\n\n";
 "Couldn't split the commits." = "Nem sikerült commitokra bontani a módosításokat.";
@@ -349,6 +347,7 @@
 "Down" = "Le";
 "Down (earlier)" = "Le (korábbi)";
 "Download again" = "Újbóli letöltés";
+"Downloaded and verified — ready to install." = "Letöltve és ellenőrizve — telepíthető.";
 "Downloading…" = "Letöltés…";
 "Draft" = "Piszkozat";
 "Drawing the graph with %lld commits…" = "Gráf rajzolása (%1$lld commit)…";
@@ -366,6 +365,7 @@
 "End the %@ session?" = "Befejezi a munkamenetet (%1$@)?";
 "Ended" = "Befejeződött";
 "Ended sessions" = "Befejezett munkamenetek";
+"Enter an administrator password to update Branchwork in %@." = "Adjon meg egy rendszergazdai jelszót a(z) %1$@ helyen lévő Branchwork frissítéséhez.";
 "Enter the server address." = "Adja meg a szerver címét.";
 "Enter your %@ key in Settings > AI." = "Adja meg az API-kulcsot (%1$@) a Beállítások > AI alatt.";
 "Environment %lld" = "Környezet %1$lld";
@@ -695,6 +695,7 @@
 "Server error %lld: %@" = "Szerverhiba %1$lld: %2$@";
 "Sessions in other folders" = "Munkamenetek más mappákban";
 "Set manually" = "Kézzel megadva";
+"Shadow" = "Árnyék";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Az alsó terminálpanelen megnyíló shell (zsh, bash, fish stb.)";
 "Show all" = "Összes megjelenítése";
 "Show all %lld hidden branches" = "Összes rejtett ág megjelenítése (%1$lld)";
@@ -781,10 +782,13 @@
 "The language changes when Branchwork restarts." = "A nyelv a Branchwork újraindításakor változik meg.";
 "The new message is empty." = "Az új üzenet üres.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Az előtag a Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove egyike";
+"The release has no SHA-256 file. It wasn't installed." = "A kiadásban nincs SHA-256 fájl, ezért nem történt telepítés.";
+"The release has no update signature. It wasn't installed." = "A kiadásban nincs frissítési aláírás, ezért nem történt telepítés.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "A tároló azóta megváltozott (máshol történt commit, átváltás stb.), ezért ez nem vonható vissza: „%1$@”.";
 "The shell exited" = "A shell kilépett";
 "The shell exited (code %d)" = "A shell kilépett (kód: %1$d)";
 "The tracked remote branch was deleted" = "A követett távoli ágat törölték";
+"The update signature doesn't match. It wasn't installed." = "A frissítés aláírása nem egyezik, ezért nem történt telepítés.";
 "Theirs" = "Másik";
 "Theirs first" = "Másik elöl";
 "Theirs · %@" = "Másik · %1$@";

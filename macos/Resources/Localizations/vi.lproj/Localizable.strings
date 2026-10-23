@@ -1,12 +1,5 @@
 /* Branchwork — vi. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork được mở trực tiếp từ nơi tải về nên đang chạy từ một vị trí tạm thời và không thể tự thay thế. Hãy chuyển nó vào thư mục Ứng dụng, mở lại rồi cập nhật.";
-"Couldn't replace the app: %@" = "Không thể thay thế ứng dụng: %1$@";
-"Downloaded and verified — ready to install." = "Đã tải về và xác minh — sẵn sàng cài đặt.";
-"Enter an administrator password to update Branchwork in %@." = "Nhập mật khẩu quản trị viên để cập nhật Branchwork trong %1$@.";
-"The release has no SHA-256 file. It wasn't installed." = "Bản phát hành không có tệp SHA-256. Đã không cài đặt.";
-"The release has no update signature. It wasn't installed." = "Bản phát hành không có chữ ký cập nhật. Đã không cài đặt.";
-"The update signature doesn't match. It wasn't installed." = "Chữ ký cập nhật không khớp. Đã không cài đặt.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff quá dài nên chỉ phần đầu được giải thích.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nCần xác thực. Hãy chạy push/pull một lần trong terminal để lưu thông tin đăng nhập (Chuỗi khóa hoặc khóa SSH), rồi thử lại.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken cần có scope api, và chỉ những người có quyền phê duyệt MR này mới phê duyệt được.";
@@ -93,6 +86,7 @@
 "An empty file was deleted" = "Đã xóa một tệp trống";
 "Another account's token" = "Token của tài khoản khác";
 "Any server that accepts the OpenAI format (/chat/completions) works. Example: Ollama http://localhost:11434/v1" = "Dùng được với mọi máy chủ chấp nhận định dạng OpenAI (/chat/completions). Ví dụ: Ollama http://localhost:11434/v1";
+"App icon" = "Biểu tượng ứng dụng";
 "Appearance" = "Giao diện";
 "Applies the most recently stashed changes (Pop)." = "Áp dụng các thay đổi được stash gần nhất (Pop).";
 "Applies to every AI feature, together with the rules written for each feature below." = "Áp dụng cho mọi tính năng AI, cùng với các quy tắc viết riêng cho từng tính năng bên dưới.";
@@ -132,6 +126,7 @@
 "Branches hidden from the graph — right-click to show again" = "Các nhánh đã ẩn khỏi đồ thị — nhấp chuột phải để hiện lại";
 "Branches pinned to the top" = "Các nhánh được ghim lên đầu";
 "Branchwork %@ is the latest version." = "Branchwork %1$@ là phiên bản mới nhất.";
+"Branchwork is running from a temporary location because it was opened straight from the download, so it can't replace itself. Move it to the Applications folder, open it again, then update." = "Branchwork được mở trực tiếp từ nơi tải về nên đang chạy từ một vị trí tạm thời và không thể tự thay thế. Hãy chuyển nó vào thư mục Ứng dụng, mở lại rồi cập nhật.";
 "Branchwork restarts to apply the change. When there's no commit history to follow, the AI also writes in this language." = "Branchwork sẽ khởi động lại để áp dụng thay đổi. Khi không có lịch sử commit để làm theo, AI cũng viết bằng ngôn ngữ này.";
 "Branchwork update" = "Bản cập nhật Branchwork";
 "Brings %lld new commits from the remote into the current branch." = "Đưa %1$lld commit mới từ remote vào nhánh hiện tại.";
@@ -152,6 +147,7 @@
 "Changes" = "Thay đổi";
 "Changes %lld" = "Thay đổi %1$lld";
 "Changes requested: " = "Yêu cầu thay đổi: ";
+"Changes the icon in the Dock, Finder and Launchpad. New icons come with updates." = "Thay đổi biểu tượng trong Dock, Finder và Launchpad. Biểu tượng mới sẽ có trong các bản cập nhật.";
 "Change…" = "Thay đổi…";
 "Check failed: %@" = "Kiểm tra thất bại: %1$@";
 "Check for new versions at launch and once a day" = "Kiểm tra phiên bản mới khi khởi động và mỗi ngày một lần";
@@ -246,6 +242,7 @@
 "Copy message" = "Sao chép thông điệp";
 "Copy name" = "Sao chép tên";
 "Copy path" = "Sao chép đường dẫn";
+"Couldn't change the icon in Finder because Branchwork's folder isn't writable. The Dock icon still changes while Branchwork is running." = "Không thể đổi biểu tượng trong Finder vì không có quyền ghi vào thư mục của Branchwork. Biểu tượng trong Dock vẫn thay đổi khi Branchwork đang chạy.";
 "Couldn't complete the operation" = "Không thể hoàn tất thao tác";
 "Couldn't download the file." = "Không thể tải tệp xuống.";
 "Couldn't extract: %@" = "Không thể giải nén: %1$@";
@@ -260,6 +257,7 @@
 "Couldn't read the commit list." = "Không đọc được danh sách commit.";
 "Couldn't read the split result (not JSON). Please try again." = "Không đọc được kết quả chia (không phải JSON). Vui lòng thử lại.";
 "Couldn't read this commit's changes." = "Không đọc được thay đổi của commit này.";
+"Couldn't replace the app: %@" = "Không thể thay thế ứng dụng: %1$@";
 "Couldn't run %@: %@" = "Không thể chạy %1$@: %2$@";
 "Couldn't save the file.\n\n" = "Không thể lưu tệp.\n\n";
 "Couldn't split the commits." = "Không thể chia commit.";
@@ -339,6 +337,7 @@
 "Down" = "Xuống";
 "Down (earlier)" = "Xuống (cũ hơn)";
 "Download again" = "Tải xuống lại";
+"Downloaded and verified — ready to install." = "Đã tải về và xác minh — sẵn sàng cài đặt.";
 "Downloading…" = "Đang tải xuống…";
 "Draft" = "Bản nháp";
 "Drawing the graph with %lld commits…" = "Đang vẽ đồ thị với %1$lld commit…";
@@ -354,6 +353,7 @@
 "End the %@ session?" = "Kết thúc phiên %1$@?";
 "Ended" = "Đã kết thúc";
 "Ended sessions" = "Phiên đã kết thúc";
+"Enter an administrator password to update Branchwork in %@." = "Nhập mật khẩu quản trị viên để cập nhật Branchwork trong %1$@.";
 "Enter the server address." = "Hãy nhập địa chỉ máy chủ.";
 "Enter your %@ key in Settings > AI." = "Hãy nhập khóa %1$@ của bạn trong Cài đặt > AI.";
 "Environment %lld" = "Môi trường %1$lld";
@@ -675,6 +675,7 @@
 "Server error %lld: %@" = "Lỗi máy chủ %1$lld: %2$@";
 "Sessions in other folders" = "Phiên ở thư mục khác";
 "Set manually" = "Đặt thủ công";
+"Shadow" = "Bóng tối";
 "Shell opened in the terminal panel below (zsh, bash, fish, etc.)" = "Shell được mở trong bảng terminal bên dưới (zsh, bash, fish, v.v.)";
 "Show all" = "Hiện tất cả";
 "Show all %lld hidden branches" = "Hiện tất cả %1$lld nhánh đã ẩn";
@@ -757,10 +758,13 @@
 "The language changes when Branchwork restarts." = "Ngôn ngữ sẽ thay đổi khi Branchwork khởi động lại.";
 "The new message is empty." = "Thông điệp mới đang trống.";
 "The prefix is one of Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove" = "Tiền tố là một trong Feature, Fix, Hotfix, Refactoring, Style, Chore, Remove";
+"The release has no SHA-256 file. It wasn't installed." = "Bản phát hành không có tệp SHA-256. Đã không cài đặt.";
+"The release has no update signature. It wasn't installed." = "Bản phát hành không có chữ ký cập nhật. Đã không cài đặt.";
 "The repository changed since then (a commit, checkout, etc. elsewhere), so “%@” can't be undone." = "Kho lưu trữ đã thay đổi kể từ đó (commit, checkout, v.v. ở nơi khác), nên không thể hoàn tác “%1$@”.";
 "The shell exited" = "Shell đã thoát";
 "The shell exited (code %d)" = "Shell đã thoát (mã %1$d)";
 "The tracked remote branch was deleted" = "Nhánh từ xa đang theo dõi đã bị xóa";
+"The update signature doesn't match. It wasn't installed." = "Chữ ký cập nhật không khớp. Đã không cài đặt.";
 "Theirs" = "Của họ";
 "Theirs first" = "Của họ trước";
 "Theirs · %@" = "Của họ · %1$@";
