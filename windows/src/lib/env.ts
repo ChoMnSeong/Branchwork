@@ -8,7 +8,7 @@ export let env: EnvInfo = {
   exe: "",
   temp: "",
   shell: "powershell.exe",
-  version: "0.3.3",
+  version: "0.3.4",
   selftest: null,
   selftestOpen: null,
   appData: "",
