@@ -86,8 +86,10 @@ final class RepoStore: Identifiable {
     var gitchChecking = false
     /// 브랜치·참조가 바뀔 때만 다시 점검하려고(파일 저장마다 돌지 않게)
     var gitchKey = ""
-    /// 그리고 있는 구조 그래프(gitch graph). 읽기만 하므로 busy 와 달리 다른 작업을 막지 않는다
-    var drawingGraph: Gitch.GraphRelation?
+    /// gitch graph 로 만들고 있는 페이지(구조 그래프 · 바뀐 의존 · 규칙 위반). 읽기만 하므로 busy 와 달리 다른 작업을 막지 않는다
+    var graphJob: GraphJob?
+    /// 의존 규칙 검사 창에 보일 결과(gitch graph check)
+    var graphCheck: GraphCheckState?
 
     // MARK: 검색
     var searchText = ""

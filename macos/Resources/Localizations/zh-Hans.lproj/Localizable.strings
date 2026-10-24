@@ -1,5 +1,33 @@
 /* Gitrochi — zh-Hans. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ 与此分支没有共同的提交。";
+"Check again" = "重新检查";
+"Check dependency rules…" = "检查依赖规则…";
+"Checking dependency rules…" = "正在检查依赖规则…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = "按 .gitch/graph.rules 中的规则检查依赖（gitch graph check），并列出违反规则的项。";
+"Compare" = "比较";
+"Compare dependencies" = "比较依赖";
+"Compare with" = "比较对象";
+"Compare with…" = "选择比较对象…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "将工作区（含未提交的更改）的依赖与此分支从默认分支分出的位置进行比较（gitch graph diff），并在浏览器中打开变更。";
+"Comparing dependencies…" = "正在比较依赖…";
+"Couldn't check the rules" = "无法检查规则";
+"Create rules file" = "创建规则文件";
+"Default branch (where this branch split off)" = "默认分支（分出的位置）";
+"Dependencies changed on this branch" = "此分支中变更的依赖";
+"Dependency rules" = "依赖规则";
+"Edit rules" = "编辑规则";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "与此分支从所选分支或标签分出的位置进行比较，因此只显示此分支的更改。已跟踪文件中未提交的更改也包含在内。";
+"Line %lld" = "第 %1$lld 行";
+"No dependency rules yet" = "还没有依赖规则";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "还没有规则。删除示例前面的 #，按此仓库修改后再检查一次。";
+"No violations" = "没有违规";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "选择一个分支或标签。将与此分支从它分出的位置进行比较。";
+"Rules %lld" = "%1$lld 条规则";
+"View as graph" = "以图查看";
+"Violations %lld" = "%1$lld 处违规";
+"Warnings %lld" = "%1$lld 个警告";
+"Warnings are links guessed only from names, so they don't count as violations." = "警告是仅根据名称推测的连接，因此不计为违规。";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n（差异较长，因此只解释了开头部分。）";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n需要身份验证。请在终端中执行一次 push/pull 以保存凭据（钥匙串或 SSH 密钥），然后重试。";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\n令牌需要 api 权限范围，并且只有有权批准此 MR 的人才能批准。";
@@ -991,6 +1019,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch 不知道此仓库使用哪个账户。请用 gitch use <账户> 锁定。";
 "gitch found nothing to draw for %@." = "%1$@：gitch 没有找到可绘制的内容。";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes：经常一起提交的文件，以及每个文件的变更次数。";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check 从此仓库的 .gitch/graph.rules 读取规则。要创建带有注释示例的文件（gitch graph check --init）并打开吗？";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files：此分支中新增和删除的导入，以及出现、变大、变小或消失的循环。";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules：此分支中新增和删除的模块依赖。";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree：此分支中文件数或大小发生变化的文件夹。";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files：哪个文件导入了哪个文件（TypeScript、JavaScript、Python、Go、Rust、Kotlin、Java）。Swift 文件按所用的类型名连接（虚线）。";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules：来自 Package.swift、Tuist、package.json、Cargo、Go 和 Gradle 的目标与包。读取 Package.swift 需要几秒钟。";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree：各文件夹的大小和文件数。";

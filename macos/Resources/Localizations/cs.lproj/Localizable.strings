@@ -1,5 +1,33 @@
 /* Gitrochi — cs. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ nemá s touto větví žádný společný commit.";
+"Check again" = "Zkontrolovat znovu";
+"Check dependency rules…" = "Zkontrolovat pravidla závislostí…";
+"Checking dependency rules…" = "Kontroluji pravidla závislostí…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = "Zkontroluje závislosti podle pravidel v .gitch/graph.rules (gitch graph check) a vypíše, co je porušuje.";
+"Compare" = "Porovnat";
+"Compare dependencies" = "Porovnat závislosti";
+"Compare with" = "Porovnat s";
+"Compare with…" = "Porovnat s…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "Porovná závislosti v pracovním adresáři včetně necommitnutých změn s místem, kde se tato větev oddělila od výchozí větve (gitch graph diff), a otevře změny v prohlížeči.";
+"Comparing dependencies…" = "Porovnávám závislosti…";
+"Couldn't check the rules" = "Pravidla se nepodařilo zkontrolovat";
+"Create rules file" = "Vytvořit soubor pravidel";
+"Default branch (where this branch split off)" = "Výchozí větev (místo oddělení)";
+"Dependencies changed on this branch" = "Závislosti změněné v této větvi";
+"Dependency rules" = "Pravidla závislostí";
+"Edit rules" = "Upravit pravidla";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "Gitrochi porovnává s místem, kde se tato větev oddělila od vybrané větve nebo tagu, takže uvidíte jen změny této větve. Zahrnuty jsou i necommitnuté změny sledovaných souborů.";
+"Line %lld" = "Řádek %1$lld";
+"No dependency rules yet" = "Zatím žádná pravidla závislostí";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "Zatím žádná pravidla. Odstraňte # před příklady, upravte je pro tento repozitář a zkontrolujte znovu.";
+"No violations" = "Žádná porušení";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "Vyberte větev nebo tag. Gitrochi porovná s místem, kde se tato větev od vybraného oddělila.";
+"Rules %lld" = "Pravidla: %1$lld";
+"View as graph" = "Zobrazit jako graf";
+"Violations %lld" = "Porušení: %1$lld";
+"Warnings %lld" = "Varování: %1$lld";
+"Warnings are links guessed only from names, so they don't count as violations." = "Varování jsou propojení odhadnutá jen podle názvů, proto se nepočítají jako porušení.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Změny byly dlouhé, proto byl vysvětlen jen jejich začátek.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nJe vyžadováno ověření. Jednou proveďte push/pull v terminálu, aby se uložily přihlašovací údaje (Klíčenka nebo klíč SSH), a pak to zkuste znovu.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken potřebuje rozsah api a tento MR mohou schválit jen lidé, kteří k tomu mají oprávnění.";
@@ -969,6 +997,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch neví, jaký účet tento repozitář používá. Zamkněte ho příkazem gitch use <účet>.";
 "gitch found nothing to draw for %@." = "%1$@: gitch nenašel nic ke kreslení.";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: soubory, které se často commitují společně, a jak často se který mění.";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check čte pravidla z .gitch/graph.rules v tomto repozitáři. Vytvořit soubor se zakomentovanými příklady (gitch graph check --init) a otevřít ho?";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: importy přidané a odebrané v této větvi a cykly, které vznikly, zvětšily se, zmenšily se nebo zmizely.";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: závislosti modulů přidané a odebrané v této větvi.";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: složky, ve kterých se v této větvi změnil počet souborů nebo velikost.";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: který soubor importuje který, pro TypeScript, JavaScript, Python, Go, Rust, Kotlin a Javu. Soubory Swift se propojují podle názvů typů, které používají (přerušované čáry).";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: cíle a balíčky z Package.swift, Tuist, package.json, Cargo, Go a Gradle. Načtení Package.swift trvá několik sekund.";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: složky s velikostí a počtem souborů.";

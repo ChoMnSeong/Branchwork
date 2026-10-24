@@ -1,5 +1,33 @@
 /* Gitrochi — tr. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ ile bu dalın ortak bir commit'i yok.";
+"Check again" = "Yeniden denetle";
+"Check dependency rules…" = "Bağımlılık kurallarını denetle…";
+"Checking dependency rules…" = "Bağımlılık kuralları denetleniyor…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = ".gitch/graph.rules dosyasındaki kurallara göre bağımlılıkları denetler (gitch graph check) ve kuralları çiğneyenleri listeler.";
+"Compare" = "Karşılaştır";
+"Compare dependencies" = "Bağımlılıkları karşılaştır";
+"Compare with" = "Karşılaştırılacak";
+"Compare with…" = "Şununla karşılaştır…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "Çalışma dizinindeki bağımlılıkları, commit edilmemiş değişiklikler dahil, bu dalın varsayılan daldan ayrıldığı noktayla karşılaştırır (gitch graph diff) ve değişenleri tarayıcıda açar.";
+"Comparing dependencies…" = "Bağımlılıklar karşılaştırılıyor…";
+"Couldn't check the rules" = "Kurallar denetlenemedi";
+"Create rules file" = "Kural dosyası oluştur";
+"Default branch (where this branch split off)" = "Varsayılan dal (ayrılma noktası)";
+"Dependencies changed on this branch" = "Bu dalda değişen bağımlılıklar";
+"Dependency rules" = "Bağımlılık kuralları";
+"Edit rules" = "Kuralları düzenle";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "Gitrochi, bu dalın seçtiğiniz dal veya etiketten ayrıldığı noktayla karşılaştırır; böylece yalnızca bu dalın değişiklikleri görünür. İzlenen dosyalardaki commit edilmemiş değişiklikler de dahildir.";
+"Line %lld" = "Satır %1$lld";
+"No dependency rules yet" = "Henüz bağımlılık kuralı yok";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "Henüz kural yok. Örneklerin önündeki # işaretini kaldırın, bu depoya göre uyarlayın ve yeniden denetleyin.";
+"No violations" = "İhlal yok";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "Bir dal veya etiket seçin. Gitrochi, bu dalın ondan ayrıldığı noktayla karşılaştırır.";
+"Rules %lld" = "%1$lld kural";
+"View as graph" = "Grafik olarak göster";
+"Violations %lld" = "%1$lld ihlal";
+"Warnings %lld" = "%1$lld uyarı";
+"Warnings are links guessed only from names, so they don't count as violations." = "Uyarılar yalnızca adlardan tahmin edilen bağlantılardır, bu yüzden ihlal sayılmaz.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff uzun olduğu için yalnızca baş kısmı açıklandı.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nKimlik doğrulaması gerekiyor. Terminalde bir kez push/pull yaparak kimlik bilgilerinizi kaydedin (Anahtar Zinciri veya SSH anahtarı), sonra tekrar deneyin.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken'ın api kapsamına sahip olması gerekir. Bu MR'ı yalnızca onaylama yetkisi olan kişiler onaylayabilir.";
@@ -976,6 +1004,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch bu deponun hangi hesabı kullandığını bilmiyor. gitch use <hesap> ile kilitleyin.";
 "gitch found nothing to draw for %@." = "gitch, %1$@ için çizilecek bir şey bulamadı.";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: sık sık birlikte commit edilen dosyalar ve her birinin ne sıklıkla değiştiği.";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check kuralları bu deponun .gitch/graph.rules dosyasından okur. Yorum satırı hâlinde örnekler içeren dosya oluşturulsun (gitch graph check --init) ve açılsın mı?";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: bu dalda eklenen ve kaldırılan import'lar ile ortaya çıkan, büyüyen, küçülen veya kaybolan döngüler.";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: bu dalda eklenen ve kaldırılan modül bağımlılıkları.";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: bu dalda dosya sayısı veya boyutu değişen klasörler.";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: hangi dosyanın hangisini içe aktardığı (TypeScript, JavaScript, Python, Go, Rust, Kotlin ve Java). Swift dosyaları kullandıkları tür adlarıyla bağlanır (kesikli çizgiler).";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: Package.swift, Tuist, package.json, Cargo, Go ve Gradle'daki hedefler ve paketler. Package.swift'i okumak birkaç saniye sürer.";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: boyutları ve dosya sayılarıyla klasörler.";

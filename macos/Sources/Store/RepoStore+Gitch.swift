@@ -102,16 +102,35 @@ extension RepoStore {
         return await runGitch(["rescue", pick, "--restore", "--yes"])
     }
 
-    /// 구조 그래프를 그리는 동안 툴바에 보일 글(관계 이름까지 넣으면 툴바 버튼이 밀려나서 짧게)
+    /// gitch graph 로 만드는 페이지 — 한 번에 하나(그동안 구조 그래프 메뉴의 항목을 끈다)
+    enum GraphJob: Equatable {
+        case draw(Gitch.GraphRelation)
+        case diff(Gitch.GraphRelation)
+        case checkPage
+    }
+
+    /// 의존 규칙 검사 창이 보여 줄 것
+    enum GraphCheckState {
+        case running
+        /// rules: 규칙 줄 수(0 이면 --init 이 만든 예시 그대로 — 모두 주석)
+        case done(Gitch.GraphCheck, rules: Int)
+        case failed(String)
+    }
+
+    /// gitch graph 가 페이지를 만드는 동안 툴바에 보일 글(관계 이름까지 넣으면 툴바 버튼이 밀려나서 짧게)
     var graphProgress: String? {
-        drawingGraph == nil ? nil : String(localized: "Drawing the structure graph…")
+        switch graphJob {
+        case .draw?, .checkPage?: return String(localized: "Drawing the structure graph…")
+        case .diff?: return String(localized: "Comparing dependencies…")
+        case nil: return nil
+        }
     }
 
     /// 구조 그래프(gitch graph)를 html 로 만들어 기본 브라우저로 연다. 실패하면 gitch 가 낸 문구를 보여 준다.
     func openStructureGraph(_ relation: Gitch.GraphRelation) async {
-        guard let url, drawingGraph == nil else { return }
-        drawingGraph = relation
-        defer { drawingGraph = nil }
+        guard let url, graphJob == nil else { return }
+        graphJob = .draw(relation)
+        defer { graphJob = nil }
         // 메뉴가 닫히고 브라우저가 뜨기까지 몇 초 걸릴 수 있어 VoiceOver 에 먼저 알린다
         if let text = graphProgress { AccessibilityNotification.Announcement(text).post() }
         do {
@@ -130,6 +149,103 @@ extension RepoStore {
         } catch {
             guard self.url == url else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// 이 브랜치에서 바뀐 의존(gitch graph diff)을 html 로 만들어 기본 브라우저로 연다.
+    /// base 가 nil 이면 gitch 의 기본값(기본 브랜치와 갈라진 곳), 있으면 그 브랜치 · 태그와 이 브랜치가 갈라진 곳과 비교한다.
+    func openGraphDiff(_ relation: Gitch.GraphRelation, base: String? = nil) async {
+        guard let url, graphJob == nil else { return }
+        graphJob = .diff(relation)
+        defer { graphJob = nil }
+        if let text = graphProgress { AccessibilityNotification.Announcement(text).post() }
+        do {
+            var since: String?
+            if let base { since = try await splitPoint(with: base, in: url) }
+            let file = try await Gitch.graphDiff(relation, base: since, in: url)
+            guard self.url == url else { return }
+            await openGraphPage(file)
+        } catch {
+            guard self.url == url else { return }
+            errorMessage = describe(error)
+        }
+    }
+
+    /// 고른 참조와 이 브랜치가 갈라진 곳(merge-base) — gitch 는 받은 기준과 그대로 비교하므로, 기준 브랜치가 그 뒤로 앞서 나갔어도
+    /// 그 새 커밋이 뺀 것으로 보이지 않게. 참조가 이미 이 브랜치에 들어 있으면(태그 · 움직이지 않은 브랜치) 페이지에 이름이 보이게 이름 그대로
+    private func splitPoint(with ref: String, in url: URL) async throws -> String {
+        let r = try await Git.raw(["merge-base", "HEAD", ref], in: url)
+        let sha = r.output.trimmed
+        guard r.status == 0, !sha.isEmpty else {
+            throw Gitch.Failure(message: String(localized: "\(ref) has no commit in common with this branch."))
+        }
+        let tip = try? await Git.raw(["rev-parse", "--verify", "--quiet", "\(ref)^{commit}"], in: url)
+        return tip?.output.trimmed == sha ? ref : sha
+    }
+
+    /// 의존 규칙 검사(gitch graph check): 규칙 파일이 없으면 예시로 만들지 묻고, 있으면 결과 창을 띄우고 검사한다
+    func checkGraphRules() {
+        guard let url else { return }
+        guard FileManager.default.fileExists(atPath: Gitch.graphRulesFile(in: url).path) else {
+            confirm = ConfirmRequest(title: String(localized: "No dependency rules yet"),
+                                     message: String(localized: "gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?"),
+                                     actionTitle: String(localized: "Create rules file"), destructive: false) { [weak self] in
+                await self?.createGraphRules()
+            }
+            return
+        }
+        sheet = .graphCheck
+        Task { await runGraphCheck() }
+    }
+
+    /// 규칙 검사를 (다시) 돌려 결과 창에 넣는다. 위반이 있어 gitch 가 1 로 끝나도 결과다.
+    func runGraphCheck() async {
+        guard let url else { return }
+        if case .running? = graphCheck { return }
+        graphCheck = .running
+        do {
+            let result = try await Gitch.graphCheck(in: url)
+            guard self.url == url else { return }
+            graphCheck = .done(result, rules: Gitch.graphRuleCount(in: url))
+        } catch {
+            guard self.url == url else { return }
+            graphCheck = .failed(describe(error))
+        }
+    }
+
+    /// gitch graph check --init 으로 예시가 든 규칙 파일을 만들고 글 편집기로 연다(예시는 모두 주석이라 고친 뒤에 검사한다)
+    func createGraphRules() async {
+        guard let url else { return }
+        do {
+            try await Gitch.graphRulesInit(in: url)
+            await openGraphRules()
+        } catch {
+            errorMessage = describe(error)
+        }
+    }
+
+    func openGraphRules() async {
+        guard let url else { return }
+        do {
+            try await Launcher.openInTextEditor(Gitch.graphRulesFile(in: url))
+        } catch {
+            errorMessage = describe(error)
+        }
+    }
+
+    /// 규칙 위반을 그린 페이지(gitch graph check --format html)를 기본 브라우저로 연다. 결과 창에서 부르므로 실패하면 그 문구를 돌려준다
+    func openGraphCheckPage() async -> String? {
+        guard let url, graphJob == nil else { return nil }
+        graphJob = .checkPage
+        defer { graphJob = nil }
+        if let text = graphProgress { AccessibilityNotification.Announcement(text).post() }
+        do {
+            let file = try await Gitch.graphCheckPage(in: url)
+            guard self.url == url else { return nil }
+            try await Launcher.openInBrowser(file)
+            return nil
+        } catch {
+            return describe(error)
         }
     }
 
