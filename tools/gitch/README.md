@@ -210,6 +210,7 @@ JSON (노드 · 연결이 한 줄에 하나):
 ```bash
 gitch graph diff                 # 기본 브랜치(upstream > origin)와 갈라진 곳 → 지금 작업 트리 (files)
 gitch graph diff main modules    # 기준을 주면 그 커밋 · 브랜치와
+gitch graph diff origin/main...  # 기준... 은 그 기준과 갈라진 곳과 (기준이 그 뒤로 앞서 나가도 그 커밋은 뺀 것으로 안 보인다)
 gitch graph diff --json          # AI · 스크립트: 바뀐 것만 (status: added · removed, cycles.new · changed · gone)
 gitch graph diff --format html   # 전체 그래프에 더한 것 · 뺀 것을 색으로
 ```

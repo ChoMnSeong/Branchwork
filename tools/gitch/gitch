@@ -4957,7 +4957,7 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … 
 
 GRAPH_DIFF_USAGE='사용법: gitch graph diff [기준] [files|modules|tree] [--format text|json|html] [--out 파일] [폴더|저장소]
   기준(커밋 · 브랜치)의 그래프와 지금 작업 트리의 그래프를 비교한다 — 더하거나 뺀 연결 · 파일, 새로 생긴 · 커지거나 줄어든 · 없어진 순환
-  기준을 주지 않으면 기본 브랜치(upstream > origin)와 갈라진 곳(merge-base)
+  기준을 주지 않으면 기본 브랜치(upstream > origin)와 갈라진 곳(merge-base). 기준... (예: origin/main...) 은 그 기준과 갈라진 곳
   --format   기본: 사람이 보는 터미널이면 text(요약), 아니면 json(바뀐 것만). html 은 바뀐 것을 색으로 보여 주는 그래프
   --lang · --no-external 은 gitch graph 와 같다. 양쪽을 같은 방법으로 읽으려고 Package.swift 는 swift 없이 직접 읽고 Xcode 인덱스 도우미는 쓰지 않는다'
 
@@ -5071,6 +5071,10 @@ graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
   if [ -z "$base" ]; then
     graph_default_base || die "비교할 기준을 정하지 못했습니다 — 커밋이나 브랜치를 주세요 (예: gitch graph diff main)."
     base=$GRAPH_BASE; bname=$GRAPH_BASE_NAME
+  elif [ "${base%...}" != "$base" ]; then   # 기준... — 그 기준과 이 브랜치가 갈라진 곳(merge-base). 기준이 그 뒤로 앞서 나가도 그 커밋이 뺀 것으로 보이지 않게, 이름은 기준 그대로
+    bname=${base%...}
+    git rev-parse --verify --quiet "$bname^{commit}" >/dev/null 2>&1 || die "커밋이 아닙니다: $bname"
+    base=$(git merge-base HEAD "$bname" 2>/dev/null) && [ -n "$base" ] || die "$bname 와(과) 이 브랜치에는 공통 커밋이 없습니다."
   else bname=$base; fi
   bsha=$(git rev-parse --short "$base^{commit}" 2>/dev/null) || { [ -n "$bpend" ] && die "커밋도 폴더도 아닙니다: $base"$'\n'"$GRAPH_DIFF_USAGE"; die "커밋이 아닙니다: $base"; }
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/gitch-graph.XXXXXX") || die "임시 폴더를 만들지 못했습니다."
