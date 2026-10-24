@@ -369,6 +369,8 @@
 "Downloading…" = "Stahování…";
 "Draft" = "Koncept";
 "Drawing the graph with %lld commits…" = "Vykreslování grafu (commity: %1$lld)…";
+"Drawing the structure graph…" = "Kreslím graf struktury…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "Pomocí gitch graph vykreslí importy, moduly, společně měněné soubory nebo složky tohoto repozitáře a otevře je v prohlížeči.";
 "Drop" = "Zahodit";
 "Dropping stash…" = "Zahazování stashe…";
 "Drop…" = "Zahodit…";
@@ -400,7 +402,9 @@
 "Fetching…" = "Probíhá fetch…";
 "File history" = "Historie souboru";
 "File history — commits that changed this file" = "Historie souboru — commity, které změnily tento soubor";
+"File imports" = "Importy souborů";
 "File path" = "Cesta k souboru";
+"Files that change together" = "Soubory, které se mění společně";
 "Filter graph" = "Filtrovat graf";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "Filtrovat graf — zobrazit jen aktuální větev, znovu zobrazit skryté větve (skrýt je můžete pravým kliknutím na postranním panelu)";
 "Find commits that added or removed this code" = "Najít commity, které tento kód přidaly nebo odebraly";
@@ -410,6 +414,7 @@
 "Focus on the impact on the work" = "Zaměř se na dopad na práci";
 "Focus on what changed and why" = "Zaměř se na to, co se změnilo a proč";
 "Folder name" = "Název složky";
+"Folder tree" = "Strom složek";
 "Follow system language" = "Podle jazyka systému";
 "Followed when explaining commits and changes." = "Dodržuje se při vysvětlování commitů a změn.";
 "Followed when writing commit messages or splitting changes into commits." = "Dodržuje se při psaní zpráv commitů nebo rozdělování změn do commitů.";
@@ -506,6 +511,7 @@
 "Modified" = "Změněno";
 "Modified files" = "Změněné soubory";
 "Modified files appear here." = "Zde se zobrazí změněné soubory.";
+"Module dependencies" = "Závislosti modulů";
 "Move Gitrochi to the Applications folder?" = "Přesunout Gitrochi do složky Aplikace?";
 "Move to Applications" = "Přesunout do Aplikací";
 "Moves %@ '%@' back to %@." = "%1$@ '%2$@' se přesune zpět na %3$@.";
@@ -566,6 +572,7 @@
 "Not found — locate it in the Tools tab" = "Nenalezeno — vyberte ho na kartě Nástroje";
 "Not installed" = "Nenainstalováno";
 "Not managed by gitch" = "Nespravováno gitch";
+"Nothing to draw" = "Není co kreslit";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Není co vrátit zpět. Zde lze vrátit operace jako commit, sloučení, rebase, přepnutí větve a smazání větve.";
 "Off" = "Vypnuto";
 "On" = "Zapnuto";
@@ -583,11 +590,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Změnily se jen mezery (chcete-li je vidět, vypněte Ignorovat mezery).";
 "Open" = "Otevřít";
 "Open a new terminal window to start using gitch." = "Otevřete nové okno terminálu a začněte gitch používat.";
+"Open anyway" = "Přesto otevřít";
 "Open in Gitrochi" = "Otevřít v Gitrochi";
 "Open in Terminal" = "Otevřít v Terminálu";
 "Open in browser" = "Otevřít v prohlížeči";
 "Open in the terminal below" = "Otevřít v terminálu dole";
-"Open or clone another repository, recent repositories, close tabs" = "Otevřít nebo klonovat jiný repozitář, nedávné repozitáře, zavřít karty";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "Otevřít nebo klonovat jiný repozitář, nedávné repozitáře, graf struktury, zavřít karty";
 "Open releases page" = "Otevřít stránku vydání";
 "Open repository…" = "Otevřít repozitář…";
 "Open that one instead? The disk image will be ejected." = "Otevřít místo toho tamten? Obraz disku bude vysunut.";
@@ -793,6 +801,8 @@
 "Stashes %lld" = "Stashe %1$lld";
 "Stashing…" = "Ukládání do stashe…";
 "Stash… (save changes for later)" = "Stash… (odložit změny na později)";
+"Structure graph" = "Graf struktury";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "Graf struktury potřebuje gitch %1$@ nebo novější, ale gitch v Gitrochi má verzi %2$@.";
 "Subject line only, no body" = "Jen předmět, bez těla";
 "Subject within 50 characters" = "Předmět nejvýše 50 znaků";
 "Succeeded" = "Úspěšné";
@@ -957,6 +967,11 @@
 "gitch checks before commit and push" = "Kontroly gitch před commitem a push";
 "gitch commands for this repository" = "Příkazy gitch pro tento repozitář";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch neví, jaký účet tento repozitář používá. Zamkněte ho příkazem gitch use <účet>.";
+"gitch found nothing to draw for %@." = "%1$@: gitch nenašel nic ke kreslení.";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: soubory, které se často commitují společně, a jak často se který mění.";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: který soubor importuje který, pro TypeScript, JavaScript, Python, Go, Rust, Kotlin a Javu. Soubory Swift se propojují podle názvů typů, které používají (přerušované čáry).";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: cíle a balíčky z Package.swift, Tuist, package.json, Cargo, Go a Gradle. Načtení Package.swift trvá několik sekund.";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: složky s velikostí a počtem souborů.";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch drží několik účtů Git odděleně: každý repozitář zamkne na jeden účet, vybírá účet podle pravidel složky nebo organizace a v hácích Git zastaví špatné autory, tajné údaje a vynucené push, v terminálu, pro agenty AI i v Gitrochi.";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch ukládá zálohu před pull, up, sync, fix, undo a amend a ponechává 30 nejnovějších.";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch nastaví autora commitů na %1$@, nasměruje origin (a upstream) na alias SSH účtu %2$@ a pak repozitář zamkne na tento účet.";

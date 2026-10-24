@@ -381,6 +381,8 @@
 "Downloading…" = "ダウンロードしています…";
 "Draft" = "ドラフト";
 "Drawing the graph with %lld commits…" = "%1$lld 件のコミットでグラフを描画しています…";
+"Drawing the structure graph…" = "構造グラフを作成中…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "このリポジトリの import、モジュール、一緒に変わるファイル、フォルダーを gitch graph で描き、ブラウザーで開きます。";
 "Drop" = "除外";
 "Dropping stash…" = "スタッシュを破棄しています…";
 "Drop…" = "破棄 (Drop)…";
@@ -414,7 +416,9 @@
 "Fetching…" = "フェッチしています…";
 "File history" = "ファイルの履歴";
 "File history — commits that changed this file" = "ファイルの履歴 — このファイルを変更したコミット";
+"File imports" = "ファイルの import";
 "File path" = "ファイルパス";
+"Files that change together" = "一緒に変わるファイル";
 "Filter graph" = "グラフを絞り込む";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "グラフを絞り込む — 現在のブランチのみ表示、非表示にしたブランチを再表示 (非表示にするにはサイドバーで右クリック)";
 "Find commits that added or removed this code" = "このコードを追加または削除したコミットを検索";
@@ -424,6 +428,7 @@
 "Focus on the impact on the work" = "業務への影響を中心に";
 "Focus on what changed and why" = "何を・なぜ変更したかを中心に";
 "Folder name" = "フォルダー名";
+"Folder tree" = "フォルダー構成";
 "Follow system language" = "システムの言語に従う";
 "Followed when explaining commits and changes." = "コミットや変更を説明するときに従います。";
 "Followed when writing commit messages or splitting changes into commits." = "コミットメッセージを書くときや、変更を複数のコミットに分割するときに従います。";
@@ -521,6 +526,7 @@
 "Modified" = "変更済み";
 "Modified files" = "変更したファイル";
 "Modified files appear here." = "変更したファイルがここに表示されます。";
+"Module dependencies" = "モジュールの依存関係";
 "Move Gitrochi to the Applications folder?" = "Gitrochi をアプリケーションフォルダに移動しますか？";
 "Move to Applications" = "アプリケーションフォルダに移動";
 "Moves %@ '%@' back to %@." = "%1$@ '%2$@' を %3$@ に戻します。";
@@ -581,6 +587,7 @@
 "Not found — locate it in the Tools tab" = "見つかりません — ツールタブで場所を指定してください";
 "Not installed" = "未インストール";
 "Not managed by gitch" = "gitch の管理対象外";
+"Nothing to draw" = "描くものがありません";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "元に戻せる操作はありません。コミット、マージ、リベース、チェックアウト、ブランチの削除などの操作は、ここで元に戻せます。";
 "Off" = "オフ";
 "On" = "オン";
@@ -598,11 +605,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "空白のみ変更されています (「空白を無視」をオフにすると表示されます)。";
 "Open" = "開く";
 "Open a new terminal window to start using gitch." = "新しいターミナルウィンドウを開くと gitch を使えます。";
+"Open anyway" = "それでも開く";
 "Open in Gitrochi" = "Gitrochi で開く";
 "Open in Terminal" = "ターミナルで開く";
 "Open in browser" = "ブラウザーで開く";
 "Open in the terminal below" = "下のターミナルで開く";
-"Open or clone another repository, recent repositories, close tabs" = "別のリポジトリを開く・クローン、最近のリポジトリ、タブを閉じる";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "別のリポジトリを開く・クローン、最近のリポジトリ、構造グラフ、タブを閉じる";
 "Open releases page" = "リリースページを開く";
 "Open repository…" = "リポジトリを開く…";
 "Open that one instead? The disk image will be ejected." = "代わりにそちらを開きますか？ディスクイメージは取り出されます。";
@@ -814,6 +822,8 @@
 "Stashing…" = "スタッシュしています…";
 "Stash…" = "スタッシュ…";
 "Stash… (save changes for later)" = "スタッシュ… (変更を一時的に退避)";
+"Structure graph" = "構造グラフ";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "構造グラフには gitch %1$@ 以降が必要ですが、Gitrochi 内の gitch は %2$@ です。";
 "Subject line only, no body" = "件名のみ、本文なし";
 "Subject within 50 characters" = "件名は 50 文字以内";
 "Succeeded" = "成功";
@@ -977,6 +987,11 @@
 "gitch checks before commit and push" = "コミット・push 前の gitch チェック";
 "gitch commands for this repository" = "このリポジトリの gitch コマンド";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch はこのリポジトリのアカウントを把握していません。gitch use <アカウント> でロックしてください。";
+"gitch found nothing to draw for %@." = "%1$@: gitch は描くものを見つけられませんでした。";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: よく一緒にコミットされるファイルと、各ファイルの変更回数。";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: どのファイルがどのファイルを import しているか (TypeScript、JavaScript、Python、Go、Rust、Kotlin、Java)。Swift のファイルは使っている型名でつなぎます (点線)。";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: Package.swift、Tuist、package.json、Cargo、Go、Gradle のターゲットとパッケージ。Package.swift の読み込みには数秒かかります。";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: フォルダーごとのサイズとファイル数。";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch は複数の Git アカウントが混ざらないようにします。リポジトリごとにアカウントをロックし、フォルダや組織のルールでアカウントを選び、誤った作成者・秘密情報・強制 push を git フックで防ぎます。ターミナル、AI エージェント、Gitrochi のすべてに適用されます。";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch は pull・up・sync・fix・undo・amend の前にバックアップを保存し、最新の 30 件を保持します。";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch はコミット作成者を %1$@ に設定し、origin（と upstream）を %2$@ の SSH エイリアスに向けてから、リポジトリをそのアカウントにロックします。";

@@ -374,6 +374,8 @@
 "Downloading…" = "Letöltés…";
 "Draft" = "Piszkozat";
 "Drawing the graph with %lld commits…" = "Gráf rajzolása (%1$lld commit)…";
+"Drawing the structure graph…" = "Szerkezeti gráf rajzolása…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "A gitch graph segítségével megrajzolja a tároló importjait, moduljait, együtt változó fájljait vagy mappáit, és megnyitja a böngészőben.";
 "Drop" = "Kihagyás";
 "Dropping stash…" = "Stash eldobása…";
 "Drop…" = "Eldobás…";
@@ -405,7 +407,9 @@
 "Fetching…" = "Fetch folyamatban…";
 "File history" = "Fájlelőzmények";
 "File history — commits that changed this file" = "Fájlelőzmények — a fájlt módosító commitok";
+"File imports" = "Fájlimportok";
 "File path" = "Fájl útvonala";
+"Files that change together" = "Együtt változó fájlok";
 "Filter graph" = "Gráf szűrése";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "Gráf szűrése — csak az aktuális ág megjelenítése, rejtett ágak újbóli megjelenítése (az oldalsávon jobb kattintással rejthetők el)";
 "Find commits that added or removed this code" = "Commitok keresése, amelyek hozzáadták vagy eltávolították ezt a kódot";
@@ -415,6 +419,7 @@
 "Focus on the impact on the work" = "A munkára gyakorolt hatásra fókuszáljon";
 "Focus on what changed and why" = "Arra fókuszáljon, mi és miért változott";
 "Folder name" = "Mappa neve";
+"Folder tree" = "Mappafa";
 "Follow system language" = "A rendszer nyelvének követése";
 "Followed when explaining commits and changes." = "Commitok és módosítások magyarázatakor érvényes.";
 "Followed when writing commit messages or splitting changes into commits." = "Commitüzenetek írásakor és a módosítások commitokra bontásakor érvényes.";
@@ -511,6 +516,7 @@
 "Modified" = "Módosítva";
 "Modified files" = "Módosított fájlok";
 "Modified files appear here." = "A módosított fájlok itt jelennek meg.";
+"Module dependencies" = "Modulfüggőségek";
 "Move Gitrochi to the Applications folder?" = "Áthelyezi a Gitrochit az Alkalmazások mappába?";
 "Move to Applications" = "Áthelyezés az Alkalmazásokba";
 "Moves %@ '%@' back to %@." = "Visszaállítja az elemet (%1$@: '%2$@') erre: %3$@.";
@@ -571,6 +577,7 @@
 "Not found — locate it in the Tools tab" = "Nem található — válassza ki az Eszközök lapon";
 "Not installed" = "Nincs telepítve";
 "Not managed by gitch" = "Nem a gitch kezeli";
+"Nothing to draw" = "Nincs mit megrajzolni";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Nincs visszavonható művelet. Itt vonhatók vissza például a commit, egyesítés, rebase, átváltás és ágtörlés műveletek.";
 "Off" = "Ki";
 "On" = "Be";
@@ -588,11 +595,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Csak térközök változtak (a megtekintéshez kapcsolja ki a Térközök figyelmen kívül hagyása beállítást).";
 "Open" = "Megnyitás";
 "Open a new terminal window to start using gitch." = "Nyisson új terminálablakot a gitch használatához.";
+"Open anyway" = "Megnyitás mégis";
 "Open in Gitrochi" = "Megnyitás a Gitrochiben";
 "Open in Terminal" = "Megnyitás a Terminálban";
 "Open in browser" = "Megnyitás böngészőben";
 "Open in the terminal below" = "Megnyitás az alsó terminálban";
-"Open or clone another repository, recent repositories, close tabs" = "Másik tároló megnyitása vagy klónozása, legutóbbi tárolók, lapok bezárása";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "Másik tároló megnyitása vagy klónozása, legutóbbi tárolók, szerkezeti gráf, lapok bezárása";
 "Open releases page" = "Kiadások oldalának megnyitása";
 "Open repository…" = "Tároló megnyitása…";
 "Open that one instead? The disk image will be ejected." = "Inkább azt nyitja meg? A lemezkép ki lesz adva.";
@@ -798,6 +806,8 @@
 "Stashes %lld" = "Stash-ek %1$lld";
 "Stashing…" = "Stash folyamatban…";
 "Stash… (save changes for later)" = "Stash… (módosítások félretétele későbbre)";
+"Structure graph" = "Szerkezeti gráf";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "A szerkezeti gráfhoz gitch %1$@ vagy újabb kell, de a Gitrochiben lévő gitch verziója %2$@.";
 "Subject line only, no body" = "Csak tárgysor, törzs nélkül";
 "Subject within 50 characters" = "A tárgy legfeljebb 50 karakter";
 "Succeeded" = "Sikeres";
@@ -959,6 +969,11 @@
 "gitch checks before commit and push" = "gitch-ellenőrzések commit és push előtt";
 "gitch commands for this repository" = "gitch-parancsok ehhez a tárolóhoz";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "A gitch nem tudja, melyik fiókot használja ez a tároló. Zárolja a gitch use <fiók> paranccsal.";
+"gitch found nothing to draw for %@." = "%1$@: a gitch nem talált megrajzolnivalót.";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: a gyakran együtt commitolt fájlok, és hogy az egyes fájlok milyen gyakran változnak.";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: melyik fájl melyiket importálja (TypeScript, JavaScript, Python, Go, Rust, Kotlin és Java). A Swift-fájlokat az általuk használt típusnevek alapján köti össze (szaggatott vonalak).";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: targetek és csomagok a Package.swift, a Tuist, a package.json, a Cargo, a Go és a Gradle alapján. A Package.swift beolvasása néhány másodpercig tart.";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: mappák a méretükkel és a fájljaik számával.";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "A gitch külön tartja a Git-fiókokat: minden tárolót egy fiókhoz zárol, mappa- vagy szervezeti szabály alapján választ fiókot, és Git-hookokkal megállítja a rossz szerzőt, a titkos adatokat és a kényszerített pusht, a terminálban, az AI-ügynököknél és a Gitrochiben is.";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "A gitch a pull, up, sync, fix, undo és amend előtt biztonsági mentést készít, és a 30 legutóbbit megtartja.";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "A gitch a commitok szerzőjét %1$@ értékre állítja, az origin (és upstream) címet a(z) %2$@ SSH-aliasára irányítja, majd a tárolót ehhez a fiókhoz zárolja.";

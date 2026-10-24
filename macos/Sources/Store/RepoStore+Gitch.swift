@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 extension RepoStore {
     /// gitch 가 보는 이 저장소의 계정과 점검을 다시 읽는다. fetch 면 원격을 받아 받을 커밋까지 본다(몇 초).
@@ -100,5 +100,44 @@ extension RepoStore {
         let pick = String(index + 1)
         if let branch { return await runGitch(["rescue", pick, "--branch", branch]) }
         return await runGitch(["rescue", pick, "--restore", "--yes"])
+    }
+
+    /// 구조 그래프를 그리는 동안 툴바에 보일 글(관계 이름까지 넣으면 툴바 버튼이 밀려나서 짧게)
+    var graphProgress: String? {
+        drawingGraph == nil ? nil : String(localized: "Drawing the structure graph…")
+    }
+
+    /// 구조 그래프(gitch graph)를 html 로 만들어 기본 브라우저로 연다. 실패하면 gitch 가 낸 문구를 보여 준다.
+    func openStructureGraph(_ relation: Gitch.GraphRelation) async {
+        guard let url, drawingGraph == nil else { return }
+        drawingGraph = relation
+        defer { drawingGraph = nil }
+        // 메뉴가 닫히고 브라우저가 뜨기까지 몇 초 걸릴 수 있어 VoiceOver 에 먼저 알린다
+        if let text = graphProgress { AccessibilityNotification.Announcement(text).post() }
+        do {
+            let page = try await Gitch.graph(relation, in: url)
+            guard self.url == url else { return }
+            if page.nodes == 0 {
+                // 빈 페이지를 띄우기보다 gitch 가 찾지 못한 것을 먼저 알린다
+                confirm = ConfirmRequest(title: String(localized: "Nothing to draw"),
+                                         message: page.hint ?? String(localized: "gitch found nothing to draw for \(relation.title)."),
+                                         actionTitle: String(localized: "Open anyway"), destructive: false) { [weak self] in
+                    await self?.openGraphPage(page.file)
+                }
+            } else {
+                await openGraphPage(page.file)
+            }
+        } catch {
+            guard self.url == url else { return }
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func openGraphPage(_ file: URL) async {
+        do {
+            try await Launcher.openInBrowser(file)
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
     }
 }

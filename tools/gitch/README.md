@@ -57,7 +57,7 @@ gitch doctor
 | `up` · `sync` · `fix` · `rescue` · `ignore` | 커밋 칸 위 ⋯ 메뉴 |
 | `protect` | 사이드바 브랜치 우클릭 — 보호된 브랜치에는 방패 표시 |
 | `c` · `p` · `pl` · `b` · `wt` · `pr` · `ci` · `continue` · `abort` | 앱의 커밋 · push · pull · 브랜치 · 워크트리 · PR · CI 화면(앱도 시스템 git 을 써서 gitch 훅이 그대로 걸린다) |
-| `graph` | 아직 없음 — CLI 만(터미널에서 `gitch graph`, 아래 「구조 그래프」) |
+| `graph` | 저장소 메뉴(툴바의 폴더 아이콘 · 메뉴 막대 Repository) › 구조 그래프 — 관계를 고르면 html 을 만들어 기본 브라우저로 연다(아래 「구조 그래프」) |
 
 ## 예전 이름 gitsw
 

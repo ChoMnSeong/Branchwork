@@ -1,8 +1,10 @@
 import Foundation
+import CryptoKit
 
 /// gitch — 여러 Git 계정을 섞이지 않게 쓰는 셸 도구(tools/gitch, 예전 이름 gitsw).
 /// 앱 안(Contents/Resources/gitch)에 함께 들어 있고 설정 > CLI 에서 셸 명령으로 설치한다.
 /// 저장소 화면은 gitch 가 보는 이 저장소의 계정(잠금)과 커밋·push 전 점검을 보여 주고, 계정을 바꿀 수 있다.
+/// 저장소 메뉴의 구조 그래프도 gitch(gitch graph)가 그린다.
 enum Gitch {
     struct Failure: LocalizedError {
         let message: String
@@ -70,6 +72,53 @@ enum Gitch {
         let hasChanges: Bool
         var id: String { ref }
     }
+
+    /// gitch graph 가 그리는 관계(tools/gitch/README.md 「구조 그래프」)
+    enum GraphRelation: String, CaseIterable, Identifiable {
+        case files, modules, changes, tree
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .files: return String(localized: "File imports")
+            case .modules: return String(localized: "Module dependencies")
+            case .changes: return String(localized: "Files that change together")
+            case .tree: return String(localized: "Folder tree")
+            }
+        }
+
+        /// 메뉴 항목 설명: 터미널에서 같은 그림을 그리는 명령과 무엇을 읽는지
+        var detail: String {
+            switch self {
+            case .files: return String(localized: "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines).")
+            case .modules: return String(localized: "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds.")
+            case .changes: return String(localized: "gitch graph changes: files that are often committed together, and how often each one changes.")
+            case .tree: return String(localized: "gitch graph tree: folders with their size and number of files.")
+            }
+        }
+    }
+
+    /// gitch graph 가 만든 html
+    struct GraphPage {
+        let file: URL
+        /// 끝 줄(GRAPH_FILE=… NODES=… EDGES=…)의 노드 수. 그 줄이 없으면 nil
+        let nodes: Int?
+        /// 그릴 것이 없을 때 gitch 가 낸 안내(⚠ 줄, 문구 그대로)
+        let hint: String?
+    }
+
+    /// gitch graph 가 생긴 버전
+    static let graphMinimumVersion = "3.2.0"
+
+    /// 구조 그래프를 그릴 수 없는 이유 — 앱에 든 gitch 가 없거나 gitch graph 가 생기기 전 버전이다. 그릴 수 있으면 nil.
+    /// 설치한 셸 명령은 따로 받은 예전 gitch 일 수 있어서 앱에 든 것만 본다(그래프는 계정 설정이 필요 없다).
+    static let graphUnavailableReason: String? = {
+        guard let exe = bundled else { return String(localized: "Couldn't find gitch inside Gitrochi.") }
+        guard let v = version(at: exe), v.compare(graphMinimumVersion, options: .numeric) != .orderedAscending else {
+            return String(localized: "Structure graph needs gitch \(graphMinimumVersion) or later, but the gitch inside Gitrochi is \(version(at: exe) ?? "?").")
+        }
+        return nil
+    }()
 
     /// 앱에 든 gitch
     static var bundled: String? { Bundle.main.path(forResource: "gitch", ofType: nil) }
@@ -194,6 +243,37 @@ enum Gitch {
     static func openInTerminal(_ args: [String], in path: String? = nil) throws {
         guard let exe = executable else { throw Failure(message: String(localized: "Couldn't find gitch inside Gitrochi.")) }
         try Launcher.run("/bin/bash", args: [exe] + args, in: path ?? NSHomeDirectory())
+    }
+
+    /// 앱에 든 gitch 로 `gitch graph <관계> --format html --out <임시 파일> --no-open` — CDN 없는 한 페이지를 만든다.
+    /// modules 는 Package.swift 마다 swift package describe 로 몇 초, 큰 저장소의 files 도 몇 초 걸린다(프로세스를 기다리고 출력을 읽는 일은 메인 스레드 밖에서).
+    static func graph(_ relation: GraphRelation, in repo: URL) async throws -> GraphPage {
+        if let reason = graphUnavailableReason { throw Failure(message: reason) }
+        guard let exe = bundled else { throw Failure(message: String(localized: "Couldn't find gitch inside Gitrochi.")) }
+        let file = graphFile(relation, in: repo)
+        let r = try await Shell.run("/bin/bash", [exe, "graph", relation.rawValue, "--format", "html", "--out", file.path, "--no-open"],
+                                    cwd: repo, env: environment, timeout: 600)
+        let out = plain(r.output)
+        guard r.status == 0 else {
+            // 왜 못 그렸는지는 gitch 가 표준오류에 낸다
+            let err = plain(r.stderr)
+            throw Failure(message: !err.isEmpty ? err : !out.isEmpty ? out : "exit \(r.status)")
+        }
+        let lines = out.components(separatedBy: "\n")
+        // 경로에 빈칸이 있을 수 있어 NODES= 는 끝 줄의 뒤에서 찾는다
+        let summary = lines.last { $0.hasPrefix("GRAPH_FILE=") }
+        let nodes = summary.flatMap { s in s.range(of: " NODES=", options: .backwards).flatMap { Int(s[$0.upperBound...].prefix { $0.isNumber }) } }
+        let hint = lines.first { $0.hasPrefix("⚠") }.map { $0.dropFirst().trimmingCharacters(in: .whitespaces) }
+        return GraphPage(file: file, nodes: nodes, hint: hint)
+    }
+
+    /// 임시 폴더의 gitch-graph/(터미널의 gitch graph 가 쓰는 곳)에 <저장소 폴더>-<관계>-<경로 해시>.html.
+    /// 다시 그리면 덮어쓰고, 폴더 이름이 같은 다른 저장소 · 워크트리와는 해시로 갈린다.
+    private static func graphFile(_ relation: GraphRelation, in repo: URL) -> URL {
+        let hash = SHA256.hash(data: Data(repo.path.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined()
+        return FileManager.default.temporaryDirectory
+            .appendingPathComponent("gitch-graph", isDirectory: true)
+            .appendingPathComponent("\(repo.lastPathComponent)-\(relation.rawValue)-\(hash).html")
     }
 
     private static func json<T: Decodable>(_ args: [String], in repo: URL) async -> T? {

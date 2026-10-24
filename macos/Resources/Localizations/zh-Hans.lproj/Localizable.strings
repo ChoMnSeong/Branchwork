@@ -382,6 +382,8 @@
 "Downloading…" = "正在下载…";
 "Draft" = "草稿";
 "Drawing the graph with %lld commits…" = "正在用 %1$lld 个提交绘制提交图…";
+"Drawing the structure graph…" = "正在绘制结构图…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "用 gitch graph 绘制此仓库的导入、模块、一起变更的文件或文件夹，并在浏览器中打开。";
 "Drop" = "移除";
 "Dropping stash…" = "正在删除贮藏…";
 "Drop…" = "删除…";
@@ -415,7 +417,9 @@
 "Fetching…" = "正在抓取…";
 "File history" = "文件历史";
 "File history — commits that changed this file" = "文件历史 — 更改过此文件的提交";
+"File imports" = "文件导入";
 "File path" = "文件路径";
+"Files that change together" = "一起变更的文件";
 "Filter graph" = "筛选提交图";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "筛选提交图 — 仅显示当前分支、重新显示已隐藏的分支（在侧边栏中右键单击可隐藏分支）";
 "Find commits that added or removed this code" = "查找添加或删除了此代码的提交";
@@ -425,6 +429,7 @@
 "Focus on the impact on the work" = "侧重对工作的影响";
 "Focus on what changed and why" = "侧重更改了什么以及原因";
 "Folder name" = "文件夹名称";
+"Folder tree" = "文件夹结构";
 "Follow system language" = "跟随系统语言";
 "Followed when explaining commits and changes." = "解释提交和更改时遵循。";
 "Followed when writing commit messages or splitting changes into commits." = "编写提交信息或将更改拆分为多个提交时遵循。";
@@ -522,6 +527,7 @@
 "Modified" = "已修改";
 "Modified files" = "已修改的文件";
 "Modified files appear here." = "已修改的文件会显示在这里。";
+"Module dependencies" = "模块依赖";
 "Move Gitrochi to the Applications folder?" = "要将 Gitrochi 移到“应用程序”文件夹吗？";
 "Move to Applications" = "移到“应用程序”文件夹";
 "Moves %@ '%@' back to %@." = "将%1$@“%2$@”退回到 %3$@。";
@@ -582,6 +588,7 @@
 "Not found — locate it in the Tools tab" = "未找到 — 请在“工具”标签页中定位";
 "Not installed" = "未安装";
 "Not managed by gitch" = "不受 gitch 管理";
+"Nothing to draw" = "没有可绘制的内容";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "没有可撤销的操作。提交、合并、变基、检出和删除分支等操作可以在这里撤销。";
 "OK" = "确定";
 "Off" = "关";
@@ -600,11 +607,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "仅空白发生更改（关闭“忽略空白”即可查看）。";
 "Open" = "打开";
 "Open a new terminal window to start using gitch." = "打开新的终端窗口即可使用 gitch。";
+"Open anyway" = "仍然打开";
 "Open in Gitrochi" = "在 Gitrochi 中打开";
 "Open in Terminal" = "在“终端”中打开";
 "Open in browser" = "在浏览器中打开";
 "Open in the terminal below" = "在下方终端中打开";
-"Open or clone another repository, recent repositories, close tabs" = "打开或克隆其他仓库、最近的仓库、关闭标签页";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "打开或克隆其他仓库、最近的仓库、结构图、关闭标签页";
 "Open releases page" = "打开发布页面";
 "Open repository…" = "打开仓库…";
 "Open that one instead? The disk image will be ejected." = "改为打开那个吗？磁盘映像将被推出。";
@@ -816,6 +824,8 @@
 "Stashing…" = "正在贮藏…";
 "Stash…" = "贮藏…";
 "Stash… (save changes for later)" = "贮藏…（保存更改以便稍后使用）";
+"Structure graph" = "结构图";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "结构图需要 gitch %1$@ 或更高版本，但 Gitrochi 内的 gitch 是 %2$@。";
 "Subject line only, no body" = "仅写标题行，不写正文";
 "Subject within 50 characters" = "标题不超过 50 个字符";
 "Succeeded" = "成功";
@@ -979,6 +989,11 @@
 "gitch checks before commit and push" = "提交和推送前的 gitch 检查";
 "gitch commands for this repository" = "此仓库的 gitch 命令";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch 不知道此仓库使用哪个账户。请用 gitch use <账户> 锁定。";
+"gitch found nothing to draw for %@." = "%1$@：gitch 没有找到可绘制的内容。";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes：经常一起提交的文件，以及每个文件的变更次数。";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files：哪个文件导入了哪个文件（TypeScript、JavaScript、Python、Go、Rust、Kotlin、Java）。Swift 文件按所用的类型名连接（虚线）。";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules：来自 Package.swift、Tuist、package.json、Cargo、Go 和 Gradle 的目标与包。读取 Package.swift 需要几秒钟。";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree：各文件夹的大小和文件数。";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch 让多个 Git 账户互不混用：为每个仓库锁定账户，按文件夹或组织规则选择账户，并在 git 钩子中阻止错误的作者、机密信息和强制推送。适用于终端、AI 代理和 Gitrochi。";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch 会在 pull、up、sync、fix、undo 和 amend 之前保存备份，并保留最近 30 个。";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch 会将提交作者设为 %1$@，把 origin（和 upstream）指向 %2$@ 的 SSH 别名，然后将仓库锁定到该账户。";
