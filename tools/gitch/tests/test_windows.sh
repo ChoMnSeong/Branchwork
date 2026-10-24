@@ -59,3 +59,15 @@ test_windows_install_location() {
   # 앱에 든 gitch 는 앱과 함께 업데이트
   run "$app/gitch" self-update; assert_ok; assert_out "앱과 함께 업데이트"
 }
+
+test_windows_guard_blocks_windows_style_paths() {
+  [ -n "$IS_WIN" ] || return 0
+  mk_config
+  # Windows 의 Claude Code 는 Edit/Write 경로와 작업 폴더를 C:\Users\… 로 보낸다 (대소문자도 다를 수 있음)
+  local w; w=$(cygpath -w "$HOME/.ssh/config")
+  [ "$(ge "$w")" = deny ] || fail "Edit $w 는 deny"
+  [ "$(ge "$(printf '%s' "$w" | tr '[:lower:]' '[:upper:]')")" = deny ] || fail "대문자 경로도 deny"
+  [ "$(ge "$(cygpath -m "$HOME/.gitconfig")")" = deny ] || fail "C:/…/.gitconfig 는 deny"
+  [ "$(ge "$(cygpath -w "$HOME/notes.txt")")" = none ] || fail "다른 파일은 그대로"
+  [ "$(gd 'echo x > .gitconfig' "$(cygpath -w "$HOME")")" = deny ] || fail "작업 폴더가 C:\… 여도 상대 경로를 막아야 함"
+}

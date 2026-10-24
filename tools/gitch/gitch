@@ -3701,16 +3701,19 @@ g_decide() {   # $1 ask|deny $2 이유 — 더 강한 결정만 반영
   esac
   return 0
 }
-g_path() { local p; p=$(expand_path "$1"); case "$p" in /*) ;; *) p="$G_CWD/$p" ;; esac; printf '%s' "$p"; }
+g_path() { local p; p=$(posix_path "$(expand_path "$1")"); case "$p" in /*) ;; *) p="$G_CWD/$p" ;; esac; printf '%s' "$p"; }
+# Windows 의 Claude Code 는 경로를 C:\Users\… 로 보낸다 → Git Bash 경로(/c/Users/…)로 바꿔야 ~/.ssh 등과 비교된다
+posix_path() { if [ -n "$IS_WINDOWS" ]; then case "$1" in [A-Za-z]:[\\/]*|[A-Za-z]:) cygpath -u "$1" 2>/dev/null && return ;; esac; fi; printf '%s' "$1"; }
 g_has() { local i=$1 w; shift; for w in "${GW[@]:$i}"; do [ "$w" = "$1" ] && return 0; done; return 1; }
 g_has_prefix() { local i=$1 w; shift; for w in "${GW[@]:$i}"; do case "$w" in "$1"*) return 0 ;; esac; done; return 1; }
 g_in_list() { local x="$1" w; shift; for w in "$@"; do [ "$w" = "$x" ] && return 0; done; return 1; }
 
-g_protected() {   # gitch 가 관리하는 파일인지
-  local p; p=$(g_path "$1")
+g_protected() {   # gitch 가 관리하는 파일인지 (Windows 는 대소문자를 가리지 않는 파일 시스템이라 소문자로 비교)
+  local p h="$HOME" c="$CFG" dd="$DATA_DIR"; p=$(g_path "$1")
+  if [ -n "$IS_WINDOWS" ]; then p=$(lower "$p"); h=$(lower "$h"); c=$(lower "$c"); dd=$(lower "$dd"); fi
   case "$p" in
-    "$HOME/.ssh"|"$HOME/.ssh/"*|"$HOME/.gitconfig"|"$HOME/.gitconfig-"*|"$HOME/.config/git/config") return 0 ;;
-    "$CFG"|"$(dirname "$CFG")"|"$(dirname "$CFG")/"*|"$DATA_DIR"|"$DATA_DIR/"*) return 0 ;;
+    "$h/.ssh"|"$h/.ssh/"*|"$h/.gitconfig"|"$h/.gitconfig-"*|"$h/.config/git/config") return 0 ;;
+    "$c"|"$(dirname "$c")"|"$(dirname "$c")/"*|"$dd"|"$dd/"*) return 0 ;;
     */.git/config|*/.git/hooks|*/.git/hooks/*) return 0 ;;
   esac
   return 1
@@ -4131,7 +4134,7 @@ guard_cmd() {   # gitch guard --claude  (Claude Code PreToolUse 훅)
   case "$input" in *git*|*GIT*|*.ssh*|*ssh-*|*hooks*) ;; *) return 0 ;; esac
   { IFS= read -r -d '' tool; IFS= read -r -d '' cwd; IFS= read -r -d '' arg; } < <(printf '%s' "$input" | \
     jq -j '(.tool_name // ""), "\u0000", (.cwd // ""), "\u0000", (.tool_input.command // .tool_input.file_path // .tool_input.notebook_path // ""), "\u0000"' 2>/dev/null)
-  G_DEC=""; G_REASON=""; G_CWD=${cwd:-$PWD}
+  G_DEC=""; G_REASON=""; G_CWD=$(posix_path "${cwd:-$PWD}")
   case "$tool" in
     Bash) guard_bash "$arg" ;;
     Edit|Write|MultiEdit|NotebookEdit) guard_file_edit "$arg" ;;
