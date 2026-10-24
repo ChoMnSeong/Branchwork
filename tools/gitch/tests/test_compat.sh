@@ -17,6 +17,14 @@ test_install_links_gitch_and_gitsw_shim() {
   run gitsw status --json; assert_ok; assert_json "$OUT"
 }
 
+test_app_opens_gitrochi() {
+  mac_only || return 0                                   # Windows 는 설치 폴더의 Gitrochi.exe 를 기본 앱으로 연다
+  local app="$HOME/Applications/Gitrochi.app"
+  mkdir -p "$app/Contents/Resources" && cp "$GITSW_SRC" "$app/Contents/Resources/gitch"
+  run "$app/Contents/Resources/gitch" app; assert_ok "gitch app"; assert_out "Gitrochi 를 엽니다"
+  grep -qF "open -a $app" "$T/opened" || fail "이 gitch 가 든 앱을 열지 않음\n$(cat "$T/opened" 2>&1)"
+}
+
 test_install_keeps_user_gitsw_file() {
   mk_config
   printf '#!/bin/sh\necho mine\n' > "$HOME/bin/gitsw"; chmod +x "$HOME/bin/gitsw"

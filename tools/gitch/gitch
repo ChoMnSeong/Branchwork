@@ -2374,6 +2374,23 @@ open_cmd() {
   say "$u"; open_url "$u"
 }
 
+app_cmd() {   # Gitrochi 앱을 연다 — 이 gitch 가 든 앱, 없으면 설치된 앱(맥: 응용 프로그램 폴더, Windows: 설치 폴더)
+  local self app="" d
+  self=$(self_path)
+  if [ -n "$IS_WINDOWS" ]; then
+    [ -f "$(dirname "$self")/Gitrochi.exe" ] && app="$(dirname "$self")/Gitrochi.exe"
+    [ -z "$app" ] && [ -n "${LOCALAPPDATA:-}" ] && d="$(posix_path "$LOCALAPPDATA")/Gitrochi/Gitrochi.exe" && [ -f "$d" ] && app=$d
+    [ -n "$app" ] || die "Gitrochi 앱을 찾지 못했습니다 — https://github.com/$GITCH_RELEASES/releases/latest 의 setup.exe 로 설치하세요."
+    browse "$(cygpath -w "$app" 2>/dev/null || printf '%s' "$app")"
+  else
+    case "$self" in *.app/Contents/Resources/gitch) app=${self%/Contents/Resources/gitch} ;; esac
+    if [ -z "$app" ]; then for d in /Applications "$HOME/Applications"; do [ -d "$d/Gitrochi.app" ] && { app="$d/Gitrochi.app"; break; }; done; fi
+    [ -n "$app" ] || die "Gitrochi 앱을 찾지 못했습니다 — https://github.com/$GITCH_RELEASES/releases/latest 에서 받아 응용 프로그램 폴더에 두세요."
+    open -a "$app" || die "앱을 열지 못했습니다: $(tilde "$app")"
+  fi
+  ok "Gitrochi 를 엽니다: $(tilde "$app")"
+}
+
 # ================= 백업 복구 / 정리 / 워크트리 =================
 
 rescue_line() {   # $1 번호 $2 ref
@@ -9138,6 +9155,7 @@ gitch $GITSW_VERSION — 여러 Git 계정 관리 (계정: $(account_names))
   gitch continue / gitch abort             충돌난 rebase/merge 이어가기 / 취소
   gitch rescue [번호] [--branch 이름|--restore]  자동 백업 목록 / 복구
   gitch o                                  저장소 웹페이지
+  gitch app                                Gitrochi 앱 열기
 
 PR / MR
   gitch pr --title 제목 [--body 내용] [--base 브랜치] [--draft] [--web]
@@ -9239,6 +9257,7 @@ case "${1:-}" in
   abort) shift; abort_cmd "$@"; exit $? ;;
   rescue) shift; rescue_cmd "$@"; exit $? ;;
   o|open) open_cmd; exit $? ;;
+  app) app_cmd; exit $? ;;
   pr|mr) shift; pr_cmd "$@"; exit $? ;;
   ci) ci_cmd; exit $? ;;
   publish) shift; publish_cmd "$@"; exit $? ;;

@@ -65,6 +65,7 @@ Git for Windows(Git Bash)만 있으면 된다. gitch 는 bash 스크립트라 Gi
 | gitch | 앱 |
 |---|---|
 | `install` · `list` · `doctor` | 설정 > CLI |
+| `app` | 앱 자체 — 터미널에서 이 gitch 가 든 Gitrochi(없으면 응용 프로그램 폴더 · Windows 설치 폴더의 앱)를 연다 |
 | `add` · `setup` | 설정 > CLI 에서 Terminal 로 연다(묻는 것이 있어서) |
 | `status` · `preflight` | 커밋 칸 위 — 계정(잠금)과 점검 결과, 누르면 점검 항목 · fetch 하고 다시 점검 |
 | `use` · `unlock` | 커밋 칸 위 계정 이름 |
