@@ -5967,97 +5967,190 @@ END {
 AWKEOF
 }
 
-# 표준입력 JSON → 오프라인 한 페이지(CDN 없음). canvas 에 그리고 확대 · 이동 · 찾기 · 누르면 이웃 강조.
-# JSON 의 < 는 < 로 바꿔 넣는다 — 데이터 속 </script> 가 페이지를 끊지 않게
+# 표준입력 JSON → 오프라인 한 페이지(CDN 없음). 옵시디언 그래프 보기처럼: 어두운 캔버스, 마우스를 올리면 이웃만 밝게,
+# 확대하면 이름이 나타나고, 설정 창(필터 · 묶음 · 표시 · 힘)으로 고친다. 표로 보기도 있다(색만으로 구별하지 않게).
+# 노드 색은 검증한 범주 색 세 칸(파랑 · 주황 · 청록)만 언어 계열에 주고 나머지는 회색 — 그래프는 어느 두 노드든 붙어 있을 수 있어서
+# 세 칸을 넘으면 서로 구별이 안 된다. 강조는 보라. JSON 의 < 는 < 로 바꿔 넣는다 — 데이터 속 </script> 가 페이지를 끊지 않게
 graph_html() {
   cat <<'HTMLEOF'
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>gitch graph</title>
 <style>
 :root {
-  --bg: #ffffff; --panel: #f6f7f9; --text: #1d2330; --muted: #687085; --line: #dde1e8;
-  --accent: #3d6df2; --incoming: #e07a2e; --edge: #8a94a6; --halo: rgba(255, 255, 255, .88); --shadow: 0 6px 24px rgba(20, 30, 50, .12);
-  color-scheme: light dark;
+  color-scheme: dark;
+  --bg: #1e1e1e; --panel: rgba(37, 37, 38, .86); --panel-solid: #252526; --hover: rgba(255, 255, 255, .06); --border: rgba(255, 255, 255, .09);
+  --text: #dcddde; --text-2: #b3b3b3; --muted: #8a8a8a; --halo: rgba(30, 30, 30, .9); --shadow: 0 10px 34px rgba(0, 0, 0, .45);
+  --line: rgba(255, 255, 255, .13); --accent: #9085e9; --accent-soft: rgba(144, 133, 233, .2);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --node-other: #a3a3a3; --node-ext: #6f6f6f;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14161b; --panel: #1c1f26; --text: #e6e8ee; --muted: #8d95a7; --line: #2b303a;
-    --accent: #7fa4ff; --incoming: #f0a060; --edge: #9aa4b8; --halo: rgba(20, 22, 27, .88); --shadow: 0 6px 24px rgba(0, 0, 0, .4);
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff; --panel: rgba(250, 250, 250, .9); --panel-solid: #fafafa; --hover: rgba(0, 0, 0, .05); --border: rgba(0, 0, 0, .1);
+  --text: #222222; --text-2: #4d4d4d; --muted: #7a7a7a; --halo: rgba(255, 255, 255, .92); --shadow: 0 10px 34px rgba(20, 20, 40, .14);
+  --line: rgba(0, 0, 0, .13); --accent: #6250d6; --accent-soft: rgba(98, 80, 214, .14);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --node-other: #7d7d7d; --node-ext: #a6a6a6;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", "Noto Sans KR", sans-serif; }
-body { display: flex; flex-direction: column; overflow: hidden; }
-header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
-header h1 { margin: 0; font-size: 14px; font-weight: 600; white-space: nowrap; }
-#meta { flex: 1 1 220px; min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-input[type=search], select, button { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
-input[type=search] { width: 210px; max-width: 46vw; }
-button, select, label { cursor: pointer; }
-button:hover, select:hover, input[type=search]:focus { border-color: var(--accent); outline: none; }
-label { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); white-space: nowrap; }
-#hits { min-width: 3em; color: var(--muted); }
-#notes { padding: 5px 12px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
-#notes:empty { display: none; }
-main { position: relative; flex: 1; min-height: 0; }
-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Apple SD Gothic Neo", "Segoe UI", "Noto Sans KR", sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
 canvas.dragging { cursor: grabbing; }
 canvas.over { cursor: pointer; }
-#info { position: absolute; top: 12px; right: 12px; width: min(360px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow: auto; display: none; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
-#info.open { display: block; }
-#info h2 { margin: 0 26px 2px 0; font-size: 15px; word-break: break-all; }
-#info .sub { margin-bottom: 8px; color: var(--muted); }
-#info .close { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border: none; background: none; color: var(--muted); font-size: 18px; line-height: 1; }
-#info table { width: 100%; margin: 4px 0 6px; border-collapse: collapse; }
-#info th { padding: 2px 10px 2px 0; color: var(--muted); font-weight: 500; text-align: left; vertical-align: top; white-space: nowrap; }
-#info td { padding: 2px 0; word-break: break-all; }
-#info h3 { margin: 10px 0 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
-#info h3 .swatch { display: inline-block; width: 14px; height: 3px; margin: 0 6px 3px 0; border-radius: 2px; vertical-align: middle; }
+.hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+[hidden] { display: none !important; }
+.icon-btn { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; }
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+.icon-btn.on { color: var(--accent); background: var(--accent-soft); }
+.icon-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* 왼쪽 위: 이름 · 수 · 찾기 */
+#top { top: 14px; left: 14px; width: min(340px, calc(100vw - 82px)); padding: 12px 12px 10px; }   /* 오른쪽 위 설정 단추 자리를 비운다 */
+#top .row1 { display: flex; align-items: center; gap: 8px; }
+#repo { font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; }
+#top .icon-btn { margin-left: auto; width: 26px; height: 26px; }
+#stats { margin-top: 2px; color: var(--muted); font-size: 12px; }
+#notes { margin: 8px 0 2px; padding: 8px 10px; border-radius: 8px; background: var(--hover); color: var(--text-2); font-size: 12px; }
+#notes p { margin: 0 0 4px; } #notes p:last-child { margin: 0; }
+.search { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 0 10px; height: 34px; border-radius: 8px; background: var(--hover); border: 1px solid transparent; }
+.search:focus-within { border-color: var(--accent); }
+.search svg { flex: none; width: 15px; height: 15px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; }
+.search input::placeholder { color: var(--muted); }
+#hits { flex: none; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+/* 왼쪽: 고른 노드 */
+#info { top: 168px; left: 14px; width: min(340px, calc(100vw - 28px)); max-height: calc(100vh - 182px); overflow: auto; padding: 14px; }
+#info .head { display: flex; align-items: center; gap: 8px; }
+#info h2 { margin: 0; font-size: 15px; font-weight: 650; word-break: break-all; }
+#info .head .icon-btn { margin-left: auto; flex: none; width: 26px; height: 26px; }
+#info .sub { margin: 2px 0 6px; color: var(--muted); font-size: 12px; }
+#info .path { margin-bottom: 8px; color: var(--text-2); font-size: 12px; word-break: break-all; }
+#info table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 12px; }
+#info th { padding: 2px 10px 2px 0; color: var(--muted); font-weight: 500; text-align: left; white-space: nowrap; vertical-align: top; }
+#info td { padding: 2px 0; color: var(--text-2); word-break: break-all; }
+#info h3 { display: flex; align-items: center; gap: 6px; margin: 12px 0 4px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+#info h3 .arrow { color: var(--accent); }
 #info ul { margin: 0; padding: 0; list-style: none; }
-#info li { display: flex; align-items: baseline; gap: 6px; padding: 3px 4px; border-radius: 5px; cursor: pointer; }
-#info li:hover { background: var(--bg); }
-#info li .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
-#info li .name { word-break: break-all; }
-#info li small { margin-left: auto; padding-left: 6px; color: var(--muted); white-space: nowrap; }
-#legend { position: absolute; left: 12px; bottom: 12px; max-width: calc(100% - 24px); max-height: 40%; overflow: auto; display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 6px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-#legend:empty { display: none; }
-#legend button { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: none; background: none; color: var(--text); }
-#legend button.off { opacity: .35; }
-#legend .dot { width: 9px; height: 9px; border-radius: 50%; }
-#legend .n { color: var(--muted); }
-#empty { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: var(--muted); font-size: 15px; }
-#help { position: absolute; top: 8px; right: 12px; color: var(--muted); font-size: 11px; pointer-events: none; }
-#info.open ~ #help { display: none; }
-@media (max-width: 640px) { #help { display: none; } header h1 { display: none; } }
+#info li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+#info li:hover { background: var(--hover); }
+#info li .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#info li small { margin-left: auto; padding-left: 8px; color: var(--muted); white-space: nowrap; }
+.dot { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.dot.ext { border-radius: 2px; transform: rotate(45deg) scale(.85); }
+.dot.sq { border-radius: 2px; }
+/* 오른쪽 위: 설정 */
+#gear { top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 12px; }
+#panel { top: 62px; right: 14px; width: min(290px, calc(100vw - 28px)); max-height: calc(100vh - 140px); overflow: auto; padding: 6px 0; }
+details { border-bottom: 1px solid var(--border); }
+details:last-child { border-bottom: 0; }
+summary { display: flex; align-items: center; gap: 6px; padding: 10px 14px; font-weight: 650; cursor: pointer; list-style: none; user-select: none; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: ""; width: 6px; height: 6px; border-right: 1.6px solid var(--muted); border-bottom: 1.6px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; margin-right: 4px; }
+details[open] summary::before { transform: rotate(45deg); }
+.sec { padding: 0 14px 12px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; color: var(--text-2); }
+.row.col { flex-direction: column; align-items: stretch; gap: 2px; padding: 4px 0; }
+.row.col .lab { display: flex; justify-content: space-between; }
+.row.col .lab b { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.switch { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 32px; height: 18px; margin: 0; border-radius: 999px; background: var(--border); cursor: pointer; transition: background .15s; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .15s; }
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(14px); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 2px; border-radius: 8px; background: var(--hover); }
+.seg button { padding: 4px 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; }
+.seg button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
+.btn { width: 100%; margin-top: 8px; padding: 7px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--hover); color: var(--text); cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.groups { display: grid; gap: 2px; }
+.groups button { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; text-align: left; }
+.groups button:hover { background: var(--hover); }
+.groups button.off { opacity: .38; }
+.groups button .n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* 아래: 범례 · 단추 */
+#legend { bottom: 14px; left: 14px; max-width: calc(100vw - 260px); display: flex; flex-wrap: wrap; gap: 2px 4px; padding: 5px 6px; }
+#legend button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; cursor: pointer; }
+#legend button:hover { background: var(--hover); }
+#legend button.off { opacity: .38; }
+#tools { bottom: 14px; right: 14px; display: flex; gap: 2px; padding: 4px; }
+/* 표로 보기 */
+#table { top: 62px; right: 14px; bottom: 66px; width: min(520px, calc(100vw - 28px)); display: flex; flex-direction: column; }
+#table .head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; font-weight: 650; }
+#table .head span { color: var(--muted); font-weight: 400; font-size: 12px; }
+#table .head .icon-btn { margin-left: auto; width: 26px; height: 26px; }
+#table .wrap { flex: 1; overflow: auto; padding: 0 6px 8px; }
+#table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#table th { position: sticky; top: 0; padding: 6px 8px; background: var(--panel-solid); color: var(--muted); font-weight: 600; text-align: left; cursor: pointer; white-space: nowrap; }
+#table th.num, #table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+#table td { padding: 5px 8px; border-top: 1px solid var(--border); color: var(--text-2); }
+#table td.name { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+#table td.name small, #info li small.dir { color: var(--muted); }
+#table tbody tr { cursor: pointer; }
+#table tbody tr:hover td { background: var(--hover); }
+#table .more { padding: 8px; color: var(--muted); font-size: 12px; }
+/* 마우스를 올린 노드 */
+#tip { position: fixed; z-index: 3; padding: 6px 10px; border-radius: 8px; background: var(--panel-solid); border: 1px solid var(--border); box-shadow: var(--shadow); pointer-events: none; max-width: 360px; }
+#tip b { display: block; font-weight: 600; word-break: break-all; }
+#tip span { color: var(--muted); font-size: 12px; }
+#empty { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 15px; pointer-events: none; }
+@media (max-width: 700px) {
+  #legend { max-width: calc(100vw - 28px); bottom: 66px; }
+  #info { top: auto; bottom: 120px; max-height: 45vh; }
+}
 </style>
 </head>
 <body>
-<header>
-  <h1>gitch graph</h1>
-  <div id="meta"></div>
-  <div class="tools">
-    <input id="q" type="search" placeholder="찾기  /" autocomplete="off" spellcheck="false" aria-label="노드 찾기">
-    <span id="hits"></span>
-    <select id="layout" title="배치" aria-label="배치"></select>
-    <label id="extLabel" title="저장소 밖 패키지 · 모듈"><input type="checkbox" id="ext" checked> 외부</label>
-    <label id="heurLabel" title="이름으로 추정한 연결(점선)"><input type="checkbox" id="heur" checked> 추정</label>
-    <label title="모든 이름 보이기"><input type="checkbox" id="names"> 이름</label>
-    <button id="fit" type="button" title="전체 보기 (F)">전체 보기</button>
-  </div>
-</header>
-<div id="notes"></div>
-<main>
-  <canvas id="c" aria-label="구조 그래프"></canvas>
-  <div id="empty">그릴 것이 없습니다</div>
-  <aside id="info" aria-live="polite"></aside>
-  <div id="legend"></div>
-  <div id="help">끌기 이동 · 휠 확대 · 누르면 연결 강조 · 두 번 누르면 가까이 · Esc 풀기</div>
-</main>
+<canvas id="c" tabindex="0" aria-label="구조 그래프 — 표로 보기는 오른쪽 아래 목록 단추"></canvas>
+<div class="hud" id="top">
+  <div class="row1"><span id="repo">gitch graph</span><span class="chip" id="rel"></span>
+    <button class="icon-btn" id="noteBtn" type="button" title="안내" aria-label="안내" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button></div>
+  <div id="stats"></div>
+  <div id="notes" hidden></div>
+  <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="q" type="search" placeholder="찾기  /" autocomplete="off" spellcheck="false" aria-label="노드 찾기"><span id="hits"></span></label>
+</div>
+<aside class="hud" id="info" aria-live="polite" hidden></aside>
+<button class="hud icon-btn" id="gear" type="button" title="그래프 설정" aria-label="그래프 설정" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+<aside class="hud" id="panel" hidden>
+  <details open><summary>필터</summary><div class="sec">
+    <label class="row" id="extRow">외부 패키지 · 모듈<input class="switch" type="checkbox" id="ext" checked></label>
+    <label class="row" id="heurRow">추정 연결(점선)<input class="switch" type="checkbox" id="heur" checked></label>
+    <label class="row">연결 없는 노드<input class="switch" type="checkbox" id="orph" checked></label>
+  </div></details>
+  <details open><summary>묶음</summary><div class="sec"><div class="groups" id="groups"></div></div></details>
+  <details open><summary>표시</summary><div class="sec">
+    <div class="row col"><span class="lab">배치</span><div class="seg" id="layout"></div></div>
+    <label class="row" id="arrowRow">화살표<input class="switch" type="checkbox" id="arrows"></label>
+    <label class="row">이름 항상 보이기<input class="switch" type="checkbox" id="names"></label>
+    <label class="row col"><span class="lab">이름이 보이는 확대<b id="fadeV"></b></span><input type="range" id="fade" min="0" max="3" step="0.05"></label>
+    <label class="row col"><span class="lab">노드 크기<b id="sizeV"></b></span><input type="range" id="size" min="0.4" max="2.5" step="0.05" value="1"></label>
+    <label class="row col"><span class="lab">연결 굵기<b id="widthV"></b></span><input type="range" id="width" min="0.3" max="4" step="0.1" value="1"></label>
+  </div></details>
+  <details open id="forces"><summary>힘</summary><div class="sec">
+    <label class="row col"><span class="lab">가운데로<b id="centerV"></b></span><input type="range" id="center" min="0" max="1" step="0.01" value="0.4"></label>
+    <label class="row col"><span class="lab">밀어내기<b id="repelV"></b></span><input type="range" id="repel" min="0" max="20" step="0.5" value="10"></label>
+    <label class="row col"><span class="lab">연결 힘<b id="linkV"></b></span><input type="range" id="link" min="0" max="1" step="0.01" value="0.7"></label>
+    <label class="row col"><span class="lab">연결 거리<b id="distV"></b></span><input type="range" id="dist" min="10" max="250" step="5" value="40"></label>
+    <button class="btn" id="animate" type="button">다시 움직이기</button>
+  </div></details>
+</aside>
+<aside class="hud" id="table" hidden>
+  <div class="head">목록 <span id="tableNote"></span><button class="icon-btn" id="tableClose" type="button" title="닫기" aria-label="목록 닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="wrap"><table><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table><div class="more" id="tmore" hidden></div></div>
+</aside>
+<div class="hud" id="legend"></div>
+<div class="hud" id="tools">
+  <button class="icon-btn" id="zin" type="button" title="가까이 (+)" aria-label="가까이"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
+  <button class="icon-btn" id="zout" type="button" title="멀리 (-)" aria-label="멀리"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+  <button class="icon-btn" id="fit" type="button" title="전체 보기 (F)" aria-label="전체 보기"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  <button class="icon-btn" id="list" type="button" title="표로 보기" aria-label="표로 보기"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.5M4.5 12h.5M4.5 18h.5"/></svg></button>
+  <button class="icon-btn" id="theme" type="button" title="밝게 · 어둡게" aria-label="밝게 또는 어둡게"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
+</div>
+<div id="tip" hidden></div>
+<div id="empty" hidden>그릴 것이 없습니다</div>
 <script id="graph-data" type="application/json">
 HTMLEOF
   sed 's/</\\u003c/g'
@@ -6067,78 +6160,150 @@ HTMLEOF
 (() => {
   "use strict";
   const G = JSON.parse(document.getElementById("graph-data").textContent);
-  const REL = G.relation;
+  const REL = G.relation, DIRECTED = G.directed !== false;
   const $ = (id) => document.getElementById(id);
-  const canvas = $("c"), ctx = canvas.getContext("2d");
+  const canvas = $("c"), ctx = canvas.getContext("2d"), root = document.documentElement;
   const RELNAME = { files: "파일 import", modules: "모듈 의존", changes: "같이 바뀌는 파일", tree: "폴더 구조" };
   const KINDNAME = { file: "파일", folder: "폴더", package: "외부 패키지", module: "모듈" };
   const EDGENAME = { import: "import", reexport: "다시 내보내기", require: "require", "dynamic-import": "동적 import", "type-ref": "타입 이름(추정)", mod: "mod", use: "use", contains: "포함", depends: "의존", cochange: "같이 바뀜" };
   const KEYNAME = { path: "경로", lang: "언어", lines: "줄", ecosystem: "생태계", name: "이름", local: "저장소 안", outside: "범위 밖", importPath: "import 경로", type: "종류", workspace: "작업 공간", changes: "바뀐 횟수", lastChanged: "마지막 변경", depth: "깊이", files: "파일", bytes: "크기", filesHere: "바로 아래 파일", dirs: "하위 폴더", exts: "확장자" };
   const LISTS = { files: ["가져오는 것", "가져다 쓰는 곳"], modules: ["의존하는 것", "이것에 의존하는 것"], changes: ["같이 바뀌는 파일", ""], tree: ["안에 든 것", "위 폴더"] };
-  const PALETTE = { ts: "#3178c6", js: "#c9a400", vue: "#3fb27f", svelte: "#ff3e00", python: "#3572a5", go: "#00a7d0", rust: "#c0532a", kotlin: "#8f5bea", java: "#b07219", swift: "#f05138", package: "#8a94a6", module: "#2fa36b", folder: "#c39b2e", npm: "#cb3837", cargo: "#c0532a", gradle: "#2d9c96", tuist: "#6a4cff", json: "#7a8396", css: "#7a5bd6" };
-  const colors = {};
-  const colorOf = (g) => colors[g] || (colors[g] = PALETTE[g] || (() => { let h = 7; for (const c of String(g)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 52% 52%)`; })());
+  const METRIC = { files: ["줄", (n) => n.d.lines || 0], modules: ["연결", (n) => n.deg], changes: ["바뀐 횟수", (n) => n.d.changes || 0], tree: ["파일", (n) => n.d.files || 0] };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const hsize = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : b >= 1024 ? Math.round(b / 1024) + " KB" : b + " B");
-  const byName = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-  // ----- 데이터: 노드 · 연결 · 크기(files 줄 수, changes 바뀐 횟수, tree 바이트, 그 밖은 연결 수) -----
-  const nodes = G.nodes.map((d, i) => ({ i, d, id: d.id, label: d.label || d.id, kind: d.kind, group: d.group || d.kind, x: 0, y: 0, vx: 0, vy: 0, fx: null, fy: null, r: 4, out: [], inc: [], key: ((d.label || "") + "\n" + d.id).toLowerCase() }));
-  const byId = new Map(nodes.map((n) => [n.id, n]));
+  // ----- 묶음과 색: 언어 계열 → 범주 색 세 칸(우선순위 고정), 넷째부터는 '그 밖의 언어'(회색) -----
+  const FAMILY = { ts: "web", js: "web", vue: "web", svelte: "web", npm: "web", swift: "swift", tuist: "swift", python: "python", go: "go", rust: "rust", cargo: "rust", kotlin: "jvm", java: "jvm", gradle: "jvm" };
+  const EXTFAM = { ts: "web", tsx: "web", js: "web", jsx: "web", mjs: "web", cjs: "web", mts: "web", cts: "web", vue: "web", svelte: "web", swift: "swift", py: "python", pyi: "python", go: "go", rs: "rust", kt: "jvm", kts: "jvm", java: "jvm" };
+  const FAMNAME = { web: "TS/JS", swift: "Swift", python: "Python", go: "Go", rust: "Rust", jvm: "Kotlin/Java", lang: "그 밖의 언어", other: "그 밖의 파일", ext: "외부 패키지 · 모듈" };
+  const PRIORITY = ["web", "swift", "python", "go", "rust", "jvm"];
+  const famOf = (d) => {
+    if (d.kind === "package" || (REL === "files" && d.kind === "module")) return "ext";
+    if (REL === "tree" && d.kind === "folder") { for (const e of Object.keys(d.exts || {})) if (EXTFAM[e]) return EXTFAM[e]; return "other"; }
+    return FAMILY[d.group] || "other";
+  };
+
+  // ----- 데이터 -----
+  const nodes = G.nodes.map((d, i) => ({ i, d, id: d.id, label: d.label || d.id, kind: d.kind, fam: famOf(d), x: 0, y: 0, vx: 0, vy: 0, fx: null, fy: null, out: [], inc: [], deg: 0, r: 4, fade: 1, vis: true, key: ((d.label || "") + "\n" + d.id).toLowerCase() }));
+  const nodeOf = new Map(nodes.map((n) => [n.id, n]));
   const edges = [];
   for (const d of G.edges) {
-    const s = byId.get(d.source), t = byId.get(d.target);
+    const s = nodeOf.get(d.source), t = nodeOf.get(d.target);
     if (!s || !t || s === t) continue;
-    const e = { s, t, d, kind: d.kind, w: d.weight || 1, h: !!d.heuristic, len: 30, str: 1, bias: 0.5 };
+    const e = { s, t, d, kind: d.kind, w: d.weight || 1, h: !!d.heuristic, vis: true, len: 40, str: 1, bias: 0.5 };
     edges.push(e); s.out.push(e); t.inc.push(e);
   }
-  const metric = (n) => REL === "files" ? (n.kind === "file" ? n.d.lines || 0 : n.inc.length * 40) : REL === "changes" ? n.d.changes || 0 : REL === "tree" ? n.d.bytes || 0 : n.inc.length + n.out.length + 1;
+  for (const n of nodes) n.deg = n.out.length + n.inc.length;
+  const present = new Set(nodes.map((n) => n.fam));
+  const colored = PRIORITY.filter((f) => present.has(f)).slice(0, 3);
+  for (const n of nodes) if (PRIORITY.includes(n.fam) && !colored.includes(n.fam)) n.fam = "lang";
+  const SLOT = {};
+  colored.forEach((f, i) => { SLOT[f] = "s" + (i + 1); });
+  const metric = (n) => (REL === "changes" ? n.d.changes || 0 : REL === "tree" ? n.d.files || 0 : n.deg);
   let maxM = 1;
   for (const n of nodes) maxM = Math.max(maxM, metric(n));
-  for (const n of nodes) n.r = 3.5 + 10 * Math.sqrt(metric(n) / maxM);
 
-  // ----- 보이기 -----
-  const isExt = (n) => n.kind === "package" || (REL === "files" && n.kind === "module");
+  // ----- 설정 (옵시디언 그래프 설정과 같은 갈래) -----
+  const P = { ext: true, heur: true, orph: true, arrows: false, names: false, fade: nodes.length <= 80 ? 0 : 1.1, size: 1, width: 1, center: 0.4, repel: 10, link: 0.7, dist: 40 };
   const hidden = new Set();
-  let hideExt = false, hideHeur = false, showNames = false;
-  const vis = (n) => !(hideExt && isExt(n)) && !hidden.has(n.group);
-  const evis = (e) => vis(e.s) && vis(e.t) && !(hideHeur && e.h);
-  let visNodes = nodes, visEdges = edges;
-  function refreshVisible() { visNodes = nodes.filter(vis); visEdges = edges.filter(evis); }
-
-  // ----- 화면 -----
-  const view = { x: 0, y: 0, k: 1 };
-  let W = 0, H = 0, dpr = 1, userMoved = false, sel = null, focus = null, query = "", matches = [], matchSet = null, matchIdx = -1, tween = null, pending = false;
   const C = {};
-  function readTheme() { const cs = getComputedStyle(document.documentElement); for (const k of ["bg", "text", "muted", "accent", "incoming", "edge", "halo"]) C[k] = cs.getPropertyValue("--" + k).trim(); request(); }
-  function resize() { dpr = window.devicePixelRatio || 1; W = canvas.clientWidth; H = canvas.clientHeight; canvas.width = Math.max(1, Math.round(W * dpr)); canvas.height = Math.max(1, Math.round(H * dpr)); request(); }
-  const clampK = (k) => Math.min(8, Math.max(0.01, k));
+  const colorOf = (fam) => (SLOT[fam] ? C[SLOT[fam]] : fam === "ext" ? C.ext : C.other);
+  function readTheme() {
+    const cs = getComputedStyle(root);
+    for (const k of ["bg", "text", "text-2", "muted", "line", "accent", "halo", "s1", "s2", "s3"]) C[k] = cs.getPropertyValue("--" + k).trim();
+    C.other = cs.getPropertyValue("--node-other").trim(); C.ext = cs.getPropertyValue("--node-ext").trim();
+    renderGroups(); if (sel) renderInfo(); request();
+  }
+  function setTheme(t, save) {
+    root.dataset.theme = t;
+    if (save) { try { localStorage.setItem("gitch-graph-theme", t); } catch (e) { /* 저장할 수 없는 환경(사생활 보호 창 등) */ } }
+    readTheme();
+  }
+  function sizeNodes() { for (const n of nodes) n.r = P.size * (3.2 + 8.5 * Math.sqrt(metric(n) / maxM)); }
+
+  // ----- 보이기: 묶음 · 외부 · 추정 연결 · 연결 없는 노드 -----
+  let visNodes = nodes, visEdges = edges;
+  function refreshVisible() {
+    for (const n of nodes) n.vis = !hidden.has(n.fam) && !(!P.ext && n.fam === "ext");
+    for (const e of edges) e.vis = e.s.vis && e.t.vis && !(!P.heur && e.h);
+    if (!P.orph) {
+      const linked = new Set();
+      for (const e of edges) if (e.vis) { linked.add(e.s); linked.add(e.t); }
+      for (const n of nodes) if (!linked.has(n)) n.vis = false;
+    }
+    visNodes = nodes.filter((n) => n.vis);
+    visEdges = edges.filter((e) => e.vis);
+  }
+
+  // ----- 화면 · 보기 -----
+  const view = { x: 0, y: 0, k: 1 };
+  let W = 0, H = 0, dpr = 1, userMoved = false, sel = null, hover = null, query = "", matches = [], matchSet = null, matchIdx = -1;
+  let pending = false, tween = null, morph = null, dimT = 0;
+  const clampK = (k) => clamp(k, 0.02, 10);
   function request() { if (!pending) { pending = true; requestAnimationFrame(frame); } }
+  function resize() { dpr = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; canvas.width = Math.max(1, Math.round(W * dpr)); canvas.height = Math.max(1, Math.round(H * dpr)); if (sel) placeInfo(); request(); }
+  function bounds(list) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const n of list) { x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r); x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r); }
+    return [x0, y0, x1, y1];
+  }
+  function fitView(list) {
+    list = list || visNodes;
+    if (!list.length || !W) return null;
+    const [x0, y0, x1, y1] = bounds(list), padX = W > 900 ? 120 : 40, padY = 70;
+    const k = clampK(Math.min((W - padX * 2) / Math.max(x1 - x0, 1), (H - padY * 2) / Math.max(y1 - y0, 1), 2.2));
+    return { k, x: W / 2 - ((x0 + x1) / 2) * k, y: H / 2 - ((y0 + y1) / 2) * k };
+  }
+  function animateTo(target, ms) {
+    if (!target) return;
+    const from = { x: view.x, y: view.y, k: view.k }, t0 = performance.now(), dur = ms || 420;
+    tween = (now) => {
+      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      view.x = from.x + (target.x - from.x) * e; view.y = from.y + (target.y - from.y) * e; view.k = from.k + (target.k - from.k) * e;
+      if (p >= 1) tween = null;
+    };
+    request();
+  }
+  function zoomAt(px, py, factor, ms) {   // 가리킨 점이 그대로 있게 확대 · 축소
+    const k0 = view.k, x0 = view.x, y0 = view.y, k1 = clampK(k0 * factor), t0 = performance.now(), dur = ms || 0;
+    userMoved = true;
+    if (!dur) { view.k = k1; view.x = px - (px - x0) * (k1 / k0); view.y = py - (py - y0) * (k1 / k0); tween = null; request(); return; }
+    tween = (now) => {
+      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3), k = k0 + (k1 - k0) * e;
+      view.k = k; view.x = px - (px - x0) * (k / k0); view.y = py - (py - y0) * (k / k0);
+      if (p >= 1) tween = null;
+    };
+    request();
+  }
+  function centerOn(n, k) { userMoved = true; k = clampK(k); animateTo({ k, x: W / 2 - n.x * k + (sel && W > 900 ? 120 : 0), y: H / 2 - n.y * k }); }
 
   // ----- 힘 배치 (Barnes–Hut) -----
-  const THETA2 = 0.81, CHARGE = -45, ALPHA_MIN = 0.003, DECAY = 0.0228;
-  let alpha = 0, running = false;
-  function startForce(reset) {
-    if (reset) {   // 이름 순 해바라기 나선 — 같은 폴더 파일이 가까이서 시작해 빨리 모인다
-      nodes.slice().sort(byName).forEach((n, i) => { const r = 9 * Math.sqrt(i + 0.5), a = i * 2.399963; n.x = r * Math.cos(a); n.y = r * Math.sin(a); n.vx = n.vy = 0; });
-    }
+  const THETA2 = 0.81, ALPHA_MIN = 0.003, DECAY = 0.0228;
+  let alpha = 0, running = false, layout = "force";
+  function seed() {   // 이름 순 해바라기 나선 — 같은 폴더가 가까이서 시작해 빨리 모인다
+    nodes.slice().sort(byId).forEach((n, i) => { const r = 7 * Math.sqrt(i + 0.5), a = i * 2.399963; n.x = r * Math.cos(a); n.y = r * Math.sin(a); n.vx = n.vy = 0; });
+  }
+  function linkParams() {
     const deg = new Map();
     for (const e of visEdges) { deg.set(e.s, (deg.get(e.s) || 0) + 1); deg.set(e.t, (deg.get(e.t) || 0) + 1); }
     for (const e of visEdges) {
       const a = deg.get(e.s), b = deg.get(e.t);
       e.bias = a / (a + b); e.str = 1 / Math.min(a, b);
-      e.len = 24 + 2.2 * (e.s.r + e.t.r) + (REL === "changes" ? 40 / (1 + Math.log(e.w)) : 0);
+      e.len = P.dist + e.s.r + e.t.r + (REL === "changes" ? 30 / (1 + Math.log(e.w)) : 0);
     }
-    alpha = 1; running = true; request();
+  }
+  function startForce(reset, heat) {
+    morph = null;
+    if (reset) seed();
+    linkParams();
+    alpha = Math.max(alpha, heat || 1); running = true; request();
   }
   const quad = (x, y, s) => ({ x, y, s, n: null, more: null, k: null, m: 0, cx: 0, cy: 0 });
   function insert(q, n) {
     for (let depth = 0; ; depth++) {
-      if (q.k) {
-        const h = q.s / 2, i = (n.x >= q.x + h ? 1 : 0) | (n.y >= q.y + h ? 2 : 0);
-        q = q.k[i] || (q.k[i] = quad(q.x + (i & 1 ? h : 0), q.y + (i & 2 ? h : 0), h));
-        continue;
-      }
+      if (q.k) { const h = q.s / 2, i = (n.x >= q.x + h ? 1 : 0) | (n.y >= q.y + h ? 2 : 0); q = q.k[i] || (q.k[i] = quad(q.x + (i & 1 ? h : 0), q.y + (i & 2 ? h : 0), h)); continue; }
       if (!q.n) { q.n = n; return; }
       if (depth > 30 || (q.n.x === n.x && q.n.y === n.y)) { (q.more || (q.more = [])).push(n); return; }
       const old = q.n, more = q.more, h = q.s / 2, i = (old.x >= q.x + h ? 1 : 0) | (old.y >= q.y + h ? 2 : 0);
@@ -6153,53 +6318,53 @@ HTMLEOF
     else { if (q.n) { m = 1; x = q.n.x; y = q.n.y; } if (q.more) for (const o of q.more) { m++; x += o.x; y += o.y; } }
     q.m = m; if (m) { q.cx = x / m; q.cy = y / m; }
   }
-  function push(n, x, y, m) {
+  function push(n, x, y, m, f0) {
     let dx = x - n.x, dy = y - n.y, l = dx * dx + dy * dy;
     if (l === 0) { dx = (Math.random() - 0.5) * 1e-3; dy = (Math.random() - 0.5) * 1e-3; l = dx * dx + dy * dy; }
     if (l < 1) l = Math.sqrt(l);
-    const f = CHARGE * m * alpha / l;
+    const f = (f0 * m) / l;
     n.vx += dx * f; n.vy += dy * f;
   }
-  function charge(q, n) {
+  function charge(q, n, f0) {
     if (!q.m) return;
     if (q.k) {
       const dx = q.cx - n.x, dy = q.cy - n.y;
-      if ((q.s * q.s) / THETA2 < dx * dx + dy * dy) { push(n, q.cx, q.cy, q.m); return; }
-      for (const c of q.k) if (c) charge(c, n);
+      if ((q.s * q.s) / THETA2 < dx * dx + dy * dy) { push(n, q.cx, q.cy, q.m, f0); return; }
+      for (const c of q.k) if (c) charge(c, n, f0);
       return;
     }
-    if (q.n && q.n !== n) push(n, q.n.x, q.n.y, 1);
-    if (q.more) for (const o of q.more) if (o !== n) push(n, o.x, o.y, 1);
+    if (q.n && q.n !== n) push(n, q.n.x, q.n.y, 1, f0);
+    if (q.more) for (const o of q.more) if (o !== n) push(n, o.x, o.y, 1, f0);
   }
   function tick() {
     for (const e of visEdges) {
       const s = e.s, t = e.t;
       let x = t.x + t.vx - s.x - s.vx || 1e-6, y = t.y + t.vy - s.y - s.vy || 1e-6;
       let l = Math.sqrt(x * x + y * y);
-      l = ((l - e.len) / l) * alpha * e.str;
+      l = ((l - e.len) / l) * alpha * e.str * P.link;
       x *= l; y *= l;
       t.vx -= x * e.bias; t.vy -= y * e.bias;
       s.vx += x * (1 - e.bias); s.vy += y * (1 - e.bias);
     }
-    if (visNodes.length) {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const n of visNodes) { if (n.x < x0) x0 = n.x; if (n.y < y0) y0 = n.y; if (n.x > x1) x1 = n.x; if (n.y > y1) y1 = n.y; }
-      const root = quad(x0, y0, Math.max(x1 - x0, y1 - y0, 1) * 1.0001);
-      for (const n of visNodes) insert(root, n);
-      mass(root);
-      for (const n of visNodes) charge(root, n);
+    if (visNodes.length > 1 && P.repel > 0) {
+      const [x0, y0, x1, y1] = bounds(visNodes);
+      const q0 = quad(x0, y0, Math.max(x1 - x0, y1 - y0, 1) * 1.0001);
+      for (const n of visNodes) insert(q0, n);
+      mass(q0);
+      const f0 = -P.repel * 6 * alpha;
+      for (const n of visNodes) charge(q0, n, f0);
     }
+    const g = P.center * 0.08 * alpha;
     for (const n of visNodes) {
-      n.vx -= n.x * 0.035 * alpha; n.vy -= n.y * 0.035 * alpha;
+      n.vx -= n.x * g; n.vy -= n.y * g;
       if (n.fx !== null) { n.x = n.fx; n.y = n.fy; n.vx = n.vy = 0; continue; }
-      n.vx *= 0.6; n.vy *= 0.6; n.x += n.vx; n.y += n.vy;
+      n.vx *= 0.58; n.vy *= 0.58; n.x += n.vx; n.y += n.vy;
     }
     alpha += (0 - alpha) * DECAY;
   }
 
-  // ----- 층 배치: 의존하는 쪽이 왼쪽, 의존받는 쪽이 오른쪽 (되돌아가는 연결은 무시) -----
-  function layoutLayers() {
-    running = false;
+  // ----- 층(의존하는 쪽 → 의존받는 쪽, 왼쪽에서 오른쪽) · 방사형(tree) — 자리를 옮길 때는 미끄러지듯 -----
+  function layersTargets() {
     const state = new Map(), back = new Set(), order = [];
     for (const r of visNodes) {
       if (state.has(r)) continue;
@@ -6209,50 +6374,41 @@ HTMLEOF
         const top = stack[stack.length - 1], n = top[0];
         if (top[1] < n.out.length) {
           const e = n.out[top[1]++];
-          if (!evis(e)) continue;
+          if (!e.vis) continue;
           const st = state.get(e.t);
-          if (st === 1) back.add(e);
-          else if (!st) { state.set(e.t, 1); stack.push([e.t, 0]); }
+          if (st === 1) back.add(e); else if (!st) { state.set(e.t, 1); stack.push([e.t, 0]); }
         } else { state.set(n, 2); order.push(n); stack.pop(); }
       }
     }
     const rank = new Map(visNodes.map((n) => [n, 0]));
-    for (let j = order.length - 1; j >= 0; j--) {
-      const n = order[j], r = rank.get(n);
-      for (const e of n.out) if (evis(e) && !back.has(e)) rank.set(e.t, Math.max(rank.get(e.t), r + 1));
-    }
+    for (let j = order.length - 1; j >= 0; j--) { const n = order[j], r = rank.get(n); for (const e of n.out) if (e.vis && !back.has(e)) rank.set(e.t, Math.max(rank.get(e.t), r + 1)); }
     const layers = [];
     for (const n of visNodes) (layers[rank.get(n)] || (layers[rank.get(n)] = [])).push(n);
     const pos = new Map();
-    for (const L of layers) if (L) { L.sort((a, b) => (a.group < b.group ? -1 : a.group > b.group ? 1 : byName(a, b))); L.forEach((n, i) => pos.set(n, i)); }
-    for (let sweep = 0; sweep < 6; sweep++) {   // 이웃 평균 자리로 정렬해 엇갈림을 줄인다
+    for (const L of layers) if (L) { L.sort((a, b) => (a.fam < b.fam ? -1 : a.fam > b.fam ? 1 : byId(a, b))); L.forEach((n, i) => pos.set(n, i)); }
+    for (let sweep = 0; sweep < 6; sweep++) {
       const down = sweep % 2 === 0;
       for (let k = 0; k < layers.length; k++) {
         const L = layers[down ? k : layers.length - 1 - k];
         if (!L) continue;
         const bc = new Map();
-        for (const n of L) {
-          let s = 0, c = 0;
-          for (const e of down ? n.inc : n.out) if (evis(e)) { const o = down ? e.s : e.t; if (pos.has(o)) { s += pos.get(o); c++; } }
-          bc.set(n, c ? s / c : pos.get(n));
-        }
-        L.sort((a, b) => bc.get(a) - bc.get(b));
-        L.forEach((n, i) => pos.set(n, i));
+        for (const n of L) { let s = 0, c = 0; for (const e of down ? n.inc : n.out) if (e.vis) { const o = down ? e.s : e.t; if (pos.has(o)) { s += pos.get(o); c++; } } bc.set(n, c ? s / c : pos.get(n)); }
+        L.sort((a, b) => bc.get(a) - bc.get(b)); L.forEach((n, i) => pos.set(n, i));
       }
     }
+    const T = new Map();
     let x = 0;
     for (const L of layers) {
       if (!L) continue;
       const cols = Math.ceil(L.length / 80), per = Math.ceil(L.length / cols);
-      L.forEach((n, i) => { const c = Math.floor(i / per), r = i % per, cnt = Math.min(per, L.length - c * per); n.x = x + c * 120; n.y = (r - (cnt - 1) / 2) * 30; n.vx = n.vy = 0; });
-      x += 240 + (cols - 1) * 120;
+      L.forEach((n, i) => { const c = Math.floor(i / per), r = i % per, cnt = Math.min(per, L.length - c * per); T.set(n, [x + c * 130, (r - (cnt - 1) / 2) * 46]); });   // 이름이 노드 아래에 들어갈 만큼
+      x += 280 + (cols - 1) * 130;
     }
+    return T;
   }
-
-  // ----- 방사형(tree): 뿌리에서 깊이마다 고리, 잎 수만큼 각도를 나눈다 -----
-  function layoutRadial() {
-    running = false;
-    if (!visNodes.length) return;
+  function radialTargets() {
+    const T = new Map();
+    if (!visNodes.length) return T;
     const kids = new Map(), hasParent = new Set();
     for (const e of visEdges) { if (!kids.has(e.s)) kids.set(e.s, []); kids.get(e.s).push(e.t); hasParent.add(e.t); }
     let roots = visNodes.filter((n) => !hasParent.has(n));
@@ -6270,243 +6426,294 @@ HTMLEOF
     let maxD = 1, total = 0;
     for (const n of order) maxD = Math.max(maxD, depth.get(n));
     for (const r of roots) total += leaves.get(r);
-    const ring = Math.max(110, (total * 16) / (2 * Math.PI * maxD));
+    const ring = Math.max(120, (total * 18) / (2 * Math.PI * maxD));
     const place = (n, start, span) => {
       const d = depth.get(n), a = start + span / 2;
-      n.x = Math.cos(a) * d * ring; n.y = Math.sin(a) * d * ring; n.vx = n.vy = 0;
+      T.set(n, [Math.cos(a) * d * ring, Math.sin(a) * d * ring]);
       let s = start;
       for (const c of children.get(n)) { const sp = (span * leaves.get(c)) / leaves.get(n); place(c, s, sp); s += sp; }
     };
     let s = -Math.PI / 2;
     for (const r of roots) { const sp = (2 * Math.PI * leaves.get(r)) / total; place(r, s, sp); s += sp; }
+    return T;
   }
-
-  // ----- 보기 이동 -----
-  function bounds() {
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const n of visNodes) { x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r); x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r); }
-    return [x0, y0, x1, y1];
-  }
-  function fitView() {
-    if (!visNodes.length || !W) return null;
-    const [x0, y0, x1, y1] = bounds(), pad = 48;
-    const k = clampK(Math.min((W - pad * 2) / Math.max(x1 - x0, 1), (H - pad * 2) / Math.max(y1 - y0, 1), 2.5));
-    return { k, x: W / 2 - ((x0 + x1) / 2) * k, y: H / 2 - ((y0 + y1) / 2) * k };
-  }
-  function animateTo(target) {
-    if (!target) return;
-    const from = { x: view.x, y: view.y, k: view.k }, t0 = performance.now();
-    tween = (now) => {
-      const p = Math.min(1, (now - t0) / 280), e = 1 - Math.pow(1 - p, 3);
-      view.x = from.x + (target.x - from.x) * e; view.y = from.y + (target.y - from.y) * e; view.k = from.k + (target.k - from.k) * e;
-      if (p >= 1) tween = null;
+  function morphTo(T, fit) {
+    running = false;
+    const from = new Map(visNodes.map((n) => [n, [n.x, n.y]])), t0 = performance.now(), dur = 520;
+    for (const n of visNodes) if (!T.has(n)) T.set(n, [n.x, n.y]);
+    morph = (now) => {
+      const p = Math.min(1, (now - t0) / dur), e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      for (const [n, [x1, y1]] of T) { const [x0, y0] = from.get(n) || [x1, y1]; n.x = x0 + (x1 - x0) * e; n.y = y0 + (y1 - y0) * e; n.vx = n.vy = 0; }
+      if (p >= 1) morph = null;
     };
+    if (fit) {   // 끝날 자리를 기준으로 미리 맞춘다
+      const pts = [...T.values()].map(([x, y]) => ({ x, y, r: 6 }));
+      animateTo(fitView(pts), dur);
+    }
     request();
   }
-  function centerOn(n, k) {
-    k = clampK(k); userMoved = true;
-    const cx = sel && W > 760 ? (W - 372) / 2 : W / 2;      // 오른쪽 정보 창에 가리지 않게
-    animateTo({ k, x: cx - n.x * k, y: H / 2 - n.y * k });
+  function applyLayout(reset) {
+    $("forces").style.opacity = layout === "force" ? "" : ".45";
+    if (layout === "force") { startForce(reset, reset ? 1 : 0.35); return; }
+    if (reset && !nodes.some((n) => n.x || n.y)) seed();
+    morphTo(layout === "layers" ? layersTargets() : radialTargets(), !userMoved || reset);
   }
 
   // ----- 그리기 -----
   function frame(now) {
     pending = false;
+    if (morph) morph(now);
     if (running) {
       const t0 = performance.now();
-      do tick(); while (alpha > ALPHA_MIN && performance.now() - t0 < 14);
+      do tick(); while (alpha > ALPHA_MIN && performance.now() - t0 < 12);
       if (alpha <= ALPHA_MIN) running = false;
       if (!userMoved) { const f = fitView(); if (f) Object.assign(view, f); }
     }
     if (tween) tween(now);
-    draw();
-    if (running || tween) request();
+    const busy = draw();
+    if (running || tween || morph || busy) request();
   }
-  function arrow(e, k) {
-    const s = e.s, t = e.t, dx = t.x - s.x, dy = t.y - s.y, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
-    const ex = t.x - ux * (t.r + 1.5 / k), ey = t.y - uy * (t.r + 1.5 / k), a = 7 / k, b = 3.2 / k;
-    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - ux * a - uy * b, ey - uy * a + ux * b); ctx.lineTo(ex - ux * a + uy * b, ey - uy * a - ux * b); ctx.closePath(); ctx.fill();
+  function focusSet() {
+    const f = hover || sel;
+    if (!f || !f.vis) return null;
+    const s = new Set([f]);
+    for (const e of f.out) if (e.vis) s.add(e.t);
+    for (const e of f.inc) if (e.vis) s.add(e.s);
+    return s;
   }
-  function shape(n) {
-    const r = n.r;
-    if (n.kind === "package") { ctx.moveTo(n.x, n.y - r * 1.15); ctx.lineTo(n.x + r * 1.15, n.y); ctx.lineTo(n.x, n.y + r * 1.15); ctx.lineTo(n.x - r * 1.15, n.y); ctx.closePath(); }
-    else if (n.kind === "folder" || n.kind === "module") { const q = r * 0.9; ctx.rect(n.x - q, n.y - q, q * 2, q * 2); }
+  function shape(n, r) {
+    if (n.fam === "ext") { const q = r * 1.25; ctx.moveTo(n.x, n.y - q); ctx.lineTo(n.x + q, n.y); ctx.lineTo(n.x, n.y + q); ctx.lineTo(n.x - q, n.y); ctx.closePath(); }
+    else if (n.kind === "folder" || n.kind === "module") { const q = r * 0.92, c = q * 0.35; if (ctx.roundRect) ctx.roundRect(n.x - q, n.y - q, q * 2, q * 2, c); else ctx.rect(n.x - q, n.y - q, q * 2, q * 2); }
     else { ctx.moveTo(n.x + r, n.y); ctx.arc(n.x, n.y, r, 0, Math.PI * 2); }
   }
+  function arrow(e, k, size) {
+    const s = e.s, t = e.t, dx = t.x - s.x, dy = t.y - s.y, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
+    const ex = t.x - ux * (t.r + 2 / k), ey = t.y - uy * (t.r + 2 / k), a = size / k, b = (size * 0.45) / k;
+    ctx.moveTo(ex, ey); ctx.lineTo(ex - ux * a - uy * b, ey - uy * a + ux * b); ctx.lineTo(ex - ux * a + uy * b, ey - uy * a - ux * b); ctx.closePath();
+  }
   function draw() {
-    const k = view.k, dim = !!(focus || matchSet), directed = G.directed !== false;
+    const k = view.k, F = focusSet(), f = hover || sel;
+    let busy = false;
+    dimT += ((F || matchSet ? 1 : 0) - dimT) * 0.22;
+    if (Math.abs(dimT - (F || matchSet ? 1 : 0)) > 0.01) busy = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * view.x, dpr * view.y);
     const vx0 = -view.x / k, vy0 = -view.y / k, vx1 = vx0 + W / k, vy1 = vy0 + H / k;
-    const onScreen = (n) => n.x + n.r > vx0 && n.x - n.r < vx1 && n.y + n.r > vy0 && n.y - n.r < vy1;
-    const hot = (e) => sel && (e.s === sel || e.t === sel);
-    // 연결 — 보통 연결은 한 번에, 추정 연결은 점선, 고른 노드의 연결은 색으로(나가는 것 파랑 · 들어오는 것 주황)
-    ctx.strokeStyle = C.edge; ctx.fillStyle = C.edge;
-    for (const pass of [0, 1]) {
-      ctx.globalAlpha = dim ? 0.07 : 0.38;
-      ctx.setLineDash(pass ? [4 / k, 3 / k] : []);
+    const seen = (n, m) => n.x + n.r + m > vx0 && n.x - n.r - m < vx1 && n.y + n.r + m > vy0 && n.y - n.r - m < vy1;
+    const hot = (e) => f && (e.s === f || e.t === f);
+    // 연결: 보통은 한 번에, 고른 노드에 닿은 것은 보라
+    ctx.strokeStyle = C.line; ctx.fillStyle = C.line;
+    const base = clamp(1.6 / Math.sqrt(visEdges.length / 400 + 0.01), 0.22, 1) * (1 - dimT * 0.75);   // 연결이 많을수록 옅게 — 수만 개여도 회색 덩어리가 되지 않게
+    for (const dashed of [false, true]) {
+      ctx.globalAlpha = base;
+      ctx.setLineDash(dashed ? [4 / k, 3 / k] : []);
       if (REL === "changes") {
-        for (const e of visEdges) { if (e.h !== !!pass || hot(e)) continue; ctx.lineWidth = (0.7 + Math.log2(e.w) * 0.9) / k; ctx.beginPath(); ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); ctx.stroke(); }
+        for (const e of visEdges) { if (e.h !== dashed || hot(e)) continue; ctx.lineWidth = (P.width * (0.8 + Math.log2(e.w) * 0.8)) / k; ctx.beginPath(); ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); ctx.stroke(); }
       } else {
-        ctx.lineWidth = 1 / k; ctx.beginPath();
-        for (const e of visEdges) { if (e.h !== !!pass || hot(e)) continue; ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); }
+        ctx.lineWidth = P.width / k; ctx.beginPath();
+        for (const e of visEdges) if (e.h === dashed && !hot(e)) { ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); }
         ctx.stroke();
-        if (directed && !dim && k > 1.6 && visEdges.length < 4000) for (const e of visEdges) if (e.h === !!pass && !hot(e) && onScreen(e.t)) arrow(e, k);
+        if (DIRECTED && P.arrows && visEdges.length < 6000) { ctx.beginPath(); for (const e of visEdges) if (e.h === dashed && !hot(e) && seen(e.t, 10)) arrow(e, k, 6); ctx.fill(); }
       }
     }
     ctx.setLineDash([]);
-    if (sel) {
-      ctx.globalAlpha = 0.95;
+    if (f && f.vis) {
+      ctx.globalAlpha = 0.95; ctx.strokeStyle = C.accent; ctx.fillStyle = C.accent;
       for (const e of visEdges) {
         if (!hot(e)) continue;
-        const col = !directed || e.s === sel ? C.accent : C.incoming;
-        ctx.strokeStyle = col; ctx.fillStyle = col;
-        ctx.lineWidth = (REL === "changes" ? 1.2 + Math.log2(e.w) : 1.8) / k;
+        ctx.lineWidth = (P.width * (REL === "changes" ? 1.2 + Math.log2(e.w) : 1.6)) / k;
         ctx.setLineDash(e.h ? [5 / k, 3 / k] : []);
         ctx.beginPath(); ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); ctx.stroke();
-        if (directed) arrow(e, k);
+        if (DIRECTED) { ctx.beginPath(); arrow(e, k, 8); ctx.fill(); }
       }
       ctx.setLineDash([]);
     }
-    // 노드
+    // 노드: 고르거나 찾은 것과 이웃만 밝게(나머지는 천천히 흐리게)
     for (const n of visNodes) {
-      if (!onScreen(n)) continue;
-      const lit = (focus && focus.has(n)) || (matchSet && matchSet.has(n));
-      ctx.globalAlpha = dim && !lit ? 0.14 : 1;
-      ctx.beginPath(); shape(n);
-      ctx.fillStyle = colorOf(n.group); ctx.fill();
-      if (n === sel || (matchSet && matchSet.has(n))) { ctx.lineWidth = 2.5 / k; ctx.strokeStyle = C.accent; }
-      else { ctx.lineWidth = 1 / k; ctx.strokeStyle = C.bg; }
-      ctx.stroke();
+      const lit = !(F || matchSet) || (F && F.has(n)) || (!F && matchSet && matchSet.has(n));
+      const want = lit ? 1 : 0.14;
+      n.fade += (want - n.fade) * 0.22;
+      if (Math.abs(n.fade - want) > 0.01) busy = true;
+      if (!seen(n, 0)) continue;
+      ctx.globalAlpha = n.fade;
+      ctx.fillStyle = colorOf(n.fam);
+      ctx.beginPath(); shape(n, n.r); ctx.fill();
     }
-    // 이름 — 크게 보이는 노드, 강조된 노드, '이름' 을 켰을 때
     ctx.globalAlpha = 1;
-    ctx.font = `${12 / k}px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif`;
-    ctx.textBaseline = "middle"; ctx.lineJoin = "round";
-    const few = visNodes.length <= 120 && k >= 0.35;
+    for (const n of [sel, hover]) {   // 고른 노드 · 올린 노드: 보라 테두리와 빛
+      if (!n || !n.vis) continue;
+      ctx.save(); ctx.shadowColor = C.accent; ctx.shadowBlur = 18;
+      ctx.lineWidth = 2.4 / k; ctx.strokeStyle = C.accent;
+      ctx.beginPath(); shape(n, n.r + 2.5 / k); ctx.stroke(); ctx.restore();
+    }
+    if (matchSet && !F) { ctx.lineWidth = 1.6 / k; ctx.strokeStyle = C.accent; ctx.beginPath(); for (const n of matches) if (n.vis && seen(n, 4)) shape(n, n.r + 2 / k); ctx.stroke(); }
+    // 이름: 노드 아래. 확대할수록(큰 노드부터) 나타나고, 강조된 것은 늘 보인다
+    const fs = 12;
+    ctx.font = `${fs / k}px system-ui, -apple-system, "Apple SD Gothic Neo", "Segoe UI", sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.lineJoin = "round";
     let drawn = 0;
     for (const n of visNodes) {
-      const lit = n === sel || (focus && focus.has(n)) || (matchSet && matchSet.has(n));
-      if (dim ? !lit : !(showNames || few || n.r * k >= 7 || (REL === "tree" && n.d.depth <= 1))) continue;
-      if (!onScreen(n)) continue;
-      if (++drawn > 3000) break;
-      const x = n.x + n.r + 4 / k;
-      ctx.lineWidth = 3.5 / k; ctx.strokeStyle = C.halo; ctx.strokeText(n.label, x, n.y);
-      ctx.fillStyle = lit || !dim ? C.text : C.muted; ctx.fillText(n.label, x, n.y);
+      const lit = (F && F.has(n)) || (matchSet && matchSet.has(n)) || n === sel;
+      let a;
+      if (lit) a = 1;
+      else if (F || matchSet) a = 0;
+      else a = P.names || (REL === "tree" && n.d.depth <= 1) ? 1 : clamp((k * (0.55 + n.r / 9) - P.fade) / 0.45, 0, 1);
+      a *= lit ? 1 : n.fade;
+      if (a < 0.04 || !seen(n, 60 / k)) continue;
+      if (++drawn > 2500) break;
+      const y = n.y + n.r + 3 / k;
+      ctx.globalAlpha = a;
+      ctx.lineWidth = 3.5 / k; ctx.strokeStyle = C.halo; ctx.strokeText(n.label, n.x, y);
+      ctx.fillStyle = lit || !(F || matchSet) ? C.text : C.muted; ctx.fillText(n.label, n.x, y);
     }
+    ctx.globalAlpha = 1;
+    return busy;
   }
 
-  // ----- 고르기 · 정보 -----
+  // ----- 고르기 · 정보 · 목록 -----
   function nodeAt(px, py) {
     const x = (px - view.x) / view.k, y = (py - view.y) / view.k;
     let best = null, bd = Infinity;
-    for (const n of visNodes) {
-      const dx = n.x - x, dy = n.y - y, d = dx * dx + dy * dy, rr = n.r + 5 / view.k;
-      if (d < rr * rr && d < bd) { bd = d; best = n; }
-    }
+    for (const n of visNodes) { const dx = n.x - x, dy = n.y - y, d = dx * dx + dy * dy, rr = n.r + 6 / view.k; if (d < rr * rr && d < bd) { bd = d; best = n; } }
     return best;
   }
+  const famLabel = (n) => FAMNAME[n.fam] || n.d.group || n.kind;
+  const dirOf = (n) => { const p = n.d.path || ""; const i = p.lastIndexOf("/"); return n.kind === "file" && i > 0 ? p.slice(0, i) : ""; };
+  const dotClass = (n) => (n.fam === "ext" ? "dot ext" : n.kind === "folder" || n.kind === "module" ? "dot sq" : "dot");
   function select(n) {
-    sel = n && vis(n) ? n : null;
-    focus = null;
-    if (sel) { focus = new Set([sel]); for (const e of sel.out) if (evis(e)) focus.add(e.t); for (const e of sel.inc) if (evis(e)) focus.add(e.s); }
+    sel = n && n.vis ? n : null;
     renderInfo(); request();
   }
   function edgeNote(e) {
-    if (e.kind === "cochange") return `${e.w}번 · ${e.d.degree != null ? e.d.degree + "%" : ""}`;
+    if (e.kind === "cochange") return `${e.w}번${e.d.degree != null ? " · " + e.d.degree + "%" : ""}`;
     let s = e.d.scope || EDGENAME[e.kind] || e.kind;
     if (e.w > 1 && e.kind !== "depends") s += ` ×${e.w}`;
     return s;
   }
-  function list(title, pairs, color) {
-    pairs = pairs.filter((p) => evis(p[0]));
+  function list(title, pairs, arrowCh) {
+    pairs = pairs.filter((p) => p[0].vis);
     if (!pairs.length || !title) return "";
-    pairs.sort((a, b) => b[0].w - a[0].w || byName(a[1], b[1]));
-    const items = pairs.slice(0, 500).map(([e, o]) => `<li data-i="${o.i}" title="${esc(o.id + (e.d.via ? "\n" + e.d.via.join(", ") : ""))}"><span class="dot" style="background:${colorOf(o.group)}"></span><span class="name">${esc(o.label)}</span><small>${esc(edgeNote(e))}</small></li>`).join("");
-    return `<h3><span class="swatch" style="background:${color}"></span>${esc(title)} · ${pairs.length}</h3><ul>${items}</ul>`;
+    pairs.sort((a, b) => b[0].w - a[0].w || byId(a[1], b[1]));
+    const items = pairs.slice(0, 400).map(([e, o]) => `<li data-i="${o.i}" title="${esc(o.id + (e.d.via ? "\n" + e.d.via.join(", ") : ""))}"><span class="${dotClass(o)}" style="background:${colorOf(o.fam)}"></span><span class="name">${esc(o.label)}</span><small>${esc(edgeNote(e))}</small></li>`).join("");
+    return `<h3><span class="arrow">${arrowCh}</span>${esc(title)} · ${pairs.length}</h3><ul>${items}</ul>`;
+  }
+  function placeInfo() {
+    const info = $("info");
+    if (innerWidth <= 700) { info.style.top = ""; info.style.maxHeight = ""; return; }
+    const top = Math.round($("top").getBoundingClientRect().bottom + 10);
+    info.style.top = top + "px"; info.style.maxHeight = `calc(100vh - ${top + 74}px)`;
   }
   function renderInfo() {
     const info = $("info");
-    if (!sel) { info.classList.remove("open"); info.innerHTML = ""; return; }
+    if (!sel) { info.hidden = true; info.innerHTML = ""; return; }
     const n = sel, rows = [];
     for (const [k, v] of Object.entries(n.d)) {
-      if (k === "id" || k === "label" || k === "kind" || k === "group") continue;
+      if (k === "id" || k === "label" || k === "kind" || k === "group" || k === "path") continue;
       const val = k === "bytes" ? hsize(v) : k === "exts" ? Object.entries(v).map(([a, b]) => `${a} ${b}`).join(" · ") : typeof v === "boolean" ? (v ? "예" : "아니오") : typeof v === "object" ? JSON.stringify(v) : v;
       rows.push(`<tr><th>${esc(KEYNAME[k] || k)}</th><td>${esc(val)}</td></tr>`);
     }
     const [outT, inT] = LISTS[REL] || ["나가는 연결", "들어오는 연결"];
-    let html = `<button class="close" type="button" title="닫기 (Esc)">×</button><h2>${esc(n.label)}</h2><div class="sub">${esc(KINDNAME[n.kind] || n.kind)} · ${esc(n.group)}</div><table>${rows.join("")}</table>`;
-    if (G.directed === false) html += list(outT, [...n.out.map((e) => [e, e.t]), ...n.inc.map((e) => [e, e.s])], C.accent);
-    else html += list(outT, n.out.map((e) => [e, e.t]), C.accent) + list(inT, n.inc.map((e) => [e, e.s]), C.incoming);
-    info.innerHTML = html;
-    info.classList.add("open");
-    info.querySelector(".close").onclick = () => select(null);
-    for (const li of info.querySelectorAll("li[data-i]")) li.onclick = () => { const m = nodes[+li.dataset.i]; select(m); centerOn(m, Math.max(view.k, 1)); };
+    let html = `<div class="head"><span class="${dotClass(n)}" style="background:${colorOf(n.fam)}"></span><h2>${esc(n.label)}</h2><button class="icon-btn" type="button" title="닫기 (Esc)" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+    html += `<div class="sub">${esc(KINDNAME[n.kind] || n.kind)} · ${esc(famLabel(n))} · 연결 ${n.deg}</div>`;
+    if (n.d.path || n.id !== n.label) html += `<div class="path">${esc(n.d.path || n.id)}</div>`;
+    if (rows.length) html += `<table>${rows.join("")}</table>`;
+    if (!DIRECTED) html += list(outT, [...n.out.map((e) => [e, e.t]), ...n.inc.map((e) => [e, e.s])], "↔");
+    else html += list(outT, n.out.map((e) => [e, e.t]), "→") + list(inT, n.inc.map((e) => [e, e.s]), "←");
+    info.innerHTML = html; info.hidden = false; placeInfo();
+    info.querySelector(".head .icon-btn").onclick = () => select(null);
+    for (const li of info.querySelectorAll("li[data-i]")) li.onclick = () => { const m = nodes[+li.dataset.i]; select(m); centerOn(m, Math.max(view.k, 1.2)); };
   }
   function setQuery(s) {
     query = s.trim().toLowerCase();
     matches = query ? visNodes.filter((n) => n.key.includes(query)) : [];
     matchSet = query ? new Set(matches) : null; matchIdx = -1;
-    $("hits").textContent = query ? `${matches.length}개` : "";
+    $("hits").textContent = query ? `${matches.length}` : "";
+    if (!$("table").hidden) renderTable();
     request();
   }
-  function renderLegend() {
+  let sortKey = "deg", sortDir = -1;
+  function renderTable() {
+    const [mName, mFn] = METRIC[REL] || ["연결", (n) => n.deg];
+    const cols = [["label", "이름", ""], ["fam", "묶음", ""], ["in", DIRECTED ? "들어옴" : "", "num"], ["out", DIRECTED ? "나감" : "연결", "num"], ["m", mName, "num"]].filter((c) => c[1]);
+    $("thead").innerHTML = cols.map(([key, name, cls]) => `<th class="${cls}" data-k="${key}">${esc(name)}${sortKey === key ? (sortDir < 0 ? " ↓" : " ↑") : ""}</th>`).join("");
+    const val = (n, key) => (key === "label" ? n.label.toLowerCase() : key === "fam" ? famLabel(n) : key === "in" ? n.inc.length : key === "out" ? (DIRECTED ? n.out.length : n.deg) : key === "m" ? mFn(n) : n.deg);
+    const rows = (matchSet ? matches : visNodes).slice().sort((a, b) => { const x = val(a, sortKey), y = val(b, sortKey); return (x < y ? -1 : x > y ? 1 : byId(a, b)) * sortDir; });
+    const shown = rows.slice(0, 1500);
+    $("tbody").innerHTML = shown.map((n) => `<tr data-i="${n.i}"><td class="name" title="${esc(n.id)}">${esc(n.label)}${dirOf(n) ? ` <small>${esc(dirOf(n))}</small>` : ""}</td><td><span class="${dotClass(n)}" style="background:${colorOf(n.fam)};display:inline-block;margin-right:6px"></span>${esc(famLabel(n))}</td>${DIRECTED ? `<td class="num">${n.inc.length}</td>` : ""}<td class="num">${DIRECTED ? n.out.length : n.deg}</td><td class="num">${mFn(n)}</td></tr>`).join("");
+    $("tableNote").textContent = `${rows.length}개`;
+    $("tmore").hidden = rows.length <= shown.length;
+    $("tmore").textContent = `앞의 ${shown.length}개만 보입니다 — 찾기로 좁히세요`;
+    for (const th of $("thead").querySelectorAll("th")) th.onclick = () => { const k2 = th.dataset.k; if (sortKey === k2) sortDir = -sortDir; else { sortKey = k2; sortDir = k2 === "label" || k2 === "fam" ? 1 : -1; } renderTable(); };
+    for (const tr of $("tbody").querySelectorAll("tr")) tr.onclick = () => { const m = nodes[+tr.dataset.i]; select(m); centerOn(m, Math.max(view.k, 1.2)); };
+  }
+  function renderGroups() {
     const counts = new Map();
-    for (const n of nodes) counts.set(n.group, (counts.get(n.group) || 0) + 1);
-    const groups = [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || (a < b ? -1 : 1));
-    const legend = $("legend");
-    legend.innerHTML = groups.length > 1 ? groups.map((g) => `<button type="button" data-g="${esc(g)}" class="${hidden.has(g) ? "off" : ""}" title="누르면 숨기기 · 보이기"><span class="dot" style="background:${colorOf(g)}"></span>${esc(g)} <span class="n">${counts.get(g)}</span></button>`).join("") : "";
-    for (const b of legend.querySelectorAll("button")) b.onclick = () => { const g = b.dataset.g; if (hidden.has(g)) hidden.delete(g); else hidden.add(g); filtersChanged(); renderLegend(); };
+    for (const n of nodes) counts.set(n.fam, (counts.get(n.fam) || 0) + 1);
+    const order = [...colored, "lang", "other", "ext"].filter((f) => counts.has(f));
+    const item = (f) => `<button type="button" data-f="${f}" class="${hidden.has(f) ? "off" : ""}" title="누르면 숨기기 · 보이기"><span class="${f === "ext" ? "dot ext" : "dot"}" style="background:${colorOf(f)}"></span>${esc(FAMNAME[f] || f)} <span class="n">${counts.get(f)}</span></button>`;
+    $("groups").innerHTML = order.map(item).join("");
+    $("legend").innerHTML = order.length > 1 ? order.map(item).join("") : "";
+    $("legend").hidden = order.length <= 1;
+    for (const b of document.querySelectorAll("#groups button, #legend button")) b.onclick = () => { const g = b.dataset.f; if (hidden.has(g)) hidden.delete(g); else hidden.add(g); filtersChanged(); renderGroups(); };
   }
   function filtersChanged() {
     refreshVisible();
-    if (sel && !vis(sel)) sel = null;
-    select(sel); setQuery($("q").value);
+    if (sel && !sel.vis) sel = null;
+    if (hover && !hover.vis) hover = null;
+    renderInfo(); setQuery($("q").value);
     applyLayout(false);
-  }
-  let layout = "force";
-  function applyLayout(reset) {
-    if (layout === "force") { startForce(reset); if (!userMoved) { const f = fitView(); if (f) Object.assign(view, f); } return; }
-    if (layout === "layers") layoutLayers(); else layoutRadial();
-    if (!userMoved || reset) animateTo(fitView());
-    request();
   }
 
   // ----- 입력 -----
   const pointers = new Map();
   let down = null, pinch = null;
-  const pt = (ev) => { const r = canvas.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+  const tip = $("tip");
+  function showTip(n, px, py) {
+    if (!n) { tip.hidden = true; return; }
+    const [mName, mFn] = METRIC[REL] || ["연결", (x) => x.deg];
+    tip.innerHTML = `<b>${esc(n.label)}</b><span>${esc(famLabel(n))} · ${esc(mName)} ${mFn(n)}${REL !== "modules" ? " · 연결 " + n.deg : ""}</span>`;
+    tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.min(px + 16, W - w - 8) + "px"; tip.style.top = Math.min(py + 16, H - h - 8) + "px";
+  }
   canvas.addEventListener("pointerdown", (ev) => {
     canvas.setPointerCapture(ev.pointerId);
-    const p = pt(ev);
-    pointers.set(ev.pointerId, p);
+    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    tip.hidden = true;
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, k: view.k, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, vx: view.x, vy: view.y };
       down = null; return;
     }
-    const n = nodeAt(p.x, p.y);
-    down = { x: p.x, y: p.y, n, moved: false, vx: view.x, vy: view.y };
+    down = { x: ev.clientX, y: ev.clientY, n: nodeAt(ev.clientX, ev.clientY), moved: false, vx: view.x, vy: view.y };
+    tween = null;
     canvas.classList.add("dragging");
   });
   canvas.addEventListener("pointermove", (ev) => {
-    const p = pt(ev);
-    if (!pointers.has(ev.pointerId)) { const n = nodeAt(p.x, p.y); canvas.classList.toggle("over", !!n); canvas.title = n ? n.id : ""; return; }
-    pointers.set(ev.pointerId, p);
+    const px = ev.clientX, py = ev.clientY;
+    if (!pointers.has(ev.pointerId)) {
+      const n = nodeAt(px, py);
+      if (n !== hover) { hover = n; request(); }
+      canvas.classList.toggle("over", !!n);
+      showTip(n, px, py);
+      return;
+    }
+    pointers.set(ev.pointerId, { x: px, y: py });
     if (pinch && pointers.size === 2) {
       const [a, b] = [...pointers.values()], k = clampK((pinch.k * Math.hypot(a.x - b.x, a.y - b.y)) / pinch.d);
       view.k = k; view.x = pinch.cx - (pinch.cx - pinch.vx) * (k / pinch.k); view.y = pinch.cy - (pinch.cy - pinch.vy) * (k / pinch.k);
       userMoved = true; request(); return;
     }
     if (!down) return;
-    const dx = p.x - down.x, dy = p.y - down.y;
+    const dx = px - down.x, dy = py - down.y;
     if (!down.moved && dx * dx + dy * dy < 16) return;
     down.moved = true; userMoved = true;
     if (down.n) {
       const n = down.n;
-      n.x = (p.x - view.x) / view.k; n.y = (p.y - view.y) / view.k;
-      if (layout === "force") { n.fx = n.x; n.fy = n.y; alpha = Math.max(alpha, 0.12); running = true; }
+      n.x = (px - view.x) / view.k; n.y = (py - view.y) / view.k;
+      hover = n;
+      if (layout === "force") { n.fx = n.x; n.fy = n.y; alpha = Math.max(alpha, 0.2); running = true; }
     } else { view.x = down.vx + dx; view.y = down.vy + dy; }
     request();
   });
@@ -6520,16 +6727,13 @@ HTMLEOF
   };
   canvas.addEventListener("pointerup", up);
   canvas.addEventListener("pointercancel", up);
+  canvas.addEventListener("pointerleave", () => { if (!down) { hover = null; tip.hidden = true; request(); } });
   canvas.addEventListener("wheel", (ev) => {
-    ev.preventDefault();
-    const p = pt(ev), k = clampK(view.k * Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0015)));
-    view.x = p.x - (p.x - view.x) * (k / view.k); view.y = p.y - (p.y - view.y) * (k / view.k); view.k = k;
-    userMoved = true; tween = null; request();
+    ev.preventDefault(); tip.hidden = true;
+    const step = ev.deltaMode === 1 ? ev.deltaY * 18 : ev.deltaY;
+    zoomAt(ev.clientX, ev.clientY, Math.exp(-step * (ev.ctrlKey ? 0.01 : 0.0016)), 0);
   }, { passive: false });
-  canvas.addEventListener("dblclick", (ev) => {
-    const p = pt(ev), n = nodeAt(p.x, p.y);
-    if (n) { select(n); centerOn(n, Math.max(view.k * 1.8, 1.4)); }
-  });
+  canvas.addEventListener("dblclick", (ev) => { const n = nodeAt(ev.clientX, ev.clientY); if (n) { select(n); centerOn(n, Math.max(view.k * 1.8, 1.5)); } else zoomAt(ev.clientX, ev.clientY, 1.8, 300); });
   const q = $("q");
   q.addEventListener("input", () => setQuery(q.value));
   q.addEventListener("keydown", (ev) => {
@@ -6537,42 +6741,74 @@ HTMLEOF
     if (ev.key !== "Enter" || !matches.length) return;
     matchIdx = (matchIdx + (ev.shiftKey ? -1 : 1) + matches.length) % matches.length;
     const n = matches[matchIdx];
-    select(n); centerOn(n, Math.max(view.k, 1.2));
+    select(n); centerOn(n, Math.max(view.k, 1.3));
     $("hits").textContent = `${matchIdx + 1}/${matches.length}`;
   });
   document.addEventListener("keydown", (ev) => {
-    if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLSelectElement) return;
+    if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLSelectElement || ev.target instanceof HTMLButtonElement && ev.key === "Enter") return;
     if (ev.key === "/") { ev.preventDefault(); q.focus(); q.select(); }
-    else if (ev.key === "Escape") select(null);
+    else if (ev.key === "Escape") { if (!$("table").hidden) toggleTable(false); else select(null); }
     else if (ev.key === "f" || ev.key === "F") { userMoved = false; animateTo(fitView()); }
+    else if (ev.key === "+" || ev.key === "=") zoomAt(W / 2, H / 2, 1.4, 260);
+    else if (ev.key === "-") zoomAt(W / 2, H / 2, 1 / 1.4, 260);
   });
+  function togglePanel(open) { const p = $("panel"); p.hidden = !open; $("gear").classList.toggle("on", open); $("gear").setAttribute("aria-expanded", String(open)); if (open) toggleTable(false); }
+  function toggleTable(open) { $("table").hidden = !open; $("list").classList.toggle("on", open); if (open) { togglePanel(false); renderTable(); } }
+  $("gear").onclick = () => togglePanel($("panel").hidden);
+  $("list").onclick = () => toggleTable($("table").hidden);
+  $("tableClose").onclick = () => toggleTable(false);
+  $("zin").onclick = () => zoomAt(W / 2, H / 2, 1.4, 260);
+  $("zout").onclick = () => zoomAt(W / 2, H / 2, 1 / 1.4, 260);
   $("fit").onclick = () => { userMoved = false; animateTo(fitView()); };
-  $("ext").onchange = (ev) => { hideExt = !ev.target.checked; filtersChanged(); };
-  $("heur").onchange = (ev) => { hideHeur = !ev.target.checked; filtersChanged(); };
-  $("names").onchange = (ev) => { showNames = ev.target.checked; request(); };
-  const layoutSel = $("layout");
+  $("theme").onclick = () => setTheme(root.dataset.theme === "dark" ? "light" : "dark", true);
+  $("noteBtn").onclick = () => { $("notes").hidden = !$("notes").hidden; $("noteBtn").classList.toggle("on", !$("notes").hidden); placeInfo(); };
+  const bindSwitch = (id, key, after) => { const el = $(id); el.checked = P[key]; el.onchange = () => { P[key] = el.checked; after(); }; };
+  bindSwitch("ext", "ext", filtersChanged);
+  bindSwitch("heur", "heur", filtersChanged);
+  bindSwitch("orph", "orph", filtersChanged);
+  bindSwitch("arrows", "arrows", request);
+  bindSwitch("names", "names", request);
+  const fmt = { fade: (v) => v.toFixed(2) + "×", size: (v) => v.toFixed(2) + "×", width: (v) => v.toFixed(1) + "×", center: (v) => v.toFixed(2), repel: (v) => v.toFixed(1), link: (v) => v.toFixed(2), dist: (v) => String(v) };
+  for (const key of Object.keys(fmt)) {
+    const el = $(key), out = $(key + "V");
+    el.value = P[key]; out.textContent = fmt[key](P[key]);
+    el.oninput = () => {
+      P[key] = +el.value; out.textContent = fmt[key](P[key]);
+      if (key === "size") { sizeNodes(); if (layout === "force") startForce(false, 0.3); }
+      else if (key === "center" || key === "repel" || key === "link" || key === "dist") { if (layout === "force") startForce(false, 0.5); }
+      request();
+    };
+  }
+  $("animate").onclick = () => { layout = "force"; renderLayoutButtons(); userMoved = false; startForce(true, 1); };
   const LAYOUTS = REL === "tree" ? [["radial", "방사형"], ["layers", "층"], ["force", "힘"]] : REL === "modules" ? [["layers", "층"], ["force", "힘"]] : [["force", "힘"], ["layers", "층"]];
-  for (const [v, t] of LAYOUTS) layoutSel.add(new Option(t, v));
-  layout = LAYOUTS[0][0];
-  layoutSel.onchange = () => { layout = layoutSel.value; userMoved = false; applyLayout(true); };
+  function renderLayoutButtons() {
+    $("layout").innerHTML = LAYOUTS.map(([v, t]) => `<button type="button" data-v="${v}" class="${v === layout ? "on" : ""}">${t}</button>`).join("");
+    for (const b of $("layout").querySelectorAll("button")) b.onclick = () => { layout = b.dataset.v; renderLayoutButtons(); userMoved = false; applyLayout(true); };
+  }
 
   // ----- 시작 -----
   const st = G.stats || {};
   document.title = `${G.repo}${G.scope ? "/" + G.scope : ""} · ${RELNAME[REL] || REL} — gitch graph`;
-  $("meta").textContent = `${G.repo}${G.scope ? " / " + G.scope : ""} · ${RELNAME[REL] || REL} · 노드 ${nodes.length} · 연결 ${edges.length}${st.heuristicEdges ? ` (추정 ${st.heuristicEdges})` : ""}${G.commit ? " · " + G.commit : ""} · gitch ${G.version}`;
-  $("meta").title = `${G.generated || ""}`;
-  $("notes").textContent = (G.notes || []).join("  ·  ");
-  if (!nodes.some(isExt)) $("extLabel").style.display = "none";
-  if (!edges.some((e) => e.h)) $("heurLabel").style.display = "none";
-  if (!nodes.length) $("empty").style.display = "flex";
-  readTheme();
-  const mq = window.matchMedia("(prefers-color-scheme: dark)");
-  if (mq.addEventListener) mq.addEventListener("change", readTheme);
+  $("repo").textContent = G.repo + (G.scope ? " / " + G.scope : "");
+  $("rel").textContent = RELNAME[REL] || REL;
+  $("stats").textContent = `노드 ${nodes.length} · 연결 ${edges.length}${st.heuristicEdges ? ` (추정 ${st.heuristicEdges})` : ""}${G.commit ? " · " + G.commit : ""} · gitch ${G.version}`;
+  $("stats").title = G.generated || "";
+  if ((G.notes || []).length) { $("notes").innerHTML = G.notes.map((t) => `<p>${esc(t)}</p>`).join(""); $("noteBtn").hidden = false; }
+  if (!nodes.some((n) => n.fam === "ext")) $("extRow").hidden = true;
+  if (!edges.some((e) => e.h)) $("heurRow").hidden = true;
+  if (!DIRECTED) $("arrowRow").hidden = true;
+  if (!nodes.length) $("empty").hidden = false;
+  let saved = null;
+  try { saved = localStorage.getItem("gitch-graph-theme"); } catch (e) { /* 저장소를 못 쓰면 기본(어둡게) */ }
+  layout = LAYOUTS[0][0];
+  sizeNodes();
+  refreshVisible();
+  setTheme(saved === "light" ? "light" : "dark", false);
   window.addEventListener("resize", resize);
   resize();
-  renderLegend();
-  refreshVisible();
-  applyLayout(true);
+  renderLayoutButtons();
+  if (layout === "force") applyLayout(true);
+  else { seed(); const T = layout === "layers" ? layersTargets() : radialTargets(); for (const [n, [x, y]] of T) { n.x = x; n.y = y; } const f = fitView(); if (f) Object.assign(view, f); request(); }
 })();
 </script>
 </body>
