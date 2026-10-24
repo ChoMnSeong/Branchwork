@@ -640,7 +640,7 @@ test_graph_formats_and_output() {
   [ -f "$T/out/g.html" ] || fail "html 파일이 없음"
   grep -q '<script id="graph-data" type="application/json">' "$T/out/g.html" || fail "데이터 블록 없음"
   grep -q '"relation": "files"' "$T/out/g.html" || fail "데이터에 관계가 없음"
-  for id in panel table legend info q ana banner peek; do grep -q "id=\"$id\"" "$T/out/g.html" || fail "html 에 #$id 가 없음"; done   # 설정 창 · 표로 보기 · 범례 · 정보 · 찾기 · 분석 · 강조 알림 · 마스코트
+  for id in panel table legend info q ana banner logo; do grep -q "id=\"$id\"" "$T/out/g.html" || fail "html 에 #$id 가 없음"; done   # 설정 창 · 표로 보기 · 범례 · 정보 · 찾기 · 분석 · 강조 알림 · 표시
   grep -q '<html lang="ko" data-theme="dark">' "$T/out/g.html" || fail "기본은 어두운 화면이어야"
   assert_eq "$(grep -o '</script>' "$T/out/g.html" | wc -l | tr -d ' ')" "2" "데이터 속 </script> 가 그대로 들어감"
   if command -v node >/dev/null 2>&1; then   # 보기 스크립트 문법(브라우저 없이)

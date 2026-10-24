@@ -6920,12 +6920,13 @@ AWKEOF
 }
 
 # 표준입력 JSON({"initial", "views": {관계: json}}) → 오프라인 한 페이지(CDN 없음).
-# 생김새는 Gitrochi 앱 아이콘을 따른다: 남색 빛 배경, git 노드처럼 가운데가 빈 고리, 고른 것은 초록 빛, 눈 달린 마스코트(커서를 본다).
+# 생김새는 Gitrochi 앱 아이콘의 느낌만 따른다: 검정(밝게는 흰) 바탕, git 노드처럼 가운데가 빈 은색 고리, 고른 것은 초록 빛.
+# 회색은 모두 R=G=B — 바탕 · 창 · 선 어디에도 푸른 기가 없게.
 # 위 탭으로 네 관계(파일 · 모듈 · 같이 바뀜 · 폴더)를 바꾸고, 단위(파일 · 폴더) · 언어 · 그리기(점 · 상자 = tuist 같은 다이어그램) ·
 # 색(언어 · 종류 · 바뀐 횟수) · 크기를 고른다. 분석 창은 순환 의존 · 많이 쓰이는 것 · 안 쓰이는 것 · 가장 긴 사슬 · 핫스팟 ·
 # 숨은 결합(같이 바뀌는데 import 는 없음) 등을 찾아 누르면 그래프에 강조한다. 노드에서는 영향 범위 · 전체 의존 · 경로 찾기.
-# 노드 색은 검증한 범주 색 세 칸(파랑 · 주황 · 청록)만 언어 계열에 주고 나머지는 회색 — 그래프는 어느 두 노드든 붙을 수 있어
-# 세 칸을 넘으면 서로 구별이 안 된다. 바뀐 횟수는 파랑 한 색의 네 단계. JSON 의 < 는 < 로 — 데이터 속 </script> 가 페이지를 끊지 않게
+# 노드 색은 세 칸만 언어 계열에 준다: 가장 많은 언어는 은색(밝게는 흑연색), 다음 둘은 검증한 주황 · 초록, 나머지는 회색 —
+# 그래프는 어느 두 노드든 붙을 수 있어 칸이 많으면 서로 구별이 안 된다. 바뀐 횟수는 주황 한 색의 네 단계. JSON 의 < 는 < 로 — 데이터 속 </script> 가 페이지를 끊지 않게
 graph_html() {
   cat <<'HTMLEOF'
 <!doctype html>
@@ -6937,71 +6938,61 @@ graph_html() {
 <style>
 :root {
   color-scheme: dark;
-  --bg: #0b1020; --glow: rgba(52, 78, 190, .30); --glow2: rgba(72, 224, 122, .07);
-  --panel: rgba(16, 21, 44, .80); --panel-solid: #11162f; --hover: rgba(127, 164, 255, .09); --border: rgba(127, 164, 255, .16);
-  --text: #e8ebf7; --text-2: #b6bedb; --muted: #7f89ab; --halo: rgba(11, 16, 32, .92); --shadow: 0 14px 44px rgba(0, 0, 12, .6);
-  --line: rgba(200, 212, 248, .17); --ink: rgba(200, 212, 248, .5);
-  --accent: #7fa4ff; --accent-soft: rgba(127, 164, 255, .18); --leaf: #6be59a; --leaf-soft: rgba(107, 229, 154, .18); --hl: #e4e9ff;
-  --core: #0b1020; --box: #141b3b;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --node-other: #aab3cf; --node-ext: #5f6a8f;
-  --h1: #1c5cab; --h2: #3987e5; --h3: #6da7ec; --h4: #b7d3f6;
-  --add: #6be59a; --del: #ff6b6b; --warn: #e3a33b;
+  --bg: #0a0a0a; --glow: rgba(255, 255, 255, .035);
+  --panel: rgba(22, 22, 22, .88); --panel-solid: #161616; --seg-on: #2c2c2c; --hover: rgba(255, 255, 255, .06); --border: rgba(255, 255, 255, .09); --edge-hl: rgba(255, 255, 255, .05);
+  --text: #f2f2f2; --text-2: #b8b8b8; --muted: #8a8a8a; --halo: rgba(10, 10, 10, .92); --shadow: 0 16px 48px rgba(0, 0, 0, .55);
+  --line: rgba(255, 255, 255, .15); --ink: rgba(255, 255, 255, .46);
+  --accent: #f2f2f2; --accent-soft: rgba(255, 255, 255, .12); --leaf: #4ade80; --leaf-soft: rgba(74, 222, 128, .22); --hl: #ffffff; --hl-glow: rgba(255, 255, 255, .5);
+  --core: #0e0e0e; --box: #151515;
+  --s1: #d6d6d6; --s2: #e0662e; --s3: #1ea672; --node-other: #8f8f8f; --node-ext: #5e5e5e;
+  --h1: #9a3412; --h2: #ea580c; --h3: #fb923c; --h4: #fed7aa;
+  --add: #4ade80; --del: #f87171; --warn: #fbbf24;
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f4f6fb; --glow: rgba(61, 109, 242, .10); --glow2: rgba(31, 157, 85, .06);
-  --panel: rgba(255, 255, 255, .88); --panel-solid: #ffffff; --hover: rgba(61, 109, 242, .07); --border: rgba(20, 30, 70, .12);
-  --text: #141a33; --text-2: #3c4566; --muted: #6b7493; --halo: rgba(244, 246, 251, .92); --shadow: 0 14px 40px rgba(20, 30, 70, .14);
-  --line: rgba(20, 30, 70, .15); --ink: rgba(20, 30, 70, .5);
-  --accent: #3d6df2; --accent-soft: rgba(61, 109, 242, .12); --leaf: #1f9d55; --leaf-soft: rgba(31, 157, 85, .14); --hl: #2c56d6;
+  --bg: #f7f7f7; --glow: rgba(255, 255, 255, .9);
+  --panel: rgba(255, 255, 255, .9); --panel-solid: #ffffff; --seg-on: #ffffff; --hover: rgba(0, 0, 0, .045); --border: rgba(0, 0, 0, .09); --edge-hl: rgba(255, 255, 255, .7);
+  --text: #171717; --text-2: #404040; --muted: #6b6b6b; --halo: rgba(247, 247, 247, .92); --shadow: 0 12px 36px rgba(0, 0, 0, .1);
+  --line: rgba(0, 0, 0, .14); --ink: rgba(0, 0, 0, .42);
+  --accent: #171717; --accent-soft: rgba(0, 0, 0, .07); --leaf: #16a34a; --leaf-soft: rgba(22, 163, 74, .18); --hl: #0a0a0a; --hl-glow: rgba(0, 0, 0, 0);
   --core: #ffffff; --box: #ffffff;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --node-other: #7d86a6; --node-ext: #a9b0c8;
-  --h1: #6da7ec; --h2: #3987e5; --h3: #1c5cab; --h4: #0d366b;
-  --add: #1f9d55; --del: #d9363e; --warn: #b7791f;
+  --s1: #3d3d3d; --s2: #d4521c; --s3: #0f8a5c; --node-other: #8f8f8f; --node-ext: #ababab;
+  --h1: #fb923c; --h2: #ea580c; --h3: #b8410e; --h4: #7c2d12;
+  --add: #16a34a; --del: #dc2626; --warn: #b45309;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Apple SD Gothic Neo", "Segoe UI", "Noto Sans KR", sans-serif; }
-body { background: radial-gradient(1300px 900px at 62% 32%, var(--glow), transparent 70%), radial-gradient(900px 700px at 12% 96%, var(--glow2), transparent 70%), var(--bg); }
+body { background: radial-gradient(1400px 900px at 50% 40%, var(--glow), transparent 72%), var(--bg); }
 button, input, select { font: inherit; color: inherit; }
 canvas { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
 canvas.dragging { cursor: grabbing; }
 canvas.over { cursor: pointer; }
 canvas.picking { cursor: crosshair; }
-.hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); }
+.hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow), inset 0 1px 0 var(--edge-hl); -webkit-backdrop-filter: blur(20px) saturate(1.1); backdrop-filter: blur(20px) saturate(1.1); }
 [hidden] { display: none !important; }
 .icon-btn { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--text-2); cursor: pointer; }
 .icon-btn:hover { background: var(--hover); color: var(--text); }
 .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
 .icon-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* 마스코트: 앱 아이콘의 검은 몸과 두 눈. 눈동자는 커서를 따라간다 */
-.mascot { display: block; overflow: visible; }
-.mascot .body { fill: url(#gmBody); }
-.mascot .rim { fill: none; stroke: url(#gmRim); stroke-width: 3.2; stroke-linecap: round; filter: url(#gmGlow); }
-.mascot .rim2 { fill: none; stroke: rgba(120, 150, 255, .32); stroke-width: 1.8; stroke-linecap: round; }
-.mascot .white { fill: url(#gmEye); }
-.mascot .lash { fill: none; stroke: rgba(8, 11, 26, .6); stroke-width: 1.5; stroke-linecap: round; }
-.mascot .glint { fill: #fff; opacity: .92; }
-.mascot .pupil { fill: #0a0e1c; transition: transform .12s ease-out; }
-.mascot .lid { transform-box: fill-box; transform-origin: center; animation: blink 7s infinite; }
-.mascot .e2 .lid { animation-delay: .06s; }
-@keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
-@media (prefers-reduced-motion: reduce) { .mascot .lid { animation: none; } .mascot .pupil { transition: none; } }
-/* 왼쪽 위: 마스코트 · 이름 · 탭 · 수 · 찾기 · 보기 고르기 */
+/* 표시: 앱 아이콘의 가지 — 은색 고리 둘과 초록 고리 하나 */
+.mark { display: block; width: 20px; height: 20px; fill: none; stroke: var(--text); stroke-width: 1.8; stroke-linecap: round; }
+.mark .on { stroke: var(--leaf); filter: drop-shadow(0 0 2.5px var(--leaf)); }
+/* 왼쪽 위: 표시 · 이름 · 탭 · 수 · 찾기 · 보기 고르기 */
 #top { top: 14px; left: 14px; width: min(372px, calc(100vw - 82px)); padding: 12px 12px 10px; }
 #top .row1 { display: flex; align-items: center; gap: 9px; }
-#logo .mascot { width: 34px; height: 28px; margin: -2px 0 -2px -2px; filter: drop-shadow(0 0 8px rgba(80, 120, 255, .35)); }
+#logo { flex: none; }
 #repo { font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #top .row1 .icon-btn { margin-left: auto; width: 26px; height: 26px; }
 .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin-top: 10px; padding: 3px; border-radius: 10px; background: var(--hover); }
 .tabs button { padding: 5px 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); font-weight: 600; cursor: pointer; }
-.tabs button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .3), inset 0 0 0 1px var(--border); }
+.tabs button.on { background: var(--seg-on); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .2), inset 0 0 0 1px var(--border); }
 .tabs button:not(.on):hover { color: var(--text); }
 #stats { margin-top: 7px; color: var(--muted); font-size: 12px; }
 #notes { margin: 8px 0 2px; padding: 8px 10px; border-radius: 8px; background: var(--hover); color: var(--text-2); font-size: 12px; }
 #notes p { margin: 0 0 4px; } #notes p:last-child { margin: 0; }
 .search { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 0 10px; height: 34px; border-radius: 9px; background: var(--hover); border: 1px solid transparent; }
-.search:focus-within { border-color: var(--accent); }
+.search:focus-within { border-color: var(--ink); }
 .search svg { flex: none; width: 15px; height: 15px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; }
 .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; }
 .search input::placeholder { color: var(--muted); }
@@ -7013,7 +7004,7 @@ select { min-width: 0; padding: 4px 8px; border: 1px solid var(--border); border
 select option { background: var(--panel-solid); color: var(--text); }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 2px; border-radius: 8px; background: var(--hover); }
 .seg button { padding: 3px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; white-space: nowrap; }
-.seg button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .25), inset 0 0 0 1px var(--border); }
+.seg button.on { background: var(--seg-on); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .2), inset 0 0 0 1px var(--border); }
 /* 가운데 위: 지금 강조 중인 것 */
 #banner { top: 14px; left: 400px; display: flex; align-items: center; gap: 10px; max-width: min(620px, calc(100vw - 470px)); padding: 7px 8px 7px 14px; border-color: var(--leaf-soft); }
 #banner .dot { background: var(--leaf); box-shadow: 0 0 10px var(--leaf); }
@@ -7069,7 +7060,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .switch { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 32px; height: 18px; margin: 0; border-radius: 999px; background: var(--border); cursor: pointer; transition: background .15s; }
 .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .15s; }
 .switch:checked { background: var(--accent); }
-.switch:checked::after { transform: translateX(14px); }
+.switch:checked::after { transform: translateX(14px); background: var(--panel-solid); }
 .btn { width: 100%; margin-top: 8px; padding: 7px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--hover); color: var(--text); cursor: pointer; }
 .btn:hover { border-color: var(--accent); }
 .groups { display: grid; gap: 2px; }
@@ -7091,7 +7082,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 /* 오른쪽: 목록 · 분석 */
 .drawer { top: 62px; right: 14px; bottom: 66px; width: min(540px, calc(100vw - 28px)); display: flex; flex-direction: column; }
 .drawer .head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; font-weight: 650; }
-.drawer .head .mascot { width: 30px; height: 25px; }
 .drawer .head span { color: var(--muted); font-weight: 400; font-size: 12px; }
 .drawer .head .icon-btn { margin-left: auto; width: 26px; height: 26px; }
 .drawer .wrap { flex: 1; overflow: auto; padding: 0 8px 10px; }
@@ -7117,13 +7107,9 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 #tip { position: fixed; z-index: 3; padding: 6px 10px; border-radius: 9px; background: var(--panel-solid); border: 1px solid var(--border); box-shadow: var(--shadow); pointer-events: none; max-width: 380px; }
 #tip b { display: block; font-weight: 600; word-break: break-all; }
 #tip span { color: var(--muted); font-size: 12px; }
-#peek { position: fixed; z-index: 0; top: 76px; right: -46px; width: 230px; height: 192px; pointer-events: none; opacity: .92; }
-#peek .mascot { width: 100%; height: 100%; filter: drop-shadow(0 0 28px rgba(70, 110, 255, .28)); }
-:root[data-theme="light"] #peek { opacity: .85; }
 #empty { position: fixed; inset: 0; z-index: 1; display: grid; place-items: center; align-content: center; gap: 14px; color: var(--muted); font-size: 15px; pointer-events: none; }
-#empty .mascot { width: 150px; height: 125px; filter: drop-shadow(0 0 30px rgba(80, 120, 255, .35)); }
+#empty .mark { width: 40px; height: 40px; stroke: var(--muted); stroke-width: 1.4; }
 @media (max-width: 700px) {
-  #peek { display: none; }
   #legend { max-width: calc(100vw - 28px); bottom: 66px; }
   #info { top: auto !important; bottom: 120px; max-height: 45vh !important; }
   #banner { top: auto; bottom: 120px; max-width: calc(100vw - 28px); }
@@ -7131,13 +7117,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-  <radialGradient id="gmBody" cx="66%" cy="24%" r="82%"><stop offset="0" stop-color="#202b62"/><stop offset=".5" stop-color="#0c1027"/><stop offset="1" stop-color="#04060d"/></radialGradient>
-  <linearGradient id="gmRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6f8dff" stop-opacity=".15"/><stop offset=".55" stop-color="#a9c0ff" stop-opacity="1"/><stop offset="1" stop-color="#5b7cff" stop-opacity=".55"/></linearGradient>
-  <radialGradient id="gmEye" cx="40%" cy="34%" r="74%"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#e2e6ff"/><stop offset="1" stop-color="#a7b0ec"/></radialGradient>
-  <filter id="gmGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-</defs></svg>
-<div id="peek" aria-hidden="true"></div>
 <canvas id="c" tabindex="0" aria-label="구조 그래프 — 표로 보기는 오른쪽 아래 목록 단추"></canvas>
 <div class="hud" id="top">
   <div class="row1"><span id="logo"></span><span id="repo">gitch graph</span>
@@ -7192,7 +7171,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   <div class="wrap"><table><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table><div class="more" id="tmore" hidden></div></div>
 </aside>
 <aside class="hud drawer" id="ana" hidden>
-  <div class="head"><span id="anaLogo"></span>분석 <span id="anaNote"></span><button class="icon-btn" id="anaClose" type="button" title="닫기" aria-label="분석 닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="head">분석 <span id="anaNote"></span><button class="icon-btn" id="anaClose" type="button" title="닫기" aria-label="분석 닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="wrap" id="anaBody"></div>
 </aside>
 <div class="hud" id="legend"></div>
@@ -7234,9 +7213,9 @@ HTMLEOF
   const hsize = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : b >= 1024 ? Math.round(b / 1024) + " KB" : b + " B");
   const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const MASCOT = (cls) => `<svg class="mascot ${cls || ""}" viewBox="0 0 120 100" aria-hidden="true"><path class="body" d="M17 71C8 45 28 13 62 9C93 5 116 27 114 54C113 70 106 81 96 87C104 89 108 95 103 98C98 101 86 99 78 95C72 96 66 97 60 97C38 97 23 88 17 71Z"/><path class="rim" d="M40 16C52 9 70 6 86 11C102 16 114 31 114 51"/><path class="rim2" d="M20 76C26 88 40 96 58 97"/><g class="eye e1" transform="translate(47 43) rotate(-18)"><g class="lid"><path class="white" d="M-13 0Q0-15 13 0Q0 13-13 0Z"/><path class="lash" d="M-13 0Q0-15 13 0"/><ellipse class="pupil" cx="0" cy="0.5" rx="2.4" ry="7.6"/><circle class="glint" cx="3.8" cy="-3.6" r="1.5"/></g></g><g class="eye e2" transform="translate(86 60) rotate(14)"><g class="lid"><path class="white" d="M-15 0Q0-17 15 0Q0 15-15 0Z"/><path class="lash" d="M-15 0Q0-17 15 0"/><ellipse class="pupil" cx="0" cy="0.5" rx="2.7" ry="8.6"/><circle class="glint" cx="4.2" cy="-4" r="1.7"/></g></g></svg>`;
+  const MARK = '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8.3v4.2c0 2.6 1.1 4.1 3 4.6M12.4 17.3c1.7.1 3-.4 4.1-1.4"/><circle cx="5" cy="5.6" r="2.7"/><circle cx="9.9" cy="17.4" r="2.6"/><circle class="on" cx="18.8" cy="14.3" r="2.6"/></svg>';
 
-  // ----- 색: 언어 계열은 범주 색 세 칸(노드가 많은 셋, 모든 관계에서 같은 색), 모듈 종류는 앱 · 라이브러리 · 테스트, 바뀐 횟수는 파랑 네 단계 -----
+  // ----- 색: 언어 계열은 세 칸(노드가 많은 셋, 모든 관계에서 같은 색), 모듈 종류는 앱 · 라이브러리 · 테스트, 바뀐 횟수는 주황 네 단계 -----
   const FAMILY = { ts: "web", js: "web", vue: "web", svelte: "web", npm: "web", swift: "swift", tuist: "swift", python: "python", go: "go", rust: "rust", cargo: "rust", kotlin: "jvm", java: "jvm", gradle: "jvm" };
   const EXTFAM = { ts: "web", tsx: "web", js: "web", jsx: "web", mjs: "web", cjs: "web", mts: "web", cts: "web", vue: "web", svelte: "web", swift: "swift", py: "python", pyi: "python", go: "go", rs: "rust", kt: "jvm", kts: "jvm", java: "jvm" };
   const FAMNAME = { web: "TS/JS", swift: "Swift", python: "Python", go: "Go", rust: "Rust", jvm: "Kotlin/Java", lang: "그 밖의 언어", other: "그 밖의 파일", ext: "외부 패키지 · 모듈" };
@@ -7255,10 +7234,10 @@ HTMLEOF
   const famCount = {};
   for (const v of ORDER) for (const d of VIEWS[v].nodes) { const f = famOf(d, v); if (PRIORITY.includes(f)) famCount[f] = (famCount[f] || 0) + 1; }
   const top3 = Object.keys(famCount).sort((a, b) => famCount[b] - famCount[a] || PRIORITY.indexOf(a) - PRIORITY.indexOf(b)).slice(0, 3);
-  const colored = PRIORITY.filter((f) => top3.includes(f));   // 칸 순서는 우선순위대로 — 저장소가 달라도 TS/JS 파랑 · Swift 주황이 되기 쉽게
+  const colored = top3;   // 가장 많은 언어가 첫 칸(은색) — 저장소의 주 언어는 아이콘처럼 무채색, 다른 언어만 색으로 드러난다
   const SLOT = {};
   colored.forEach((f, i) => { SLOT[f] = "s" + (i + 1); });
-  const ROLESLOT = { app: "s1", lib: "s4", test: "s3" };
+  const ROLESLOT = { app: "s2", lib: "s1", test: "s3" };   // 대부분인 라이브러리는 은색, 앱 · 테스트만 색
 
   // ----- 관계 사이에 나눠 쓰는 값: 파일의 바뀐 횟수(같이 바뀜) · 줄 수(파일 import) · import 쌍(숨은 결합 찾기) -----
   const CHG = new Map(), LNS = new Map(), IMP = new Set();
@@ -7303,10 +7282,11 @@ HTMLEOF
     return SLOT[n.fam] ? C[SLOT[n.fam]] : n.fam === "ext" ? C.ext : C.other;
   };
   const colorOfKey = (k) => (k[0] === "r" ? (k === "r:ext" ? C.ext : C[ROLESLOT[k.slice(2)]] || C.other) : SLOT[k.slice(2)] ? C[SLOT[k.slice(2)]] : k === "f:ext" ? C.ext : C.other);
+  const neutral = (c) => c === C.s1 || c === C.other || c === C.ext;   // 무채색 칸(은색 · 회색)은 칠을 줄인다
   const keyName = (k) => (k[0] === "r" ? ROLENAME[k.slice(2)] : FAMNAME[k.slice(2)]) || k.slice(2);
   function readTheme() {
     const cs = getComputedStyle(root), g = (k) => cs.getPropertyValue("--" + k).trim();
-    for (const k of ["bg", "text", "text-2", "muted", "line", "ink", "accent", "leaf", "hl", "add", "del", "warn", "halo", "core", "box", "s1", "s2", "s3", "s4", "h1", "h2", "h3", "h4", "glow", "glow2"]) C[k] = g(k);
+    for (const k of ["bg", "text", "text-2", "muted", "line", "ink", "accent", "leaf", "hl", "hl-glow", "add", "del", "warn", "halo", "core", "box", "s1", "s2", "s3", "h1", "h2", "h3", "h4", "glow"]) C[k] = g(k);
     C.other = g("node-other"); C.ext = g("node-ext"); C.dim = g("node-ext");
     if (m) { renderGroups(); renderInfo(); if (!$("ana").hidden) renderAna(); }
     request();
@@ -7397,17 +7377,22 @@ HTMLEOF
     if (by === "changes") return heatOf(n);
     return n.members ? n.members.length : m.rel === "changes" ? n.d.changes || 0 : m.rel === "tree" ? n.d.files || 0 : n.deg;
   }
-  function sizeNodes() {
+  function sizeNodes(onlyR) {   // 크기는 보이는 노드 중 가장 큰 것 기준 — 언어 · 필터로 몇 개만 남아도 점처럼 작아지지 않게. onlyR: 필터가 바뀐 때(반지름만)
     let maxM = 1;
-    for (const n of m.nodes) maxM = Math.max(maxM, metric(n));
+    for (const n of m.nodes) if (n.vis) maxM = Math.max(maxM, metric(n));
     heatMax = 1;
     for (const n of m.nodes) heatMax = Math.max(heatMax, heatOf(n));
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.font = `600 13px ${FONT}`;
-    for (const n of m.nodes) { n.r = P.size * (3.4 + 8.5 * Math.sqrt(metric(n) / maxM)); n.w = Math.max(58, ctx.measureText(n.label).width + 26) * Math.sqrt(P.size); n.h = 30 * Math.sqrt(P.size); }
-    ctx.font = `12px ${FONT}`;
-    for (const n of m.nodes) n.lw = ctx.measureText(n.label).width;
-    ctx.restore();
+    if (onlyR && maxM === m.maxM) return;
+    m.maxM = maxM;
+    for (const n of m.nodes) n.r = P.size * (3.4 + 8.5 * Math.sqrt(Math.min(1, metric(n) / maxM)));
+    if (!onlyR) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.font = `600 13px ${FONT}`;
+      for (const n of m.nodes) { n.w = Math.max(58, ctx.measureText(n.label).width + 26) * Math.sqrt(P.size); n.h = 30 * Math.sqrt(P.size); }
+      ctx.font = `12px ${FONT}`;
+      for (const n of m.nodes) n.lw = ctx.measureText(n.label).width;
+      ctx.restore();
+    }
     m.byR = m.nodes.slice().sort((a, b) => (a.id === "./") - (b.id === "./") || b.r - a.r || byId(a, b));   // 이름은 큰 노드부터 자리를 잡는다(뿌리 폴더는 위에 저장소 이름이 있으니 맨 뒤)
   }
   const box = () => vs.style === "box" && vs.layout !== "pack";
@@ -7463,7 +7448,6 @@ HTMLEOF
     visEdges = m.edges.filter((e) => e.vis);
     m.ana = null;
     $("empty").hidden = visNodes.length > 0;
-    $("peek").hidden = !visNodes.length;
   }
 
   // ----- 화면 · 보기 -----
@@ -8061,31 +8045,33 @@ HTMLEOF
       if (!h.parent) { ctx.globalAlpha = 0.5; ctx.strokeStyle = C.line; ctx.lineWidth = 1.2 / k; ctx.stroke(); continue; }
       if (closed > 0.01) {
         ctx.globalAlpha = a * closed * dim; ctx.fillStyle = C.box; ctx.fill();
-        ctx.globalAlpha = a * closed * 0.4 * dim; ctx.fillStyle = col; ctx.fill();
+        ctx.globalAlpha = a * closed * (neutral(col) ? 0.28 : 0.4) * dim; ctx.fillStyle = col; ctx.fill();
         ctx.globalAlpha = a * closed * dim; ctx.strokeStyle = col; ctx.lineWidth = 1.6 / k; ctx.stroke();
       }
       if (t > 0.01) { ctx.globalAlpha = a * t * 0.05; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = a * t * 0.5 * dim; ctx.strokeStyle = col; ctx.lineWidth = 1 / k; ctx.stroke(); }
-      if (litH.has(h) && closed > 0.3) { ctx.save(); ctx.globalAlpha = a; ctx.shadowColor = HL ? C.leaf : C.accent; ctx.shadowBlur = 14; ctx.strokeStyle = HL ? C.leaf : C.accent; ctx.lineWidth = 2.2 / k; ctx.stroke(); ctx.restore(); }
+      if (litH.has(h) && closed > 0.3) { ctx.save(); ctx.globalAlpha = a; ctx.shadowColor = HL ? C.leaf : C["hl-glow"]; ctx.shadowBlur = 14; ctx.strokeStyle = HL ? C.leaf : C.hl; ctx.lineWidth = 2.2 / k; ctx.stroke(); ctx.restore(); }
       if (h === hoverH) { ctx.globalAlpha = 1; ctx.strokeStyle = C.hl; ctx.lineWidth = 2 / k; ctx.stroke(); }
     }
     // 2) 연결: 이 확대에서 보이는 원끼리 합친 것(굵기 = 개수), 비교면 더함 · 뺌 색, 규칙 위반은 빨강
     const alpha0 = clamp(1.3 / Math.sqrt(pk.agg.length / 60 + 0.01), 0.07, 0.55) * (1 - dimT * 0.75);
+    const nPass = { removed: 0, added: 0 };   // 화면에 그릴 비교 색 연결 수 — 많을수록 옅고 가늘게
+    for (const g of pk.agg) if (g.st && (on(g.a, 30 / k) || on(g.b, 30 / k))) nPass[g.st] = (nPass[g.st] || 0) + 1;
     ctx.lineCap = "round";
     for (const pass of ["", "removed", "added"]) {
       for (const g of pk.agg) {
         if (g.st !== pass || (!on(g.a, 30 / k) && !on(g.b, 30 / k))) continue;
         const bad = P.rules && g.bad;
-        ctx.globalAlpha = pass ? 0.9 : bad ? 0.85 : alpha0;
+        ctx.globalAlpha = pass ? clamp(1.8 / Math.sqrt(nPass[pass] / 30 + 0.01), 0.3, 0.9) : bad ? 0.85 : alpha0;
         ctx.strokeStyle = pass === "added" ? C.add : pass === "removed" ? C.del : bad ? C.del : C.ink;
         ctx.setLineDash(pass === "removed" || g.h === g.n ? [5 / k, 4 / k] : []);
-        ctx.lineWidth = ((pass ? 1.6 : 0.5) + Math.min(3.5, Math.log2(1 + g.n) * 0.45)) * P.width / k;
+        ctx.lineWidth = ((pass ? (nPass[pass] > 200 ? 1 : 1.6) : 0.5) + Math.min(3.5, Math.log2(1 + g.n) * 0.45)) * P.width / k;
         ctx.beginPath(); packPath(g.a, g.b, g.cx, g.cy); ctx.stroke();
       }
     }
     ctx.setLineDash([]);
     const hot = packHot();
     if (hot.length) {
-      ctx.save(); ctx.globalAlpha = 0.95; ctx.strokeStyle = C.hl; if (hot.length <= 300) { ctx.shadowColor = C.accent; ctx.shadowBlur = 10; }
+      ctx.save(); ctx.globalAlpha = hot.length > 150 ? 0.6 : 0.95; ctx.strokeStyle = C.hl; if (hot.length <= 300) { ctx.shadowColor = C["hl-glow"]; ctx.shadowBlur = 10; }
       for (const g of hot) { ctx.lineWidth = (1.4 + Math.min(3, Math.log2(1 + g.n) * 0.6)) * P.width / k; ctx.setLineDash(g.h === g.n ? [5 / k, 3 / k] : []); ctx.beginPath(); packPath(g.a, g.b, g.cx, g.cy); ctx.stroke(); }
       ctx.restore();
     }
@@ -8099,9 +8085,14 @@ HTMLEOF
       const al = a * n.fade;
       if (al < 0.02) continue;
       const r = Math.max(h.r, 1.4 / k), st = n.d.status;
-      ctx.globalAlpha = al; ctx.fillStyle = colorOf(n);
+      const col = colorOf(n);
+      ctx.globalAlpha = al; ctx.fillStyle = col;
       ctx.beginPath(); ctx.arc(h.x, h.y, r, 0, Math.PI * 2); ctx.fill();
-      if (h.r * k >= 5 && n.fam !== "ext") { ctx.fillStyle = C.core; ctx.beginPath(); ctx.arc(h.x, h.y, h.r * 0.5, 0, Math.PI * 2); ctx.fill(); }
+      if (h.r * k >= 5 && n.fam !== "ext") {   // 점 그리기와 같은 고리: 두께는 화면에서 3px 까지
+        const sc = Math.max(0.5, 1 - 3 / (h.r * k));
+        ctx.fillStyle = C.core; ctx.beginPath(); ctx.arc(h.x, h.y, h.r * sc, 0, Math.PI * 2); ctx.fill();
+        if (sc > 0.55) { ctx.globalAlpha = al * 0.12; ctx.fillStyle = col; ctx.fill(); }
+      }
       if (st && m.G.diff) { ctx.strokeStyle = st === "added" ? C.add : st === "removed" ? C.del : C.warn; ctx.lineWidth = 2.2 / k; ctx.setLineDash(st === "removed" ? [4 / k, 3 / k] : []); ctx.beginPath(); ctx.arc(h.x, h.y, r + 2.5 / k, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
       if (matchSet && matchSet.has(n) && !F) { ctx.strokeStyle = C.accent; ctx.lineWidth = 1.6 / k; ctx.beginPath(); ctx.arc(h.x, h.y, r + 2 / k, 0, Math.PI * 2); ctx.stroke(); }
     }
@@ -8332,13 +8323,13 @@ HTMLEOF
     dimT += ((lit0 ? 1 : 0) - dimT) * 0.22;
     if (Math.abs(dimT - (lit0 ? 1 : 0)) > 0.01) busy = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);   // 배경은 페이지의 남색 빛(앱 아이콘처럼)
+    ctx.clearRect(0, 0, W, H);   // 배경은 페이지 것(검정 · 흰 바탕에 가운데만 살짝 밝게)
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * view.x, dpr * view.y);
     const vx0 = -view.x / k, vy0 = -view.y / k, vx1 = vx0 + W / k, vy1 = vy0 + H / k;
     const seen = (n, mg) => n.x + halfW(n) + mg > vx0 && n.x - halfW(n) - mg < vx1 && n.y + halfH(n) + mg > vy0 && n.y - halfH(n) - mg < vy1;
     const hot = f ? (e) => e.s === f || e.t === f : HL ? (HL.edges ? (e) => HL.edges.has(e) : (e) => HL.nodes.has(e.s) && HL.nodes.has(e.t)) : () => false;
     const showArrows = m.directed && (P.arrows || isBox);
-    // 연결: 보통은 한 번에(많을수록 옅게), 강조된 것은 파랑 빛
+    // 연결: 보통은 한 번에(많을수록 옅게), 강조된 것은 흰 빛
     const ink = isBox ? C.ink : C.line;
     ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineCap = "round";
     const base = (isBox ? 0.9 : clamp(1.6 / Math.sqrt(visEdges.length / 400 + 0.01), 0.22, 1)) * (1 - dimT * 0.75);
@@ -8361,14 +8352,17 @@ HTMLEOF
       }
     }
     ctx.setLineDash([]);
-    if (m.G.diff || (VIOL && VIOL.size && P.rules)) {   // 비교의 더함 · 뺌과 규칙 위반은 늘 위에
+    if (m.G.diff || (VIOL && VIOL.size && P.rules)) {   // 비교의 더함 · 뺌과 규칙 위반은 늘 위에 — 많을수록 옅고 가늘게
+      let nd = 0;
+      for (const e of visEdges) if ((m.G.diff && e.d.status) || (VIOL && P.rules && VIOL.get(e))) nd++;
+      const aD = clamp(1.8 / Math.sqrt(nd / 30 + 0.01), 0.3, 0.92);
       for (const e of visEdges) {
         const st = m.G.diff ? e.d.status : "", bad = VIOL && P.rules ? VIOL.get(e) : null;
         if (!st && !bad) continue;
-        ctx.globalAlpha = 0.92 * (1 - dimT * 0.6);
+        ctx.globalAlpha = aD * (1 - dimT * 0.6);
         ctx.strokeStyle = ctx.fillStyle = st === "added" ? C.add : st === "removed" ? C.del : st ? C.warn : C.del;
         ctx.setLineDash(st === "removed" || (!st && bad.severity !== "error") ? [5 / k, 4 / k] : []);
-        ctx.lineWidth = (2 * P.width) / k;
+        ctx.lineWidth = ((nd > 200 ? 1.3 : 2) * P.width) / k;
         const g = geom(e); ctx.beginPath(); strokeEdge(g); ctx.stroke();
         if (m.directed) { ctx.setLineDash([]); ctx.beginPath(); arrowHead(g, 8 / k); ctx.fill(); }
       }
@@ -8376,8 +8370,8 @@ HTMLEOF
     }
     if (f || HL) {
       const hots = visEdges.filter(hot);
-      ctx.globalAlpha = 0.95; ctx.strokeStyle = C.hl; ctx.fillStyle = C.hl;
-      if (hots.length <= 400) { ctx.shadowColor = C.accent; ctx.shadowBlur = 10; }
+      ctx.globalAlpha = hots.length > 150 ? 0.55 : 0.95; ctx.strokeStyle = C.hl; ctx.fillStyle = C.hl;
+      if (hots.length <= 400) { ctx.shadowColor = C["hl-glow"]; ctx.shadowBlur = 10; }
       const wHL = hots.length > 150 ? 1.1 : hots.length > 40 ? 1.5 : HL && !f ? 2.4 : 1.8;   // 많이 강조할수록 가늘게
       for (const e of hots) {
         ctx.lineWidth = (P.width * (m.rel === "changes" ? 1.2 + Math.log2(Math.max(e.w, 1)) : wHL)) / k;
@@ -8395,17 +8389,21 @@ HTMLEOF
       if (Math.abs(n.fade - want) > 0.01) busy = true;
       if (!seen(n, 0)) continue;
       const col = colorOf(n);
-      if (isBox) {   // 상자: 남색 바탕에 그 색 테두리 · 살짝 그 색, 글자는 본문 색
+      if (isBox) {   // 상자: 어두운 바탕에 그 색 테두리 · 살짝 그 색, 글자는 본문 색
         ctx.globalAlpha = n.fade;
         ctx.fillStyle = C.box; ctx.beginPath(); shape(n, 0); ctx.fill();
-        ctx.globalAlpha = n.fade * 0.2; ctx.fillStyle = col; ctx.fill();
+        ctx.globalAlpha = n.fade * (neutral(col) ? 0.1 : 0.2); ctx.fillStyle = col; ctx.fill();
         ctx.globalAlpha = n.fade; ctx.strokeStyle = col; ctx.lineWidth = 1.7 / k;
         if (n.fam === "ext" || n.role === "ext") ctx.setLineDash([4 / k, 3 / k]);
         ctx.stroke(); ctx.setLineDash([]);
       } else {
         ctx.globalAlpha = n.fade; ctx.fillStyle = col;
         ctx.beginPath(); shape(n, 0); ctx.fill();
-        if (n.r * k >= 3.4 && n.fam !== "ext") { ctx.fillStyle = C.core; ctx.beginPath(); core(n, 0.5); ctx.fill(); }
+        if (n.r * k >= 3.4 && n.fam !== "ext") {   // 고리 두께는 화면에서 3px 까지 — 크게 보면 가는 고리와 옅은 속
+          const sc = Math.max(0.5, 1 - 3 / (n.r * k));
+          ctx.fillStyle = C.core; ctx.beginPath(); core(n, sc); ctx.fill();
+          if (sc > 0.55) { ctx.globalAlpha = n.fade * 0.12; ctx.fillStyle = col; ctx.fill(); }
+        }
       }
     }
     if (m.G.diff) {   // 비교: 새로 생김(초록) · 없어짐(빨강 점선) · 바뀜(호박색) 고리
@@ -8506,7 +8504,7 @@ HTMLEOF
   function select(n) {
     const was = sel;
     sel = n && n.vis ? n : null;
-    if (P.local && was !== sel) { refreshVisible(); if (vs.layout === "force") startForce(false, 0.5); else applyLayout(false); }
+    if (P.local && was !== sel) { refreshVisible(); sizeNodes(true); if (vs.layout === "force") startForce(false, 0.5); else applyLayout(false); }
     renderInfo(); request();
   }
   function edgeNote(e) {
@@ -8589,7 +8587,7 @@ HTMLEOF
   function setQuery(s) {
     query = s.trim().toLowerCase();
     matchSet = null;
-    if (P.onlyFound) { matchSet = query ? new Set(m.nodes.filter((n) => n.key.includes(query))) : null; refreshVisible(); if (vs.layout === "force") startForce(false, 0.3); else applyLayout(false); }
+    if (P.onlyFound) { matchSet = query ? new Set(m.nodes.filter((n) => n.key.includes(query))) : null; refreshVisible(); sizeNodes(true); if (vs.layout === "force") startForce(false, 0.3); else applyLayout(false); }
     matches = query ? visNodes.filter((n) => n.key.includes(query)) : [];
     matchSet = query ? new Set(matches) : null; matchIdx = -1;
     $("hits").textContent = query ? `${matches.length}` : "";
@@ -8745,7 +8743,7 @@ HTMLEOF
     for (const b of document.querySelectorAll("#groups button, #legend button")) b.onclick = () => { const g = b.dataset.k; if (hidden.has(g)) hidden.delete(g); else hidden.add(g); filtersChanged(); renderGroups(); };
   }
   function filtersChanged() {
-    refreshVisible();
+    refreshVisible(); sizeNodes(true);
     if (sel && !sel.vis) sel = null;
     if (hover && !hover.vis) hover = null;
     renderInfo(); setQuery($("q").value);
@@ -8807,7 +8805,7 @@ HTMLEOF
         if (s0) for (const e of s0.out) if (e.t.id === v.target) VIOL.set(e, v);
       }
     }
-    sizeNodes(); refreshVisible(); renderControls(); renderInfo(); setQuery($("q").value);
+    refreshVisible(); sizeNodes(); renderControls(); renderInfo(); setQuery($("q").value);
     if (!$("ana").hidden) renderAna();
     if (!m.laid) { m.laid = true; firstLayout(); } else request();
     if (!$("table").hidden) renderTable();
@@ -8921,15 +8919,6 @@ HTMLEOF
     if (n && n.members) { setUnit("file"); return; }   // 폴더를 두 번 누르면 파일 단위로
     if (n) { select(n); centerOn(n, Math.max(view.k * 1.8, 1.5)); } else zoomAt(ev.clientX, ev.clientY, 1.8, 300);
   });
-  // 마스코트 눈동자는 커서 쪽을 본다
-  document.addEventListener("pointermove", (ev) => {
-    for (const p of document.querySelectorAll(".mascot .pupil")) {
-      const r = p.closest(".eye").getBoundingClientRect();
-      if (!r.width) continue;
-      const dx = ev.clientX - (r.left + r.width / 2), dy = ev.clientY - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1, f = Math.min(1, d / 180);
-      p.style.transform = `translate(${((dx / d) * 4.4 * f).toFixed(2)}px, ${((dy / d) * 2 * f).toFixed(2)}px)`;
-    }
-  }, { passive: true });
   const q = $("q");
   q.addEventListener("input", () => setQuery(q.value));
   q.addEventListener("keydown", (ev) => {
@@ -8967,9 +8956,9 @@ HTMLEOF
   $("zout").onclick = () => zoomAt(W / 2, H / 2, 1 / 1.4, 260);
   $("fit").onclick = () => { m.userMoved = false; animateTo(fitView()); };
   $("theme").onclick = () => setTheme(root.dataset.theme === "dark" ? "light" : "dark", true);
-  $("png").onclick = () => {   // 지금 보이는 그래프만(설정 창 · 목록 없이) 남색 배경과 함께 그림으로
+  $("png").onclick = () => {   // 지금 보이는 그래프만(설정 창 · 목록 없이) 페이지 배경과 함께 그림으로
     const out = document.createElement("canvas"); out.width = canvas.width; out.height = canvas.height;
-    const o = out.getContext("2d"), g1 = o.createRadialGradient(out.width * 0.62, out.height * 0.32, 0, out.width * 0.62, out.height * 0.32, out.width * 0.7);
+    const o = out.getContext("2d"), g1 = o.createRadialGradient(out.width * 0.5, out.height * 0.4, 0, out.width * 0.5, out.height * 0.4, out.width * 0.7);
     o.fillStyle = C.bg; o.fillRect(0, 0, out.width, out.height);
     g1.addColorStop(0, C.glow); g1.addColorStop(1, "rgba(0,0,0,0)"); o.fillStyle = g1; o.fillRect(0, 0, out.width, out.height);
     o.drawImage(canvas, 0, 0);
@@ -9016,7 +9005,7 @@ HTMLEOF
   // ----- 시작 -----
   document.title = `${META.repo}${META.scope ? "/" + META.scope : ""} — gitch graph`;
   $("repo").textContent = META.repo + (META.scope ? " / " + META.scope : "");
-  $("logo").innerHTML = MASCOT(); $("emptyLogo").innerHTML = MASCOT(); $("anaLogo").innerHTML = MASCOT(); $("peek").innerHTML = MASCOT("big");
+  $("logo").innerHTML = MARK; $("emptyLogo").innerHTML = MARK;
   let saved = null;
   try { saved = localStorage.getItem("gitch-graph-theme"); } catch (e) { /* 저장소를 못 쓰면 기본(어둡게) */ }
   setTheme(saved === "light" ? "light" : "dark", false);
