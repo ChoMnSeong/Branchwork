@@ -1210,6 +1210,12 @@
         },
         {
           "$ref": "#/$defs/index"
+        },
+        {
+          "$ref": "#/$defs/account"
+        },
+        {
+          "$ref": "#/$defs/login"
         }
       ]
     },
@@ -1540,6 +1546,204 @@
           "const": "index.scip"
         }
       }
+    },
+    "account": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "created",
+        "account",
+        "ssh",
+        "aliasConfigured"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch account setup"
+        },
+        "created": {
+          "type": "boolean"
+        },
+        "account": {
+          "type": "object",
+          "required": [
+            "id",
+            "email",
+            "host",
+            "port",
+            "folder",
+            "via"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "host": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "folder": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "via": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "ssh": {
+          "type": "object",
+          "required": [
+            "alias",
+            "keyExists",
+            "aliasConfigured",
+            "publicKey",
+            "publicKeyPath",
+            "registrationURL",
+            "authenticated",
+            "keyProtection",
+            "message"
+          ],
+          "properties": {
+            "alias": {
+              "type": "string"
+            },
+            "keyExists": {
+              "type": "boolean"
+            },
+            "aliasConfigured": {
+              "type": "boolean"
+            },
+            "publicKey": {
+              "type": "string"
+            },
+            "publicKeyPath": {
+              "type": "string"
+            },
+            "registrationURL": {
+              "type": "string",
+              "format": "uri"
+            },
+            "authenticated": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "keyProtection": {
+              "enum": [
+                "missing",
+                "existing",
+                "none"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        "aliasConfigured": {
+          "type": "boolean"
+        }
+      }
+    },
+    "login": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "session",
+        "state",
+        "deviceCode",
+        "verificationURL",
+        "login",
+        "email",
+        "message"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch login"
+        },
+        "session": {
+          "type": "string",
+          "pattern": "^github-[A-Za-z0-9]{10}$"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "complete",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "deviceCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z0-9]{4}-[A-Z0-9]{4}$"
+        },
+        "verificationURL": {
+          "const": "https://github.com/login/device"
+        },
+        "login": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}$"
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "complete"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "login": {
+                "type": "string",
+                "minLength": 1
+              },
+              "email": {
+                "type": "string",
+                "minLength": 3
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

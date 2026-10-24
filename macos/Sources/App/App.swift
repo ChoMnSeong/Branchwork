@@ -61,6 +61,11 @@ struct GitrochiApp: App {
         Settings {
             SettingsView()
         }
+
+        Window("Get started with Git accounts", id: "git-setup") {
+            GitchGuideSheet(repo: nil)
+        }
+        .windowResizability(.contentSize)
     }
 }
 
@@ -160,6 +165,9 @@ struct AppCommands: Commands {
         let _ = Workspace.shared.setRouteOpener { [openWindow] path in openWindow(id: "repo", value: path) }
         CommandGroup(after: .appInfo) {
             Button("Check for updates…") { Task { await UpdateCenter.shared.check(manual: true) } }
+        }
+        CommandGroup(replacing: .help) {
+            Button("Get started with Git accounts…") { openWindow(id: "git-setup") }
         }
         CommandGroup(replacing: .newItem) {
             Button("New tab") { openWindow(id: "repo") }

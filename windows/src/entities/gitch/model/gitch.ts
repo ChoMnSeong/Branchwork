@@ -2,6 +2,7 @@ import { ipc } from "@/shared/api";
 import { dirname, env, isWindows, joinPath, slash } from "@/shared/config";
 import { t } from "@/shared/i18n";
 import { git, tools } from "@/shared/platform";
+import { accountAddArguments, type GitchAccountInput, machineError, parseAccountSetup, parseBrowserLogin, parseDoctor } from "./onboarding";
 
 /**
  * gitch — 여러 Git 계정을 섞이지 않게 쓰는 셸 도구(tools/gitch, 예전 이름 gitsw). (맥 버전 Gitch.swift)
@@ -365,13 +366,13 @@ class GitchService {
     return h ? versionOf(h.text) : null;
   }
 
-  private async spawn(args: string[], cwd: string, timeoutMs: number, exe?: string | null) {
+  private async spawn(args: string[], cwd: string, timeoutMs: number, exe?: string | null, extraEnv: Record<string, string> = {}) {
     const path = exe ?? (await this.executable());
     if (!path) throw new GitchError(t("Couldn't find gitch inside Gitrochi."));
     const bash = await this.bash();
     if (!bash) throw new GitchError(t("gitch needs Git for Windows (Git Bash). Install it from https://git-scm.com/download/win."));
     // 앱에서 부를 때는 사람이 보는 터미널이 아니다: 색·로고 없이, 묻지 않고(확인이 필요하면 종료 코드 2)
-    return ipc.run(bash, [path, ...args], { cwd, timeoutMs, env: { GITSW_COLOR: "never", GITSW_BANNER: "never" } });
+    return ipc.run(bash, [path, ...args], { cwd, timeoutMs, env: { GITSW_COLOR: "never", GITSW_BANNER: "never", ...extraEnv } });
   }
 
   private async json(args: string[], cwd: string): Promise<string | null> {
@@ -503,6 +504,46 @@ class GitchService {
     const r = await this.spawn(["graph", ...args], repo, 600_000, this.bundled);
     if (!ok.includes(r.status)) throw graphFailure(r);
     return r;
+  }
+
+  /** 처음 설정도 앱에 포함된 최신 CLI로 실행한다. 설치된 구버전/전역 셸 연동은 필요하지 않다. */
+  private async setupAccount(args: string[]) {
+    const exe = this.bundled;
+    if (!exe || !(await ipc.exists(exe))) throw new GitchError(t("Couldn't find gitch inside Gitrochi."));
+    const r = await this.spawn(args, env.home, 60_000, exe);
+    const result = parseAccountSetup(r.stdout);
+    if (!result) throw new GitchError(machineError(r.stderr.trim()) || t("Couldn't read the account setup result."));
+    return result;
+  }
+
+  addAccount(input: GitchAccountInput) { return this.setupAccount(accountAddArguments(input)); }
+  inspectAccount(id: string) { return this.setupAccount(["setup", id, "--inspect", "--json"]); }
+  generateAccountKey(id: string) { return this.setupAccount(["setup", id, "--generate", "--json", "--yes"]); }
+  checkAccountConnection(id: string) { return this.setupAccount(["setup", id, "--check", "--json"]); }
+
+  private async browserLogin(args: string[]) {
+    const exe = this.bundled;
+    if (!exe || !(await ipc.exists(exe))) throw new GitchError(t("Couldn't find gitch inside Gitrochi."));
+    const r = await this.spawn(["login", "github", ...args, "--json"], env.home, 30_000, exe, { GITCH_GH: tools.path("gh") ?? "gh" });
+    const result = parseBrowserLogin(r.stdout);
+    if (!result) throw new GitchError(machineError(r.stderr.trim()) || t("Couldn't read the browser login result."));
+    return result;
+  }
+  startBrowserLogin() { return this.browserLogin(["--start", "--yes"]); }
+  browserLoginStatus(session: string) { return this.browserLogin(["--status", session]); }
+  cancelBrowserLogin(session: string) { return this.browserLogin(["--cancel", session]); }
+
+  async doctor() {
+    const r = await this.spawn(["doctor", "--json", "--no-net"], env.home, 60_000, this.bundled);
+    const result = parseDoctor(r.stdout);
+    if (!result) throw new GitchError(machineError(r.stderr.trim()) || t("Couldn't read the diagnosis result."));
+    return result;
+  }
+
+  async commandHelp() {
+    const r = await this.spawn(["help"], env.home, 20_000, this.bundled);
+    if (r.status !== 0) throw new GitchError(machineError(r.stderr.trim()));
+    return plain(r.stdout);
   }
 
   /** 자동 백업 목록 */

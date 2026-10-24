@@ -41,6 +41,12 @@ jobs:
       - name: 앱 URL 이동 테스트
         run: bash macos/Tools/test-app-route.sh
 
+      - name: Keychain 저장 · 갱신 · 삭제 테스트
+        run: bash macos/Tools/test-keychain.sh
+
+      - name: GitHub 공개키 등록 계약 테스트
+        run: bash macos/Tools/test-github-key-registration.sh
+
       - name: gitch-swift-index 테스트
         run: tools/gitch-swift-index/tests/run.sh macos/build/Gitrochi.app/Contents/Resources/gitch-swift-index
 

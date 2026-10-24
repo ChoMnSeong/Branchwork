@@ -5,6 +5,7 @@ import AppKit
 struct WelcomeView: View {
     @Environment(RepoStore.self) private var store
     @ViewState private var dropping = false
+    @ViewState private var showGitSetup = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -16,11 +17,14 @@ struct WelcomeView: View {
                 Text("A Mac app for viewing and working with Git repositories as a graph")
                     .foregroundStyle(.secondary)
                 VStack(spacing: 8) {
-                    action(String(localized: "Open repository…"), "folder", prominent: true) { store.presentOpenPanel() }
+                    action(String(localized: "Get started with Git accounts…"), "person.crop.circle.badge.plus", prominent: !Gitch.hasConfig) { showGitSetup = true }
+                    action(String(localized: "Open repository…"), "folder", prominent: Gitch.hasConfig) { store.presentOpenPanel() }
                     action(String(localized: "Clone repository…"), "arrow.down.circle") { store.sheet = .clone }
                     action(String(localized: "Create new repository…"), "plus.square.on.square") { store.presentInitPanel() }
                 }
                 .padding(.top, 8)
+                Text("Git account setup and code maps are included. No extra download is needed.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text("You can also drop a folder onto this window to open it")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -67,6 +71,7 @@ struct WelcomeView: View {
             }
             .frame(width: 320)
         }
+        .sheet(isPresented: $showGitSetup) { GitchGuideSheet(repo: store) }
         .dropDestination(for: URL.self) { urls, _ in
             guard let u = urls.first else { return false }
             Task { await store.openOrReport(u) }

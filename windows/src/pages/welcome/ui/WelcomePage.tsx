@@ -44,6 +44,11 @@ export function WelcomePage({ store }: { store: RepoStore; gitMissing?: boolean 
             </div>
           </div>
         )}
+        <div className="card" style={{ maxWidth: 420, textAlign: "left", gap: 8 }}>
+          <strong>{t("New here? Start with your Git account")}</strong>
+          <span className="hint">{t("Gitrochi includes gitch for Git accounts and code graphs. Add your account, register an SSH key, and learn the app's tools step by step.")}</span>
+          <Button onClick={() => window.dispatchEvent(new CustomEvent("gitrochi-open-settings", { detail: "cli" }))}>{t("Set up Git accounts and learn gitch")}</Button>
+        </div>
         <div className="col" style={{ gap: 8, marginTop: 8 }}>
           <Button kind="primary" size="large" style={{ width: 240 }} onClick={() => void store.pickAndOpen()}>
             <FolderOpen size={15} /> {" "}{t("Open repository…")}</Button>

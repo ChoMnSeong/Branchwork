@@ -65,10 +65,15 @@ test_app_route_rejects_unsafe_files_and_invalid_views() {
   app_fakes
   local app="$T/Gitrochi.app" repo="$T/repo" bad
   app_mac_bundle "$app"; mk_repo "$repo"
-  mkdir -p "$T/outside"; ln -s "$T/outside" "$repo/link"
-  for bad in '../secret' '/etc/passwd' 'a/../secret' 'a\\b' 'C:secret' 'link/secret'; do
+  mkdir -p "$T/outside"
+  local has_link=""
+  if [ -n "$IS_WIN" ]; then MSYS=winsymlinks:nativestrict ln -s "$T/outside" "$repo/link" 2>/dev/null || :
+  else ln -s "$T/outside" "$repo/link"; fi
+  [ ! -L "$repo/link" ] || has_link=1
+  for bad in '../secret' '/etc/passwd' 'a/../secret' 'a\\b' 'C:secret'; do
     run gitch app --path "$app" --repo "$repo" --file "$bad"; assert_fail
   done
+  if [ -n "$has_link" ]; then run gitch app --path "$app" --repo "$repo" --file 'link/secret'; assert_fail; fi
   for bad in 0 -1 1x 1000000000; do
     run gitch app --path "$app" --repo "$repo" --file source.ts --line "$bad"; assert_fail
   done
@@ -116,7 +121,7 @@ test_app_mac_bundled_cli_and_symlink() {
   local app="$T/Bundle Space/Gitrochi.app"
   app_mac_bundle "$app"
   app_cli_copy "$app/Contents/Resources/gitch"
-  ln -s "$app/Contents/Resources/gitch" "$T/gitch-link"
+  mklink_ "$app/Contents/Resources/gitch" "$T/gitch-link"
   run bash "$T/gitch-link" app; assert_ok
   assert_eq "$(cat "$APP_TEST_LOG")" "$app" '동봉 앱 우선'
 }

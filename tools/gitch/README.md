@@ -86,6 +86,31 @@ gitch 는 gitsw 의 새 이름이다. 이미 gitsw 를 쓰던 컴퓨터는 `gitc
 - 설정·잠금·기록은 예전 이름 그대로 읽고 쓴다: `~/.config/gitsw/config`(`[gitsw]` 섹션), 저장소의 `gitswitch.*`, `~/.local/state/gitsw`, 전역 훅 `hook.gitsw-*`, 백업 `refs/gitsw/backup/*`, 환경 변수 `GITSW_*`, 비밀값 예외 주석 `gitsw:allow`(새 이름 `gitch:allow` 도 됨).
 - `gitch install` 이 CLAUDE.md·AGENTS.md 의 규칙 블록, 스킬(`skills/gitsw` → `skills/gitch`), Claude Code 검사 훅과 허용 목록의 `gitsw` 항목을 gitch 로 바꾼다.
 
+## 앱 계정 설정과 CLI API
+
+Gitrochi의 계정 설정은 계정 등록, SSH 공개키 준비, 서버 등록 페이지 열기, 연결 확인을 별도 단계로 진행한다. 계정을 추가해도 SSH 키를 자동으로 생성하거나 서버에 등록하지 않는다. 기존 계정·잠금·전역 작성자와 다른 계정의 SSH 키는 유지한다.
+
+```bash
+gitch add --id alice --email alice@example.com --host github.com --no-folder --no-setup --json --yes
+gitch setup alice --inspect --json
+gitch setup alice --generate --json --yes
+gitch setup alice --check --json
+```
+
+인자 없는 `gitch add`와 기존 `gitch setup alice`는 터미널 대화형 흐름을 유지한다. 위 인자 기반 API는 앱에서 사용자가 직접 확인한 동작을 실행하는 통로다. AI가 사용자의 명시적인 요청 없이 계정이나 키를 변경하는 통로로 사용하지 않는다.
+
+- 추가 옵션: `--port 2222`, `--folder /절대/경로` 또는 `--no-folder`, `--via 기존계정`. 폴더 옵션을 생략하면 `~/Develop/<id>` 규칙을 등록한다. 규칙 등록 자체가 폴더를 생성하지는 않는다. 호스트는 URL·경로·포트를 섞지 않은 호스트 이름만 받고 SSH 포트는 별도로 받는다.
+- `--inspect`는 계정·SSH 별칭·공개키 상태만 읽는다. `--generate --yes`는 앱의 명시적 확인 후 암호 없는 전용 Ed25519 키를 생성한다(`keyProtection: "none"`). 기존 키나 같은 SSH 별칭은 덮어쓰지 않는다. 키에 암호를 넣으려면 기존 터미널 설정 흐름을 사용한다.
+- 공개키 복사와 등록 페이지 열기는 사용자가 진행한다. CLI가 웹 서비스에 키를 자동 등록하거나 비밀번호·토큰을 요청하지 않는다. 출력에는 공개키만 있고 개인키·암호는 없다.
+- `--check`는 대화형 인증을 끄고 최대 약 13초 안에 끝난다. 새 호스트 키는 기존 gitch 정책대로 처음 연결 시 기록하며, 변경된 호스트 키를 무시하지 않는다. 인증 실패도 `authenticated: false`인 JSON 결과를 표준출력에 쓰고 종료 코드 1을 반환한다.
+- 결과는 `schemaVersion: 1`, `account`, `ssh`, `created`를 포함한다. `ssh`에는 `alias`, `keyExists`, `aliasConfigured`, `publicKey`, `publicKeyPath`, `registrationURL`, `authenticated`, `keyProtection`, `message`가 있다. 앱 호환을 위해 주요 필드는 최상위에도 제공한다. `gitch schema account`로 검증할 수 있다. 중복 계정·폴더 충돌·필수 확인 누락은 기존 설정을 바꾸지 않고 구조화된 오류를 반환한다.
+
+GitHub 브라우저 로그인은 공식 [GitHub CLI의 웹 인증](https://cli.github.com/manual/gh_auth_login)을 사용한다. 앱에서 로그인 버튼을 누르면 `gitch login github --start --json --yes`가 즉시 `pending` 세션을 반환한다. 앱은 응답의 `verificationURL`을 열고 `--status SESSION --json`으로 일회용 코드와 결과를 읽는다. `--cancel SESSION --json`은 해당 세션만 취소한다. 다른 계정의 인증을 종료하거나 로그아웃하지 않는다. 동시에 요청한 로그인은 GitHub CLI의 계정 저장이 충돌하지 않도록 순서대로 진행한다.
+
+응답은 `schemaVersion`, `tool`, `session`, `state`, `deviceCode`, `verificationURL`, `login`, `email`, `message`를 포함한다(`gitch schema login`). `state`는 `pending`, `complete`, `failed`, `cancelled` 중 하나다. 완료 전 `login`과 `email`, 코드 발급 전 `deviceCode`는 `null`이다. 공식 완료 로그의 계정 이름과 그 계정 전용 자격 증명의 API 응답이 일치해야 완료된다. 이메일은 검증된 기본 이메일만 사용하고 없으면 GitHub noreply 주소를 제공한다. 토큰·원본 인증 로그는 응답하지 않는다. 앱이 완료 계정과 일치하는 자격 증명을 가져온 뒤 사용자가 계정 등록·SSH 키 생성·공개키 업로드를 진행한다.
+
+로그인 세션은 사용자 전용 상태 폴더에 저장하며 15분 후 중단된다. 완료한 세션 중 하루 지난 항목을 다음 시작 때 최대 32개 검사해 정리한다. GitHub CLI가 없으면 설치 링크를 포함한 `GITHUB_CLI_MISSING` 오류를 반환한다. 앱의 도구 설정 경로는 `GITCH_GH`로 전달할 수 있고, 다음으로 `GH_PATH`, `PATH`의 `gh`를 사용한다. 이 API를 검증하는 테스트는 가짜 GitHub CLI와 임시 HOME만 사용한다.
+
 ## 개념
 
 | 이름 | 뜻 |
@@ -284,7 +309,7 @@ gitch schema error             # 기계 출력 요청 중 치명적 오류의 �
 
 `languages`의 `fileDetection`은 파일 인식, `staticImports`는 정적으로 읽는 import/include, `heuristic`은 타입 이름 추정 지원을 뜻한다. `manifests`와 `ecosystem`은 모듈 분석 범위다. `preciseBackend`는 제공된 인덱스를 읽는 선택적 통로다. SCIP는 해당 언어의 별도 인덱서가 만든 인덱스가 있어야 하며, SwiftIndex는 Xcode 인덱스 도우미가 있어야 한다. 이 목록이 모든 언어의 컴파일러·클래스 분석기가 기본 내장됐다는 뜻은 아니다.
 
-[공개 스키마 파일](schema/gitch-v1.schema.json)은 CLI에 내장된 스키마와 동일하다. 스키마 이름은 `graph`, `error`, `languages`, `status`, `ck`, `preflight`, `rules`, `version`, `list`, `doctor`, `scan`, `audit`, `report`, `pr`, `view`, `watch`, `index`이고 기본 `public`은 이 모두를 허용한다. `view`는 저장·내보낸 화면 설정, `watch`는 감시 서버 설명과 상태 응답, `index`는 인덱서 생성 안내다. 객체 출력에는 `schemaVersion: 1`을 더하고 기존 필드를 유지한다. `report --json`의 기존 배열은 그대로 유지하며 문서의 스키마 버전으로 검증한다. 새 필드는 추가할 수 있으므로 읽는 쪽은 모르는 필드를 무시한다. 필드 제거·의미 변경은 스키마 버전을 올려 구별한다. 제품 버전 `0.3.11`과 스키마 버전은 별개다.
+[공개 스키마 파일](schema/gitch-v1.schema.json)은 CLI에 내장된 스키마와 동일하다. 스키마 이름은 `graph`, `error`, `languages`, `status`, `ck`, `preflight`, `rules`, `version`, `list`, `doctor`, `scan`, `audit`, `report`, `pr`, `view`, `watch`, `index`, `account`, `login`이고 기본 `public`은 이 모두를 허용한다. `view`는 저장·내보낸 화면 설정, `watch`는 감시 서버 설명과 상태 응답, `index`는 인덱서 생성 안내, `account`는 앱 계정 설정 결과, `login`은 브라우저 인증 세션이다. 객체 출력에는 `schemaVersion: 1`을 더하고 기존 필드를 유지한다. `report --json`의 기존 배열은 그대로 유지하며 문서의 스키마 버전으로 검증한다. 새 필드는 추가할 수 있으므로 읽는 쪽은 모르는 필드를 무시한다. 필드 제거·의미 변경은 스키마 버전을 올려 구별한다. 제품 버전 `0.3.11`과 스키마 버전은 별개다.
 
 `--json` 또는 `--format json`을 명시했을 때 인자·사전조건의 치명적 오류는 결과를 표준출력에 쓰지 않고 표준오류에 `{"schemaVersion":1,"error":{"code":"GITCH_ERROR","message":"…","exitCode":1}}`을 쓴다. 비대화형 확인 필요는 `GITCH_CONFIRMATION_REQUIRED`와 종료 코드 2다. `preflight`의 STOP·규칙 위반·doctor의 문제 발견처럼 분석을 마친 결과는 기존 결과 객체를 표준출력에 쓰고 종료 코드로 실패를 알린다.
 

@@ -23,7 +23,7 @@ test_cli_contract_schema_embedded_matches_standalone() {
   run gitch schema; assert_ok; assert_json "$OUT"
   assert_eq "$(printf '%s' "$OUT" | jq -S .)" "$(jq -S . "$ROOT/schema/gitch-v1.schema.json")"
   assert_eq "$(printf '%s' "$OUT" | jq -r '."$schema"')" https://json-schema.org/draft/2020-12/schema
-  assert_eq "$(printf '%s' "$OUT" | jq '."$defs".public.oneOf | length')" 17
+  assert_eq "$(printf '%s' "$OUT" | jq '."$defs".public.oneOf | length')" 19
   run gitch schema graph; assert_ok; assert_json "$OUT"
   assert_eq "$(printf '%s' "$OUT" | jq -r '."$ref"')" '#/$defs/graph'
   run gitch schema unknown --json; assert_rc 1; assert_json "$OUT"
@@ -100,6 +100,7 @@ test_cli_contract_index_watch_and_saved_view() {
     if "$GITCH_JSONSCHEMA_PYTHON" "$ROOT/tests/validate_schema.py" "$T/schema.json" "$T/payload.json" >/dev/null 2>&1; then fail 'schema accepted zero saved-view zoom'; fi
   fi
   OUT=$(gitch g watch --out "$T/live.html" --interval 1 --detach --json --no-open 2> "$T/watch-messages"); RC=$?
+  [ "$RC" -eq 0 ] || fail "watch JSON exit $RC\n$(cat "$T/watch-messages")\n$OUT"
   assert_eq "$RC" 0 'watch JSON exit'
   CONTRACT_WATCH_PID=$(printf '%s' "$OUT" | jq -r .pid)
   trap '[ -z "${CONTRACT_WATCH_PID:-}" ] || kill "$CONTRACT_WATCH_PID" 2>/dev/null; cd /; rm -rf "$T"' EXIT

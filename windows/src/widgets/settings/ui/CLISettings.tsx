@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { gitch, type GitchAccount } from "@/entities/gitch";
+import { gitch, type GitchAccount, type GitchDoctor } from "@/entities/gitch";
 import { displayPath, env, slash } from "@/shared/config";
 import { t } from "@/shared/i18n";
-import { Button, Spinner } from "@/shared/ui";
+import { Button, Segmented, Spinner } from "@/shared/ui";
+import { GitchAccountSetup } from "./GitchAccountSetup";
+import { GitchGuide } from "./GitchGuide";
 
 interface Info {
   bundledVersion: string | null;
@@ -22,9 +24,12 @@ function tilde(p: string) {
 
 /**
  * 설정 > CLI 의 gitch(예전 이름 gitsw): 앱에 든 gitch 를 셸 명령으로 설치한다. (맥 버전 GitchSettings)
- * 계정 더하기·SSH 키·진단은 묻는 것이 있어 새 콘솔 창(Git Bash)에서.
+ * 계정과 SSH 설정은 앱에서 명시적으로 저장·생성·연결 확인한다.
  */
 export function CLISettings() {
+  const [panel, setPanel] = useState<"setup" | "guide">("setup");
+  const [wizard, setWizard] = useState<{ account: GitchAccount | null } | null>(null);
+  const [diagnosis, setDiagnosis] = useState<GitchDoctor | null>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [confirmInstall, setConfirmInstall] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -43,7 +48,7 @@ export function CLISettings() {
     ]);
     setInfo({ bundledVersion, installed: installed && { ...installed, version: await gitch.version(installed.path) }, installedIsBundled, hasConfig, bash, accounts });
   }, []);
-  // 콘솔 창에서 계정을 더하고 돌아오면 다시 읽는다
+  // 다른 창에서 설정을 바꾸고 돌아왔을 때에도 다시 읽는다
   useEffect(() => {
     void load();
     const onFocus = () => void load();
@@ -82,7 +87,7 @@ export function CLISettings() {
     );
   }
   const status = !info.installed ? (
-    <span className="chip-warn">{t("Not installed")}</span>
+    <span className="faint">{t("Terminal command is optional")}</span>
   ) : info.installedIsBundled ? (
     <span className="chip-warn" style={{ color: "var(--accent)", background: "var(--accent-soft)" }}>
       {t("Installed")}
@@ -92,12 +97,15 @@ export function CLISettings() {
   );
   return (
     <div className="col" style={{ gap: 10 }}>
+      <Segmented value={panel} onChange={setPanel} options={[{ value: "setup", label: t("Account setup") }, { value: "guide", label: t("Getting started and commands") }]} />
+      {panel === "guide" ? <GitchGuide onAddAccount={() => { setPanel("setup"); setWizard({ account: null }); }} onDoctor={() => { setPanel("setup"); void run(async () => setDiagnosis(await gitch.doctor())); }} /> : <>
       <div className="form-section" style={{ gap: 8, padding: 12 }}>
         <div className="row">
           <span style={{ fontWeight: 600 }}>gitch</span>
           <span className="spacer" />
           {status}
         </div>
+        <span className="hint">{t("gitch is already included in this app. Add your Git identity below; no separate CLI download is needed.")}</span>
         <span className="hint">
           {t("gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi.")}
         </span>
@@ -118,9 +126,9 @@ export function CLISettings() {
                 {[a.hosts, a.rules ?? ""].filter(Boolean).join(" · ")}
               </span>
             </div>
-            {a.sshKey === false && (
-              <Button size="small" onClick={() => void run(() => gitch.openInConsole(["setup", a.id]))}>
-                {t("Set up SSH key in a terminal…")}
+            {(
+              <Button size="small" onClick={() => setWizard({ account: a })}>
+                {t("SSH setup / Test connection")}
               </Button>
             )}
           </div>
@@ -131,14 +139,14 @@ export function CLISettings() {
           </span>
         )}
         <div className="row" style={{ flexWrap: "wrap" }}>
-          <Button disabled={!info.bash} onClick={() => void run(() => gitch.openInConsole(["add"]))}>
-            {t("Add an account in a terminal…")}
+          <Button disabled={!info.bash} onClick={() => setWizard({ account: null })}>
+            {t("Add account")}
           </Button>
           <Button kind="primary" disabled={!info.hasConfig || busy || !info.bundledVersion || !info.bash} onClick={() => setConfirmInstall(true)}>
-            {info.installedIsBundled ? t("Reinstall…") : t("Install…")}
+            {info.installedIsBundled ? t("Reinstall terminal integration…") : t("Enable terminal command…")}
           </Button>
-          <Button disabled={!info.bash || (!info.installed && !info.bundledVersion)} onClick={() => void run(() => gitch.openInConsole(["doctor"]))}>
-            {t("Run doctor in a terminal")}
+          <Button disabled={!info.bash || (!info.installed && !info.bundledVersion)} onClick={() => void run(async () => setDiagnosis(await gitch.doctor()))}>
+            {t("Check setup")}
           </Button>
           <span className="spacer" />
           {busy && <Spinner size={13} />}
@@ -169,9 +177,12 @@ export function CLISettings() {
         <span className="hint">
           {info.hasConfig
             ? t("Open a new terminal window to start using gitch.")
-            : t("Add an account first: gitch add asks for the account's name, email and server and makes an SSH key for it. Then install.")}
+            : t("Start with Add account. You can complete SSH setup here, then optionally enable the terminal command.")}
         </span>
       </div>
+      {wizard && <GitchAccountSetup key={wizard.account?.id ?? "new"} account={wizard.account} accounts={info.accounts} onSaved={() => void load()} onClose={() => setWizard(null)} />}
+      {diagnosis && <div className="form-section" style={{ gap: 8 }} role="status"><strong>{t("Setup diagnosis")}</strong>{diagnosis.checks.map((c, i) => <div key={i} className="col" style={{ gap: 2 }}><span style={{ color: c.level === "FAIL" ? "var(--red)" : c.level === "WARN" ? "var(--orange)" : "var(--text)" }}>{c.level} · {c.section}</span><span className="hint selectable">{c.message}</span></div>)}</div>}
+      </>}
     </div>
   );
 }

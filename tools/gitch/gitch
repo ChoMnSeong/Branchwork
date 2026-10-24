@@ -3140,7 +3140,7 @@ cfg_begin() {   # 설정을 바꾸기 전: 파일이 없으면 만들고, 되돌
 cfg_end() {   # $1 git config 의 종료 코드 $2 무엇을 바꿨나 — 실패했거나 바꾼 뒤 검사가 틀리면 되돌림
   if [ "$1" -ne 0 ]; then cp -p "$CFG_BAK" "$CFG"; rm -f "$CFG_BAK"; die "설정을 바꾸지 못했습니다: $2"; fi
   if ! GITSW_CONFIG="$CFG" "$(self_path)" config check >/dev/null 2>&1; then
-    GITSW_CONFIG="$CFG" "$(self_path)" config check 2>&1 | sed 's/^/  /' >&2
+    [ -n "$MACHINE_JSON" ] || GITSW_CONFIG="$CFG" "$(self_path)" config check 2>&1 | sed 's/^/  /' >&2
     cp -p "$CFG_BAK" "$CFG"; rm -f "$CFG_BAK"
     die "설정이 올바르지 않아 되돌렸습니다."
   fi
@@ -3254,7 +3254,444 @@ org_cmd() {   # list | add <서버/조직> <계정> | rm <서버/조직>
   esac
 }
 
+# ================= GitHub 브라우저 로그인 (앱용) =================
+login_error() { machine_error "$1" "$2" "$3"; return "$2"; }
+login_gh() {
+  LOGIN_GH="${GITCH_GH:-${GH_PATH:-}}"
+  if [ -n "$LOGIN_GH" ]; then
+    case "$LOGIN_GH" in */*|*\\*) ;; *) LOGIN_GH=$(command -v "$LOGIN_GH" 2>/dev/null) || LOGIN_GH="" ;; esac
+    [ -f "$LOGIN_GH" ] && [ -x "$LOGIN_GH" ] || { login_error GITHUB_CLI_MISSING 1 "GitHub CLI 실행 파일을 찾을 수 없습니다. https://cli.github.com/ 에서 설치하세요."; return 1; }
+  else
+    LOGIN_GH=$(command -v gh 2>/dev/null) || { login_error GITHUB_CLI_MISSING 1 "GitHub CLI가 필요합니다. https://cli.github.com/ 에서 설치하세요."; return 1; }
+  fi
+}
+login_session() {
+  local id=$1
+  [[ "$id" =~ ^github-[A-Za-z0-9]{10}$ ]] || { login_error LOGIN_SESSION_INVALID 1 "로그인 세션 식별자가 올바르지 않습니다."; return 1; }
+  LOGIN_ROOT="$STATE_DIR/logins"; LOGIN_DIR="$LOGIN_ROOT/$id"
+  [ -d "$LOGIN_ROOT" ] && [ ! -L "$LOGIN_ROOT" ] && [ -d "$LOGIN_DIR" ] && [ ! -L "$LOGIN_DIR" ] && [ -O "$LOGIN_DIR" ] || { login_error LOGIN_SESSION_INVALID 1 "로그인 세션을 찾을 수 없습니다."; return 1; }
+  local file
+  for file in created result.json auth.log cancel gh-path browser result.lock; do
+    [ ! -L "$LOGIN_DIR/$file" ] || { login_error LOGIN_SESSION_INVALID 1 "로그인 세션 파일이 올바르지 않습니다."; return 1; }
+  done
+}
+login_code() {
+  LC_ALL=C sed -nE 's/.*[Oo]ne-time code: ([A-Z0-9]{4}-[A-Z0-9]{4})([^A-Z0-9-].*)?$/\1/p' "$LOGIN_DIR/auth.log" 2>/dev/null | head -1
+}
+login_nullable() { if [ -n "$1" ]; then json_str "$1"; else printf null; fi; }
+login_email_valid() {
+  case "$1" in ''|*[$'\001'-$'\040']*|*[[:space:]]*) return 1 ;; ?*@?*) return 0 ;; *) return 1 ;; esac
+}
+login_result() {
+  local session=$1 state=$2 code=${3:-} user=${4:-} email=${5:-} message=$6
+  printf '{"schemaVersion":1,"tool":"gitch login","session":%s,"state":%s,"deviceCode":%s,"verificationURL":"https://github.com/login/device","login":%s,"email":%s,"message":%s}\n' \
+    "$(json_str "$session")" "$(json_str "$state")" "$(login_nullable "$code")" "$(login_nullable "$user")" "$(login_nullable "$email")" "$(json_str "$message")"
+}
+login_finish() {
+  local state=$1 user=${2:-} email=${3:-} message=$4
+  login_result_lock || return 1
+  if [ -f "$LOGIN_DIR/result.json" ]; then rmdir "$LOGIN_DIR/result.lock"; return 0; fi
+  login_created
+  if [ -f "$LOGIN_DIR/cancel" ]; then state=cancelled; user=""; email=""; message="로그인을 취소했습니다."
+  elif [ "$(( $(date +%s) - LOGIN_CREATED ))" -ge 900 ]; then state=failed; user=""; email=""; message="로그인 시간이 초과되었습니다. 다시 시작하세요."; fi
+  login_result "$LOGIN_ID" "$state" "" "$user" "$email" "$message" > "$LOGIN_DIR/result.tmp"
+  chmod 600 "$LOGIN_DIR/result.tmp"
+  mv "$LOGIN_DIR/result.tmp" "$LOGIN_DIR/result.json"
+  rmdir "$LOGIN_DIR/result.lock"
+}
+login_result_lock() {
+  local attempt=0
+  while ! mkdir "$LOGIN_DIR/result.lock" 2>/dev/null; do
+    attempt=$((attempt + 1)); [ "$attempt" -lt 30 ] || return 1; sleep 0.1
+  done
+}
+login_active_recover() {
+  local lock="$LOGIN_ROOT/active.lock" owner path created now age
+  [ -d "$lock" ] && [ ! -L "$lock" ] || return 0
+  now=$(date +%s)
+  for path in "$lock"/github-*; do
+    [ -d "$path" ] && [ ! -L "$path" ] || continue
+    owner=${path##*/}
+    [[ "$owner" =~ ^github-[A-Za-z0-9]{10}$ ]] || continue
+    [ -d "$LOGIN_ROOT/$owner" ] && [ ! -L "$LOGIN_ROOT/$owner" ] && [ ! -L "$LOGIN_ROOT/$owner/created" ] || continue
+    created=$(cat "$LOGIN_ROOT/$owner/created" 2>/dev/null)
+    case "$created" in ''|*[!0-9]*) continue ;; esac
+    [ "${#created}" -le 12 ] || continue
+    age=$((now - created))
+    if [ "$age" -ge 910 ] || { [ -f "$LOGIN_ROOT/$owner/result.json" ] && [ ! -L "$LOGIN_ROOT/$owner/result.json" ]; }; then
+      # 소유자 자식 폴더를 지운 경우에만 바깥 잠금을 지운다. 이전 worker도 같은 규칙을
+      # 따라 새 세션이 획득한 잠금을 뒤늦게 지울 수 없다. 저장된 PID는 사용하지 않는다.
+      if rmdir "$path" 2>/dev/null; then rmdir "$lock" 2>/dev/null || :; fi
+    fi
+  done
+  # mkdir 직후 소유자 기록 전 비정상 종료한 빈 잠금도 기한이 지난 뒤 회복한다.
+  [ -d "$lock" ] || return 0
+  created=$(stat -c %Y "$lock" 2>/dev/null) || created=$(stat -f %m "$lock" 2>/dev/null)
+  case "$created" in ''|*[!0-9]*) return 0 ;; esac
+  [ "$((now - created))" -lt 910 ] || rmdir "$lock" 2>/dev/null || :
+}
+login_active_lock() {
+  while ! mkdir "$LOGIN_ROOT/active.lock" 2>/dev/null; do
+    login_active_recover
+    [ ! -f "$LOGIN_DIR/cancel" ] || return 125
+    login_created
+    [ "$(( $(date +%s) - LOGIN_CREATED ))" -lt 900 ] || return 124
+    sleep 1
+  done
+  mkdir "$LOGIN_ROOT/active.lock/$LOGIN_ID" || { rmdir "$LOGIN_ROOT/active.lock" 2>/dev/null; return 1; }
+  trap 'if rmdir "$LOGIN_ROOT/active.lock/$LOGIN_ID" 2>/dev/null; then rmdir "$LOGIN_ROOT/active.lock" 2>/dev/null || :; fi' EXIT
+}
+# shellcheck disable=SC2089,SC2090  # GH_BROWSER is a shlex command string consumed by the official GitHub CLI.
+login_browser_launcher() {
+  local shell_path="${BASH:-/bin/bash}" browser_path="$LOGIN_DIR/browser" value
+  if [ -n "$IS_WINDOWS" ]; then
+    shell_path=$(cygpath -m "$shell_path") || return 1
+    browser_path=$(cygpath -m "$browser_path") || return 1
+  fi
+  # GitHub CLI는 GH_BROWSER를 google/shlex로 나눈다. 네이티브 Windows에서도
+  # .sh를 직접 실행하지 않고 이 worker와 같은 Bash로 스텁을 실행한다.
+  value=$shell_path; value=${value//\\/\\\\}; value=${value//\"/\\\"}
+  GH_BROWSER="\"$value\""
+  value=$browser_path; value=${value//\\/\\\\}; value=${value//\"/\\\"}
+  GH_BROWSER="$GH_BROWSER \"$value\""; BROWSER=$GH_BROWSER
+  export GH_BROWSER BROWSER
+}
+login_created() {
+  LOGIN_CREATED=$(cat "$LOGIN_DIR/created" 2>/dev/null)
+  case "$LOGIN_CREATED" in ''|*[!0-9]*) LOGIN_CREATED=0 ;; esac
+  [ "${#LOGIN_CREATED}" -le 12 ] || LOGIN_CREATED=0
+}
+login_wait() {
+  # 이 worker가 직접 만든 자식만 중단한다. 저장된 PID를 신뢰해 kill하지 않는다.
+  local child rc=0 started
+  [ ! -f "$LOGIN_DIR/cancel" ] || return 125
+  login_created
+  [ "$(( $(date +%s) - LOGIN_CREATED ))" -lt 900 ] || return 124
+  "$@" &
+  child=$!
+  while kill -0 "$child" 2>/dev/null; do
+    login_created
+    started=$(date +%s)
+    if [ -f "$LOGIN_DIR/cancel" ] || [ "$((started - LOGIN_CREATED))" -ge 900 ]; then
+      kill "$child" 2>/dev/null || :
+      sleep 1
+      kill -KILL "$child" 2>/dev/null || :
+      wait "$child" 2>/dev/null || :
+      [ ! -f "$LOGIN_DIR/cancel" ] || return 125
+      return 124
+    fi
+    sleep 1
+  done
+  wait "$child" 2>/dev/null || rc=$?
+  return "$rc"
+}
+login_worker() (
+  umask 077
+  LOGIN_ID=${1:-}; login_session "$LOGIN_ID" || exit 1
+  unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN GH_HOST
+  login_browser_launcher || { login_finish failed "" "" "브라우저 로그인 도우미를 준비하지 못했습니다."; exit 0; }
+  export GH_PROMPT_DISABLED=1 NO_COLOR=1 CLICOLOR=0 TERM=dumb
+  local gh user token actual email uid rc=0
+  # GitHub CLI 계정 저장은 전역 파일을 공유하므로 서로 다른 세션의 저장을 순서대로 실행한다.
+  login_active_lock || rc=$?
+  case "$rc" in
+    0) ;;
+    125) login_finish cancelled "" "" "로그인을 취소했습니다."; exit 0 ;;
+    124) login_finish failed "" "" "로그인 시간이 초과되었습니다. 다시 시작하세요."; exit 0 ;;
+    *) login_finish failed "" "" "다른 로그인 작업의 상태를 확인할 수 없습니다. 다시 시작하세요."; exit 0 ;;
+  esac
+  gh=$(cat "$LOGIN_DIR/gh-path")
+  login_wait "$gh" auth login --web --hostname github.com --skip-ssh-key --scopes read:user,user:email,repo,read:org,workflow,admin:public_key > "$LOGIN_DIR/auth.log" 2>&1 || rc=$?
+  case "$rc" in
+    125) login_finish cancelled "" "" "로그인을 취소했습니다."; exit 0 ;;
+    124) login_finish failed "" "" "로그인 시간이 초과되었습니다. 다시 시작하세요."; exit 0 ;;
+    0) ;;
+    *) login_finish failed "" "" "GitHub 로그인이 완료되지 않았습니다. 다시 시도하세요."; exit 0 ;;
+  esac
+  [ ! -f "$LOGIN_DIR/cancel" ] || { login_finish cancelled "" "" "로그인을 취소했습니다."; exit 0; }
+  user=$(LC_ALL=C sed -nE 's/.*Logged in as ([A-Za-z0-9][A-Za-z0-9-]{0,38})[[:space:]]*$/\1/p' "$LOGIN_DIR/auth.log" | tail -1)
+  [ -n "$user" ] || { login_finish failed "" "" "로그인한 GitHub 계정을 확인할 수 없습니다. GitHub CLI를 업데이트하고 다시 시도하세요."; exit 0; }
+  # 기존 활성 계정과 섞이지 않도록 완료 로그에 나온 사용자 전용 자격 증명으로 조회한다.
+  rc=0; token=$(login_wait "$gh" auth token --hostname github.com --user "$user" 2>/dev/null) || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    case "$rc" in 125) login_finish cancelled "" "" "로그인을 취소했습니다." ;; 124) login_finish failed "" "" "로그인 시간이 초과되었습니다. 다시 시작하세요." ;; *) login_finish failed "" "" "로그인 자격 증명을 확인할 수 없습니다." ;; esac
+    exit 0
+  fi
+  [ -n "$token" ] || { login_finish failed "" "" "로그인 자격 증명을 확인할 수 없습니다."; exit 0; }
+  rc=0; GH_TOKEN="$token" login_wait "$gh" api --hostname github.com user --jq '[.login, (.id|tostring)] | .[]' > "$LOGIN_DIR/identity.tmp" 2>/dev/null || rc=$?
+  actual=$(sed -n '1p' "$LOGIN_DIR/identity.tmp"); uid=$(sed -n '2p' "$LOGIN_DIR/identity.tmp")
+  if [ "$rc" -ne 0 ] || [ "$actual" != "$user" ]; then
+    token=""
+    case "$rc" in 125) login_finish cancelled "" "" "로그인을 취소했습니다." ;; 124) login_finish failed "" "" "로그인 시간이 초과되었습니다. 다시 시작하세요." ;; *) login_finish failed "" "" "로그인 계정이 자격 증명과 일치하지 않습니다. 다시 시도하세요." ;; esac
+    exit 0
+  fi
+  rc=0; GH_TOKEN="$token" login_wait "$gh" api --hostname github.com user/emails --jq '[.[] | select(.primary == true and .verified == true) | .email][0] // ""' > "$LOGIN_DIR/email.tmp" 2>/dev/null || rc=$?
+  token=""
+  case "$rc" in 125) login_finish cancelled "" "" "로그인을 취소했습니다."; exit 0 ;; 124) login_finish failed "" "" "로그인 시간이 초과되었습니다. 다시 시작하세요."; exit 0 ;; esac
+  email=$(head -1 "$LOGIN_DIR/email.tmp")
+  if [ "$rc" -ne 0 ] || ! login_email_valid "$email"; then
+    case "$uid" in ''|*[!0-9]*) email="$user@users.noreply.github.com" ;; *) email="$uid+$user@users.noreply.github.com" ;; esac
+  fi
+  [ ! -f "$LOGIN_DIR/cancel" ] || { login_finish cancelled "" "" "로그인을 취소했습니다."; exit 0; }
+  login_finish complete "$user" "$email" "GitHub 로그인을 완료했습니다."
+)
+login_cleanup() {
+  local d count=0 now created
+  login_active_recover   # 소유 세션을 지우기 전에 완료/만료 잠금부터 회복한다.
+  now=$(date +%s)
+  for d in "$LOGIN_ROOT"/github-*; do
+    [ "$count" -lt 32 ] || break
+    [ -d "$d" ] && [ ! -L "$d" ] && [ -O "$d" ] || continue
+    [[ "${d##*/}" =~ ^github-[A-Za-z0-9]{10}$ ]] || continue
+    count=$((count + 1)); [ ! -L "$d/created" ] || continue
+    created=$(cat "$d/created" 2>/dev/null)
+    case "$created" in ''|*[!0-9]*) continue ;; esac
+    [ "${#created}" -le 12 ] || continue
+    [ "$((now - created))" -gt 86400 ] && [ -f "$d/result.json" ] && [ ! -L "$d/result.json" ] || continue
+    rm -rf -- "$d"
+  done
+}
+login_cmd() (
+  local mode="" session="" yes="" code="" self
+  [ "${1:-}" = github ] || { login_error LOGIN_ARGUMENT 1 "사용법: gitch login github --start|--status SESSION|--cancel SESSION --json"; return 1; }
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --start) [ -z "$mode" ] || { login_error LOGIN_ARGUMENT 1 "로그인 작업을 하나만 선택하세요."; return 1; }; mode=start ;;
+      --status|--cancel) [ -z "$mode" ] && [ $# -ge 2 ] || { login_error LOGIN_ARGUMENT 1 "세션 식별자가 필요합니다."; return 1; }; mode=${1#--}; session=$2; shift ;;
+      --yes|-y) yes=1 ;;
+      --json) ;;
+      *) login_error LOGIN_ARGUMENT 1 "알 수 없는 로그인 옵션입니다."; return 1 ;;
+    esac
+    shift
+  done
+  case "$mode" in
+    start)
+      [ -n "$yes" ] || { login_error CONFIRMATION_REQUIRED 2 "GitHub 브라우저 로그인은 앱의 로그인 버튼이나 --yes 확인이 필요합니다."; return 2; }
+      login_gh || return 1
+      umask 077
+      LOGIN_ROOT="$STATE_DIR/logins"
+      [ ! -L "$LOGIN_ROOT" ] || { login_error LOGIN_STATE_INVALID 1 "로그인 상태 폴더가 심볼릭 링크입니다."; return 1; }
+      mkdir -p "$LOGIN_ROOT" && chmod 700 "$LOGIN_ROOT" || { login_error LOGIN_STATE_INVALID 1 "로그인 상태 폴더를 만들 수 없습니다."; return 1; }
+      login_cleanup
+      LOGIN_DIR=$(mktemp -d "$LOGIN_ROOT/github-XXXXXXXXXX") || return 1
+      chmod 700 "$LOGIN_DIR"; session=${LOGIN_DIR##*/}
+      date +%s > "$LOGIN_DIR/created"
+      printf '%s\n' "$LOGIN_GH" > "$LOGIN_DIR/gh-path"
+      printf '#!/bin/sh\nexit 0\n' > "$LOGIN_DIR/browser"; chmod 700 "$LOGIN_DIR/browser"
+      : > "$LOGIN_DIR/auth.log"; : > "$LOGIN_DIR/worker.log"
+      self=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/$(basename "${BASH_SOURCE[0]}")
+      nohup "${BASH:-/bin/bash}" "$self" _login-worker "$session" < /dev/null > "$LOGIN_DIR/worker.log" 2>&1 &
+      login_result "$session" pending "" "" "" "브라우저에서 GitHub 로그인을 계속하세요."
+      ;;
+    status|cancel)
+      login_session "$session" || return 1
+      if [ -f "$LOGIN_DIR/result.json" ]; then cat "$LOGIN_DIR/result.json"; return 0; fi
+      if [ "$mode" = cancel ]; then
+        login_result_lock || { login_error LOGIN_BUSY 1 "로그인 결과를 저장 중입니다. 다시 시도하세요."; return 1; }
+        if [ -f "$LOGIN_DIR/result.json" ]; then cat "$LOGIN_DIR/result.json"; rmdir "$LOGIN_DIR/result.lock"; return 0; fi
+        umask 077; : > "$LOGIN_DIR/cancel"
+        rmdir "$LOGIN_DIR/result.lock"
+        login_result "$session" cancelled "" "" "" "로그인을 취소했습니다."
+      elif [ -f "$LOGIN_DIR/cancel" ]; then login_result "$session" cancelled "" "" "" "로그인을 취소했습니다."
+      else
+        login_created
+        if [ "$(( $(date +%s) - LOGIN_CREATED ))" -ge 900 ]; then
+          login_result "$session" failed "" "" "" "로그인 시간이 초과되었습니다. 다시 시작하세요."
+        else code=$(login_code); login_result "$session" pending "$code" "" "" "브라우저에서 GitHub 로그인을 계속하세요."
+        fi
+      fi
+      ;;
+    *) login_error LOGIN_ARGUMENT 1 "로그인 작업을 선택하세요: --start, --status, --cancel"; return 1 ;;
+  esac
+)
+
+account_pick_binding() {
+  local i=0
+  while [ "$i" -lt "${#B_ACC[@]}" ]; do
+    if [ "${B_ACC[$i]}" = "$1" ]; then ACCOUNT_BI=$i; return 0; fi
+    i=$((i + 1))
+  done
+  die "계정의 SSH 서버 설정이 없습니다: $1"
+}
+account_alias_exists() {
+  [ -f "$SSH_CONFIG" ] || return 1
+  awk -v alias="$1" 'tolower($1) == "host" { for (i=2; i<=NF; i++) if (tolower($i) == tolower(alias)) found=1 } END { exit !found }' "$SSH_CONFIG"
+}
+account_public_key() {
+  [ -f "$1" ] || return 0
+  head -n 1 "$1" | awk '$1 ~ /^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh.com|sk-ecdsa-sha2-nistp256@openssh.com)$/ && $2 ~ /^[A-Za-z0-9+\/]+=*$/ { print; exit }'
+}
+account_machine_result() {
+  local id=$1 created=$2 authenticated=$3 protection=$4 message=$5 i host port alias owner key pub exists="" configured="" folder="" via="" profile sshmeta
+  account_pick_binding "$id"; i=$ACCOUNT_BI
+  host=${B_HOST[$i]}; port=${B_PORT[$i]}; alias=${B_ALIAS[$i]}; owner=${B_LOGIN[$i]}
+  port=$(printf '%s' "$port" | awk '{ print $0 + 0 }')
+  key="$SSH_DIR/id_ed25519_$owner"; pub=$(account_public_key "$key.pub")
+  [ ! -f "$key" ] || exists=1
+  account_alias_exists "$alias" && configured=1
+  [ -n "$exists" ] || protection=missing
+  [ "$owner" = "$id" ] || via=$owner
+  i=0
+  while [ "$i" -lt "${#F_ACC[@]}" ]; do
+    if [ "${F_ACC[$i]}" = "$id" ]; then folder=${F_RAW[$i]}; break; fi
+    i=$((i + 1))
+  done
+  profile=$(printf '{"id":%s,"email":%s,"host":%s,"port":%s,"folder":%s,"via":%s}' "$(json_str "$id")" "$(json_str "$(acc_email "$id")")" "$(json_str "$host")" "$port" "$( [ -z "$folder" ] && printf null || json_str "$folder" )" "$( [ -z "$via" ] && printf null || json_str "$via" )")
+  sshmeta=$(printf '{"alias":%s,"keyExists":%s,"aliasConfigured":%s,"publicKey":%s,"publicKeyPath":%s,"registrationURL":%s,"authenticated":%s,"keyProtection":%s,"message":%s}' "$(json_str "$alias")" "$(json_bool "$exists")" "$(json_bool "$configured")" "$(json_str "$pub")" "$(json_str "$key.pub")" "$(json_str "$(ssh_keys_page "$host")")" "$authenticated" "$(json_str "$protection")" "$(json_str "$message")")
+  printf '{"schemaVersion":1,"tool":"gitch account setup","created":%s,"account":%s,"ssh":%s,"id":%s,"email":%s,"host":%s,"port":%s,"alias":%s,"keyExists":%s,"aliasConfigured":%s,"publicKey":%s,"publicKeyPath":%s,"registrationURL":%s,"authenticated":%s,"keyProtection":%s,"message":%s}\n' "$(json_bool "$created")" "$profile" "$sshmeta" "$(json_str "$id")" "$(json_str "$(acc_email "$id")")" "$(json_str "$host")" "$port" "$(json_str "$alias")" "$(json_bool "$exists")" "$(json_bool "$configured")" "$(json_str "$pub")" "$(json_str "$key.pub")" "$(json_str "$(ssh_keys_page "$host")")" "$authenticated" "$(json_str "$protection")" "$(json_str "$message")"
+}
+account_folder_path() {
+  local path ancestor suffix=""
+  path=$(expand_path "$1"); path=$(posix_path "$path")
+  case "$path" in /*) ;; *) die "기본 폴더는 절대 경로나 ~/ 경로여야 합니다." ;; esac
+  path=$(printf '%s' "$path" | awk -F/ '{ n=0; for(i=1;i<=NF;i++) { if($i=="" || $i==".") continue; if($i=="..") { if(n>0)n--; } else a[++n]=$i } out=""; for(i=1;i<=n;i++)out=out "/" a[i]; print (out=="" ? "/" : out) }')
+  ancestor=$path
+  while [ ! -d "$ancestor" ] && [ "$ancestor" != / ]; do suffix="/${ancestor##*/}$suffix"; ancestor=${ancestor%/*}; [ -n "$ancestor" ] || ancestor=/; done
+  path="$(real_dir "$ancestor")$suffix"
+  [ -z "$IS_WINDOWS" ] || path=$(lower "$path")
+  printf '%s' "$path"
+}
+account_folder_validate() {
+  local folder=$1 id=$2 candidate existing i=0
+  [ -n "$folder" ] || return 0
+  case "$folder" in *[$'\001'-$'\037']*) die "기본 폴더에 제어 문자를 쓸 수 없습니다." ;; esac
+  candidate=$(account_folder_path "$folder") || return 1
+  [ "$candidate" != / ] || die "루트 폴더는 계정 기본 폴더로 지정하지 마세요."
+  while [ "$i" -lt "${#F_RAW[@]}" ]; do
+    existing=$(account_folder_path "${F_RAW[$i]}") || return 1
+    if [ "$existing" = "$candidate" ] && [ "${F_ACC[$i]}" != "$id" ]; then die "이 기본 폴더는 이미 ${F_ACC[$i]} 계정에 연결되어 있습니다."; fi
+    i=$((i + 1))
+  done
+}
+add_machine_cmd() (
+  local id="" email="" host=github.com port=22 via="" folder="" folder_set="" no_folder="" yes="" lock="" option hv
+  trap '[ -z "$lock" ] || rmdir "$lock" 2>/dev/null' EXIT
+  while [ "$#" -gt 0 ]; do
+    option=$1
+    case "$option" in
+      --id|--email|--host|--port|--folder|--via)
+        shift; [ -n "${1:-}" ] || die "$option 뒤에 값이 필요합니다."
+        case "$option" in --id) id=$1 ;; --email) email=$1 ;; --host) host=$1 ;; --port) port=$1 ;; --folder) folder=$1; folder_set=1 ;; --via) via=$1 ;; esac ;;
+      --no-folder) no_folder=1 ;; --no-setup|--json) ;; --yes) yes=1 ;;
+      *) die "알 수 없는 계정 추가 옵션: $option" ;;
+    esac
+    shift
+  done
+  case "$id" in ""|[!A-Za-z0-9]*|*[!A-Za-z0-9._-]*) die "아이디는 영문/숫자로 시작하고 영문/숫자/._- 만 쓸 수 있습니다." ;; esac
+  case "$email" in ""|*[$'\001'-$'\040']*|*[[:space:]]*) die "이메일 형식이 아닙니다." ;; esac
+  case "$email" in ?*@?*) ;; *) die "이메일 형식이 아닙니다." ;; esac
+  case "$host" in ""|[!A-Za-z0-9]*|*[!A-Za-z0-9.-]*|*..*|*.) die "서버에는 호스트 이름만 입력하세요. 포트는 --port 로 지정합니다." ;; esac
+  host=$(lower "$host")
+  printf '%s' "$host" | awk -F. '{ for(i=1;i<=NF;i++) if($i !~ /^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$/) exit 1 }' || die "서버 호스트 이름이 올바르지 않습니다."
+  is_number "$port" && [ "${#port}" -le 5 ] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || die "포트는 1~65535 사이 숫자입니다."
+  port=$((10#$port))
+  [ -z "$folder_set" ] || [ -z "$no_folder" ] || die "--folder 와 --no-folder 는 함께 쓸 수 없습니다."
+  [ -n "$folder_set" ] || folder="~/Develop/$id"; [ -z "$no_folder" ] || folder=""
+  load_config >/dev/null 2>&1
+  [ "${#CFG_ERRORS[@]}" -eq 0 ] || die "기존 설정이 올바르지 않습니다: ${CFG_ERRORS[*]}"
+  is_account "$id" && die "이미 있는 계정입니다: $id"
+  account_folder_validate "$folder" "$id" || exit 1
+  if [ -n "$via" ]; then
+    find_binding "$via" "$host" || die "$via 계정에 $host 서버가 없습니다."
+    [ "${B_PORT[$BI]}" = "$port" ] || die "공유할 계정의 SSH 포트와 다릅니다."
+  fi
+  confirm "새 계정을 추가합니다: $id" "$yes" "Gitrochi 계정 설정에서 추가하거나 gitch add 를 실행하세요"
+  mkdir -p "$(dirname "$CFG")" || die "설정 폴더를 만들 수 없습니다."
+  option="$CFG.gitch-account.lock"
+  mkdir "$option" 2>/dev/null || die "다른 계정 설정 작업이 진행 중입니다. 잠시 뒤 다시 시도하세요."
+  lock=$option
+  reset_config_state; load_config >/dev/null 2>&1
+  [ "${#CFG_ERRORS[@]}" -eq 0 ] || die "기존 설정이 올바르지 않습니다: ${CFG_ERRORS[*]}"
+  is_account "$id" && die "이미 있는 계정입니다: $id"
+  account_folder_validate "$folder" "$id" || exit 1
+  if [ -n "$via" ]; then find_binding "$via" "$host" || die "공유할 계정을 찾지 못했습니다."; [ "${B_PORT[$BI]}" = "$port" ] || die "공유할 계정의 SSH 포트와 다릅니다."; fi
+  hv=$host; [ "$port" = 22 ] || hv="$host:$port"; [ -z "$via" ] || hv="$hv via $via"
+  cfg_add_account "$id" "$email" "$hv" "$folder"
+  account_machine_result "$id" 1 null existing "계정을 추가했습니다. SSH 키 생성과 서버 등록은 별도 단계입니다."
+)
+setup_machine_cmd() (
+  local id="" mode="" yes="" option i owner alias host key created="" protection=existing lock="" config_lock="" candidate tmp="" ssh_tmp="" output authenticated=false rc=1 ssh_pid="" watchdog_pid="" ssh_rc
+  trap '[ -z "$watchdog_pid" ] || kill "$watchdog_pid" 2>/dev/null; [ -z "$ssh_pid" ] || kill "$ssh_pid" 2>/dev/null; [ -z "$tmp" ] || rm -rf "$tmp"; [ -z "$lock" ] || rmdir "$lock" 2>/dev/null; [ -z "$config_lock" ] || rmdir "$config_lock" 2>/dev/null; [ -z "$ssh_tmp" ] || rm -f "$ssh_tmp"' EXIT
+  while [ "$#" -gt 0 ]; do
+    option=$1
+    case "$option" in
+      --inspect|--generate|--check) [ -z "$mode" ] || die "SSH 작업은 하나만 지정하세요."; mode=${option#--} ;;
+      --json) ;; --yes) yes=1 ;;
+      -*) die "알 수 없는 SSH 설정 옵션: $option" ;;
+      *) [ -z "$id" ] || die "계정은 하나만 지정하세요."; id=$option ;;
+    esac
+    shift
+  done
+  [ -n "$id" ] && [ -n "$mode" ] || die "사용법: gitch setup ID --inspect|--generate|--check --json [--yes]"
+  need_config; is_account "$id" || die "없는 계정입니다: $id"
+  account_pick_binding "$id"; i=$ACCOUNT_BI
+  owner=${B_LOGIN[$i]}; alias=${B_ALIAS[$i]}; host=${B_HOST[$i]}; key="$SSH_DIR/id_ed25519_$owner"
+  case "$mode" in
+    inspect) account_machine_result "$id" "" null existing "공개키를 서버에 등록한 뒤 연결 확인을 실행하세요."; return 0 ;;
+    check)
+      tmp=$(mktemp -d "${TMPDIR:-/tmp}/gitch-ssh-check.XXXXXX") || die "SSH 점검 임시 폴더를 만들지 못했습니다."
+      "$SSH_BIN" -T -o BatchMode=yes -o ConnectTimeout=8 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new "git@$alias" > "$tmp/output" 2>&1 &
+      ssh_pid=$!
+      (
+        timer_child=""
+        trap '[ -z "$timer_child" ] || kill "$timer_child" 2>/dev/null; exit 0' TERM INT
+        sleep 12 & timer_child=$!; wait "$timer_child"; timer_child=""
+        if kill -0 "$ssh_pid" 2>/dev/null; then
+          printf '\nSSH 연결 점검 시간이 초과되었습니다.\n' >> "$tmp/output"
+          kill "$ssh_pid" 2>/dev/null
+          sleep 1 & timer_child=$!; wait "$timer_child"; timer_child=""
+          kill -KILL "$ssh_pid" 2>/dev/null
+        fi
+      ) >/dev/null 2>&1 &
+      watchdog_pid=$!
+      wait "$ssh_pid" 2>/dev/null; ssh_rc=$?; ssh_pid=""
+      kill "$watchdog_pid" 2>/dev/null; wait "$watchdog_pid" 2>/dev/null; watchdog_pid=""
+      output=$(head -n 4 "$tmp/output")
+      if [ "$ssh_rc" -le 1 ] && printf '%s' "$output" | grep -qF -e "Hi ${owner}!" -e "Hi ${owner}," -e "@${owner}!" -e "@${owner},"; then authenticated=true; rc=0; fi
+      output=$(printf '%s' "$output" | head -n 4)
+      account_machine_result "$id" "" "$authenticated" existing "${output:-SSH 인증 응답이 없습니다.}"
+      return "$rc" ;;
+    generate)
+      confirm "암호 없는 전용 Ed25519 SSH 키를 생성합니다: $id" "$yes" "Gitrochi 계정 설정에서 SSH 키 생성을 확인하세요"
+      [ "$owner" = "$id" ] || die "이 계정은 $owner 의 SSH 키를 공유합니다. 원본 계정에서 키를 설정하세요."
+      command -v ssh-keygen >/dev/null 2>&1 || die "ssh-keygen 이 필요합니다."
+      mkdir -p "$SSH_DIR" && chmod 700 "$SSH_DIR" || die "SSH 폴더를 준비하지 못했습니다."
+      candidate="$SSH_DIR/.gitch-key-$id.lock"
+      mkdir "$candidate" 2>/dev/null || die "이 계정의 SSH 설정이 진행 중입니다."
+      lock=$candidate
+      candidate="$SSH_DIR/.gitch-config.lock"
+      mkdir "$candidate" 2>/dev/null || die "다른 SSH 설정 작업이 진행 중입니다. 잠시 뒤 다시 시도하세요."
+      config_lock=$candidate
+      if [ -e "$key" ] || [ -L "$key" ]; then
+        [ -f "$key" ] || die "기존 SSH 키 경로가 일반 파일이 아닙니다. 덮어쓰지 않았습니다."
+      else
+        [ ! -e "$key.pub" ] && [ ! -L "$key.pub" ] || die "기존 공개키가 있어 덮어쓰지 않았습니다: $key.pub"
+        tmp=$(mktemp -d "$SSH_DIR/.gitch-key.XXXXXX") || die "SSH 키 임시 폴더를 만들지 못했습니다."
+        ssh-keygen -t ed25519 -C "$(acc_email "$id")" -f "$tmp/key" -N "" -q </dev/null || die "SSH 키를 생성하지 못했습니다."
+        chmod 600 "$tmp/key" && chmod 644 "$tmp/key.pub" || die "SSH 키 권한을 설정하지 못했습니다."
+        ln "$tmp/key" "$key" 2>/dev/null || die "SSH 키가 이미 생성되어 덮어쓰지 않았습니다."
+        if ! ln "$tmp/key.pub" "$key.pub" 2>/dev/null; then [ ! "$key" -ef "$tmp/key" ] || rm -f "$key"; die "공개키를 보존하지 못했습니다. 기존 파일을 덮어쓰지 않았습니다."; fi
+        created=1; protection=none
+      fi
+      if ! account_alias_exists "$alias"; then
+        [ ! -L "$SSH_CONFIG" ] && { [ ! -e "$SSH_CONFIG" ] || [ -f "$SSH_CONFIG" ]; } || die "SSH config 가 링크나 폴더여서 자동으로 바꾸지 않았습니다."
+        ssh_tmp=$(mktemp "$SSH_DIR/.gitch-config.XXXXXX") || die "SSH 설정 임시 파일을 만들지 못했습니다."
+        [ ! -f "$SSH_CONFIG" ] || cat "$SSH_CONFIG" > "$ssh_tmp"
+        printf '\nHost %s\n    HostName %s\n    Port %s\n    User git\n    IdentityFile "%s"\n    IdentitiesOnly yes\n    AddKeysToAgent yes\n' "$alias" "$host" "${B_PORT[$i]}" "$key" >> "$ssh_tmp"
+        [ -n "$IS_WINDOWS" ] || printf '    UseKeychain yes\n' >> "$ssh_tmp"
+        chmod 600 "$ssh_tmp" || die "SSH 설정 권한을 설정하지 못했습니다."
+        [ ! -f "$SSH_CONFIG" ] || backup_file "$SSH_CONFIG"
+        mv -f "$ssh_tmp" "$SSH_CONFIG" || die "SSH 설정을 저장하지 못했습니다."
+        ssh_tmp=""
+      fi
+      account_machine_result "$id" "$created" null "$protection" "공개키를 복사해 서버에 등록하세요. 기존 SSH 키와 별칭은 덮어쓰지 않습니다."
+      ;;
+  esac
+)
+
 add_cmd() {
+  if [ "$#" -gt 0 ]; then add_machine_cmd "$@"; return $?; fi
   can_prompt || die "계정 추가는 사용자가 터미널에서 직접 'gitch add' 를 실행해야 합니다."
   load_config >/dev/null 2>&1
   local id email host port via folder hv
@@ -3310,6 +3747,7 @@ remove_cmd() {
 ssh_keys_page() { if [ "$1" = github.com ]; then echo "https://github.com/settings/ssh/new"; else echo "https://$1/-/user_settings/ssh_keys"; fi; }
 
 setup_cmd() {   # [계정]
+  if [ "$#" -gt 1 ]; then setup_machine_cmd "$@"; return $?; fi
   need_config
   local only="$1" i id h al key y
   [ -n "$only" ] && { is_account "$only" || die "없는 계정: $only"; }
@@ -3470,7 +3908,8 @@ gen_ai_block() {
   echo "- commit/push 가 \`[gitch]\` 메시지로 거부되면 우회하지 말고 메시지를 그대로 사용자에게 보고한다. 비밀값으로 막힌 파일은 커밋에서 빼고 사용자에게 알린다."
   echo "- \`gitch undo\`·\`amend\`·\`fix --yes\`·\`rescue --restore\` 는 사용자가 요청했을 때만, push 전 커밋에만 쓴다."
   echo "- ~/.gitconfig, ~/.ssh, ~/.config/gitsw 를 직접 수정하지 않는다. HTTPS 비밀번호/토큰 인증을 시도하지 않는다."
-  echo "- \`gitch add\`·\`remove\`·\`setup\`·\`sign on|off\`·\`import\` 와 \`gh auth login\` 은 사용자가 터미널에서 직접 실행하도록 안내한다."
+  echo "- 계정 추가, GitHub 브라우저 로그인, SSH 설정은 사용자가 Gitrochi 앱의 계정 설정 또는 터미널에서 직접 진행한다. AI는 사용자의 명시적인 요청 없이 계정·인증·SSH 키를 만들거나 변경하지 않는다."
+  echo "- \`gitch remove\`·\`sign on|off\`·\`import\` 와 \`gh auth login\` 은 사용자가 터미널에서 직접 실행하도록 안내한다."
   for id in "${ACC_IDS[@]}"; do acc_idx "$id"; [ "${ACC_TRAILER[$ACC_I]}" = strip ] && strip="$strip${strip:+, }$id"; done
   [ -n "$strip" ] && echo "- $strip 계정 저장소의 커밋 메시지에는 AI 표기(Co-Authored-By: Claude 등)를 넣지 않는다."
   echo "- git 계정 문제가 생기면 \`gitch doctor\` 결과를 사용자에게 보여준다."
@@ -3538,7 +3977,7 @@ gitch ci                                     # CI 결과
 
 - 기본 브랜치에서는 PR 을 만들 수 없다 → `gitch b feature/이름` 으로 브랜치를 만들고 작업한다.
 - Claude Code 에서는 `gitsw.aiPush` 설정에 따라 확인 창이 뜬다. branch 면 작업 브랜치 push 는 바로 되고, main/보호 브랜치 push 와 PR 생성만 확인한다.
-- GitHub PR 은 gh 로그인이 필요하다. "gh 에 <계정> 로그인이 필요" 가 나오면 사용자에게 `gh auth login` 을 요청하고, 출력된 웹 주소를 알려준다.
+- GitHub PR 은 gh 로그인이 필요하다. "gh 에 <계정> 로그인이 필요" 가 나오면 사용자가 Gitrochi 앱의 GitHub 로그인 또는 터미널의 `gh auth login` 으로 진행하도록 안내한다.
 - GitLab MR 은 push 옵션으로 만들어진다 (새 커밋이 있어야 함). 출력된 MR 주소를 사용자에게 알려준다.
 
 ## 4. [gitch] 거부 메시지별 대응
@@ -3604,7 +4043,9 @@ gitch graph check --json           # .gitch/graph.rules 위반(violations), 위�
 
 ## 9. 사용자만 하는 것
 
-`gitch add/remove/setup/sign on|off/import`, `gh auth login`, 잠금 해제·다른 계정으로 변경,
+계정 추가, GitHub 브라우저 로그인, SSH 설정은 사용자가 Gitrochi 앱의 계정 설정 또는 터미널에서 직접 진행한다.
+AI는 사용자의 명시적인 요청 없이 계정·인증·SSH 키를 만들거나 변경하지 않는다.
+`gitch remove/sign on|off/import`, `gh auth login`, 잠금 해제·다른 계정으로 변경,
 강제 push, 설정 변경(`gitch config set`, `gitch org add`). Claude Code 에서는 확인 창이 뜬다.
 EOF
 }
@@ -5249,6 +5690,7 @@ graph_cached_collect() {
 # NUL filenames must be validated before converting to the tab/newline record format.
 # Splitting first would turn one newline-containing filename into another (possibly outside) path.
 graph_safe_file_list() {   # $1 original NUL list $2 safe LF list $3 diagnostics records [$4 file root]
+  local LC_ALL=C   # Bash 문자 범위가 UTF-8 로캘의 정렬 규칙을 따르지 않게 바이트로 검사한다.
   local path probe root=${4:-$PWD} ignored=0 links=0
   : > "$2"
   while IFS= read -r -d '' path; do
@@ -5496,6 +5938,7 @@ graph_changes_stream() {   # $1 NUL 구분 git log 파일
 
 # Keep tree filenames NUL-delimited until the complete path has been checked.
 graph_tree_stream() {   # $1 index | tree — stdin git ls-files -s -z / ls-tree -r -l -z
+  local LC_ALL=C
   local entry header path mode kind oid bytes stage
   while IFS= read -r -d '' entry; do
     header=${entry%%$'\t'*}; path=${entry#*$'\t'}
@@ -10446,1548 +10889,1752 @@ HTMLEOF
 
 schema_cmd() {
   local kind=${1:-public}
-  case "$kind" in public|graph|error|languages|status|ck|preflight|rules|version|list|doctor|scan|audit|report|pr|view|watch|index) ;; --help|-h) say '사용법: gitch schema [public|graph|error|languages|status|ck|preflight|rules|version|list|doctor|scan|audit|report|pr|view|watch|index]'; return 0 ;; *) die "알 수 없는 JSON 스키마: $kind" ;; esac
+  case "$kind" in public|graph|error|languages|status|ck|preflight|rules|version|list|doctor|scan|audit|report|pr|view|watch|index|account|login) ;; --help|-h) say '사용법: gitch schema [public|graph|error|languages|status|ck|preflight|rules|version|list|doctor|scan|audit|report|pr|view|watch|index|account|login]'; return 0 ;; *) die "알 수 없는 JSON 스키마: $kind" ;; esac
   printf '{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://github.com/Gitrochi/Gitrochi/blob/main/tools/gitch/schema/gitch-v1.schema.json","title":"gitch public JSON contract version 1","$ref":"#/$defs/%s",' "$kind"
   cat <<'SCHEMAEOF'
 "$defs": {
-    "commit": {
-      "type": "object",
-      "required": [
-        "sha",
-        "date",
-        "subject"
-      ],
-      "properties": {
-        "sha": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{40,64}$"
-        },
-        "date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "subject": {
+  "commit": {
+    "type": "object",
+    "required": [
+      "sha",
+      "date",
+      "subject"
+    ],
+    "properties": {
+      "sha": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{40,64}$"
+      },
+      "date": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "subject": {
+        "type": "string"
+      }
+    }
+  },
+  "evidence": {
+    "type": "object",
+    "required": [
+      "file",
+      "line",
+      "method",
+      "confidence"
+    ],
+    "properties": {
+      "file": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "line": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 1
+      },
+      "method": {
+        "type": "string"
+      },
+      "confidence": {
+        "type": "string"
+      },
+      "declaration": {
+        "type": "string"
+      }
+    }
+  },
+  "node": {
+    "type": "object",
+    "required": [
+      "id",
+      "kind",
+      "label",
+      "group"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "kind": {
+        "type": "string"
+      },
+      "label": {
+        "type": "string"
+      },
+      "group": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      },
+      "lang": {
+        "type": "string"
+      },
+      "changes": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "lastChanged": {
+        "type": "string"
+      },
+      "bytes": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "lines": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "status": {
+        "enum": [
+          "added",
+          "removed",
+          "changed"
+        ]
+      }
+    }
+  },
+  "edge": {
+    "type": "object",
+    "required": [
+      "source",
+      "target",
+      "kind",
+      "weight"
+    ],
+    "properties": {
+      "source": {
+        "type": "string"
+      },
+      "target": {
+        "type": "string"
+      },
+      "kind": {
+        "type": "string"
+      },
+      "weight": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "heuristic": {
+        "type": "boolean"
+      },
+      "method": {
+        "type": "string"
+      },
+      "confidence": {
+        "type": "string"
+      },
+      "evidence": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/evidence"
+        }
+      },
+      "via": {
+        "type": "array",
+        "items": {
           "type": "string"
         }
-      }
-    },
-    "evidence": {
-      "type": "object",
-      "required": [
-        "file",
-        "line",
-        "method",
-        "confidence"
-      ],
-      "properties": {
-        "file": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "line": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1
-        },
-        "method": {
-          "type": "string"
-        },
-        "confidence": {
-          "type": "string"
-        },
-        "declaration": {
-          "type": "string"
+      },
+      "degree": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100
+      },
+      "commitCount": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "commitsTruncated": {
+        "type": "boolean"
+      },
+      "commits": {
+        "type": "array",
+        "maxItems": 20,
+        "items": {
+          "$ref": "#/$defs/commit"
         }
       }
-    },
-    "node": {
-      "type": "object",
-      "required": [
-        "id",
-        "kind",
-        "label",
-        "group"
-      ],
-      "properties": {
-        "id": {
+    }
+  },
+  "graph": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "tool",
+      "version",
+      "relation",
+      "directed",
+      "repo",
+      "repoPath",
+      "scope",
+      "lang",
+      "commit",
+      "generated",
+      "stats",
+      "notes",
+      "diagnostics",
+      "analysisLevels",
+      "nodes",
+      "edges"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "tool": {
+        "const": "gitch graph"
+      },
+      "version": {
+        "type": "string"
+      },
+      "relation": {
+        "enum": [
+          "files",
+          "modules",
+          "changes",
+          "tree"
+        ]
+      },
+      "directed": {
+        "type": "boolean"
+      },
+      "repo": {
+        "type": "string"
+      },
+      "repoPath": {
+        "type": "string"
+      },
+      "scope": {
+        "type": "string"
+      },
+      "lang": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
           "type": "string"
-        },
-        "kind": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
-        },
-        "group": {
-          "type": "string"
-        },
-        "path": {
-          "type": "string"
-        },
-        "lang": {
-          "type": "string"
-        },
-        "changes": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "lastChanged": {
-          "type": "string"
-        },
-        "bytes": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "lines": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "status": {
-          "enum": [
-            "added",
-            "removed",
-            "changed"
-          ]
         }
-      }
-    },
-    "edge": {
-      "type": "object",
-      "required": [
-        "source",
-        "target",
-        "kind",
-        "weight"
-      ],
-      "properties": {
-        "source": {
-          "type": "string"
-        },
-        "target": {
-          "type": "string"
-        },
-        "kind": {
-          "type": "string"
-        },
-        "weight": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "heuristic": {
-          "type": "boolean"
-        },
-        "method": {
-          "type": "string"
-        },
-        "confidence": {
-          "type": "string"
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "via": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "degree": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "commitCount": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "commitsTruncated": {
-          "type": "boolean"
-        },
-        "commits": {
-          "type": "array",
-          "maxItems": 20,
-          "items": {
-            "$ref": "#/$defs/commit"
-          }
-        }
-      }
-    },
-    "graph": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "tool",
-        "version",
-        "relation",
-        "directed",
-        "repo",
-        "repoPath",
-        "scope",
-        "lang",
-        "commit",
-        "generated",
-        "stats",
-        "notes",
-        "diagnostics",
-        "analysisLevels",
-        "nodes",
-        "edges"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "tool": {
-          "const": "gitch graph"
-        },
-        "version": {
-          "type": "string"
-        },
-        "relation": {
-          "enum": [
-            "files",
-            "modules",
-            "changes",
-            "tree"
-          ]
-        },
-        "directed": {
-          "type": "boolean"
-        },
-        "repo": {
-          "type": "string"
-        },
-        "repoPath": {
-          "type": "string"
-        },
-        "scope": {
-          "type": "string"
-        },
-        "lang": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "commit": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "generated": {
-          "type": "string"
-        },
-        "stats": {
-          "type": "object",
-          "required": [
-            "nodes",
-            "edges",
-            "heuristicEdges"
-          ],
-          "properties": {
-            "nodes": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "edges": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "heuristicEdges": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "commits": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "analyzedCommits": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "skippedLargeCommits": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "historyFrom": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "historyTo": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "analyzedFrom": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "analyzedTo": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "historyTruncated": {
-              "type": "boolean"
-            },
-            "shallowHistory": {
-              "type": "boolean"
-            },
-            "followedRenames": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "affected": {
-              "type": "object",
-              "required": [
-                "base",
-                "changedFiles",
-                "files",
-                "modules",
-                "unresolvedFiles",
-                "includesBaseDependencies"
-              ],
-              "properties": {
-                "base": {
-                  "type": "string"
-                },
-                "changedFiles": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "files": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "modules": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "unresolvedFiles": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "includesBaseDependencies": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        },
-        "notes": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "diagnostics": {
-          "type": "array",
-          "items": {
+      },
+      "commit": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "generated": {
+        "type": "string"
+      },
+      "stats": {
+        "type": "object",
+        "required": [
+          "nodes",
+          "edges",
+          "heuristicEdges"
+        ],
+        "properties": {
+          "nodes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "edges": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "heuristicEdges": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "commits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "analyzedCommits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skippedLargeCommits": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "historyFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "historyTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "analyzedFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "analyzedTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "historyTruncated": {
+            "type": "boolean"
+          },
+          "shallowHistory": {
+            "type": "boolean"
+          },
+          "followedRenames": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "affected": {
             "type": "object",
             "required": [
-              "code",
-              "severity",
-              "message"
+              "base",
+              "changedFiles",
+              "files",
+              "modules",
+              "unresolvedFiles",
+              "includesBaseDependencies"
             ],
             "properties": {
-              "code": {
+              "base": {
                 "type": "string"
               },
-              "severity": {
-                "enum": [
-                  "info",
-                  "warning",
-                  "error"
-                ]
+              "changedFiles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               },
-              "message": {
-                "type": "string"
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               },
-              "file": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+              "modules": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               },
-              "line": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "minimum": 1
+              "unresolvedFiles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "includesBaseDependencies": {
+                "type": "boolean"
               }
             }
           }
-        },
-        "analysisLevels": {
-          "type": "object"
-        },
-        "nodes": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/node"
-          }
-        },
-        "edges": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/edge"
-          }
-        },
-        "diff": {
-          "type": "object",
-          "required": [
-            "base",
-            "baseName",
-            "head"
-          ],
-          "properties": {
-            "base": {
-              "type": "string"
-            },
-            "baseName": {
-              "type": "string"
-            },
-            "head": {
-              "type": "string"
-            }
-          }
-        },
-        "cycles": {
-          "type": "object"
         }
-      }
-    },
-    "error": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "error"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "error": {
+      },
+      "notes": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "diagnostics": {
+        "type": "array",
+        "items": {
           "type": "object",
           "required": [
             "code",
+            "severity",
             "message"
           ],
           "properties": {
             "code": {
-              "type": "string",
-              "minLength": 1
+              "type": "string"
+            },
+            "severity": {
+              "enum": [
+                "info",
+                "warning",
+                "error"
+              ]
             },
             "message": {
               "type": "string"
             },
-            "exitCode": {
-              "enum": [
-                1,
-                2
+            "file": {
+              "type": [
+                "string",
+                "null"
               ]
+            },
+            "line": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
             }
-          },
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "code": {
-                    "enum": [
-                      "GITCH_ERROR",
-                      "GITCH_CONFIRMATION_REQUIRED"
-                    ]
-                  }
-                },
-                "required": [
-                  "code"
-                ]
-              },
-              "then": {
-                "required": [
-                  "exitCode"
-                ]
-              }
-            }
-          ]
+          }
         }
+      },
+      "analysisLevels": {
+        "type": "object"
+      },
+      "nodes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/node"
+        }
+      },
+      "edges": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/edge"
+        }
+      },
+      "diff": {
+        "type": "object",
+        "required": [
+          "base",
+          "baseName",
+          "head"
+        ],
+        "properties": {
+          "base": {
+            "type": "string"
+          },
+          "baseName": {
+            "type": "string"
+          },
+          "head": {
+            "type": "string"
+          }
+        }
+      },
+      "cycles": {
+        "type": "object"
       }
-    },
-    "languages": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "tool",
-        "languages",
-        "preciseBackendRequirement"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
+    }
+  },
+  "error": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "error"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string"
+          },
+          "exitCode": {
+            "enum": [
+              1,
+              2
+            ]
+          }
         },
-        "tool": {
-          "const": "gitch graph languages"
-        },
-        "preciseBackendRequirement": {
-          "type": "string"
-        },
-        "languages": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "id",
-              "name",
-              "extensions",
-              "aliases",
-              "ecosystem",
-              "manifests",
-              "fileDetection",
-              "staticImports",
-              "heuristic",
-              "preciseBackend",
-              "builtInPreciseIndexer"
-            ],
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "extensions": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "aliases": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "ecosystem": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "manifests": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "fileDetection": {
-                "const": true
-              },
-              "staticImports": {
-                "type": "boolean"
-              },
-              "heuristic": {
-                "type": "boolean"
-              },
-              "preciseBackend": {
-                "type": "array",
-                "items": {
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "code": {
                   "enum": [
-                    "SCIP",
-                    "SwiftIndex"
+                    "GITCH_ERROR",
+                    "GITCH_CONFIRMATION_REQUIRED"
                   ]
                 }
               },
-              "builtInPreciseIndexer": {
-                "const": false
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "required": [
+                "exitCode"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "languages": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "tool",
+      "languages",
+      "preciseBackendRequirement"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "tool": {
+        "const": "gitch graph languages"
+      },
+      "preciseBackendRequirement": {
+        "type": "string"
+      },
+      "languages": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "name",
+            "extensions",
+            "aliases",
+            "ecosystem",
+            "manifests",
+            "fileDetection",
+            "staticImports",
+            "heuristic",
+            "preciseBackend",
+            "builtInPreciseIndexer"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "extensions": {
+              "type": "array",
+              "items": {
+                "type": "string"
               }
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "ecosystem": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "manifests": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fileDetection": {
+              "const": true
+            },
+            "staticImports": {
+              "type": "boolean"
+            },
+            "heuristic": {
+              "type": "boolean"
+            },
+            "preciseBackend": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "SCIP",
+                  "SwiftIndex"
+                ]
+              }
+            },
+            "builtInPreciseIndexer": {
+              "const": false
             }
           }
         }
       }
-    },
-    "status": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "inRepo",
-        "folderAccount"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "inRepo": {
-          "type": "boolean"
-        },
-        "folderAccount": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "repo": {
+    }
+  },
+  "status": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "inRepo",
+      "folderAccount"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "inRepo": {
+        "type": "boolean"
+      },
+      "folderAccount": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "repo": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      },
+      "branch": {
+        "type": "string"
+      },
+      "author": {
+        "type": "object",
+        "required": [
+          "name",
+          "email"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "remote": {
+        "type": "string"
+      },
+      "pushUrl": {
+        "type": "string"
+      },
+      "upstream": {
+        "type": "string"
+      },
+      "lockedAccount": {
+        "type": "string"
+      },
+      "account": {
+        "type": "string"
+      },
+      "accountSource": {
+        "type": "string"
+      },
+      "derivedAccount": {
+        "type": "string"
+      },
+      "pushAccount": {
+        "type": "string"
+      },
+      "pushLogin": {
+        "type": "string"
+      },
+      "unpushedCommits": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "signing": {
+        "type": "boolean"
+      },
+      "ignored": {
+        "type": "boolean"
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
           "type": "string"
-        },
-        "path": {
+        }
+      }
+    }
+  },
+  "fileStatus": {
+    "type": "object",
+    "required": [
+      "status",
+      "path"
+    ],
+    "properties": {
+      "status": {
+        "type": "string"
+      },
+      "path": {
+        "type": "string"
+      }
+    }
+  },
+  "ck": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "repo",
+      "branch",
+      "account",
+      "locked",
+      "fetched",
+      "hasUpstream",
+      "ahead",
+      "behind",
+      "staged",
+      "unstaged",
+      "untracked",
+      "stash",
+      "inProgress",
+      "conflicts"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "repo": {
+        "type": "string"
+      },
+      "branch": {
+        "type": "string"
+      },
+      "account": {
+        "type": "string"
+      },
+      "locked": {
+        "type": "boolean"
+      },
+      "fetched": {
+        "type": "boolean"
+      },
+      "hasUpstream": {
+        "type": "boolean"
+      },
+      "ahead": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "behind": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "staged": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/fileStatus"
+        }
+      },
+      "unstaged": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/fileStatus"
+        }
+      },
+      "untracked": {
+        "type": "array",
+        "items": {
           "type": "string"
-        },
-        "branch": {
+        }
+      },
+      "stash": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "inProgress": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "conflicts": {
+        "type": "array",
+        "items": {
           "type": "string"
-        },
-        "author": {
+        }
+      }
+    }
+  },
+  "preflight": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "result",
+      "account",
+      "pushAccount",
+      "branch",
+      "ahead",
+      "behind",
+      "checks"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "result": {
+        "enum": [
+          "OK",
+          "WARN",
+          "STOP"
+        ]
+      },
+      "account": {
+        "type": "string"
+      },
+      "pushAccount": {
+        "type": "string"
+      },
+      "branch": {
+        "type": "string"
+      },
+      "ahead": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "behind": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "checks": {
+        "type": "array",
+        "items": {
           "type": "object",
           "required": [
-            "name",
-            "email"
+            "level",
+            "code",
+            "message"
           ],
           "properties": {
-            "name": {
+            "level": {
+              "enum": [
+                "OK",
+                "WARN",
+                "STOP"
+              ]
+            },
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "rules": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "tool",
+      "file",
+      "base",
+      "ok",
+      "violations"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "tool": {
+        "const": "gitch graph check"
+      },
+      "file": {
+        "type": "string"
+      },
+      "base": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "ok": {
+        "type": "boolean"
+      },
+      "violations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "relation",
+            "severity",
+            "line",
+            "rule",
+            "kind",
+            "existing"
+          ],
+          "properties": {
+            "relation": {
+              "type": "string"
+            },
+            "severity": {
+              "enum": [
+                "error",
+                "warning"
+              ]
+            },
+            "line": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "rule": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "existing": {
+              "type": "boolean"
+            },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "source": {
+              "type": "string"
+            },
+            "target": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "version": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "tool",
+      "version",
+      "versionScheme",
+      "graphApi"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "tool": {
+        "const": "gitch"
+      },
+      "version": {
+        "type": "string"
+      },
+      "versionScheme": {
+        "const": "gitrochi"
+      },
+      "graphApi": {
+        "const": 1
+      }
+    }
+  },
+  "list": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "accounts"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "accounts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "email",
+            "hosts",
+            "rules",
+            "sshKey",
+            "current"
+          ],
+          "properties": {
+            "id": {
               "type": "string"
             },
             "email": {
               "type": "string"
-            }
-          }
-        },
-        "remote": {
-          "type": "string"
-        },
-        "pushUrl": {
-          "type": "string"
-        },
-        "upstream": {
-          "type": "string"
-        },
-        "lockedAccount": {
-          "type": "string"
-        },
-        "account": {
-          "type": "string"
-        },
-        "accountSource": {
-          "type": "string"
-        },
-        "derivedAccount": {
-          "type": "string"
-        },
-        "pushAccount": {
-          "type": "string"
-        },
-        "pushLogin": {
-          "type": "string"
-        },
-        "unpushedCommits": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "signing": {
-          "type": "boolean"
-        },
-        "ignored": {
-          "type": "boolean"
-        },
-        "warnings": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "fileStatus": {
-      "type": "object",
-      "required": [
-        "status",
-        "path"
-      ],
-      "properties": {
-        "status": {
-          "type": "string"
-        },
-        "path": {
-          "type": "string"
-        }
-      }
-    },
-    "ck": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "repo",
-        "branch",
-        "account",
-        "locked",
-        "fetched",
-        "hasUpstream",
-        "ahead",
-        "behind",
-        "staged",
-        "unstaged",
-        "untracked",
-        "stash",
-        "inProgress",
-        "conflicts"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "repo": {
-          "type": "string"
-        },
-        "branch": {
-          "type": "string"
-        },
-        "account": {
-          "type": "string"
-        },
-        "locked": {
-          "type": "boolean"
-        },
-        "fetched": {
-          "type": "boolean"
-        },
-        "hasUpstream": {
-          "type": "boolean"
-        },
-        "ahead": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "behind": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "staged": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/fileStatus"
-          }
-        },
-        "unstaged": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/fileStatus"
-          }
-        },
-        "untracked": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "stash": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "inProgress": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "conflicts": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "preflight": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "result",
-        "account",
-        "pushAccount",
-        "branch",
-        "ahead",
-        "behind",
-        "checks"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "result": {
-          "enum": [
-            "OK",
-            "WARN",
-            "STOP"
-          ]
-        },
-        "account": {
-          "type": "string"
-        },
-        "pushAccount": {
-          "type": "string"
-        },
-        "branch": {
-          "type": "string"
-        },
-        "ahead": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "behind": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "checks": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "level",
-              "code",
-              "message"
-            ],
-            "properties": {
-              "level": {
-                "enum": [
-                  "OK",
-                  "WARN",
-                  "STOP"
-                ]
-              },
-              "code": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              }
+            },
+            "hosts": {
+              "type": "string"
+            },
+            "rules": {
+              "type": "string"
+            },
+            "sshKey": {
+              "type": "boolean"
+            },
+            "current": {
+              "type": "boolean"
             }
           }
         }
       }
-    },
-    "rules": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "tool",
-        "file",
-        "base",
-        "ok",
-        "violations"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "tool": {
-          "const": "gitch graph check"
-        },
-        "file": {
-          "type": "string"
-        },
-        "base": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "ok": {
-          "type": "boolean"
-        },
-        "violations": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "relation",
-              "severity",
-              "line",
-              "rule",
-              "kind",
-              "existing"
-            ],
-            "properties": {
-              "relation": {
-                "type": "string"
-              },
-              "severity": {
-                "enum": [
-                  "error",
-                  "warning"
-                ]
-              },
-              "line": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "rule": {
-                "type": "string"
-              },
-              "kind": {
-                "type": "string"
-              },
-              "existing": {
-                "type": "boolean"
-              },
-              "nodes": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "source": {
-                "type": "string"
-              },
-              "target": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    },
-    "version": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "tool",
-        "version",
-        "versionScheme",
-        "graphApi"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "tool": {
-          "const": "gitch"
-        },
-        "version": {
-          "type": "string"
-        },
-        "versionScheme": {
-          "const": "gitrochi"
-        },
-        "graphApi": {
-          "const": 1
-        }
-      }
-    },
-    "list": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "accounts"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "accounts": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "id",
-              "email",
-              "hosts",
-              "rules",
-              "sshKey",
-              "current"
-            ],
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "email": {
-                "type": "string"
-              },
-              "hosts": {
-                "type": "string"
-              },
-              "rules": {
-                "type": "string"
-              },
-              "sshKey": {
-                "type": "boolean"
-              },
-              "current": {
-                "type": "boolean"
-              }
-            }
-          }
-        }
-      }
-    },
-    "doctor": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "version",
-        "problems",
-        "items"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "version": {
-          "type": "string"
-        },
-        "problems": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "section",
-              "level",
-              "message"
-            ],
-            "properties": {
-              "section": {
-                "type": "string"
-              },
-              "level": {
-                "enum": [
-                  "OK",
-                  "WARN",
-                  "FAIL",
-                  "INFO"
-                ]
-              },
-              "message": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    },
-    "scan": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "root",
-        "total",
-        "ok",
-        "problems",
-        "repos"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "root": {
-          "type": "string"
-        },
-        "total": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "ok": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "problems": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "repos": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        }
-      }
-    },
-    "audit": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "since",
-        "findings",
-        "repos"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "since": {
-          "type": "string"
-        },
-        "findings": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "repos": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        }
-      }
-    },
-    "report": {
-      "type": "array",
-      "description": "Legacy report payload remains an array; schema version is selected by this schema document.",
+    }
+  },
+  "doctor": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "version",
+      "problems",
+      "items"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "version": {
+        "type": "string"
+      },
+      "problems": {
+        "type": "integer",
+        "minimum": 0
+      },
       "items": {
-        "type": "object"
-      }
-    },
-    "pr": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "number",
-        "url",
-        "state",
-        "title"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "number": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "url": {
-          "type": "string"
-        },
-        "state": {
-          "type": "string"
-        },
-        "title": {
-          "type": "string"
-        },
-        "isDraft": {
-          "type": "boolean"
-        },
-        "mergeable": {
-          "type": "string"
-        },
-        "reviewDecision": {
-          "type": "string"
-        },
-        "statusCheckRollup": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        }
-      }
-    },
-    "public": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/graph"
-        },
-        {
-          "$ref": "#/$defs/error"
-        },
-        {
-          "$ref": "#/$defs/languages"
-        },
-        {
-          "$ref": "#/$defs/status"
-        },
-        {
-          "$ref": "#/$defs/ck"
-        },
-        {
-          "$ref": "#/$defs/preflight"
-        },
-        {
-          "$ref": "#/$defs/rules"
-        },
-        {
-          "$ref": "#/$defs/version"
-        },
-        {
-          "$ref": "#/$defs/list"
-        },
-        {
-          "$ref": "#/$defs/doctor"
-        },
-        {
-          "$ref": "#/$defs/scan"
-        },
-        {
-          "$ref": "#/$defs/audit"
-        },
-        {
-          "$ref": "#/$defs/report"
-        },
-        {
-          "$ref": "#/$defs/pr"
-        },
-        {
-          "$ref": "#/$defs/view"
-        },
-        {
-          "$ref": "#/$defs/watch"
-        },
-        {
-          "$ref": "#/$defs/index"
-        }
-      ]
-    },
-    "viewDisplay": {
-      "type": "object",
-      "required": [
-        "unit",
-        "depth",
-        "style",
-        "layout",
-        "colorBy",
-        "sizeBy"
-      ],
-      "properties": {
-        "unit": {
-          "enum": [
-            "file",
-            "folder"
-          ]
-        },
-        "depth": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 8
-        },
-        "style": {
-          "enum": [
-            "dot",
-            "box"
-          ]
-        },
-        "layout": {
-          "type": "string"
-        },
-        "colorBy": {
-          "enum": [
-            "family",
-            "role",
-            "heat"
-          ]
-        },
-        "sizeBy": {
-          "enum": [
-            "auto",
-            "deg",
-            "lines",
-            "changes"
-          ]
-        }
-      }
-    },
-    "view": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "tool",
-        "repo",
-        "relation",
-        "filters",
-        "display",
-        "hidden",
-        "query",
-        "selected",
-        "camera",
-        "theme",
-        "positions"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "tool": {
-          "const": "gitch graph view"
-        },
-        "repo": {
-          "type": "string"
-        },
-        "relation": {
-          "enum": [
-            "files",
-            "modules",
-            "changes",
-            "tree"
-          ]
-        },
-        "filters": {
-          "type": "object"
-        },
-        "display": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/viewDisplay"
-          }
-        },
-        "hidden": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "query": {
-          "type": "string"
-        },
-        "selected": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "camera": {
+        "type": "array",
+        "items": {
           "type": "object",
           "required": [
-            "x",
-            "y",
-            "k"
-          ],
-          "properties": {
-            "x": {
-              "type": "number"
-            },
-            "y": {
-              "type": "number"
-            },
-            "k": {
-              "type": "number",
-              "exclusiveMinimum": 0
-            }
-          }
-        },
-        "theme": {
-          "enum": [
-            "dark",
-            "light"
-          ]
-        },
-        "positions": {
-          "type": "array",
-          "maxItems": 10000,
-          "items": {
-            "type": "array",
-            "minItems": 5,
-            "maxItems": 5,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "number"
-              },
-              {
-                "type": "number"
-              },
-              {
-                "type": [
-                  "number",
-                  "null"
-                ]
-              },
-              {
-                "type": [
-                  "number",
-                  "null"
-                ]
-              }
-            ]
-          }
-        }
-      }
-    },
-    "watchDescription": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "url",
-        "stateUrl",
-        "refreshUrl",
-        "pid",
-        "generation",
-        "storageStable"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "url": {
-          "type": "string",
-          "format": "uri"
-        },
-        "stateUrl": {
-          "type": "string",
-          "format": "uri"
-        },
-        "refreshUrl": {
-          "type": "string",
-          "format": "uri"
-        },
-        "pid": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "generation": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "storageStable": {
-          "type": "boolean"
-        }
-      }
-    },
-    "watchState": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "generation",
-        "phase",
-        "lastError",
-        "updatedAt",
-        "lastChangeAt",
-        "relation",
-        "pid",
-        "watching"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "generation": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "phase": {
-          "type": "string"
-        },
-        "lastError": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "updatedAt": {
-          "type": "string"
-        },
-        "lastChangeAt": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "relation": {
-          "type": "string"
-        },
-        "pid": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "watching": {
-          "type": "boolean"
-        },
-        "watchKey": {
-          "type": "string"
-        }
-      }
-    },
-    "watch": {
-      "oneOf": [
-        {
-          "$ref": "#/$defs/watchDescription"
-        },
-        {
-          "$ref": "#/$defs/watchState"
-        },
-        {
-          "type": "object",
-          "required": [
-            "schemaVersion",
-            "error",
+            "section",
+            "level",
             "message"
           ],
           "properties": {
-            "schemaVersion": {
-              "const": 1
-            },
-            "error": {
+            "section": {
               "type": "string"
+            },
+            "level": {
+              "enum": [
+                "OK",
+                "WARN",
+                "FAIL",
+                "INFO"
+              ]
             },
             "message": {
               "type": "string"
             }
           }
         }
-      ]
-    },
-    "index": {
-      "type": "object",
-      "required": [
-        "schemaVersion",
-        "language",
-        "executable",
-        "arguments",
-        "documentation",
-        "requirements",
-        "output"
-      ],
-      "properties": {
-        "schemaVersion": {
-          "const": 1
-        },
-        "language": {
-          "type": "string"
-        },
-        "executable": {
-          "type": "string"
-        },
-        "arguments": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "documentation": {
-          "type": "string",
-          "format": "uri"
-        },
-        "requirements": {
-          "type": "string"
-        },
-        "output": {
-          "const": "index.scip"
+      }
+    }
+  },
+  "scan": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "root",
+      "total",
+      "ok",
+      "problems",
+      "repos"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "root": {
+        "type": "string"
+      },
+      "total": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "ok": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "problems": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "repos": {
+        "type": "array",
+        "items": {
+          "type": "object"
         }
       }
     }
+  },
+  "audit": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "since",
+      "findings",
+      "repos"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "since": {
+        "type": "string"
+      },
+      "findings": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "repos": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "report": {
+    "type": "array",
+    "description": "Legacy report payload remains an array; schema version is selected by this schema document.",
+    "items": {
+      "type": "object"
+    }
+  },
+  "pr": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "number",
+      "url",
+      "state",
+      "title"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "number": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "url": {
+        "type": "string"
+      },
+      "state": {
+        "type": "string"
+      },
+      "title": {
+        "type": "string"
+      },
+      "isDraft": {
+        "type": "boolean"
+      },
+      "mergeable": {
+        "type": "string"
+      },
+      "reviewDecision": {
+        "type": "string"
+      },
+      "statusCheckRollup": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "public": {
+    "oneOf": [
+      {
+        "$ref": "#/$defs/graph"
+      },
+      {
+        "$ref": "#/$defs/error"
+      },
+      {
+        "$ref": "#/$defs/languages"
+      },
+      {
+        "$ref": "#/$defs/status"
+      },
+      {
+        "$ref": "#/$defs/ck"
+      },
+      {
+        "$ref": "#/$defs/preflight"
+      },
+      {
+        "$ref": "#/$defs/rules"
+      },
+      {
+        "$ref": "#/$defs/version"
+      },
+      {
+        "$ref": "#/$defs/list"
+      },
+      {
+        "$ref": "#/$defs/doctor"
+      },
+      {
+        "$ref": "#/$defs/scan"
+      },
+      {
+        "$ref": "#/$defs/audit"
+      },
+      {
+        "$ref": "#/$defs/report"
+      },
+      {
+        "$ref": "#/$defs/pr"
+      },
+      {
+        "$ref": "#/$defs/view"
+      },
+      {
+        "$ref": "#/$defs/watch"
+      },
+      {
+        "$ref": "#/$defs/index"
+      },
+      {
+        "$ref": "#/$defs/account"
+      },
+      {
+        "$ref": "#/$defs/login"
+      }
+    ]
+  },
+  "viewDisplay": {
+    "type": "object",
+    "required": [
+      "unit",
+      "depth",
+      "style",
+      "layout",
+      "colorBy",
+      "sizeBy"
+    ],
+    "properties": {
+      "unit": {
+        "enum": [
+          "file",
+          "folder"
+        ]
+      },
+      "depth": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8
+      },
+      "style": {
+        "enum": [
+          "dot",
+          "box"
+        ]
+      },
+      "layout": {
+        "type": "string"
+      },
+      "colorBy": {
+        "enum": [
+          "family",
+          "role",
+          "heat"
+        ]
+      },
+      "sizeBy": {
+        "enum": [
+          "auto",
+          "deg",
+          "lines",
+          "changes"
+        ]
+      }
+    }
+  },
+  "view": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "tool",
+      "repo",
+      "relation",
+      "filters",
+      "display",
+      "hidden",
+      "query",
+      "selected",
+      "camera",
+      "theme",
+      "positions"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "tool": {
+        "const": "gitch graph view"
+      },
+      "repo": {
+        "type": "string"
+      },
+      "relation": {
+        "enum": [
+          "files",
+          "modules",
+          "changes",
+          "tree"
+        ]
+      },
+      "filters": {
+        "type": "object"
+      },
+      "display": {
+        "type": "object",
+        "additionalProperties": {
+          "$ref": "#/$defs/viewDisplay"
+        }
+      },
+      "hidden": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "query": {
+        "type": "string"
+      },
+      "selected": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "camera": {
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "k"
+        ],
+        "properties": {
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "k": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      },
+      "theme": {
+        "enum": [
+          "dark",
+          "light"
+        ]
+      },
+      "positions": {
+        "type": "array",
+        "maxItems": 10000,
+        "items": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "watchDescription": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "url",
+      "stateUrl",
+      "refreshUrl",
+      "pid",
+      "generation",
+      "storageStable"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "stateUrl": {
+        "type": "string",
+        "format": "uri"
+      },
+      "refreshUrl": {
+        "type": "string",
+        "format": "uri"
+      },
+      "pid": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "generation": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "storageStable": {
+        "type": "boolean"
+      }
+    }
+  },
+  "watchState": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "generation",
+      "phase",
+      "lastError",
+      "updatedAt",
+      "lastChangeAt",
+      "relation",
+      "pid",
+      "watching"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "generation": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "phase": {
+        "type": "string"
+      },
+      "lastError": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "updatedAt": {
+        "type": "string"
+      },
+      "lastChangeAt": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "relation": {
+        "type": "string"
+      },
+      "pid": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "watching": {
+        "type": "boolean"
+      },
+      "watchKey": {
+        "type": "string"
+      }
+    }
+  },
+  "watch": {
+    "oneOf": [
+      {
+        "$ref": "#/$defs/watchDescription"
+      },
+      {
+        "$ref": "#/$defs/watchState"
+      },
+      {
+        "type": "object",
+        "required": [
+          "schemaVersion",
+          "error",
+          "message"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": 1
+          },
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    ]
+  },
+  "index": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "language",
+      "executable",
+      "arguments",
+      "documentation",
+      "requirements",
+      "output"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "language": {
+        "type": "string"
+      },
+      "executable": {
+        "type": "string"
+      },
+      "arguments": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "documentation": {
+        "type": "string",
+        "format": "uri"
+      },
+      "requirements": {
+        "type": "string"
+      },
+      "output": {
+        "const": "index.scip"
+      }
+    }
+  },
+  "account": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "tool",
+      "created",
+      "account",
+      "ssh",
+      "aliasConfigured"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "tool": {
+        "const": "gitch account setup"
+      },
+      "created": {
+        "type": "boolean"
+      },
+      "account": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "host",
+          "port",
+          "folder",
+          "via"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "folder": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "via": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ssh": {
+        "type": "object",
+        "required": [
+          "alias",
+          "keyExists",
+          "aliasConfigured",
+          "publicKey",
+          "publicKeyPath",
+          "registrationURL",
+          "authenticated",
+          "keyProtection",
+          "message"
+        ],
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "keyExists": {
+            "type": "boolean"
+          },
+          "aliasConfigured": {
+            "type": "boolean"
+          },
+          "publicKey": {
+            "type": "string"
+          },
+          "publicKeyPath": {
+            "type": "string"
+          },
+          "registrationURL": {
+            "type": "string",
+            "format": "uri"
+          },
+          "authenticated": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "keyProtection": {
+            "enum": [
+              "missing",
+              "existing",
+              "none"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "aliasConfigured": {
+        "type": "boolean"
+      }
+    }
+  },
+  "login": {
+    "type": "object",
+    "required": [
+      "schemaVersion",
+      "tool",
+      "session",
+      "state",
+      "deviceCode",
+      "verificationURL",
+      "login",
+      "email",
+      "message"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "const": 1
+      },
+      "tool": {
+        "const": "gitch login"
+      },
+      "session": {
+        "type": "string",
+        "pattern": "^github-[A-Za-z0-9]{10}$"
+      },
+      "state": {
+        "enum": [
+          "pending",
+          "complete",
+          "failed",
+          "cancelled"
+        ]
+      },
+      "deviceCode": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "pattern": "^[A-Z0-9]{4}-[A-Z0-9]{4}$"
+      },
+      "verificationURL": {
+        "const": "https://github.com/login/device"
+      },
+      "login": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,38}$"
+      },
+      "email": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "message": {
+        "type": "string"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "state": {
+              "const": "complete"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "login": {
+              "type": "string",
+              "minLength": 1
+            },
+            "email": {
+              "type": "string",
+              "minLength": 3
+            }
+          }
+        }
+      }
+    ]
   }
+}
 }
 SCHEMAEOF
 }
@@ -12007,7 +12654,7 @@ completion_repositories() {
   done
 }
 completion_commands() {
-  printf '%s\n' preflight ck c p cp pl up l d b undo amend continue abort rescue o app pr ci publish status use unlock ignore protect clone fork sync fix scan audit prune wt report g graph list add remove org config setup auto sign ai ssh install uninstall migrate export import doctor version self-update completion schema help
+  printf '%s\n' preflight ck c p cp pl up l d b undo amend continue abort rescue o app pr ci publish status use unlock ignore protect clone fork sync fix scan audit prune wt report g graph list add remove org config setup login auto sign ai ssh install uninstall migrate export import doctor version self-update completion schema help
 }
 completion_candidates() {   # _complete -- 이후: 실행 파일 이름을 뺀 낱말들(마지막은 입력 중인 낱말)
   local empty_current=""
@@ -12033,8 +12680,9 @@ completion_candidates() {   # _complete -- 이후: 실행 파일 이름을 뺀 �
     elif [ "$prev" = --base ] || [ "$cmd" = b ] || [ "$cmd" = branch ] || { [ "$cmd" = wt ] && [ "${words[1]:-}" = new ]; } || { { [ "$cmd" = g ] || [ "$cmd" = graph ]; } && [ "${words[1]:-}" = diff ] && [ "$n" -eq 3 ]; }; then
       git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null
       [ "${words[1]:-}" = diff ] && printf '%s\n' HEAD files modules tree
-    elif [ "$prev" = --out ] || [ "$prev" = --path ] || [ "$prev" = --repo ] || [ "$prev" = --rules ] || [ "$prev" = --index ] || [ "$prev" = --file ]; then
+    elif [ "$prev" = --out ] || [ "$prev" = --path ] || [ "$prev" = --repo ] || [ "$prev" = --rules ] || [ "$prev" = --index ] || [ "$prev" = --file ] || [ "$prev" = --folder ]; then
       compgen -f -- "$cur"
+    elif [ "$prev" = --via ]; then load_config >/dev/null 2>&1; for i in "${ACC_IDS[@]}"; do printf '%s\n' "$i"; done
     elif [[ "$cur" == -* ]]; then
       case "$cmd" in
         g|graph)
@@ -12053,6 +12701,9 @@ completion_candidates() {   # _complete -- 이후: 실행 파일 이름을 뺀 �
         audit) printf '%s\n' --json --since ;;
         report) printf '%s\n' --json --today --days --since ;;
         version) printf '%s\n' --json ;;
+        add) printf '%s\n' --id --email --host --port --folder --no-folder --via --no-setup --json --yes ;;
+        setup) printf '%s\n' --inspect --generate --check --json --yes ;;
+        login) printf '%s\n' --start --status --cancel --json --yes ;;
       esac
     else
       case "$cmd" in
@@ -12063,7 +12714,8 @@ completion_candidates() {   # _complete -- 이후: 실행 파일 이름을 뺀 �
           completion_repositories
           compgen -d -- "$cur" ;;
         completion) printf '%s\n' bash zsh fish powershell ;;
-        schema) printf '%s\n' public graph error languages status ck preflight rules version list doctor scan audit report pr view watch index ;;
+        schema) printf '%s\n' public graph error languages status ck preflight rules version list doctor scan audit report pr view watch index account login ;;
+        login) [ "$n" -ne 2 ] || printf '%s\n' github ;;
         config) printf '%s\n' show path get set add unset edit ;;
         wt|worktree) printf '%s\n' ls new rm ;;
         pr|mr) printf '%s\n' status ;;
@@ -12201,6 +12853,9 @@ PR / MR
 계정/설정
   gitch list [--check] [--json]            등록된 계정
   gitch add / gitch remove <아이디>        계정 추가/삭제 (사용자만)
+  gitch add --id ID --email 메일 --host 서버 --no-setup --json --yes  앱 계정 설정: 등록만, SSH 키 생성 별도
+  gitch setup ID --inspect|--generate|--check --json [--yes]  상태 · 키 생성 · 연결 점검 (생성은 명시적 확인 필요)
+  gitch login github --start --json --yes   앱 브라우저 로그인 시작 (상태/취소: --status|--cancel SESSION --json)
   gitch org [add <서버/조직> <계정>|rm]     조직 → 계정 규칙
   gitch config [show|path|get|set|add|unset|edit]   설정 파일 ($(tilde "$CFG"))
   gitch setup [계정]                       SSH 키 생성·등록 (사용자만)
@@ -12258,6 +12913,8 @@ case "${1:-}" in
   completion) shift; completion_cmd "$@"; exit $? ;;
   _complete) shift; completion_candidates "$@"; exit $? ;;
   schema) shift; schema_cmd "$@"; exit $? ;;
+  login) shift; login_cmd "$@"; exit $? ;;
+  _login-worker) shift; login_worker "$@"; exit $? ;;
   c|commit) shift; commit_cmd "$@"; rc=$?; [ $rc -eq 3 ] && rc=0; exit $rc ;;
   p|push) shift; push_cmd "$@"; exit $? ;;
   cp) shift; commit_push_cmd "$@"; exit $? ;;
@@ -12294,11 +12951,11 @@ case "${1:-}" in
   report) shift; report_cmd "$@"; exit $? ;;
   g|graph) shift; graph_cmd "$@"; exit $? ;;
   list|ls) shift; list_cmd "$@"; exit $? ;;
-  add) add_cmd; exit $? ;;
+  add) shift; add_cmd "$@"; exit $? ;;
   remove|rm) remove_cmd "${2:-}"; exit $? ;;
   org) shift; org_cmd "$@"; exit $? ;;
   config) shift; config_cmd "$@"; exit $? ;;
-  setup) setup_cmd "${2:-}"; exit $? ;;
+  setup) shift; setup_cmd "$@"; exit $? ;;
   auto) install_auto_rules; exit $? ;;
   sign) sign_cmd "${2:-}" "${3:-}"; exit $? ;;
   ai) shift; ai_cmd "$@"; exit $? ;;
