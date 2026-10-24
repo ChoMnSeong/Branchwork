@@ -366,6 +366,8 @@
 "Downloading…" = "Baixando…";
 "Draft" = "Rascunho";
 "Drawing the graph with %lld commits…" = "Desenhando o grafo de commits (%1$lld)…";
+"Drawing the structure graph…" = "Desenhando o grafo de estrutura…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "Desenha com o gitch graph os imports, módulos, arquivos que mudam juntos ou pastas deste repositório e abre no navegador.";
 "Drop" = "Descartar";
 "Dropping stash…" = "Descartando stash…";
 "Drop…" = "Descartar…";
@@ -397,7 +399,9 @@
 "Fetching…" = "Fazendo fetch…";
 "File history" = "Histórico do arquivo";
 "File history — commits that changed this file" = "Histórico do arquivo — commits que alteraram este arquivo";
+"File imports" = "Imports de arquivos";
 "File path" = "Caminho do arquivo";
+"Files that change together" = "Arquivos que mudam juntos";
 "Filter graph" = "Filtrar grafo";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "Filtrar grafo — mostrar só o branch atual, mostrar de novo branches ocultos (oculte-os com o botão direito na barra lateral)";
 "Find commits that added or removed this code" = "Encontrar commits que adicionaram ou removeram este código";
@@ -407,6 +411,7 @@
 "Focus on the impact on the work" = "Foco no impacto sobre o trabalho";
 "Focus on what changed and why" = "Foco no que mudou e por quê";
 "Folder name" = "Nome da pasta";
+"Folder tree" = "Árvore de pastas";
 "Follow system language" = "Seguir o idioma do sistema";
 "Followed when explaining commits and changes." = "Seguidas ao explicar commits e alterações.";
 "Followed when writing commit messages or splitting changes into commits." = "Seguidas ao escrever mensagens de commit ou dividir alterações em commits.";
@@ -502,6 +507,7 @@
 "Modified" = "Modificado";
 "Modified files" = "Arquivos modificados";
 "Modified files appear here." = "Os arquivos modificados aparecem aqui.";
+"Module dependencies" = "Dependências de módulos";
 "Move Gitrochi to the Applications folder?" = "Mover o Gitrochi para a pasta Aplicativos?";
 "Move to Applications" = "Mover para Aplicativos";
 "Moves %@ '%@' back to %@." = "Move %1$@ '%2$@' de volta para %3$@.";
@@ -562,6 +568,7 @@
 "Not found — locate it in the Tools tab" = "Não encontrado — localize-o na aba Ferramentas";
 "Not installed" = "Não instalado";
 "Not managed by gitch" = "Não gerenciado pelo gitch";
+"Nothing to draw" = "Nada para desenhar";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Nada para desfazer. Operações como commit, merge, rebase, checkout e exclusão de branch podem ser desfeitas aqui.";
 "Off" = "Desativado";
 "On" = "Ativado";
@@ -579,11 +586,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Só os espaços em branco mudaram (desative Ignorar espaços em branco para ver).";
 "Open" = "Abrir";
 "Open a new terminal window to start using gitch." = "Abra uma nova janela do terminal para começar a usar o gitch.";
+"Open anyway" = "Abrir mesmo assim";
 "Open in Gitrochi" = "Abrir no Gitrochi";
 "Open in Terminal" = "Abrir no Terminal";
 "Open in browser" = "Abrir no navegador";
 "Open in the terminal below" = "Abrir no terminal abaixo";
-"Open or clone another repository, recent repositories, close tabs" = "Abrir ou clonar outro repositório, repositórios recentes, fechar abas";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "Abrir ou clonar outro repositório, repositórios recentes, grafo de estrutura, fechar abas";
 "Open releases page" = "Abrir página de releases";
 "Open repository…" = "Abrir repositório…";
 "Open that one instead? The disk image will be ejected." = "Abrir aquele em vez deste? A imagem de disco será ejetada.";
@@ -786,6 +794,8 @@
 "Stash changes" = "Guardar alterações no stash";
 "Stashing…" = "Guardando no stash…";
 "Stash… (save changes for later)" = "Stash… (guardar alterações para depois)";
+"Structure graph" = "Grafo de estrutura";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "O grafo de estrutura precisa do gitch %1$@ ou mais recente, mas o gitch dentro do Gitrochi é %2$@.";
 "Subject line only, no body" = "Só a linha de assunto, sem corpo";
 "Subject within 50 characters" = "Assunto com até 50 caracteres";
 "Succeeded" = "Sucesso";
@@ -942,6 +952,11 @@
 "gitch checks before commit and push" = "Verificações do gitch antes de commit e push";
 "gitch commands for this repository" = "Comandos do gitch para este repositório";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "O gitch não sabe qual conta este repositório usa. Trave-o com gitch use <conta>.";
+"gitch found nothing to draw for %@." = "O gitch não encontrou nada para desenhar em %1$@.";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: arquivos que costumam entrar juntos no mesmo commit e quantas vezes cada um muda.";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: qual arquivo importa qual, para TypeScript, JavaScript, Python, Go, Rust, Kotlin e Java. Arquivos Swift são ligados pelos nomes de tipo que usam (linhas tracejadas).";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: targets e pacotes de Package.swift, Tuist, package.json, Cargo, Go e Gradle. Ler o Package.swift leva alguns segundos.";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: pastas com seu tamanho e número de arquivos.";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "O gitch mantém várias contas do Git separadas: trava cada repositório em uma conta, escolhe a conta por regras de pasta ou organização e, com hooks do Git, bloqueia autores errados, segredos e push forçados, no terminal, para agentes de IA e no Gitrochi.";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "O gitch salva um backup antes de pull, up, sync, fix, undo e amend, e mantém os 30 mais recentes.";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "O gitch define %1$@ como autor dos commits, aponta origin (e upstream) para o alias SSH de %2$@ e depois trava o repositório nessa conta.";

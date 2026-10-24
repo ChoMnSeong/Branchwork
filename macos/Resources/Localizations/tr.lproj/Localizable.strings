@@ -370,6 +370,8 @@
 "Downloading…" = "İndiriliyor…";
 "Draft" = "Taslak";
 "Drawing the graph with %lld commits…" = "%1$lld commit ile grafik çiziliyor…";
+"Drawing the structure graph…" = "Yapı grafiği çiziliyor…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "Bu deponun içe aktarmalarını, modüllerini, birlikte değişen dosyalarını veya klasörlerini gitch graph ile çizer ve tarayıcıda açar.";
 "Drop" = "Çıkar";
 "Dropping stash…" = "Stash siliniyor…";
 "Drop…" = "Sil (Drop)…";
@@ -403,7 +405,9 @@
 "Fetching…" = "Getiriliyor…";
 "File history" = "Dosya geçmişi";
 "File history — commits that changed this file" = "Dosya geçmişi — bu dosyayı değiştiren commit'ler";
+"File imports" = "Dosya içe aktarmaları";
 "File path" = "Dosya yolu";
+"Files that change together" = "Birlikte değişen dosyalar";
 "Filter graph" = "Grafiği filtrele";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "Grafiği filtrele — yalnızca geçerli dalı göster, gizli dalları yeniden göster (dalları kenar çubuğunda sağ tıklayarak gizleyebilirsiniz)";
 "Find commits that added or removed this code" = "Bu kodu ekleyen veya kaldıran commit'leri bul";
@@ -413,6 +417,7 @@
 "Focus on the impact on the work" = "İşe etkisine odaklan";
 "Focus on what changed and why" = "Neyin neden değiştiğine odaklan";
 "Folder name" = "Klasör adı";
+"Folder tree" = "Klasör ağacı";
 "Follow system language" = "Sistem dilini kullan";
 "Followed when explaining commits and changes." = "Commit'ler ve değişiklikler açıklanırken uygulanır.";
 "Followed when writing commit messages or splitting changes into commits." = "Commit mesajları yazılırken veya değişiklikler commit'lere bölünürken uygulanır.";
@@ -509,6 +514,7 @@
 "Modified" = "Değiştirildi";
 "Modified files" = "Değiştirilen dosyalar";
 "Modified files appear here." = "Değiştirilen dosyalar burada görünür.";
+"Module dependencies" = "Modül bağımlılıkları";
 "Move Gitrochi to the Applications folder?" = "Gitrochi Uygulamalar klasörüne taşınsın mı?";
 "Move to Applications" = "Uygulamalar'a taşı";
 "Moves %@ '%@' back to %@." = "'%2$@' (%1$@), %3$@ konumuna geri taşınır.";
@@ -569,6 +575,7 @@
 "Not found — locate it in the Tools tab" = "Bulunamadı — Araçlar sekmesinde konumunu seçin";
 "Not installed" = "Yüklü değil";
 "Not managed by gitch" = "gitch tarafından yönetilmiyor";
+"Nothing to draw" = "Çizilecek bir şey yok";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Geri alınacak bir şey yok. Commit, birleştirme, rebase, dal geçişi ve dal silme gibi işlemler burada geri alınabilir.";
 "OK" = "Tamam";
 "Off" = "Kapalı";
@@ -587,11 +594,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Yalnızca boşluklar değişti (görmek için Boşlukları yok say seçeneğini kapatın).";
 "Open" = "Aç";
 "Open a new terminal window to start using gitch." = "gitch'i kullanmaya başlamak için yeni bir terminal penceresi açın.";
+"Open anyway" = "Yine de aç";
 "Open in Gitrochi" = "Gitrochi'te aç";
 "Open in Terminal" = "Terminal'de aç";
 "Open in browser" = "Tarayıcıda aç";
 "Open in the terminal below" = "Alttaki terminalde aç";
-"Open or clone another repository, recent repositories, close tabs" = "Başka bir depo aç veya klonla, son depolar, sekmeleri kapat";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "Başka bir depo aç veya klonla, son depolar, yapı grafiği, sekmeleri kapat";
 "Open releases page" = "Sürümler sayfasını aç";
 "Open repository…" = "Depo aç…";
 "Open that one instead? The disk image will be ejected." = "Onun yerine oradakini açmak ister misiniz? Disk görüntüsü çıkarılacak.";
@@ -800,6 +808,8 @@
 "Stashes %lld" = "Stash'ler %1$lld";
 "Stashing…" = "Stash'e kaydediliyor…";
 "Stash… (save changes for later)" = "Stash… (değişiklikleri sonrası için sakla)";
+"Structure graph" = "Yapı grafiği";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "Yapı grafiği için gitch %1$@ veya üstü gerekir, ancak Gitrochi içindeki gitch %2$@.";
 "Subject line only, no body" = "Yalnızca konu satırı, gövde yok";
 "Subject within 50 characters" = "Konu en fazla 50 karakter";
 "Succeeded" = "Başarılı";
@@ -964,6 +974,11 @@
 "gitch checks before commit and push" = "Commit ve push öncesi gitch denetimleri";
 "gitch commands for this repository" = "Bu depo için gitch komutları";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch bu deponun hangi hesabı kullandığını bilmiyor. gitch use <hesap> ile kilitleyin.";
+"gitch found nothing to draw for %@." = "gitch, %1$@ için çizilecek bir şey bulamadı.";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: sık sık birlikte commit edilen dosyalar ve her birinin ne sıklıkla değiştiği.";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: hangi dosyanın hangisini içe aktardığı (TypeScript, JavaScript, Python, Go, Rust, Kotlin ve Java). Swift dosyaları kullandıkları tür adlarıyla bağlanır (kesikli çizgiler).";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: Package.swift, Tuist, package.json, Cargo, Go ve Gradle'daki hedefler ve paketler. Package.swift'i okumak birkaç saniye sürer.";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: boyutları ve dosya sayılarıyla klasörler.";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch birden çok Git hesabını birbirinden ayrı tutar: her depoyu bir hesaba kilitler, hesabı klasör veya kuruluş kurallarına göre seçer ve Git kancalarıyla yanlış yazarı, gizli bilgileri ve zorla push'u durdurur; terminalde, yapay zeka ajanlarında ve Gitrochi'te.";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch; pull, up, sync, fix, undo ve amend öncesinde yedek alır ve en son 30 yedeği saklar.";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch commit yazarını %1$@ yapar, origin'i (ve upstream'i) %2$@ hesabının SSH takma adına yönlendirir ve depoyu bu hesaba kilitler.";

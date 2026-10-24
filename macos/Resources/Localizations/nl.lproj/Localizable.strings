@@ -358,6 +358,8 @@
 "Downloading…" = "Bezig met downloaden…";
 "Draft" = "Concept";
 "Drawing the graph with %lld commits…" = "Graaf wordt getekend met %1$lld commit(s)…";
+"Drawing the structure graph…" = "Structuurgraaf tekenen…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "Tekent met gitch graph de imports, modules, samen veranderende bestanden of mappen van deze repository en opent het in je browser.";
 "Drop" = "Weglaten";
 "Dropping stash…" = "Stash wordt verwijderd…";
 "Drop…" = "Verwijderen…";
@@ -389,7 +391,9 @@
 "Fetching…" = "Bezig met fetchen…";
 "File history" = "Bestandsgeschiedenis";
 "File history — commits that changed this file" = "Bestandsgeschiedenis — commits die dit bestand hebben gewijzigd";
+"File imports" = "Bestandsimports";
 "File path" = "Bestandspad";
+"Files that change together" = "Bestanden die samen veranderen";
 "Filter graph" = "Graaf filteren";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "Graaf filteren — alleen de huidige branch tonen, verborgen branches weer tonen (verberg ze door in de zijbalk met rechts te klikken)";
 "Find commits that added or removed this code" = "Commits zoeken die deze code hebben toegevoegd of verwijderd";
@@ -399,6 +403,7 @@
 "Focus on the impact on the work" = "Focus op de impact op het werk";
 "Focus on what changed and why" = "Focus op wat er is veranderd en waarom";
 "Folder name" = "Mapnaam";
+"Folder tree" = "Mappenstructuur";
 "Follow system language" = "Systeemtaal volgen";
 "Followed when explaining commits and changes." = "Wordt gevolgd bij het uitleggen van commits en wijzigingen.";
 "Followed when writing commit messages or splitting changes into commits." = "Wordt gevolgd bij het schrijven van commitberichten of het opsplitsen van wijzigingen in commits.";
@@ -493,6 +498,7 @@
 "Modified" = "Gewijzigd";
 "Modified files" = "Gewijzigde bestanden";
 "Modified files appear here." = "Gewijzigde bestanden verschijnen hier.";
+"Module dependencies" = "Moduleafhankelijkheden";
 "Move Gitrochi to the Applications folder?" = "Gitrochi naar de map Apps verplaatsen?";
 "Move to Applications" = "Verplaats naar Apps";
 "Moves %@ '%@' back to %@." = "Zet %1$@ '%2$@' terug naar %3$@.";
@@ -553,6 +559,7 @@
 "Not found — locate it in the Tools tab" = "Niet gevonden — wijs het aan op het tabblad Tools";
 "Not installed" = "Niet geïnstalleerd";
 "Not managed by gitch" = "Niet beheerd door gitch";
+"Nothing to draw" = "Niets om te tekenen";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Niets om ongedaan te maken. Bewerkingen zoals commit, merge, rebase, checkout en het verwijderen van een branch kun je hier ongedaan maken.";
 "Off" = "Uit";
 "On" = "Aan";
@@ -570,11 +577,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Alleen witruimte gewijzigd (zet Witruimte negeren uit om het te zien).";
 "Open" = "Openen";
 "Open a new terminal window to start using gitch." = "Open een nieuw terminalvenster om gitch te gebruiken.";
+"Open anyway" = "Toch openen";
 "Open in Gitrochi" = "Openen in Gitrochi";
 "Open in Terminal" = "Openen in Terminal";
 "Open in browser" = "Openen in browser";
 "Open in the terminal below" = "Openen in de terminal onderaan";
-"Open or clone another repository, recent repositories, close tabs" = "Andere repository openen of klonen, recente repository's, tabbladen sluiten";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "Andere repository openen of klonen, recente repository's, structuurgraaf, tabbladen sluiten";
 "Open releases page" = "Releasepagina openen";
 "Open repository…" = "Repository openen…";
 "Open that one instead? The disk image will be ejected." = "Die in plaats daarvan openen? De schijfkopie wordt uitgeworpen.";
@@ -770,6 +778,8 @@
 "Stash changes" = "Wijzigingen stashen";
 "Stashing…" = "Bezig met stashen…";
 "Stash… (save changes for later)" = "Stash… (wijzigingen bewaren voor later)";
+"Structure graph" = "Structuurgraaf";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "De structuurgraaf heeft gitch %1$@ of nieuwer nodig, maar de gitch in Gitrochi is %2$@.";
 "Subject line only, no body" = "Alleen een onderwerpregel, geen berichttekst";
 "Subject within 50 characters" = "Onderwerp van maximaal 50 tekens";
 "Succeeded" = "Geslaagd";
@@ -922,6 +932,11 @@
 "gitch checks before commit and push" = "gitch-controles vóór commit en push";
 "gitch commands for this repository" = "gitch-opdrachten voor deze repository";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch weet niet welk account deze repository gebruikt. Vergrendel het met gitch use <account>.";
+"gitch found nothing to draw for %@." = "gitch heeft niets gevonden om te tekenen voor %1$@.";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: bestanden die vaak samen gecommit worden, en hoe vaak elk bestand verandert.";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: welk bestand welk ander bestand importeert, voor TypeScript, JavaScript, Python, Go, Rust, Kotlin en Java. Swift-bestanden worden verbonden via de typenamen die ze gebruiken (stippellijnen).";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: targets en pakketten uit Package.swift, Tuist, package.json, Cargo, Go en Gradle. Package.swift lezen duurt een paar seconden.";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: mappen met hun grootte en aantal bestanden.";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch houdt meerdere Git-accounts gescheiden: het vergrendelt elke repository op één account, kiest het account via map- of organisatieregels en blokkeert in Git-hooks verkeerde auteurs, geheimen en force-pushes, in de terminal, voor AI-agents en in Gitrochi.";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch maakt een back-up vóór pull, up, sync, fix, undo en amend en bewaart de 30 nieuwste.";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch stelt de commit-auteur in op %1$@, laat origin (en upstream) naar de SSH-alias van %2$@ wijzen en vergrendelt de repository daarna op dat account.";

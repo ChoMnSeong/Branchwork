@@ -381,6 +381,8 @@
 "Downloading…" = "正在下載…";
 "Draft" = "草稿";
 "Drawing the graph with %lld commits…" = "正在以 %1$lld 個提交繪製圖表…";
+"Drawing the structure graph…" = "正在繪製結構圖…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "以 gitch graph 繪製此存放庫的匯入、模組、一起變更的檔案或資料夾，並在瀏覽器中開啟。";
 "Drop" = "移除";
 "Dropping stash…" = "正在丟棄擱置…";
 "Drop…" = "丟棄…";
@@ -414,7 +416,9 @@
 "Fetching…" = "正在擷取…";
 "File history" = "檔案歷程記錄";
 "File history — commits that changed this file" = "檔案歷程記錄 — 變更過此檔案的提交";
+"File imports" = "檔案匯入";
 "File path" = "檔案路徑";
+"Files that change together" = "一起變更的檔案";
 "Filter graph" = "篩選圖表";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "篩選圖表 — 僅顯示目前分支、重新顯示已隱藏的分支（在側邊欄按右鍵即可隱藏）";
 "Find commits that added or removed this code" = "尋找新增或移除此程式碼的提交";
@@ -424,6 +428,7 @@
 "Focus on the impact on the work" = "著重於對工作的影響";
 "Focus on what changed and why" = "著重於變更了什麼以及原因";
 "Folder name" = "資料夾名稱";
+"Folder tree" = "資料夾結構";
 "Follow system language" = "依照系統語言";
 "Followed when explaining commits and changes." = "說明提交與變更時遵循。";
 "Followed when writing commit messages or splitting changes into commits." = "撰寫提交訊息或將變更拆分成多個提交時遵循。";
@@ -521,6 +526,7 @@
 "Modified" = "已修改";
 "Modified files" = "已修改的檔案";
 "Modified files appear here." = "修改過的檔案會顯示在這裡。";
+"Module dependencies" = "模組相依性";
 "Move Gitrochi to the Applications folder?" = "要將 Gitrochi 移到「應用程式」資料夾嗎？";
 "Move to Applications" = "移到「應用程式」資料夾";
 "Moves %@ '%@' back to %@." = "將 %1$@「%2$@」移回 %3$@。";
@@ -581,6 +587,7 @@
 "Not found — locate it in the Tools tab" = "找不到 — 請在「工具」分頁中手動指定";
 "Not installed" = "未安裝";
 "Not managed by gitch" = "不受 gitch 管理";
+"Nothing to draw" = "沒有可繪製的內容";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "沒有可復原的操作。提交、合併、重訂基底、簽出、刪除分支等操作都可以在這裡復原。";
 "OK" = "確定";
 "Off" = "關閉";
@@ -599,11 +606,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "僅空白字元有變更（關閉「忽略空白字元」即可查看）。";
 "Open" = "開啟";
 "Open a new terminal window to start using gitch." = "開啟新的終端機視窗即可使用 gitch。";
+"Open anyway" = "仍要開啟";
 "Open in Gitrochi" = "在 Gitrochi 中開啟";
 "Open in Terminal" = "在終端機中開啟";
 "Open in browser" = "在瀏覽器中開啟";
 "Open in the terminal below" = "在下方終端機中開啟";
-"Open or clone another repository, recent repositories, close tabs" = "開啟或複製其他存放庫、最近使用的存放庫、關閉分頁";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "開啟或複製其他存放庫、最近使用的存放庫、結構圖、關閉分頁";
 "Open releases page" = "開啟發行版本頁面";
 "Open repository…" = "開啟存放庫…";
 "Open that one instead? The disk image will be ejected." = "改為開啟那一個嗎？磁碟映像檔將會退出。";
@@ -815,6 +823,8 @@
 "Stashing…" = "正在擱置…";
 "Stash…" = "擱置…";
 "Stash… (save changes for later)" = "擱置…（保存變更供稍後使用）";
+"Structure graph" = "結構圖";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "結構圖需要 gitch %1$@ 或更新版本，但 Gitrochi 內的 gitch 是 %2$@。";
 "Subject line only, no body" = "僅標題行，不含本文";
 "Subject within 50 characters" = "標題在 50 個字元以內";
 "Succeeded" = "成功";
@@ -978,6 +988,11 @@
 "gitch checks before commit and push" = "提交與推送前的 gitch 檢查";
 "gitch commands for this repository" = "此儲存庫的 gitch 指令";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch 不知道此儲存庫使用哪個帳號。請用 gitch use <帳號> 鎖定。";
+"gitch found nothing to draw for %@." = "%1$@：gitch 找不到可繪製的內容。";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes：經常一起提交的檔案，以及每個檔案的變更次數。";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files：哪個檔案匯入了哪個檔案（TypeScript、JavaScript、Python、Go、Rust、Kotlin、Java）。Swift 檔案依所用的型別名稱連結（虛線）。";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules：來自 Package.swift、Tuist、package.json、Cargo、Go 與 Gradle 的目標與套件。讀取 Package.swift 需要幾秒鐘。";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree：各資料夾的大小與檔案數。";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch 讓多個 Git 帳號互不混用：為每個儲存庫鎖定帳號，依資料夾或組織規則選擇帳號，並在 git 掛鉤中阻擋錯誤的作者、機密資訊與強制推送。適用於終端機、AI 代理與 Gitrochi。";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch 會在 pull、up、sync、fix、undo 與 amend 之前儲存備份，並保留最近 30 個。";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch 會將提交作者設為 %1$@，把 origin（與 upstream）指向 %2$@ 的 SSH 別名，然後將儲存庫鎖定到該帳號。";

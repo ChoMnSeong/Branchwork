@@ -1,7 +1,7 @@
 import Foundation
 import AppKit
 
-/// 터미널(Terminal.app)에서 폴더 열기·에이전트(Claude Code·Codex·Gemini CLI) 실행
+/// 터미널(Terminal.app)에서 폴더 열기·에이전트(Claude Code·Codex·Gemini CLI) 실행, 기본 브라우저로 파일 열기
 enum Launcher {
     private static var terminal: URL? {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
@@ -9,6 +9,16 @@ enum Launcher {
 
     static func quote(_ s: String) -> String {
         "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    /// 기본 브라우저로 연다 — .html 을 편집기 같은 다른 앱에 묶어 두었어도 브라우저로(못 찾으면 그 파일의 기본 앱)
+    @MainActor static func openInBrowser(_ file: URL) async throws {
+        let ws = NSWorkspace.shared
+        guard let browser = URL(string: "https:").flatMap(ws.urlForApplication(toOpen:)) else {
+            ws.open(file)
+            return
+        }
+        _ = try await ws.open([file], withApplicationAt: browser, configuration: NSWorkspace.OpenConfiguration())
     }
 
     static func openTerminal(at path: String) {

@@ -380,6 +380,8 @@
 "Downloading…" = "Завантаження…";
 "Draft" = "Чернетка";
 "Drawing the graph with %lld commits…" = "Побудова графа (комітів: %1$lld)…";
+"Drawing the structure graph…" = "Малюється граф структури…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "Малює за допомогою gitch graph імпорти, модулі, файли, що змінюються разом, або папки цього репозиторію й відкриває результат у браузері.";
 "Drop" = "Викинути";
 "Dropping stash…" = "Викидання схованки…";
 "Drop…" = "Викинути…";
@@ -413,7 +415,9 @@
 "Fetching…" = "Отримання…";
 "File history" = "Історія файлу";
 "File history — commits that changed this file" = "Історія файлу — коміти, що змінювали цей файл";
+"File imports" = "Імпорти файлів";
 "File path" = "Шлях до файлу";
+"Files that change together" = "Файли, що змінюються разом";
 "Filter graph" = "Фільтр графа";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "Фільтр графа — показати лише поточну гілку, знову показати приховані гілки (приховати їх можна клацанням правою кнопкою на бічній панелі)";
 "Find commits that added or removed this code" = "Знайти коміти, що додали або вилучили цей код";
@@ -423,6 +427,7 @@
 "Focus on the impact on the work" = "Акцент на впливі на роботу";
 "Focus on what changed and why" = "Акцент на тому, що змінено й чому";
 "Folder name" = "Назва папки";
+"Folder tree" = "Дерево папок";
 "Follow system language" = "Як у системі";
 "Followed when explaining commits and changes." = "Застосовуються під час пояснення комітів і змін.";
 "Followed when writing commit messages or splitting changes into commits." = "Застосовуються під час написання повідомлень комітів або розбиття змін на коміти.";
@@ -520,6 +525,7 @@
 "Modified" = "Змінено";
 "Modified files" = "Змінені файли";
 "Modified files appear here." = "Тут з’являться змінені файли.";
+"Module dependencies" = "Залежності модулів";
 "Move Gitrochi to the Applications folder?" = "Перемістити Gitrochi в папку «Програми»?";
 "Move to Applications" = "Перемістити в «Програми»";
 "Moves %@ '%@' back to %@." = "Повертає до %3$@: %1$@ '%2$@'.";
@@ -580,6 +586,7 @@
 "Not found — locate it in the Tools tab" = "Не знайдено — вкажіть його на вкладці «Інструменти»";
 "Not installed" = "Не встановлено";
 "Not managed by gitch" = "Не керується gitch";
+"Nothing to draw" = "Нічого малювати";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Нічого відміняти. Тут можна відмінити такі операції, як коміт, злиття, перебазування, перехід на гілку й видалення гілки.";
 "Off" = "Вимк.";
 "On" = "Увімк.";
@@ -597,11 +604,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Змінилися лише пробіли (вимкніть «Ігнорувати пробіли», щоб їх побачити).";
 "Open" = "Відкрити";
 "Open a new terminal window to start using gitch." = "Відкрийте нове вікно термінала, щоб почати користуватися gitch.";
+"Open anyway" = "Усе одно відкрити";
 "Open in Gitrochi" = "Відкрити в Gitrochi";
 "Open in Terminal" = "Відкрити в Терміналі";
 "Open in browser" = "Відкрити в браузері";
 "Open in the terminal below" = "Відкрити в терміналі внизу";
-"Open or clone another repository, recent repositories, close tabs" = "Відкрити або клонувати інший репозиторій, недавні репозиторії, закриття вкладок";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "Відкрити або клонувати інший репозиторій, недавні репозиторії, граф структури, закриття вкладок";
 "Open releases page" = "Відкрити сторінку випусків";
 "Open repository…" = "Відкрити репозиторій…";
 "Open that one instead? The disk image will be ejected." = "Відкрити ту копію замість цієї? Образ диска буде виштовхнуто.";
@@ -813,6 +821,8 @@
 "Stashing…" = "Збереження в схованку…";
 "Stash…" = "Сховати…";
 "Stash… (save changes for later)" = "Сховати… (відкласти зміни на потім)";
+"Structure graph" = "Граф структури";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "Для графа структури потрібен gitch %1$@ або новіший, але gitch у Gitrochi — %2$@.";
 "Subject line only, no body" = "Лише рядок теми, без тіла";
 "Subject within 50 characters" = "Тема — до 50 символів";
 "Succeeded" = "Успішно";
@@ -976,6 +986,11 @@
 "gitch checks before commit and push" = "Перевірки gitch перед комітом і push";
 "gitch commands for this repository" = "Команди gitch для цього репозиторію";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch не знає, який обліковий запис використовує цей репозиторій. Закріпіть його командою gitch use <обліковий запис>.";
+"gitch found nothing to draw for %@." = "%1$@: gitch не знайшов, що намалювати.";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: файли, які часто комітять разом, і як часто змінюється кожен із них.";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: який файл імпортує який (TypeScript, JavaScript, Python, Go, Rust, Kotlin і Java). Файли Swift пов’язуються за назвами типів, які в них використовуються (пунктир).";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: цілі й пакети з Package.swift, Tuist, package.json, Cargo, Go і Gradle. Читання Package.swift займає кілька секунд.";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: папки з їхнім розміром і кількістю файлів.";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch не дає змішуватися кільком обліковим записам Git: закріплює за кожним репозиторієм обліковий запис, вибирає його за правилами папок чи організацій і в хуках Git зупиняє хибного автора, секрети й примусовий push — у терміналі, для ШІ-агентів і в Gitrochi.";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch зберігає копію перед pull, up, sync, fix, undo та amend і зберігає 30 останніх.";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch зробить автором комітів %1$@, спрямує origin (і upstream) на SSH-псевдонім %2$@ і закріпить репозиторій за цим обліковим записом.";
