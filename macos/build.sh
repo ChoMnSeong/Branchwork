@@ -73,8 +73,10 @@ cp -R "$ROOT/Resources/Localizations/"*.lproj "$CONTENTS/Resources/"
 # gitch: 여러 Git 계정을 섞이지 않게 쓰는 셸 도구(설정 > CLI 에서 ~/bin/gitch 로 설치)
 cp "$REPO/tools/gitch/gitch" "$CONTENTS/Resources/gitch"
 chmod 755 "$CONTENTS/Resources/gitch"
-# gitch graph files 가 Swift 파일 사이 참조를 Xcode 인덱스에서 읽는 도우미 — gitch 가 자기 옆에서 찾는다
-"$REPO/tools/gitch-swift-index/build.sh" "$CONTENTS/Resources/gitch-swift-index" "${ARCHS[@]}"
+# gitch graph files 가 Swift 파일 사이 참조를 Xcode 인덱스에서 읽는 도우미 — gitch 가 자기 옆에서 찾으므로 Resources 에는 링크를 둔다.
+# 실행 파일은 Apple 의 번들 배치대로 Contents/MacOS 에: Resources 의 Mach-O 는 데이터로 봉인돼 앱과 함께 중첩 코드로 검사받지 않는다
+"$REPO/tools/gitch-swift-index/build.sh" "$CONTENTS/MacOS/gitch-swift-index" "${ARCHS[@]}"
+ln -s ../MacOS/gitch-swift-index "$CONTENTS/Resources/gitch-swift-index"
 cp "$REPO/LICENSE" "$CONTENTS/Resources/LICENSE.txt"
 cp "$ROOT/Vendor/SwiftTerm/LICENSE" "$CONTENTS/Resources/SwiftTerm-LICENSE.txt"
 
@@ -96,7 +98,7 @@ sign() {
 }
 echo "▶ 서명: ${IDENTITY:-ad-hoc}"
 # 안에 든 실행 파일을 먼저(번들 서명은 그 서명까지 묶는다)
-sign "$CONTENTS/Resources/gitch-swift-index"
+sign "$CONTENTS/MacOS/gitch-swift-index"
 sign "$BUNDLE"
 echo "✅ 빌드 완료: $BUNDLE ($(lipo -archs "$CONTENTS/MacOS/$BIN"))"
 

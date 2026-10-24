@@ -9,7 +9,7 @@ Swift 는 파일끼리 import 하지 않아서 gitch 혼자서는 다른 파일�
 
 ## 어디에 있나
 
-- 앱: `Gitrochi.app/Contents/Resources/gitch-swift-index`(gitch 바로 옆). [`macos/build.sh`](../../macos/build.sh) 가 만들어 넣는다.
+- 앱: `Gitrochi.app/Contents/Resources/gitch-swift-index`(gitch 바로 옆). [`macos/build.sh`](../../macos/build.sh) 가 만들어 넣는다. 실행 파일은 Apple 의 번들 배치대로 `Contents/MacOS` 에 있고, Resources 의 것은 그 파일을 가리키는 링크다(Resources 의 Mach-O 는 데이터로 봉인돼 앱과 함께 검사받지 않으므로).
 - gitch 가 찾는 순서: `$GITCH_SWIFT_INDEX`(빈 값이면 끔) → gitch 와 같은 폴더(링크를 따라간 실제 위치) → `PATH`. 없으면 gitch 는 지금처럼 짐작한다.
 - 앱 없이 CLI 만 설치했거나 저장소의 `tools/gitch/gitch` 를 쓰면 도우미가 없다. 쓰려면 저장소에서 `tools/gitch-swift-index/build.sh ~/bin/gitch-swift-index`(Xcode 또는 Command Line Tools 필요) — gitch 가 `PATH` 에서 찾는다.
 
