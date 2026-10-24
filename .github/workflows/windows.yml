@@ -91,7 +91,9 @@ jobs:
           cp "$nsis/$setup" "$out/"
           cp src-tauri/target/release/gitrochi.exe "$stage/Gitrochi.exe"
           cp ../LICENSE "$stage/LICENSE.txt"
-          (cd "$stage" && 7z a -tzip "$out/$zip" Gitrochi.exe LICENSE.txt >/dev/null)
+          # 앱이 쓰는 gitch(설치본은 tauri.conf.json 의 resources 로 같은 자리에 들어간다)
+          cp ../tools/gitch/gitch "$stage/gitch"
+          (cd "$stage" && 7z a -tzip "$out/$zip" Gitrochi.exe LICENSE.txt gitch >/dev/null)
           # Git Bash 의 sha256sum 이 이름 앞에 붙이는 *(바이너리 표시)는 빼서 맥과 같은 「해시  이름」으로
           (cd "$out" && sha256sum "$setup" "$zip" | sed 's/ \*/  /' > "Gitrochi_${ver}_windows.sha256")
           if [ -f "$nsis/$setup.sig" ]; then

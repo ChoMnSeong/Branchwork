@@ -58,7 +58,10 @@
         "type": "downloadBootstrapper"
       }
     },
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "resources": {
+      "../../tools/gitch/gitch": "gitch"
+    }
   },
   "plugins": {
     "updater": {
