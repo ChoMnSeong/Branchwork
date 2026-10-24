@@ -1,0 +1,10 @@
+Sources/App/Report.swift	Sources/App/Alias.swift	Area
+Sources/App/Report.swift	Sources/Geometry/Format.swift	Format
+Sources/App/main.swift	Sources/App/Config.swift	Config
+Sources/App/main.swift	Sources/App/Report.swift	Report
+Sources/App/main.swift	Sources/Geometry/Circle.swift	Circle,totalArea(_:)
+Sources/App/main.swift	Sources/Geometry/Shape.swift	Shape,Square
+Sources/App/main.swift	Sources/Geometry/Square+Unit.swift	Square.unit
+Sources/Geometry/Circle.swift	Sources/Geometry/Shape.swift	Shape
+Sources/Geometry/Format.swift	Sources/Geometry/Config.swift	Config
+Sources/Geometry/Square+Unit.swift	Sources/Geometry/Shape.swift	Square
