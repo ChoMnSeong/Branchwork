@@ -16,6 +16,7 @@ Gitrochi 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 요�
 - 받은 뒤 한 번 `git config core.hooksPath .githooks` — 커밋할 때 [Git 규칙](#git-규칙)을 검사합니다.
 - 맥은 SwiftPM 없이 `swiftc` 로 바로 빌드합니다. 새 파일은 `macos/Sources/` 아래 알맞은 폴더에 두면 자동으로 포함됩니다.
 - 맥 앱에 함께 들어가는 [gitch](tools/gitch/README.md)(bash 3.2 + git)를 고쳤으면 `tools/gitch/tests/run.sh` 로 확인합니다(3분쯤, 실제 설정은 건드리지 않음).
+- gitch 옆에 들어가는 Xcode 인덱스 도우미 [gitch-swift-index](tools/gitch-swift-index/README.md)(Swift)를 고쳤으면 `tools/gitch-swift-index/tests/run.sh` 로 확인합니다(30초쯤, 예제를 `swift build` 해서 읽음).
 - Windows 는 맥에서도 `npx tauri dev` 로 띄워 볼 수 있습니다(데이터 폴더는 `Gitrochi (Tauri)` 로 분리).
 - 화면을 바꿨다면 [데모 저장소](docs/make-demo-repo.sh)(`docs/make-demo-repo.sh <폴더>`)로 확인하고 스크린샷을 PR 에 붙여 주세요.
 
