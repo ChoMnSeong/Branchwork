@@ -1,18 +1,23 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { createElement } from "react";
+import { createRoot } from "react-dom/client";
 import { agents } from "@/entities/agent";
 import { ai } from "@/entities/ai";
 import { canPlay, CIAPI } from "@/entities/ci";
 import { type DropRequest, isWIP, statusIsEmpty } from "@/entities/git";
-import { gitch, graphRulesFile } from "@/entities/gitch";
-import { ReviewAPI, reviewFileChange } from "@/entities/hosting";
+import { gitch, graphRulesFile, type GitchAccountSetup as AccountSetup, type GitchBrowserLogin as BrowserLogin } from "@/entities/gitch";
+import { accounts, ReviewAPI, reviewFileChange } from "@/entities/hosting";
 import { branchPayload } from "@/entities/repo";
 import { workspace } from "@/entities/workspace";
 import { structureGraphMenus } from "@/features/git-menus";
 import { ipc } from "@/shared/api";
 import { dirname, env, isWindows, joinPath, settings, toWslPath } from "@/shared/config";
+import { t } from "@/shared/i18n";
 import { gitRaw, listDistros, tools } from "@/shared/platform";
 import { theme } from "@/shared/ui";
+import { GitchAccountSetup, GitchBrowserLogin } from "@/widgets/settings";
+import { applyAppLaunch } from "./lib/app-launch";
 
 /**
  * 자동 점검(CI 의 Windows 서버에서): GITROCHI_SELFTEST=<테스트 저장소> 로 켜면
@@ -33,6 +38,108 @@ async function until(f: () => boolean | Promise<boolean>, timeoutMs = 15000) {
     await sleep(150);
   }
   return false;
+}
+
+/** 실제 React 효과와 버튼으로 취소 경계를 확인한다. 모든 인증·브라우저 호출은 가짜다. */
+async function browserLoginLifecycle(boundary: "start" | "status" | "browser"): Promise<[boolean, string]> {
+  const defer = <T,>() => {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((done) => { resolve = done; });
+    return { promise, resolve };
+  };
+  const pending: BrowserLogin = { schemaVersion: 1, session: "github-selftest01", state: "pending", deviceCode: null, verificationURL: "https://github.com/login/device", login: null, email: null, message: "Self-test only" };
+  const complete: BrowserLogin = { ...pending, state: "complete", login: "selftest-user", email: "selftest@example.invalid" };
+  const start = defer<BrowserLogin>(), status = defer<BrowserLogin>(), browser = defer<void>();
+  const original = { start: gitch.startBrowserLogin, status: gitch.browserLoginStatus, cancel: gitch.cancelBrowserLogin, connect: accounts.importGitHubCLI, open: ipc.openUrl };
+  const calls = { start: 0, status: 0, cancel: [] as string[], connect: 0, notify: 0, open: 0 };
+  const host = document.createElement("div");
+  host.hidden = true;
+  host.dataset.selftest = "browser-login-lifecycle";
+  document.body.append(host);
+  const root = createRoot(host);
+  let mounted = true;
+  const unmount = () => { if (mounted) { root.unmount(); mounted = false; } };
+  const button = (label: string) => Array.from(host.querySelectorAll<HTMLButtonElement>("button")).find((b) => b.textContent?.trim() === t(label));
+  try {
+    gitch.startBrowserLogin = async () => { calls.start++; return boundary === "start" ? start.promise : pending; };
+    gitch.browserLoginStatus = async () => {
+      calls.status++;
+      if (boundary === "status") return status.promise;
+      // 버그로 추가 poll이 생겨도 가짜 완료로 끝내어 실제 인증 호출이 남지 않게 한다.
+      return calls.status === 1 ? { ...pending, deviceCode: "TEST-1234" } : complete;
+    };
+    gitch.cancelBrowserLogin = async (session) => { calls.cancel.push(session); return { ...pending, state: "cancelled" }; };
+    accounts.importGitHubCLI = async () => { calls.connect++; return { id: "selftest-only", provider: "github", server: "https://github.com", username: "selftest-user", name: null, avatarURL: null }; };
+    ipc.openUrl = async () => { calls.open++; if (boundary === "browser") await browser.promise; };
+    root.render(createElement(GitchBrowserLogin, { onConnected: () => { calls.notify++; } }));
+    if (!await until(() => !!button("Sign in to GitHub in browser"), 2000)) return [false, "Hidden login component did not mount"];
+    button("Sign in to GitHub in browser")!.click();
+    if (boundary === "start") {
+      if (!await until(() => calls.start === 1, 1000)) return [false, "Start button did not call the fake API"];
+      unmount();
+      start.resolve(pending);
+      await until(() => calls.cancel.length > 0, 1000);
+    } else {
+      if (!await until(() => calls.status === 1 && !!button("Cancel sign-in"), 2000)) return [false, "Pending login did not poll"];
+      if (boundary === "status") {
+        button("Cancel sign-in")!.click();
+        status.resolve(complete);
+        await sleep(50);
+        unmount();
+      } else {
+        if (!await until(() => calls.open === 1, 1000)) return [false, "The fake browser did not open"];
+        unmount();
+        browser.resolve();
+        // 다음 poll(1500ms)보다 길게 기다려 정리되지 않은 타이머도 검출한다.
+        await sleep(1700);
+      }
+    }
+    const expectedPolls = boundary === "start" ? 0 : 1;
+    return [calls.start === 1 && calls.status === expectedPolls && calls.cancel.length === 1 && calls.cancel[0] === pending.session && calls.connect === 0 && calls.notify === 0 && calls.open === (boundary === "browser" ? 1 : 0), JSON.stringify({ boundary, ...calls })];
+  } finally {
+    unmount();
+    start.resolve(pending); status.resolve({ ...pending, state: "cancelled" }); browser.resolve();
+    await sleep(25);
+    gitch.startBrowserLogin = original.start; gitch.browserLoginStatus = original.status; gitch.cancelBrowserLogin = original.cancel;
+    accounts.importGitHubCLI = original.connect; ipc.openUrl = original.open;
+    host.remove();
+  }
+}
+
+async function browserLoginResumesExistingIdentity(): Promise<[boolean, string]> {
+  const original = { start: gitch.startBrowserLogin, status: gitch.browserLoginStatus, cancel: gitch.cancelBrowserLogin, connect: accounts.importGitHubCLI, inspect: gitch.inspectAccount, add: gitch.addAccount, open: ipc.openUrl };
+  const pending: BrowserLogin = { schemaVersion: 1, session: "github-selftest02", state: "pending", deviceCode: null, verificationURL: "https://github.com/login/device", login: null, email: null, message: "Self-test only" };
+  const inspected: AccountSetup = { schemaVersion: 1, created: false, account: { id: "OctoCat", email: "existing@example.invalid", host: "github.com", port: 22, folder: null, via: null }, ssh: { alias: "github-OctoCat", keyExists: false, publicKey: null, registrationURL: "https://github.com/settings/ssh/new", authenticated: null, keyProtection: "missing", message: "Self-test only" } };
+  const calls = { inspect: [] as string[], connect: [] as (string | undefined)[], add: 0, saved: 0, open: 0 };
+  const host = document.createElement("div");
+  host.hidden = true;
+  document.body.append(host);
+  const root = createRoot(host);
+  const button = (label: string) => Array.from(host.querySelectorAll<HTMLButtonElement>("button")).find((b) => b.textContent?.trim() === t(label));
+  try {
+    gitch.startBrowserLogin = async () => pending;
+    gitch.browserLoginStatus = async () => ({ ...pending, state: "complete", login: "OCTOCAT", email: "browser@example.invalid" });
+    gitch.cancelBrowserLogin = async () => ({ ...pending, state: "cancelled" });
+    accounts.importGitHubCLI = async (login) => { calls.connect.push(login); return { id: "selftest-only", provider: "github", server: "https://github.com", username: "OCTOCAT", name: null, avatarURL: null }; };
+    gitch.inspectAccount = async (id) => { calls.inspect.push(id); return inspected; };
+    gitch.addAccount = async () => { calls.add++; return inspected; };
+    ipc.openUrl = async () => { calls.open++; };
+    const identities = [
+      { id: "OCTOCAT", email: "other@example.invalid", hosts: "notgithub.com", rules: null, sshKey: false },
+      { id: "OctoCat", email: "existing@example.invalid", hosts: "GitHub.COM(로그인 OctoCat), gitlab.example.com", rules: null, sshKey: false },
+    ];
+    root.render(createElement(GitchAccountSetup, { account: null, accounts: identities, onSaved: () => { calls.saved++; }, onClose: () => {} }));
+    if (!await until(() => !!button("Sign in to GitHub in browser"), 2000)) return [false, "Hidden account setup did not mount"];
+    button("Sign in to GitHub in browser")!.click();
+    const resumed = await until(() => calls.inspect.length === 1 && host.textContent?.includes("existing@example.invalid") === true && !button("Save account and continue"), 3000);
+    return [resumed && calls.inspect[0] === "OctoCat" && calls.connect.length === 1 && calls.connect[0] === "OCTOCAT" && calls.add === 0 && calls.saved === 0 && calls.open === 0, JSON.stringify({ resumed, ...calls })];
+  } finally {
+    root.unmount();
+    await sleep(25);
+    gitch.startBrowserLogin = original.start; gitch.browserLoginStatus = original.status; gitch.cancelBrowserLogin = original.cancel;
+    accounts.importGitHubCLI = original.connect; gitch.inspectAccount = original.inspect; gitch.addAccount = original.add; ipc.openUrl = original.open;
+    host.remove();
+  }
 }
 
 export async function runSelfTest(): Promise<boolean> {
@@ -62,6 +169,32 @@ export async function runSelfTest(): Promise<boolean> {
   await step("화면에 커밋 행 표시", async () => [await until(() => document.querySelectorAll(".commit-row").length > 0, 5000), document.querySelectorAll(".commit-row").length]);
   await step("브랜치·태그 읽기", async () => [s.localBranches.length >= 2 && s.tags.length >= 1, `branches=${s.localBranches.map((b) => b.name)} tags=${s.tags.map((t) => t.name)}`]);
   await step("그래프 레인(머지)", async () => [s.maxLanes >= 2 && s.entries.some((e) => e.commit.parents.length > 1), `lanes=${s.maxLanes}`]);
+
+  await step("앱에서 Git 계정 추가 폼과 SSH 포트 도움말", async () => {
+    window.dispatchEvent(new CustomEvent("gitrochi-open-settings", { detail: "cli" }));
+    const find = (label: string) => Array.from(document.querySelectorAll<HTMLButtonElement>(".modal button")).find((b) => b.textContent?.trim() === label);
+    if (!await until(() => !!find("계정 추가"), 15000)) return [false, "CLI settings did not load"];
+    find("계정 추가")!.click();
+    const ready = await until(() => !!document.querySelector('[aria-label="Git 계정 설정"]'), 5000);
+    const question = document.querySelector<HTMLButtonElement>('[aria-label="SSH 포트가 뭔가요?"]');
+    const fields = document.querySelectorAll('[aria-label="Git 계정 설정"] input');
+    return [ready && fields.length >= 4 && !!question?.title.includes("22") && !!find("브라우저로 GitHub 로그인"), `fields=${fields.length} tooltip=${question?.title}`];
+  });
+  await step("앱의 gitch 명령 안내와 읽기 전용 진단", async () => {
+    const find = (label: string) => Array.from(document.querySelectorAll<HTMLButtonElement>(".modal button")).find((b) => b.textContent?.trim() === label);
+    find("시작 안내 · 명령 설명")?.click();
+    const guide = await until(() => !!find("전체 명령과 옵션 보기"), 5000);
+    find("전체 명령과 옵션 보기")?.click();
+    const help = await until(() => Array.from(document.querySelectorAll(".modal pre")).some((p) => p.textContent?.includes("gitch preflight")), 10000);
+    find("설정 확인")?.click();
+    const doctor = await until(() => document.querySelector(".modal")?.textContent?.includes("설정 확인 결과") ?? false, 15000);
+    document.querySelector<HTMLButtonElement>(".modal-footer button")?.click();
+    return [guide && help && doctor, `guide=${guide} help=${help} diagnosis=${doctor}`];
+  });
+  await step("브라우저 로그인 시작 응답 전 화면 이탈 → 늦은 세션 취소", () => browserLoginLifecycle("start"));
+  await step("브라우저 로그인 취소 → 늦은 완료 응답 연결 차단", () => browserLoginLifecycle("status"));
+  await step("브라우저 열기 중 화면 이탈 → 후속 poll과 연결 중단", () => browserLoginLifecycle("browser"));
+  await step("GitHub 로그인 대소문자 차이 → 같은 서버의 기존 계정 설정 재개", browserLoginResumesExistingIdentity);
 
   const file = joinPath(repo, "selftest-새파일.txt");
   await step("파일 감시 → 새 파일 표시", async () => {
@@ -169,11 +302,19 @@ export async function runSelfTest(): Promise<boolean> {
     return [!!text && text.includes('"event":"Stop"'), text];
   });
   await step("자격 증명 저장소", async () => {
-    await ipc.secretSet("selftest", "값-123");
-    const v = await ipc.secretGet("selftest");
-    await ipc.secretSet("selftest", null);
-    const gone = await ipc.secretGet("selftest");
-    return [v === "값-123" && gone === null, `${v} / ${gone}`];
+    // Use the real OS store, with an account owned only by this run. A failed assertion
+    // must not leave a test credential behind or replace an existing user's account.
+    const name = `selftest-${crypto.randomUUID()}`;
+    const value = `값-${crypto.randomUUID()}`;
+    try {
+      await ipc.secretSet(name, value);
+      const read = await ipc.secretGet(name);
+      await ipc.secretSet(name, null);
+      const gone = await ipc.secretGet(name);
+      return [read === value && gone === null, `write/read=${read === value} removed=${gone === null}`];
+    } finally {
+      await ipc.secretSet(name, null);
+    }
   });
   await step("HTTPS 요청", async () => {
     const r = await ipc.http("GET", "https://api.github.com/zen", { "User-Agent": "Gitrochi" });
@@ -484,6 +625,27 @@ export async function runSelfTest(): Promise<boolean> {
     const n = s.fileHistory.length;
     s.closeFileInspect();
     return [history && rows && blame && gutter, `history=${n} rows=${rows} blame=${s.blameLines.length} gutter=${gutter}`];
+  });
+
+  await step("CLI 앱 링크 → 실행 중인 앱에서 파일·줄 이동", async () => {
+    const route = new URL("gitrochi://open");
+    route.searchParams.set("repo", repo);
+    route.searchParams.set("file", "app.txt");
+    route.searchParams.set("line", "3");
+    const before = workspace.tabs.length;
+    const result = await ipc.run(env.exe, [route.toString()], { timeoutMs: 10000 });
+    let launches: Awaited<ReturnType<typeof ipc.takeAppLaunches>> = [];
+    const received = await until(async () => {
+      launches.push(...await ipc.takeAppLaunches());
+      return launches.length > 0;
+    }, 5000);
+    const good = launches.find((item) => "Ok" in item);
+    if (!good || !("Ok" in good)) return [false, JSON.stringify({ received, result, launches })];
+    await applyAppLaunch(good.Ok);
+    const focused = await until(() => !!document.querySelector('.blame-line[data-line="3"][data-focused="true"]'), 8000);
+    const ok = focused && workspace.tabs.length === before && workspace.active === s && s.fileInspectLine === 3;
+    s.closeFileInspect();
+    return [ok, `received=${received} focused=${focused} tabs=${workspace.tabs.length}/${before}`];
   });
 
   // 그래프 거르기: 브랜치 숨기기(그 브랜치만의 커밋이 빠짐), 모두 보이기, 현재 브랜치만, 고정

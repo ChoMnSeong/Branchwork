@@ -189,7 +189,12 @@ export function structureGraphMenus(store: RepoStore | null): MenuItem[] {
     {
       label: graph,
       tip: tip(graph, store.graphProgress ?? summary),
-      submenu: graphRelations().map((r) => ({ label: r.title, tip: tip(r.title, r.detail), disabled: working, onClick: () => void store.openStructureGraph(r.id) })),
+      submenu: [
+        ...graphRelations().map((r) => ({ label: r.title, tip: tip(r.title, r.detail), disabled: working, onClick: () => void store.openStructureGraph(r.id) })),
+        "divider",
+        { label: t("Precise file references"), tip: t("Uses an existing index.scip or .gitch/index.scip for symbol references. Shows the analysis coverage when no current index is available."), disabled: working, onClick: () => void store.openStructureGraph("files", true) },
+        { label: t("Files affected by changes"), tip: t("Shows changed files and the files that depend on them, including uncommitted changes."), disabled: working, onClick: () => void store.openAffectedGraph() },
+      ],
     },
     {
       label: diff,

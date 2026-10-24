@@ -14,6 +14,7 @@ BUNDLE="$BUILD/$BIN.app"
 CONTENTS="$BUNDLE/Contents"
 MODE="${1:-}"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$ROOT/Resources/Info.plist")"
+bash "$REPO/tools/check-versions.sh"
 
 if [[ "$MODE" == "release" ]]; then ARCHS=(arm64 x86_64); else ARCHS=("$(uname -m)"); fi
 
@@ -73,6 +74,11 @@ cp -R "$ROOT/Resources/Localizations/"*.lproj "$CONTENTS/Resources/"
 # gitch: 여러 Git 계정을 섞이지 않게 쓰는 셸 도구(설정 > CLI 에서 ~/bin/gitch 로 설치)
 cp "$REPO/tools/gitch/gitch" "$CONTENTS/Resources/gitch"
 chmod 755 "$CONTENTS/Resources/gitch"
+# SCIP 읽기는 선택 기능이다. Python 3 표준 라이브러리만 사용하며 런타임이 없으면 CLI가 안내하고 일반 분석을 유지한다.
+cp "$REPO/tools/gitch/gitch-scip-index" "$CONTENTS/Resources/gitch-scip-index"
+chmod 755 "$CONTENTS/Resources/gitch-scip-index"
+cp "$REPO/tools/gitch/gitch-graph-watch" "$CONTENTS/Resources/gitch-graph-watch"
+chmod 755 "$CONTENTS/Resources/gitch-graph-watch"
 # gitch graph files 가 Swift 파일 사이 참조를 Xcode 인덱스에서 읽는 도우미 — gitch 가 자기 옆에서 찾으므로 Resources 에는 링크를 둔다.
 # 실행 파일은 Apple 의 번들 배치대로 Contents/MacOS 에: Resources 의 Mach-O 는 데이터로 봉인돼 앱과 함께 중첩 코드로 검사받지 않는다
 "$REPO/tools/gitch-swift-index/build.sh" "$CONTENTS/MacOS/gitch-swift-index" "${ARCHS[@]}"

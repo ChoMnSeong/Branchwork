@@ -142,6 +142,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
   reviewBusy = false;
   /** 가운데에 띄운 파일 히스토리·blame */
   fileInspect: FileInspect | null = null;
+  fileInspectLine: number | null = null;
   fileHistory: FileHistoryEntry[] = [];
   fileHistorySelected: string | null = null;
   fileHistoryDiff: DiffDocument | null = null;
@@ -376,6 +377,13 @@ export abstract class RepoCore extends Observable implements AgentHost {
   }
 
   protected resetState() {
+    this.fileInspect = null;
+    this.fileInspectLine = null;
+    this.fileHistory = [];
+    this.fileHistorySelected = null;
+    this.fileHistoryDiff = null;
+    this.blameLines = [];
+    this.fileInspectError = null;
     this.gitchKey = null;
     this.entries = [];
     this.maxLanes = 1;

@@ -132,6 +132,7 @@ final class RepoStore: Identifiable {
     var reviewBusy = false
     /// 가운데에 띄운 파일 히스토리·blame
     var fileInspect: FileInspect?
+    var fileInspectLine: Int?
     var fileHistory: [FileHistoryEntry] = []
     var fileHistorySelected: String?
     var fileHistoryDiff: DiffDocument?
@@ -359,6 +360,7 @@ final class RepoStore: Identifiable {
     }
 
     private func resetState() {
+        closeFileInspect()
         entries = []; maxLanes = 1; commitIndex = [:]; refsByCommit = [:]
         localBranches = []; remoteBranches = []; remotes = []; tags = []; stashes = []
         status = WorkingStatus(); headHash = nil; headBranch = nil; repoState = .clean

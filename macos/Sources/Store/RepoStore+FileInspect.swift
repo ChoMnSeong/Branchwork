@@ -3,11 +3,13 @@ import Foundation
 /// 파일 히스토리·blame: 가운데 영역(그래프 자리)에 띄운다
 extension RepoStore {
     func openFileHistory(_ path: String) {
+        fileInspectLine = nil
         fileInspect = FileInspect(mode: .history, path: path)
         Task { await loadFileInspect() }
     }
 
     func openBlame(_ path: String, rev: String? = nil) {
+        fileInspectLine = nil
         fileInspect = FileInspect(mode: .blame, path: path, rev: rev)
         Task { await loadFileInspect() }
     }
@@ -20,6 +22,7 @@ extension RepoStore {
     }
 
     func closeFileInspect() {
+        fileInspectLine = nil
         fileInspect = nil
         fileHistory = []
         fileHistoryDiff = nil

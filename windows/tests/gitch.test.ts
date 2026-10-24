@@ -1,12 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { countGraphRules, fromPosix, graphDiffRelations, linkTarget, parseAccounts, parseBackups, parseGraphCheck, parseGraphSummary, parsePreflight, parseStatus, plain, versionAtLeast, versionOf } from "@/entities/gitch";
+import { countGraphRules, fromPosix, graphDiffRelations, linkTarget, parseAccounts, parseBackups, parseGraphCheck, parseGraphSummary, parseGraphWatchURL, parsePreflight, parseStatus, plain, supportsGraph, versionAtLeast, versionOf } from "@/entities/gitch";
 
 describe("구조 그래프(gitch graph)", () => {
+  it("감시 서버 주소는 반환한 로컬 HTTP 주소만 연다", () => {
+    expect(parseGraphWatchURL('{"url":"http://127.0.0.1:8765/token/"}')).toBe("http://127.0.0.1:8765/token/");
+    for (const url of ["https://example.com/", "file:///tmp/a.html", "http://127.0.0.1/", "http://user:pass@127.0.0.1:8765/"]) expect(parseGraphWatchURL(JSON.stringify({ url }))).toBeNull();
+    expect(parseGraphWatchURL("broken")).toBeNull();
+  });
   it("버전은 숫자로 비교(3.10 > 3.2)", () => {
     expect(versionAtLeast("3.2.0", "3.2.0")).toBe(true);
     expect(versionAtLeast("3.10.0", "3.2.0")).toBe(true);
     expect(versionAtLeast("3.1.9", "3.2.0")).toBe(false);
     expect(versionAtLeast("4", "3.2.0")).toBe(true);
+  });
+
+  it("앱과 버전을 맞춘 CLI 는 그래프 API 표시로, 옛 CLI 는 기존 버전으로 확인한다", () => {
+    const shared = 'GITSW_VERSION="0.3.10"\nGITCH_VERSION_SCHEME="gitrochi"\nGITCH_GRAPH_API="1"\n';
+    expect(supportsGraph(shared)).toBe(true);
+    expect(supportsGraph(shared.replace('API="1"', 'API="2"'))).toBe(true);
+    expect(supportsGraph(shared.replaceAll("\n", "\r\n"))).toBe(true);
+    expect(supportsGraph('GITSW_VERSION="3.2.0"\n')).toBe(true);
+    expect(supportsGraph('GITSW_VERSION="3.10.0"\n')).toBe(true);
+    expect(supportsGraph('GITSW_VERSION="3.1.9"\n')).toBe(false);
+    expect(supportsGraph('GITSW_VERSION="0.3.10"\n')).toBe(false);
+    expect(supportsGraph('GITSW_VERSION="broken"\n')).toBe(false);
+    expect(supportsGraph("")).toBe(false);
+  });
+
+  it("기능 표시가 잘못됐거나 일부만 있으면 옛 버전 검사로 우회하지 않는다", () => {
+    const header = 'GITSW_VERSION="3.2.1"\nGITCH_VERSION_SCHEME="gitrochi"\nGITCH_GRAPH_API="1"\n';
+    for (const value of ["0", "-1", "1.0", "garbage", ""]) {
+      expect(supportsGraph(header.replace('API="1"', `API="${value}"`))).toBe(false);
+    }
+    expect(supportsGraph(header.replace('GITCH_GRAPH_API="1"\n', ""))).toBe(false);
+    expect(supportsGraph(header.replace('GITCH_VERSION_SCHEME="gitrochi"\n', ""))).toBe(false);
+    expect(supportsGraph(header.replace('SCHEME="gitrochi"', 'SCHEME="unknown"'))).toBe(false);
+    expect(supportsGraph(header.replace('API="1"', "API=1"))).toBe(false);
+    expect(supportsGraph(header.replace('GITCH_GRAPH_API=', 'export GITCH_GRAPH_API='))).toBe(false);
+    expect(supportsGraph(header + 'GITCH_GRAPH_API="1"\n')).toBe(false);
+    expect(supportsGraph(header + 'GITCH_VERSION_SCHEME="gitrochi"\n')).toBe(false);
   });
 
   it("끝 줄의 노드 수(경로에 빈칸 · NODES= 가 있어도 뒤에서), 그릴 것이 없을 때 안내", () => {

@@ -19,6 +19,15 @@ export interface ProcOutput {
   stderr: string;
 }
 
+/** Native-validated gitrochi://open route. File paths stay relative to repo. */
+export interface AppLaunch {
+  repo: string;
+  file: string | null;
+  line: number | null;
+  view: "graph" | "files" | "modules" | "changes" | "tree" | "diff" | "affected" | "precise" | null;
+  commit: string | null;
+}
+
 export interface RunOptions {
   cwd?: string;
   env?: Record<string, string>;
@@ -58,6 +67,8 @@ export interface FileHead {
 }
 
 export const ipc = {
+  takeAppLaunches: () => invoke<({ Ok: AppLaunch } | { Err: string })[]>("take_app_launches"),
+  onAppLaunch: (fn: () => void): Promise<UnlistenFn> => listen("app-launch", fn),
   run: (program: string, args: string[], o: RunOptions = {}) =>
     invoke<ProcOutput>("run_process", {
       program,

@@ -7,7 +7,7 @@ test_install_links_gitch_and_gitsw_shim() {
   local self; self=$(resolve_path "$GITSW_SRC")
   [ "$(resolve_path "$HOME/bin/gitch")" = "$self" ] || fail "~/bin/gitch 가 이 파일을 가리키지 않음"
   [ "$(resolve_path "$HOME/bin/gitsw")" = "$self" ] || fail "~/bin/gitsw(예전 이름)가 이 파일을 가리키지 않음"
-  run gitsw version; assert_ok; assert_out "gitch 3."
+  run gitsw version; assert_ok; assert_out "gitch $(sed -n 's/^GITSW_VERSION="\([^" ]*\)".*/\1/p' "$GITSW_SRC" | head -1)"
   if mac_only; then
     grep -qx "alias gitch='noglob gitch'" "$RC_FILE" || fail "gitch alias 없음"
     grep -qx "alias gitsw='noglob gitsw'" "$RC_FILE" || fail "gitsw alias 없음"
@@ -40,8 +40,8 @@ test_install_without_accounts_links_command() {
 test_app_opens_gitrochi() {
   mac_only || return 0                                   # Windows 는 설치 폴더의 Gitrochi.exe 를 기본 앱으로 연다
   local app="$HOME/Applications/Gitrochi.app"
-  mkdir -p "$app/Contents/Resources" && cp "$GITSW_SRC" "$app/Contents/Resources/gitch"
-  run "$app/Contents/Resources/gitch" app; assert_ok "gitch app"; assert_out "Gitrochi 를 엽니다"
+  mkdir -p "$app/Contents/Resources" "$app/Contents/MacOS" && cp "$GITSW_SRC" "$app/Contents/Resources/gitch"
+  run "$app/Contents/Resources/gitch" app; assert_ok "gitch app"; assert_out "Gitrochi 앱을 열었습니다"
   grep -qF "open -a $app" "$T/opened" || fail "이 gitch 가 든 앱을 열지 않음\n$(cat "$T/opened" 2>&1)"
 }
 
@@ -58,7 +58,7 @@ test_install_repoints_shim_from_another_copy() {
   mklink_ "$T/old-gitsw" "$HOME/bin/gitsw"
   run gitch doctor --no-net; assert_out "~/bin/gitsw(예전 이름)가 다른 파일을 가리킵니다"
   install_quiet
-  run gitsw version; assert_ok; assert_out "gitch 3."
+  run gitsw version; assert_ok; assert_out "gitch $(sed -n 's/^GITSW_VERSION="\([^" ]*\)".*/\1/p' "$GITSW_SRC" | head -1)"
   run gitch doctor --no-net; assert_no_out "다른 파일을 가리킵니다"
 }
 

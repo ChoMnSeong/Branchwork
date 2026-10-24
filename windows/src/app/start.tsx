@@ -11,6 +11,7 @@ import { gitAvailable, tools, updater } from "@/shared/platform";
 import { theme } from "@/shared/ui";
 import { runSelfTest } from "./selftest";
 import { App } from "./ui/App";
+import { startAppLaunches } from "./lib/app-launch";
 // 웹뷰 기본 우클릭 메뉴(새로 고침·검사 등)는 끄고, 앱 메뉴만 쓴다(입력 칸은 그대로)
 window.addEventListener("contextmenu", (e) => {
   const el = e.target as HTMLElement;
@@ -37,4 +38,5 @@ export async function start() {
   } else {
     await workspace.restore();
   }
+  await startAppLaunches();
 }

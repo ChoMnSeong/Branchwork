@@ -6,7 +6,7 @@ on:
   push:
     tags: ["v*"]
   pull_request:
-    paths: ["macos/**", "tools/gitch/**", "tools/gitch-swift-index/**", ".github/workflows/macos.yml"]
+    paths: ["macos/**", "tools/gitch/**", "tools/gitch-swift-index/**", "tools/check-versions.sh", "windows/package*.json", "windows/src-tauri/Cargo.*", "windows/src-tauri/tauri.conf.json", ".github/workflows/macos.yml"]
   workflow_dispatch:
 
 # 같은 PR 에 새로 푸시하면 돌던 실행은 취소
@@ -38,6 +38,18 @@ jobs:
           path: macos/build/Gitrochi.app
 
       # gitch graph files 의 Xcode 인덱스 도우미: 앱에 넣은 그 실행 파일로, 예제를 swift build 해 만든 인덱스를 읽어 본다
+      - name: 앱 URL 이동 테스트
+        run: bash macos/Tools/test-app-route.sh
+
+      - name: Keychain 저장 · 갱신 · 삭제 테스트
+        run: bash macos/Tools/test-keychain.sh
+
+      - name: GitHub 공개키 등록 계약 테스트
+        run: bash macos/Tools/test-github-key-registration.sh
+
+      - name: GitHub 로그인 계정 일치 테스트
+        run: bash macos/Tools/test-github-login-identity.sh
+
       - name: gitch-swift-index 테스트
         run: tools/gitch-swift-index/tests/run.sh macos/build/Gitrochi.app/Contents/Resources/gitch-swift-index
 
@@ -52,6 +64,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: JSON 계약 검증 준비
+        run: |
+          python -m pip install jsonschema==4.25.1
+          printf 'GITCH_JSONSCHEMA_PYTHON=%s\n' "$(python -c 'import sys; print(sys.executable)')" >> "$GITHUB_ENV"
+
       # gitch graph 의 svg · png(graphviz dot)도 시험하려고 — dot 이 없으면 그 시험은 설치 안내 경로만 본다
       - name: graphviz
         env:
@@ -62,6 +83,11 @@ jobs:
       - name: 테스트
         run: tools/gitch/tests/run.sh
 
+      - name: 정밀 참조 · 자동 갱신 테스트
+        run: |
+          python tools/gitch/tests/test_scip.py
+          python tools/gitch/tests/test_watch.py
+
       # 정적 검사(경고 이상) — 로컬과 같은 최신 shellcheck. 테스트가 실패해도 따로 결과를 보인다
       - name: shellcheck
         if: ${{ !cancelled() }}
@@ -71,7 +97,7 @@ jobs:
         run: |
           command -v shellcheck >/dev/null || brew install shellcheck
           shellcheck --version | sed -n 2p
-          shellcheck -S warning tools/gitch/gitch tools/gitch/install.sh tools/gitch/tests/*.sh tools/gitch-swift-index/build.sh tools/gitch-swift-index/tests/run.sh
+          shellcheck -S warning tools/check-versions.sh tools/gitch/gitch tools/gitch/install.sh tools/gitch/tests/*.sh tools/gitch-swift-index/build.sh tools/gitch-swift-index/tests/run.sh
 
   # 릴리스에 파일을 올려야 해서 쓰기 권한은 태그 실행에만 준다.
   # 앱의 업데이트 확인은 초안을 보지 않으므로, 관리자가 노트를 쓰고 '게시'해야 사용자에게 간다.
@@ -109,8 +135,10 @@ jobs:
       # 앱 없이 gitch 만 쓰는 사람용: tools/gitch/install.sh 와 gitch self-update 가 받는다(아래에서 다른 배포 파일과 함께 올림)
       - name: gitch (CLI 만)
         run: |
-          cp tools/gitch/gitch macos/dist/gitch
-          (cd macos/dist && shasum -a 256 gitch > gitch.sha256)
+          for file in gitch gitch-scip-index gitch-graph-watch; do
+            cp "tools/gitch/$file" "macos/dist/$file"
+            (cd macos/dist && shasum -a 256 "$file" > "$file.sha256")
+          done
 
       - name: 릴리스에 올리기
         env:

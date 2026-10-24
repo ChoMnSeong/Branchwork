@@ -2,6 +2,9 @@ import SwiftUI
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func application(_ application: NSApplication, open urls: [URL]) {
+        MainActor.assumeIsolated { urls.forEach { Workspace.shared.receive($0) } }
+    }
     /// 마지막 창을 닫으면 종료. 단, 실행 중(스플래시)에는 여분의 빈 창을 닫는 순간 작업 창이 아직 투명하게
     /// 준비 중이라 '마지막 창'으로 잘못 판단될 수 있어 종료하지 않는다.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -58,6 +61,11 @@ struct GitrochiApp: App {
         Settings {
             SettingsView()
         }
+
+        Window("Get started with Git accounts", id: "git-setup") {
+            GitchGuideSheet(repo: nil)
+        }
+        .windowResizability(.contentSize)
     }
 }
 
@@ -95,6 +103,7 @@ struct RepoWindow: View {
                         await store.openInPlace(URL(fileURLWithPath: p, isDirectory: true))
                         store.booted = true
                         RestoreState.shared.finished(store.name)
+                        await Workspace.shared.applyPendingRoutes(to: store)
                     }
                 }
             }
@@ -117,12 +126,15 @@ struct RepoWindow: View {
             await store.openInPlace(URL(fileURLWithPath: path, isDirectory: true))
             store.booted = true
             RestoreState.shared.finished(store.name)
+            await Workspace.shared.applyPendingRoutes(to: store)
             return
         }
         // 복원 탭인데 경로가 늦게 오는 경우(onChange 에서 연다) / 실행 직후 닫히는 여분 창
         if Workspace.shared.awaitingWindows > 0 || Workspace.shared.isDuplicate(store.window) { return }
 
-        let restore = Workspace.shared.takeRestoreList()
+        let initialRoute = Workspace.shared.takeInitialRoute()
+        let saved = Workspace.shared.takeRestoreList()
+        let restore = initialRoute.map { route in [route.repo] + saved.filter { $0.resolvingSymlinksInPath() != route.repo } } ?? saved
         RestoreState.shared.begin(total: restore.count)
         if let first = restore.first {
             // 나머지 탭은 이 창이 로딩 화면을 보여 주는 동안 뒤에서 하나씩 붙인다(보이는 탭은 바뀌지 않음)
@@ -139,6 +151,7 @@ struct RepoWindow: View {
             RestoreState.shared.finished(store.name)
         }
         store.booted = true
+        await Workspace.shared.applyPendingRoutes(to: store)
     }
 }
 
@@ -149,8 +162,12 @@ struct AppCommands: Commands {
     var body: some Commands {
         // 창이 하나도 없을 때도 새 창을 열 수 있게 메뉴의 openWindow 를 받아 둔다
         let _ = Workspace.shared.setWindowOpener { [openWindow] in openWindow(id: "repo") }
+        let _ = Workspace.shared.setRouteOpener { [openWindow] path in openWindow(id: "repo", value: path) }
         CommandGroup(after: .appInfo) {
             Button("Check for updates…") { Task { await UpdateCenter.shared.check(manual: true) } }
+        }
+        CommandGroup(replacing: .help) {
+            Button("Get started with Git accounts…") { openWindow(id: "git-setup") }
         }
         CommandGroup(replacing: .newItem) {
             Button("New tab") { openWindow(id: "repo") }

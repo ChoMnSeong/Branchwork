@@ -1,8 +1,12 @@
 import SwiftUI
 import AppKit
 
-/// 설정 > CLI 의 gitch(예전 이름 gitsw): 앱에 든 gitch 를 셸 명령으로 설치한다. 계정 더하기·진단은 묻는 것이 있어 Terminal 에서.
+/// 설정 > CLI: 앱에 든 gitch의 계정·SSH 설정과 진단, 선택적인 셸 명령 설치.
 struct GitchSection: View {
+    private enum GuideDestination: String, Identifiable {
+        case guide, diagnostics
+        var id: String { rawValue }
+    }
     /// Terminal 에서 계정을 더하고 돌아오면 다시 읽으려고
     @ViewState private var generation = 0
     @ViewState private var confirmInstall = false
@@ -10,12 +14,20 @@ struct GitchSection: View {
     @ViewState private var result: String?
     @ViewState private var error: String?
     @ViewState private var accounts: [Gitch.Account] = []
+    @ViewState private var guide: GuideDestination?
+    @ViewState private var addAccount = false
+    @ViewState private var setupAccount: String?
+    @ViewState private var showSSH = false
+    @FocusedValue(\.repoStore) private var repo
 
     var body: some View {
         let _ = generation
         let installed = Gitch.installed
         let bundledVersion = Gitch.bundled.flatMap(Gitch.version(at:))
         Section {
+            Text("gitch is already included in Gitrochi. No separate download is needed, and installing its terminal command is optional.")
+                .font(.callout).foregroundStyle(.secondary)
+            Button("Get started with Git accounts…") { guide = .guide }
             Text("gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi.")
                 .font(.callout).foregroundStyle(.secondary)
             LabeledContent("Version in Gitrochi") { Text(bundledVersion ?? "—").font(.callout.monospaced()) }
@@ -30,10 +42,10 @@ struct GitchSection: View {
             }
             ForEach(accounts) { a in accountRow(a) }
             HStack {
-                Button("Add an account in Terminal…") { run { try Gitch.openInTerminal(["add"]) } }
+                Button("Add Git account…") { addAccount = true }
                 Button(Gitch.installedIsBundled ? "Reinstall…" : "Install…") { confirmInstall = true }
                     .disabled(!Gitch.hasConfig || busy || bundledVersion == nil)
-                Button("Run doctor in Terminal") { run { try Gitch.openInTerminal(["doctor"]) } }
+                Button("Check setup…") { guide = .diagnostics }
                     .disabled(Gitch.executable == nil)
                 Spacer()
                 if busy { ProgressView().controlSize(.small) }
@@ -59,11 +71,14 @@ struct GitchSection: View {
         } footer: {
             Text(Gitch.hasConfig
                  ? String(localized: "Open a new terminal window to start using gitch.")
-                 : String(localized: "Add an account first: gitch add asks for the account's name, email and server and makes an SSH key for it. Then install."))
+                 : String(localized: "Start with Add Git account. The app guides you through your name, email, server and SSH connection."))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in generation += 1 }
         .task(id: generation) { accounts = await Gitch.accounts() }
+        .sheet(item: $guide) { destination in GitchGuideSheet(repo: repo, checkOnOpen: destination == .diagnostics) }
+        .sheet(isPresented: $addAccount) { GitchAccountSetupSheet(accountID: nil) { generation += 1 } }
+        .sheet(isPresented: $showSSH) { GitchAccountSetupSheet(accountID: setupAccount) { generation += 1 } }
         .alert("Install gitch?", isPresented: $confirmInstall) {
             Button("Cancel", role: .cancel) {}
             Button("Install") { install() }
@@ -85,10 +100,7 @@ struct GitchSection: View {
                     .lineLimit(2)
             }
             Spacer()
-            if a.sshKey == false {
-                Button("Set up SSH key in Terminal…") { run { try Gitch.openInTerminal(["setup", a.id]) } }
-                    .controlSize(.small)
-            }
+            Button("SSH setup…") { setupAccount = a.id; showSSH = true }.controlSize(.small)
         }
     }
 
@@ -106,11 +118,6 @@ struct GitchSection: View {
             busy = false
             generation += 1
         }
-    }
-
-    private func run(_ action: () throws -> Void) {
-        error = nil
-        do { try action() } catch { self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription }
     }
 
     private func tilde(_ path: String) -> String {

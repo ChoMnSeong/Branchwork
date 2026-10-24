@@ -14,17 +14,30 @@ enum Keychain {
         return value
     }
 
-    static func set(_ value: String?, for account: String) {
-        delete(service, account)
-        delete(LegacyData.keychainService, account)
-        guard let value, !value.isEmpty else { return }
+    @discardableResult
+    static func set(_ value: String?, for account: String) -> Bool {
+        guard let value, !value.isEmpty else {
+            let current = delete(service, account)
+            let legacy = delete(LegacyData.keychainService, account)
+            return current && legacy
+        }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
+        let update = SecItemUpdate(query as CFDictionary, [kSecValueData as String: Data(value.utf8)] as CFDictionary)
+        if update == errSecSuccess { _ = delete(LegacyData.keychainService, account); return true }
+        guard update == errSecItemNotFound else { return false }
         let add: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecValueData as String: Data(value.utf8),
         ]
-        SecItemAdd(add as CFDictionary, nil)
+        guard SecItemAdd(add as CFDictionary, nil) == errSecSuccess else { return false }
+        _ = delete(LegacyData.keychainService, account)
+        return true
     }
 
     private static func read(_ service: String, _ account: String) -> String? {
@@ -40,13 +53,14 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
-    private static func delete(_ service: String, _ account: String) {
+    private static func delete(_ service: String, _ account: String) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        return status == errSecSuccess || status == errSecItemNotFound
     }
 }
 
@@ -197,7 +211,9 @@ final class AccountStore {
         let existing = accounts.first { $0.provider == provider && $0.host == probe.host && $0.username == me.username }
         let acc = HostAccount(id: existing?.id ?? UUID().uuidString, provider: provider, server: server,
                               username: me.username, name: me.name, avatarURL: me.avatarURL)
-        Keychain.set(t, for: "acct:" + acc.id)
+        guard Keychain.set(t, for: "acct:" + acc.id) else {
+            throw Gitch.Failure(message: String(localized: "Couldn't save the login in macOS Keychain. Allow Keychain access, then retry connecting."))
+        }
         secrets["acct:" + acc.id] = t
         accounts.removeAll { $0.id == acc.id }
         accounts.append(acc)
@@ -207,14 +223,35 @@ final class AccountStore {
 
     /// gh CLI 에 로그인돼 있는 GitHub 계정을 가져온다
     @discardableResult
-    func importGitHubCLI() async throws -> HostAccount {
+    func importGitHubCLI(expectedLogin: String? = nil) async throws -> HostAccount {
         guard let gh = ghPath else { throw GitError(command: "gh", message: String(localized: "Couldn't find the gh CLI.")) }
-        let r = try await Shell.run(gh, ["auth", "token"], cwd: FileManager.default.temporaryDirectory)
+        let args = ["auth", "token", "--hostname", "github.com"] + (expectedLogin.map { ["--user", $0] } ?? [])
+        var env = ProcessInfo.processInfo.environment
+        if expectedLogin != nil {
+            for key in ["GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN"] { env.removeValue(forKey: key) }
+        }
+        let r = try await Shell.run(gh, args, cwd: FileManager.default.temporaryDirectory, env: env, timeout: 30)
         let t = r.output.trimmed
         guard r.status == 0, !t.isEmpty else {
-            throw GitError(command: "gh", message: r.stderr.trimmed.isEmpty ? String(localized: "You're not logged in to gh. Run `gh auth login` in a terminal first.") : r.stderr.trimmed)
+            throw GitError(command: "gh", message: String(localized: "Couldn't import the GitHub login. Sign in again and retry."))
+        }
+        if let expectedLogin {
+            let me = try await Hosting.me(.github, token: t, apiBase: "https://api.github.com")
+            guard me.username.caseInsensitiveCompare(expectedLogin) == .orderedSame else {
+                throw Gitch.Failure(message: String(localized: "The signed-in GitHub account doesn't match this account. Sign in with the intended account."))
+            }
         }
         return try await connectGitHub(token: t)
+    }
+
+    /// Uploads only a public key after the user chooses the registration action.
+    func registerGitHubSSHKey(_ setup: Gitch.AccountSetup) async throws -> Bool {
+        guard setup.host.lowercased() == "github.com",
+              let account = accounts(for: .github).first(where: { $0.username.caseInsensitiveCompare(setup.id) == .orderedSame }),
+              let secret = token(for: account) else {
+            throw Gitch.Failure(message: String(localized: "Sign in to GitHub with the same account name before registering this key."))
+        }
+        return try await GitHubSSHRegistration.register(publicKey: setup.publicKey, login: setup.id, token: secret)
     }
 
     func disconnect(_ a: HostAccount) {

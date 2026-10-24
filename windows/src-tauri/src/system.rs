@@ -35,8 +35,10 @@ pub async fn secret_set(name: String, value: Option<String>) -> Result<(), Strin
     match value.filter(|v| !v.is_empty()) {
         Some(v) => entry.set_password(&v).map_err(|e| e.to_string()),
         None => {
-            let _ = entry.delete_credential();
-            Ok(())
+            match entry.delete_credential() {
+                Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+                Err(error) => Err(error.to_string()),
+            }
         }
     }
 }

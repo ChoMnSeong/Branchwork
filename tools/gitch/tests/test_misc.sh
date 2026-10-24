@@ -230,7 +230,7 @@ test_export_import_uninstall_version() {
   grep -q 'account "alice"' "$T/exp.cfg" || fail "내보내기 내용"
   run gitch import "$T/exp.cfg"; assert_fail "비대화형은 --yes 필요"
   run gitch import "$T/exp.cfg" --yes; assert_ok
-  run gitch version; assert_ok; assert_out "gitch 3."
+  run gitch version; assert_ok; assert_out "gitch $(sed -n 's/^GITSW_VERSION="\([^" ]*\)".*/\1/p' "$GITSW_SRC" | head -1)"
   run gitch help; assert_ok; assert_out "gitch preflight"
   run gitch uninstall --yes; assert_ok
   git config --global --get hook.gitsw-pre-commit.command >/dev/null && fail "전역 훅이 남음"

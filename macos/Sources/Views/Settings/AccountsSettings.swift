@@ -8,10 +8,12 @@ struct AccountsSettings: View {
     @ViewState private var gitlabToken = ""
     @ViewState private var working: Provider?
     @ViewState private var error: String?
+    @ViewState private var showBrowserLogin = false
 
     var body: some View {
         Form {
             Section {
+                Button("Sign in to GitHub in browser…") { showBrowserLogin = true }.disabled(working != nil)
                 ForEach(accounts.accounts(for: .github)) { a in
                     ConnectedRow(account: a) { accounts.disconnect(a) }
                 }
@@ -78,6 +80,7 @@ struct AccountsSettings: View {
             }
         }
         .formStyle(.grouped)
+        .sheet(isPresented: $showBrowserLogin) { GitHubBrowserLoginSheet { _, _ in } }
         .onAppear {
             if gitlabServer.isEmpty { gitlabServer = accounts.suggestedGitLabServer }
         }

@@ -141,12 +141,44 @@ class AccountStore extends Observable {
   }
 
   /** gh CLI 에 로그인돼 있는 GitHub 계정을 가져온다 */
-  async importGitHubCLI() {
+  async importGitHubCLI(expectedUsername?: string) {
     if (!this.ghPath) throw new Error(t("Couldn't find the gh CLI."));
-    const r = await ipc.run(this.ghPath, ["auth", "token"], { cwd: env.temp, timeoutMs: 30000 });
+    const r = await ipc.run(this.ghPath, ["auth", "token", "--hostname", "github.com", ...(expectedUsername ? ["--user", expectedUsername] : [])], { cwd: env.temp, timeoutMs: 30000 });
     const text = r.stdout.trim();
     if (r.status !== 0 || !text) throw new Error(r.stderr.trim() || t("You're not logged in to gh. Run `gh auth login` in a terminal first."));
+    if (expectedUsername) {
+      const me = await Hosting.me("github", text, "https://api.github.com");
+      if (me.username.toLowerCase() !== expectedUsername.toLowerCase()) throw new Error(t("The browser login belongs to a different account. Try signing in again."));
+    }
     return this.connectGitHub(text);
+  }
+
+  /** 공개키만 GitHub에 전송한다. 현재 인증 사용자와 Git identity가 일치해야 한다. */
+  async registerGitHubSSHKey(username: string, publicKey: string) {
+    const a = this.accounts.find((a) => a.provider === "github" && accountHost(a) === "github.com" && a.username.toLowerCase() === username.toLowerCase());
+    const token = a && await this.token(a);
+    if (!a || !token) throw new Error(t("Sign in to the matching GitHub account first."));
+    const request = async <T>(url: string, method = "GET", body?: unknown): Promise<T> => {
+      try { return await Hosting.send<T>("github", url, token, method, body); }
+      catch (e) {
+        const status = e instanceof Hosting.HostingError ? e.status : null;
+        throw new Error(status === 403
+          ? t("GitHub didn't allow SSH key registration. Sign in again and approve SSH public-key access.")
+          : t("Couldn't verify or register the SSH public key with GitHub. Check your connection and account permissions. {0}", status ? `HTTP ${status}` : ""));
+      }
+    };
+    const me = await request<{ login: string }>("https://api.github.com/user");
+    if (me.login.toLowerCase() !== username.toLowerCase()) throw new Error(t("The browser login belongs to a different account. Try signing in again."));
+    const key = publicKey.trim();
+    if (!/^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp(?:256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com) [A-Za-z0-9+/=]+(?: [^\r\n]*)?$/.test(key)) throw new Error(t("A valid public SSH key is required."));
+    const material = (s: string) => s.trim().split(/\s+/).slice(0, 2).join(" ");
+    for (let page = 1; page <= 20; page++) {
+      const keys = await request<{ key: string }[]>(`https://api.github.com/user/keys?per_page=100&page=${page}`);
+      if (keys.some((k) => material(k.key) === material(key))) return;
+      if (keys.length < 100) break;
+      if (page === 20) throw new Error(t("Couldn't finish checking existing SSH keys. Register the key manually or try again."));
+    }
+    await request("https://api.github.com/user/keys", "POST", { title: `Gitrochi (${username})`, key });
   }
 
   async disconnect(a: HostAccount) {

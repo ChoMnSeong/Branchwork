@@ -170,11 +170,13 @@ export abstract class RepoSelection extends RepoCore {
   // MARK: 파일 히스토리 · blame(가운데 영역에 띄운다)
 
   openFileHistory(path: string) {
+    this.fileInspectLine = null;
     this.fileInspect = { mode: "history", path, rev: null };
     void this.loadFileInspect();
   }
 
-  openBlame(path: string, rev: string | null = null) {
+  openBlame(path: string, rev: string | null = null, line: number | null = null) {
+    this.fileInspectLine = line;
     this.fileInspect = { mode: "blame", path, rev };
     void this.loadFileInspect();
   }
@@ -186,6 +188,7 @@ export abstract class RepoSelection extends RepoCore {
   }
 
   closeFileInspect() {
+    this.fileInspectLine = null;
     this.fileInspect = null;
     this.fileHistory = [];
     this.fileHistoryDiff = null;

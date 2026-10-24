@@ -126,6 +126,11 @@ function BlamePane({ store }: { store: RepoStore }) {
   }, [lines]);
   const ref = useRef<HTMLDivElement>(null);
   const [vp, setVp] = useState({ top: 0, height: 800 });
+  const targetLine = store.fileInspectLine;
+  useLayoutEffect(() => {
+    if (!targetLine || store.fileInspectLoading || !ref.current || !lines.some((l) => l.no === targetLine)) return;
+    ref.current.scrollTop = Math.max(0, (targetLine - 1) * BLAME_H - ref.current.clientHeight / 2 + BLAME_H / 2);
+  }, [targetLine, lines, store.fileInspectLoading]);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -152,7 +157,7 @@ function BlamePane({ store }: { store: RepoStore }) {
       <div style={{ height: lines.length * BLAME_H, position: "relative", minWidth: "max-content" }}>
         <div style={{ position: "absolute", top: first * BLAME_H, left: 0, right: 0 }}>
           {lines.slice(first, last).map((l) => (
-            <div key={l.no} className={`diff-line blame-line ${l.startsBlock && l.no > 1 ? "block-start" : ""}`} style={{ height: BLAME_H }}>
+            <div key={l.no} data-line={l.no} data-focused={targetLine === l.no || undefined} className={`diff-line blame-line ${l.startsBlock && l.no > 1 ? "block-start" : ""}`} style={{ height: BLAME_H, background: targetLine === l.no ? "color-mix(in srgb, var(--accent) 22%, transparent)" : undefined }}>
               <span
                 className="blame-gutter"
                 style={{ background: age(l), cursor: l.startsBlock && !isUncommittedLine(l) ? "pointer" : undefined }}

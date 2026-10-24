@@ -8,6 +8,7 @@ import { isWindows } from "@/shared/config";
 import { t } from "@/shared/i18n";
 import { useObserve } from "@/shared/lib";
 import { Avatar, Button, Checkbox, Spinner } from "@/shared/ui";
+import { GitchBrowserLogin } from "./GitchBrowserLogin";
 
 export function AccountsSettings() {
   useObserve(accounts);
@@ -33,6 +34,7 @@ export function AccountsSettings() {
 
   return (
     <div className="col" style={{ gap: 14 }}>
+      <GitchBrowserLogin />
       <div className="form-section">
         <span className="form-section-title">GitHub{count("github")}</span>
         {accounts.accountsFor("github").map((a) => (

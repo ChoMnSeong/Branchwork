@@ -1,0 +1,567 @@
+#!/usr/bin/env python3
+"""Import SCIP indexes without generated bindings or third party dependencies.
+
+The supported wire fields follow https://github.com/scip-code/scip/blob/main/scip.proto.
+Unknown fields are skipped. This reads indexer output; it does not run a compiler,
+install packages, execute repository scripts, or upload source code.
+"""
+
+import argparse
+import collections
+import json
+import os
+from pathlib import Path
+import re
+import sys
+from urllib.parse import unquote, urlparse
+
+
+SCHEMA_VERSION = 1
+MAX_INDEX_BYTES = 256 * 1024 * 1024
+MAX_DIAGNOSTICS = 300
+MAX_EVIDENCE = 64
+ENCODINGS = {
+    "UnspecifiedPositionEncoding": 0,
+    "UTF8CodeUnitOffsetFromLineStart": 1,
+    "UTF16CodeUnitOffsetFromLineStart": 2,
+    "UTF32CodeUnitOffsetFromLineStart": 3,
+}
+LANGUAGES = {
+    "typescript": "ts", "typescriptreact": "ts", "javascript": "js",
+    "javascriptreact": "js", "python": "python", "java": "java",
+    "kotlin": "kotlin", "scala": "scala", "swift": "swift", "go": "go",
+    "rust": "rust", "cpp": "cpp", "c++": "cpp", "c": "c", "csharp": "csharp",
+    "c#": "csharp", "fsharp": "fsharp", "php": "php", "ruby": "ruby",
+    "dart": "dart", "objective_c": "objc", "objective_cpp": "objcpp",
+}
+EXTENSIONS = {
+    ".ts": "ts", ".tsx": "ts", ".mts": "ts", ".cts": "ts",
+    ".js": "js", ".jsx": "js", ".mjs": "js", ".cjs": "js",
+    ".py": "python", ".pyi": "python", ".java": "java", ".kt": "kotlin",
+    ".kts": "kotlin", ".scala": "scala", ".swift": "swift", ".go": "go",
+    ".rs": "rust", ".c": "c", ".h": "c", ".cpp": "cpp", ".cc": "cpp",
+    ".cxx": "cpp", ".hpp": "cpp", ".cs": "csharp", ".fs": "fsharp",
+    ".rb": "ruby", ".php": "php", ".dart": "dart", ".m": "objc", ".mm": "objcpp",
+}
+
+
+class IndexErrorDetail(ValueError):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def compact(value):
+    # ASCII JSON also makes records safe for a shell using a non-UTF-8 locale.
+    return json.dumps(value, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+
+
+def field(obj, snake, default=None):
+    camel = re.sub(r"_([a-z])", lambda m: m[1].upper(), snake)
+    return obj.get(snake, obj.get(camel, default))
+
+
+def varint(data, pos):
+    value = 0
+    for shift in range(0, 70, 7):
+        if pos >= len(data):
+            raise ValueError("truncated protobuf varint")
+        byte = data[pos]
+        pos += 1
+        if shift == 63 and byte > 1:
+            raise ValueError("protobuf varint exceeds 64 bits")
+        value |= (byte & 127) << shift
+        if not byte & 128:
+            return value, pos
+    raise ValueError("invalid protobuf varint")
+
+
+def wire_fields(data):
+    pos = 0
+    while pos < len(data):
+        tag, pos = varint(data, pos)
+        number, wire = tag >> 3, tag & 7
+        if not number:
+            raise ValueError("protobuf field number zero")
+        if wire == 0:
+            value, pos = varint(data, pos)
+        elif wire in (1, 2, 5):
+            if wire == 2:
+                size, pos = varint(data, pos)
+            else:
+                size = 8 if wire == 1 else 4
+            end = pos + size
+            if end > len(data):
+                raise ValueError("truncated protobuf field")
+            value, pos = data[pos:end], end
+        else:
+            raise ValueError("unsupported protobuf wire type %d" % wire)
+        yield number, wire, value
+
+
+def expect_wire(actual, expected):
+    if actual != expected:
+        raise ValueError("incorrect protobuf wire type")
+
+
+def proto_range(data, multiline):
+    values = [0] * (4 if multiline else 3)
+    for number, wire, value in wire_fields(data):
+        if 1 <= number <= len(values):
+            expect_wire(wire, 0)
+            values[number - 1] = value
+    return values
+
+
+def proto_occurrence(data):
+    result = {"range": [], "symbol": "", "symbol_roles": 0}
+    typed = None
+    for number, wire, value in wire_fields(data):
+        if number == 1:
+            if wire == 0:
+                result["range"].append(value)
+            elif wire == 2:
+                pos = 0
+                while pos < len(value):
+                    item, pos = varint(value, pos)
+                    result["range"].append(item)
+            else:
+                raise ValueError("incorrect occurrence range wire type")
+        elif number == 2:
+            expect_wire(wire, 2)
+            result["symbol"] = value.decode("utf-8")
+        elif number == 3:
+            expect_wire(wire, 0)
+            result["symbol_roles"] = value
+        elif number in (8, 9):
+            expect_wire(wire, 2)
+            typed = proto_range(value, number == 9)
+    if typed is not None:
+        # Protobuf oneof uses the last typed alternative; it overrides legacy range.
+        result["range"] = typed
+    return result
+
+
+def proto_document(data):
+    result = {"occurrences": []}
+    for number, wire, value in wire_fields(data):
+        if number in (1, 4, 5):
+            expect_wire(wire, 2)
+            result[{1: "relative_path", 4: "language", 5: "text"}[number]] = value.decode("utf-8")
+        elif number == 2:
+            expect_wire(wire, 2)
+            result["occurrences"].append(proto_occurrence(value))
+        elif number == 6:
+            expect_wire(wire, 0)
+            result["position_encoding"] = value
+    return result
+
+
+def proto_metadata(data):
+    result = {}
+    for number, wire, value in wire_fields(data):
+        if number == 2:
+            expect_wire(wire, 2)
+            tool = {}
+            for n, w, v in wire_fields(value):
+                if n in (1, 2):
+                    expect_wire(w, 2)
+                    tool["name" if n == 1 else "version"] = v.decode("utf-8")
+            result["tool_info"] = tool
+        elif number == 3:
+            expect_wire(wire, 2)
+            result["project_root"] = value.decode("utf-8")
+        elif number == 4:
+            expect_wire(wire, 0)
+            result["text_document_encoding"] = value
+    return result
+
+
+def decode_index(path):
+    if path.stat().st_size > MAX_INDEX_BYTES:
+        raise IndexErrorDetail("scip-index-too-large", "SCIP 인덱스가 256 MiB를 넘습니다. 하위 프로젝트별 인덱스를 사용하세요.")
+    data = path.read_bytes()
+    if not data:
+        raise ValueError("empty SCIP index")
+    if data.lstrip().startswith(b"{"):
+        result = json.loads(data)
+        if not isinstance(result, dict):
+            raise ValueError("SCIP JSON must be an object")
+        return result
+    result = {"documents": [], "external_symbols": []}
+    for number, wire, value in wire_fields(data):
+        if number == 1:
+            expect_wire(wire, 2)
+            if "metadata" in result:
+                raise ValueError("SCIP metadata must appear only once")
+            result["metadata"] = proto_metadata(value)
+        elif number == 2:
+            expect_wire(wire, 2)
+            if "metadata" not in result:
+                raise ValueError("SCIP metadata must precede documents")
+            result["documents"].append(proto_document(value))
+        elif number == 3:
+            expect_wire(wire, 2)
+            for n, w, v in wire_fields(value):
+                if n == 1:
+                    expect_wire(w, 2)
+                    result["external_symbols"].append({"symbol": v.decode("utf-8")})
+    return result
+
+
+def within(path, parent):
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def canonical_path(value):
+    return (isinstance(value, str) and bool(value) and not value.startswith("/")
+            and not re.search(r"[\\\x00-\x1f\x7f]", value)
+            and not re.match(r"^[A-Za-z]:", value)
+            and all(part not in ("", ".", "..") for part in value.split("/")))
+
+
+def source_range(occ):
+    typed = field(occ, "multi_line_range")
+    single = field(occ, "single_line_range")
+    if typed is not None and single is not None:
+        raise ValueError("multiple typed range alternatives")
+    if typed is not None:
+        values = [field(typed, key, 0) for key in ("start_line", "start_character", "end_line", "end_character")]
+    elif single is not None:
+        values = [field(single, key, 0) for key in ("line", "start_character", "end_character")]
+    else:
+        values = occ.get("range", [])
+    if not isinstance(values, list) or len(values) not in (3, 4):
+        raise ValueError("a SCIP range needs three or four coordinates")
+    if any(isinstance(v, bool) or not isinstance(v, int) or v < 0 or v > 2147483647 for v in values):
+        raise ValueError("invalid source range coordinate")
+    start, column, end, end_column = values if len(values) == 4 else (values[0], values[1], values[0], values[2])
+    if (end, end_column) < (start, column):
+        raise ValueError("source range ends before it starts")
+    return start, column, end, end_column
+
+
+def position_encoding(value):
+    value = ENCODINGS.get(value, value) if isinstance(value, str) else value
+    if isinstance(value, bool) or value not in (0, 1, 2, 3):
+        raise ValueError("unsupported position encoding")
+    return value
+
+
+def validate_range(value, lines, encoding):
+    start, column, end, end_column = value
+    if end >= len(lines):
+        raise ValueError("source range extends past the file")
+    if encoding:
+        def length(text):
+            if encoding == 1:
+                return len(text.encode("utf-8"))
+            if encoding == 2:
+                return len(text.encode("utf-16-le")) // 2
+            return len(text)
+        if column > length(lines[start]) or end_column > length(lines[end]):
+            raise ValueError("source range extends past its line")
+
+
+class Importer:
+    def __init__(self, repo, index, tracked, scope="", languages=""):
+        self.repo = Path(repo).resolve(strict=True)
+        self.index = Path(index).resolve(strict=True)
+        if not self.repo.is_dir() or not self.index.is_file():
+            raise ValueError("repo must be a directory and index must be a regular file")
+        self.index_mtime = self.index.stat().st_mtime_ns
+        raw = Path(tracked).read_bytes()
+        self.tracked = set((p.decode("utf-8") for p in raw.split(b"\0" if b"\0" in raw else b"\n") if p))
+        self.scope = scope.rstrip("/")
+        if self.scope and not canonical_path(self.scope):
+            raise ValueError("scope must be a canonical repository-relative directory")
+        self.languages = set(filter(None, languages.split(",")))
+        self.diags = []
+        self.diag_counts = collections.Counter()
+        self.diag_seen = set()
+        self.counts = collections.Counter()
+        self.docs = {}
+        self.producer = {"name": "unknown", "version": ""}
+
+    def diag(self, code, message, file=None, line=None, symbol=None, severity="warning"):
+        key = (code, file, line, symbol)
+        if key in self.diag_seen:
+            return
+        self.diag_seen.add(key)
+        self.diag_counts[code] += 1
+        if len(self.diags) >= MAX_DIAGNOSTICS:
+            return
+        entry = {"code": code, "message": message, "severity": severity, "method": "scip"}
+        for key, value in (("file", file), ("line", line), ("symbol", symbol)):
+            if value is not None:
+                entry[key] = value
+        self.diags.append(entry)
+
+    def project_root(self, metadata):
+        root_uri = field(metadata, "project_root", "")
+        if not isinstance(root_uri, str):
+            raise ValueError("SCIP projectRoot must be a file URI")
+        uri = urlparse(root_uri)
+        if uri.scheme != "file" or uri.netloc not in ("", "localhost") or uri.query or uri.fragment:
+            raise IndexErrorDetail("scip-project-root", "SCIP projectRoot는 로컬 file: URI여야 합니다. 현재 저장소에서 인덱스를 다시 생성하세요.")
+        root_path = unquote(uri.path)
+        if os.name == "nt" and re.match(r"^/[A-Za-z]:", root_path):
+            root_path = root_path[1:]
+        root = Path(root_path)
+        if not root.is_absolute() or not root.is_dir() or not within(root.resolve(), self.repo):
+            raise IndexErrorDetail("scip-project-root", "SCIP projectRoot가 현재 저장소 안을 가리키지 않습니다. 저장소를 옮겼다면 현재 위치에서 인덱스를 다시 생성하세요.")
+        return root.resolve()
+
+    def eligible_source(self, path):
+        return (not self.scope or path.startswith(self.scope + "/")) and (not self.languages or self.docs[path]["lang"] in self.languages)
+
+    def load_document(self, doc, root, text_encoding):
+        if not isinstance(doc, dict):
+            raise ValueError("SCIP document must be an object")
+        relative = field(doc, "relative_path", "")
+        if not canonical_path(relative):
+            self.diag("scip-document-path", "정규화되지 않은 문서 경로를 제외했습니다.", file=str(relative))
+            return
+        path = root / relative
+        repo_path = path.relative_to(self.repo).as_posix()
+        if repo_path in self.docs:
+            self.diag("scip-duplicate-document", "같은 파일이 두 번 인덱싱되어 두 번째 문서를 제외했습니다.", file=repo_path)
+            return
+        if repo_path not in self.tracked:
+            self.diag("scip-untracked-document", "Git이 추적하지 않는 인덱스 문서를 제외했습니다.", file=repo_path, severity="info")
+            return
+        cursor = path
+        while cursor != self.repo:
+            if cursor.is_symlink():
+                self.diag("scip-document-symlink", "심볼릭 링크를 통하는 인덱스 문서를 제외했습니다.", file=repo_path)
+                return
+            cursor = cursor.parent
+        if not path.is_file() or not within(path.resolve(), self.repo):
+            self.diag("scip-document-missing", "인덱스 문서를 현재 저장소에서 찾지 못했습니다.", file=repo_path)
+            return
+        try:
+            text = path.read_bytes().decode(text_encoding)
+        except (UnicodeError, OSError) as exc:
+            self.diag("scip-document-encoding", "소스 문자를 읽지 못했습니다: " + str(exc), file=repo_path)
+            return
+        indexed_text = doc.get("text")
+        # Empty text is also the proto3 default, so only non-empty embedded text
+        # can prove a content match. Otherwise mtime is a conservative fallback.
+        if isinstance(indexed_text, str) and indexed_text:
+            if indexed_text != text:
+                self.diag("scip-stale-document", "인덱스의 소스와 현재 내용이 다릅니다. 이 문서의 참조를 제외했으니 인덱스를 다시 생성하세요.", file=repo_path)
+                return
+            freshness = "content"
+        elif path.stat().st_mtime_ns > self.index_mtime:
+            self.diag("scip-stale-document", "소스가 인덱스보다 새롭습니다. 이 문서의 참조를 제외했으니 인덱스를 다시 생성하세요.", file=repo_path)
+            return
+        else:
+            freshness = "mtime"
+        try:
+            encoding = position_encoding(field(doc, "position_encoding", 0))
+        except ValueError as exc:
+            self.diag("scip-position-encoding", str(exc), file=repo_path)
+            return
+        language = str(doc.get("language", "")).lower()
+        language = LANGUAGES.get(language, EXTENSIONS.get(path.suffix.lower(), language or "unknown"))
+        lines = [line.rstrip("\r") for line in text.split("\n")]
+        occurrences = []
+        for occurrence in doc.get("occurrences", []):
+            if not isinstance(occurrence, dict):
+                raise ValueError("SCIP occurrence must be an object")
+            symbol = occurrence.get("symbol", "")
+            if not isinstance(symbol, str):
+                raise ValueError("SCIP occurrence symbol must be a string")
+            if not symbol or symbol.startswith("local "):
+                continue
+            if re.search(r"[\x00-\x1f\x7f]", symbol):
+                self.diag("scip-symbol-invalid", "제어 문자가 든 심볼을 제외했습니다.", file=repo_path)
+                continue
+            try:
+                location = source_range(occurrence)
+                validate_range(location, lines, encoding)
+                roles = field(occurrence, "symbol_roles", 0)
+                if isinstance(roles, bool) or not isinstance(roles, int) or roles < 0:
+                    raise ValueError("invalid symbol role bitset")
+            except (ValueError, TypeError, AttributeError) as exc:
+                self.diag("scip-occurrence-range", "참조 위치를 검증하지 못해 제외했습니다: " + str(exc), file=repo_path, symbol=symbol)
+                continue
+            occurrences.append((symbol, roles, location))
+        self.docs[repo_path] = {"occurrences": sorted(set(occurrences)), "lang": language,
+                                "lines": len(text.splitlines()), "encoding": encoding, "freshness": freshness}
+
+    def read(self):
+        decoded = decode_index(self.index)
+        metadata = decoded.get("metadata")
+        if not isinstance(metadata, dict):
+            raise IndexErrorDetail("scip-metadata-missing", "SCIP metadata가 없습니다. 공식 인덱서가 생성한 index.scip 또는 SCIP JSON을 사용하세요.")
+        root = self.project_root(metadata)
+        producer = field(metadata, "tool_info", {})
+        if isinstance(producer, dict):
+            self.producer = {"name": str(producer.get("name", "unknown")), "version": str(producer.get("version", ""))}
+        text_encoding = field(metadata, "text_document_encoding", 0)
+        if text_encoding in (0, 1, "UnspecifiedTextEncoding", "UTF8"):
+            text_encoding = "utf-8"
+        elif text_encoding in (2, "UTF16"):
+            text_encoding = "utf-16"
+        else:
+            raise ValueError("unsupported SCIP text_document_encoding")
+        documents = decoded.get("documents", [])
+        if not isinstance(documents, list):
+            raise ValueError("SCIP documents must be an array")
+        self.counts["indexedDocuments"] = len(documents)
+        for document in documents:
+            self.load_document(document, root, text_encoding)
+        external = field(decoded, "external_symbols", [])
+        if not isinstance(external, list):
+            raise ValueError("SCIP external_symbols must be an array")
+        externals = {v.get("symbol", "") for v in external if isinstance(v, dict)}
+        definitions = collections.defaultdict(set)
+        for path, doc in sorted(self.docs.items()):
+            for symbol, roles, location in doc["occurrences"]:
+                if roles & 1 and not roles & 64:
+                    definitions[symbol].add((path, location))
+        edges = {}
+        for path, doc in sorted(self.docs.items()):
+            if not self.eligible_source(path):
+                continue
+            self.counts["coveredDocuments"] += 1
+            for symbol, roles, location in doc["occurrences"]:
+                if roles & 1:
+                    continue
+                targets = definitions.get(symbol, set())
+                if not targets:
+                    self.counts["externalReferences" if symbol in externals else "unresolvedReferences"] += 1
+                    self.diag("scip-external-symbol" if symbol in externals else "scip-unresolved-symbol",
+                              "외부 패키지의 심볼이어서 저장소 내부 연결을 만들지 않았습니다." if symbol in externals else "정의가 현재 인덱스의 추적 파일에 없습니다. 인덱스의 범위와 생성 시점을 확인하세요.",
+                              file=path, line=location[0] + 1, symbol=symbol, severity="info" if symbol in externals else "warning")
+                    continue
+                if len(targets) != 1:
+                    self.counts["ambiguousReferences"] += 1
+                    self.diag("scip-ambiguous-symbol", "같은 심볼의 정의가 여러 위치에 있어 대상을 임의로 선택하지 않았습니다.", file=path, line=location[0] + 1, symbol=symbol)
+                    continue
+                target, target_location = next(iter(targets))
+                if target == path:
+                    continue
+                key = (path, target)
+                if key not in edges:
+                    edges[key] = {"source": path, "target": target, "kind": "reference", "weight": 0,
+                                  "method": "scip", "confidence": "indexed", "via": [], "evidence": []}
+                edge = edges[key]
+                edge["weight"] += 1
+                if symbol not in edge["via"] and len(edge["via"]) < 5:
+                    edge["via"].append(symbol)
+                if len(edge["evidence"]) < MAX_EVIDENCE:
+                    edge["evidence"].append({"file": path, "line": location[0] + 1, "column": location[1] + 1,
+                                             "endLine": location[2] + 1, "endColumn": location[3] + 1,
+                                             "targetFile": target, "targetLine": target_location[0] + 1,
+                                             "targetColumn": target_location[1] + 1, "symbol": symbol,
+                                             "method": "scip", "confidence": "indexed",
+                                             "positionEncoding": doc["encoding"], "freshness": doc["freshness"]})
+                else:
+                    edge["evidenceTruncated"] = True
+        self.counts["edges"] = len(edges)
+        self.counts["references"] = sum(edge["weight"] for edge in edges.values())
+        return self.result([edges[key] for key in sorted(edges)])
+
+    def result(self, edges=None):
+        self.counts["diagnosticsOmitted"] = max(0, sum(self.diag_counts.values()) - len(self.diags))
+        stats = {key: self.counts[key] for key in ("indexedDocuments", "coveredDocuments", "edges", "references", "externalReferences", "unresolvedReferences", "ambiguousReferences", "diagnosticsOmitted")}
+        stats["diagnosticCounts"] = dict(sorted(self.diag_counts.items()))
+        return {"schemaVersion": SCHEMA_VERSION, "method": "scip", "producer": self.producer,
+                "covered": sorted(path for path in self.docs if self.eligible_source(path)),
+                "edges": edges or [], "diagnostics": self.diags, "stats": stats}
+
+    def records(self, result):
+        endpoints = sorted({edge[key] for edge in result["edges"] for key in ("source", "target")})
+        for path in endpoints:
+            doc = self.docs[path]
+            attributes = {"path": path, "lang": doc["lang"], "lines": doc["lines"], "outside": not self.eligible_source(path)}
+            print("1\t%s\tfile\t%s\t%s\t%s" % (path, path.rsplit("/", 1)[-1], doc["lang"], compact(attributes)[1:-1]))
+        for edge in result["edges"]:
+            extra = {key: value for key, value in edge.items() if key not in ("source", "target", "kind", "weight")}
+            print("2\t%s\t%s\treference\t%d\t\t%s" % (edge["source"], edge["target"], edge["weight"], compact(extra)[1:-1]))
+        for diagnostic in result["diagnostics"]:
+            print("0\tdiagnostic\t" + compact(diagnostic))
+        print("0\tprecise\t" + compact(dict(result["stats"], producer=result["producer"])))
+        print("0\tnote\tSCIP: %s %s, 검증한 문서 %d개, 내부 참조 %d개. 인덱스 생성 도구가 기록한 심볼을 사용합니다." %
+              (re.sub(r"[\t\r\n]", " ", self.producer["name"]), re.sub(r"[\t\r\n]", " ", self.producer["version"]),
+               result["stats"]["coveredDocuments"], result["stats"]["references"]))
+
+
+def guide(language, project="my-project"):
+    aliases = {"typescript": "ts", "javascript": "js", "py": "python", "jvm": "java", "kotlin": "java"}
+    language = aliases.get(language.lower(), language.lower())
+    guides = {
+        "ts": {"executable": "scip-typescript", "arguments": ["index"], "documentation": "https://github.com/sourcegraph/scip-typescript", "requirements": "tsconfig.json과 프로젝트 의존성이 준비되어 있어야 합니다."},
+        "js": {"executable": "scip-typescript", "arguments": ["index", "--infer-tsconfig"], "documentation": "https://github.com/sourcegraph/scip-typescript", "requirements": "package.json과 프로젝트 의존성이 준비되어 있어야 합니다."},
+        "python": {"executable": "scip-python", "arguments": ["index", ".", "--project-name=" + project], "documentation": "https://github.com/sourcegraph/scip-python", "requirements": "프로젝트의 Python 가상환경을 활성화한 뒤 실행하세요."},
+        "java": {"executable": "scip-java", "arguments": ["index"], "documentation": "https://github.com/scip-code/scip-java/blob/main/docs/getting-started.md", "requirements": "JDK와 Maven/Gradle 설정이 필요하며 인덱서가 빌드와 clean을 수행할 수 있습니다."},
+    }
+    if language not in guides:
+        raise IndexErrorDetail("scip-indexer-language", "생성 안내는 ts · js · python · java(kotlin)를 지원합니다. 다른 언어도 SCIP 인덱스를 --index로 읽을 수 있습니다.")
+    return dict(guides[language], schemaVersion=SCHEMA_VERSION, language=language, output="index.scip")
+
+
+def main():
+    # Git Bash and the desktop apps consume UTF-8 even when native Windows
+    # Python inherits a legacy ANSI console encoding.
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace", newline="\n")
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace", newline="\n")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo")
+    parser.add_argument("--index")
+    parser.add_argument("--tracked", help="NUL-separated git ls-files result (newline lists also accepted)")
+    parser.add_argument("--scope", default="")
+    parser.add_argument("--lang", default="")
+    parser.add_argument("--covered")
+    parser.add_argument("--format", choices=("json", "records"), default="json")
+    parser.add_argument("--guide", help="Print an indexer's command as JSON without running it")
+    parser.add_argument("--project-name", default="my-project")
+    args = parser.parse_args()
+    importer = None
+    try:
+        if args.guide:
+            print(compact(guide(args.guide, args.project_name)))
+            return 0
+        if not all((args.repo, args.index, args.tracked)):
+            parser.error("--repo, --index and --tracked are required when importing")
+        importer = Importer(args.repo, args.index, args.tracked, args.scope, args.lang)
+        result = importer.read()
+        status = 0 if result["stats"]["coveredDocuments"] else 3
+        if not result["covered"]:
+            importer.diag("scip-no-coverage", "선택한 범위에서 사용할 수 있는 최신 SCIP 문서가 없습니다. 현재 소스로 인덱스를 다시 생성하세요.")
+            result = importer.result(result["edges"])
+    except (IndexErrorDetail, ValueError, OSError, TypeError, KeyError, AttributeError) as exc:
+        code = exc.code if isinstance(exc, IndexErrorDetail) else "scip-index-invalid"
+        message = str(exc) if isinstance(exc, IndexErrorDetail) else "SCIP 인덱스를 읽지 못했습니다: " + str(exc)
+        if importer:
+            # A malformed message must not leave previously read documents marked
+            # as covered: callers might otherwise suppress their fallback edges.
+            importer.docs.clear()
+            importer.diag(code, message)
+            result = importer.result()
+        else:
+            result = {"schemaVersion": SCHEMA_VERSION, "method": "scip", "producer": {"name": "unknown", "version": ""},
+                      "covered": [], "edges": [], "stats": {"coveredDocuments": 0},
+                      "diagnostics": [{"code": code, "message": message, "severity": "warning", "method": "scip"}]}
+        status = 3
+    if args.covered:
+        Path(args.covered).write_bytes("".join(path + "\n" for path in result["covered"]).encode("utf-8"))
+    if args.format == "records" and importer:
+        importer.records(result)
+    elif args.format == "records":
+        for diagnostic in result["diagnostics"]:
+            print("0\tdiagnostic\t" + compact(diagnostic))
+        print("0\tprecise\t" + compact(result["stats"]))
+    else:
+        print(compact(result))
+    return status
+
+
+if __name__ == "__main__":
+    sys.exit(main())
