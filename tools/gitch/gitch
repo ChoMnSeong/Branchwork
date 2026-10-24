@@ -4456,7 +4456,8 @@ GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|
   --out 파일 확장자로 형식을 고른다(- 는 표준출력). 없으면 html · svg · png 는 임시 폴더, json · dot 은 표준출력
   --json = --format json · --no-external 저장소 밖 패키지 · 모듈 빼기 · [폴더] 그 폴더 아래만
   --lang 언어[,언어]  그 언어만: ts · js · web(ts·js·vue·svelte) · swift · python · go · rust · kotlin · java · jvm(kotlin·java)
-  html 은 네 관계를 한 페이지에 담는다(위 탭으로 바꿈) — 파일 · 폴더 단위, 언어, 점 · 상자(다이어그램) 그리기, 필터
+  html 은 네 관계를 한 페이지에 담는다(위 탭으로 바꿈) — 파일 · 폴더 단위, 언어, 점 · 상자(다이어그램) 그리기, 필터,
+       분석(순환 의존 · 영향 범위 · 안 쓰는 것 · 핫스팟 · 숨은 결합 …), 노드 사이 경로
   changes: --since 날짜 · --max-commits N(1000) · --max-files N(30, 더 큰 커밋은 뺌) · --min N(2)
   tree: --depth N(0 = 끝까지) · --files(파일도 노드로)'
 
@@ -6031,11 +6032,13 @@ END {
 AWKEOF
 }
 
-# 표준입력 JSON({"initial", "views": {관계: json}}) → 오프라인 한 페이지(CDN 없음). 옵시디언 그래프 보기처럼 그리고,
-# 위 탭으로 네 관계(파일 · 모듈 · 같이 바뀜 · 폴더)를 바꾸며, 단위(파일 · 폴더) · 언어 · 그리기(점 · 상자 = tuist 같은 다이어그램)를 고른다.
+# 표준입력 JSON({"initial", "views": {관계: json}}) → 오프라인 한 페이지(CDN 없음).
+# 생김새는 Gitrochi 앱 아이콘을 따른다: 남색 빛 배경, git 노드처럼 가운데가 빈 고리, 고른 것은 초록 빛, 눈 달린 마스코트(커서를 본다).
+# 위 탭으로 네 관계(파일 · 모듈 · 같이 바뀜 · 폴더)를 바꾸고, 단위(파일 · 폴더) · 언어 · 그리기(점 · 상자 = tuist 같은 다이어그램) ·
+# 색(언어 · 종류 · 바뀐 횟수) · 크기를 고른다. 분석 창은 순환 의존 · 많이 쓰이는 것 · 안 쓰이는 것 · 가장 긴 사슬 · 핫스팟 ·
+# 숨은 결합(같이 바뀌는데 import 는 없음) 등을 찾아 누르면 그래프에 강조한다. 노드에서는 영향 범위 · 전체 의존 · 경로 찾기.
 # 노드 색은 검증한 범주 색 세 칸(파랑 · 주황 · 청록)만 언어 계열에 주고 나머지는 회색 — 그래프는 어느 두 노드든 붙을 수 있어
-# 세 칸을 넘으면 서로 구별이 안 된다. 모듈은 종류(앱 파랑 · 라이브러리 노랑 · 테스트 청록)로도 칠한다. 강조는 보라.
-# JSON 의 < 는 < 로 바꿔 넣는다 — 데이터 속 </script> 가 페이지를 끊지 않게
+# 세 칸을 넘으면 서로 구별이 안 된다. 바뀐 횟수는 파랑 한 색의 네 단계. JSON 의 < 는 < 로 — 데이터 속 </script> 가 페이지를 끊지 않게
 graph_html() {
   cat <<'HTMLEOF'
 <!doctype html>
@@ -6047,44 +6050,65 @@ graph_html() {
 <style>
 :root {
   color-scheme: dark;
-  --bg: #1e1e1e; --panel: rgba(37, 37, 38, .88); --panel-solid: #252526; --hover: rgba(255, 255, 255, .06); --border: rgba(255, 255, 255, .09);
-  --text: #dcddde; --text-2: #b3b3b3; --muted: #8a8a8a; --halo: rgba(30, 30, 30, .9); --shadow: 0 10px 34px rgba(0, 0, 0, .45);
-  --line: rgba(255, 255, 255, .13); --accent: #9085e9; --accent-soft: rgba(144, 133, 233, .2);
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --node-other: #a3a3a3; --node-ext: #6f6f6f;
+  --bg: #0b1020; --glow: rgba(52, 78, 190, .30); --glow2: rgba(72, 224, 122, .07);
+  --panel: rgba(16, 21, 44, .80); --panel-solid: #11162f; --hover: rgba(127, 164, 255, .09); --border: rgba(127, 164, 255, .16);
+  --text: #e8ebf7; --text-2: #b6bedb; --muted: #7f89ab; --halo: rgba(11, 16, 32, .92); --shadow: 0 14px 44px rgba(0, 0, 12, .6);
+  --line: rgba(200, 212, 248, .17); --ink: rgba(200, 212, 248, .5);
+  --accent: #7fa4ff; --accent-soft: rgba(127, 164, 255, .18); --leaf: #6be59a; --leaf-soft: rgba(107, 229, 154, .18); --hl: #e4e9ff;
+  --core: #0b1020; --box: #141b3b;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --node-other: #aab3cf; --node-ext: #5f6a8f;
+  --h1: #1c5cab; --h2: #3987e5; --h3: #6da7ec; --h4: #b7d3f6;
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #ffffff; --panel: rgba(250, 250, 250, .92); --panel-solid: #fafafa; --hover: rgba(0, 0, 0, .05); --border: rgba(0, 0, 0, .1);
-  --text: #222222; --text-2: #4d4d4d; --muted: #7a7a7a; --halo: rgba(255, 255, 255, .92); --shadow: 0 10px 34px rgba(20, 20, 40, .14);
-  --line: rgba(0, 0, 0, .13); --accent: #6250d6; --accent-soft: rgba(98, 80, 214, .14);
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --node-other: #7d7d7d; --node-ext: #a6a6a6;
+  --bg: #f4f6fb; --glow: rgba(61, 109, 242, .10); --glow2: rgba(31, 157, 85, .06);
+  --panel: rgba(255, 255, 255, .88); --panel-solid: #ffffff; --hover: rgba(61, 109, 242, .07); --border: rgba(20, 30, 70, .12);
+  --text: #141a33; --text-2: #3c4566; --muted: #6b7493; --halo: rgba(244, 246, 251, .92); --shadow: 0 14px 40px rgba(20, 30, 70, .14);
+  --line: rgba(20, 30, 70, .15); --ink: rgba(20, 30, 70, .5);
+  --accent: #3d6df2; --accent-soft: rgba(61, 109, 242, .12); --leaf: #1f9d55; --leaf-soft: rgba(31, 157, 85, .14); --hl: #2c56d6;
+  --core: #ffffff; --box: #ffffff;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --node-other: #7d86a6; --node-ext: #a9b0c8;
+  --h1: #6da7ec; --h2: #3987e5; --h3: #1c5cab; --h4: #0d366b;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Apple SD Gothic Neo", "Segoe UI", "Noto Sans KR", sans-serif; }
+html, body { margin: 0; height: 100%; overflow: hidden; color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Apple SD Gothic Neo", "Segoe UI", "Noto Sans KR", sans-serif; }
+body { background: radial-gradient(1300px 900px at 62% 32%, var(--glow), transparent 70%), radial-gradient(900px 700px at 12% 96%, var(--glow2), transparent 70%), var(--bg); }
 button, input, select { font: inherit; color: inherit; }
-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+canvas { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
 canvas.dragging { cursor: grabbing; }
 canvas.over { cursor: pointer; }
-.hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+canvas.picking { cursor: crosshair; }
+.hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); }
 [hidden] { display: none !important; }
-.icon-btn { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; }
+.icon-btn { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--text-2); cursor: pointer; }
 .icon-btn:hover { background: var(--hover); color: var(--text); }
 .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
 .icon-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* 왼쪽 위: 이름 · 탭 · 수 · 찾기 · 보기 고르기 */
+/* 마스코트: 앱 아이콘의 검은 몸과 두 눈. 눈동자는 커서를 따라간다 */
+.mascot { display: block; overflow: visible; }
+.mascot .body { fill: url(#gmBody); }
+.mascot .rim { fill: none; stroke: url(#gmRim); stroke-width: 2.6; }
+.mascot .white { fill: url(#gmEye); }
+.mascot .pupil { fill: #0a0e1c; transition: transform .12s ease-out; }
+.mascot .lid { transform-box: fill-box; transform-origin: center; animation: blink 7s infinite; }
+.mascot .e2 .lid { animation-delay: .06s; }
+@keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
+@media (prefers-reduced-motion: reduce) { .mascot .lid { animation: none; } .mascot .pupil { transition: none; } }
+/* 왼쪽 위: 마스코트 · 이름 · 탭 · 수 · 찾기 · 보기 고르기 */
 #top { top: 14px; left: 14px; width: min(372px, calc(100vw - 82px)); padding: 12px 12px 10px; }
-#top .row1 { display: flex; align-items: center; gap: 8px; }
+#top .row1 { display: flex; align-items: center; gap: 9px; }
+#logo .mascot { width: 34px; height: 28px; margin: -2px 0 -2px -2px; filter: drop-shadow(0 0 8px rgba(80, 120, 255, .35)); }
 #repo { font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #top .row1 .icon-btn { margin-left: auto; width: 26px; height: 26px; }
-.tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin-top: 9px; padding: 3px; border-radius: 9px; background: var(--hover); }
-.tabs button { padding: 5px 0; border: 0; border-radius: 7px; background: transparent; color: var(--text-2); font-weight: 600; cursor: pointer; }
-.tabs button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+.tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin-top: 10px; padding: 3px; border-radius: 10px; background: var(--hover); }
+.tabs button { padding: 5px 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); font-weight: 600; cursor: pointer; }
+.tabs button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .3), inset 0 0 0 1px var(--border); }
 .tabs button:not(.on):hover { color: var(--text); }
 #stats { margin-top: 7px; color: var(--muted); font-size: 12px; }
 #notes { margin: 8px 0 2px; padding: 8px 10px; border-radius: 8px; background: var(--hover); color: var(--text-2); font-size: 12px; }
 #notes p { margin: 0 0 4px; } #notes p:last-child { margin: 0; }
-.search { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 0 10px; height: 34px; border-radius: 8px; background: var(--hover); border: 1px solid transparent; }
+.search { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 0 10px; height: 34px; border-radius: 9px; background: var(--hover); border: 1px solid transparent; }
 .search:focus-within { border-color: var(--accent); }
 .search svg { flex: none; width: 15px; height: 15px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; }
 .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; }
@@ -6097,7 +6121,12 @@ select { min-width: 0; padding: 4px 8px; border: 1px solid var(--border); border
 select option { background: var(--panel-solid); color: var(--text); }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 2px; border-radius: 8px; background: var(--hover); }
 .seg button { padding: 3px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; white-space: nowrap; }
-.seg button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
+.seg button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .25), inset 0 0 0 1px var(--border); }
+/* 가운데 위: 지금 강조 중인 것 */
+#banner { top: 14px; left: 400px; display: flex; align-items: center; gap: 10px; max-width: min(620px, calc(100vw - 470px)); padding: 7px 8px 7px 14px; border-color: var(--leaf-soft); }
+#banner .dot { background: var(--leaf); box-shadow: 0 0 10px var(--leaf); }
+#bannerText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#banner button { flex: none; padding: 3px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--hover); cursor: pointer; }
 /* 왼쪽: 고른 노드 */
 #info { left: 14px; width: min(372px, calc(100vw - 28px)); overflow: auto; padding: 14px; }
 #info .head { display: flex; align-items: center; gap: 8px; }
@@ -6105,16 +6134,27 @@ select option { background: var(--panel-solid); color: var(--text); }
 #info .head .icon-btn { margin-left: auto; flex: none; width: 26px; height: 26px; }
 #info .sub { margin: 2px 0 6px; color: var(--muted); font-size: 12px; }
 #info .path { margin-bottom: 8px; color: var(--text-2); font-size: 12px; word-break: break-all; }
-#info table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 12px; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+.metrics div { padding: 6px 8px; border-radius: 9px; background: var(--hover); }
+.metrics b { display: block; font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.metrics span { color: var(--muted); font-size: 11px; }
+.metrics .warn b { color: var(--leaf); }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; }
+.actions button { padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--hover); color: var(--text); font-size: 12px; cursor: pointer; }
+.actions button:hover, .actions button.on { border-color: var(--leaf); color: var(--leaf); }
+#info table { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 12px; }
 #info th { padding: 2px 10px 2px 0; color: var(--muted); font-weight: 500; text-align: left; white-space: nowrap; vertical-align: top; }
 #info td { padding: 2px 0; color: var(--text-2); word-break: break-all; }
-#info h3 { display: flex; align-items: center; gap: 6px; margin: 12px 0 4px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .04em; }
-#info h3 .arrow { color: var(--accent); }
-#info ul { margin: 0; padding: 0; list-style: none; }
-#info li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
-#info li:hover { background: var(--hover); }
-#info li .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#info li small { margin-left: auto; padding-left: 8px; color: var(--muted); white-space: nowrap; }
+h3.sec-title { display: flex; align-items: center; gap: 6px; margin: 14px 0 4px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .04em; }
+h3.sec-title .arrow { color: var(--accent); }
+ul.rows { margin: 0; padding: 0; list-style: none; }
+ul.rows li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 7px; cursor: pointer; }
+ul.rows li:hover { background: var(--hover); }
+ul.rows li .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ul.rows li .name small.dir { margin: 0 0 0 4px; padding: 0; color: var(--muted); }
+ul.rows li small { margin-left: auto; padding-left: 8px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+ul.rows li .bar { flex: none; width: 46px; height: 4px; margin-left: 6px; border-radius: 2px; background: var(--hover); overflow: hidden; }
+ul.rows li .bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
 .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; }
 .dot.ext { border-radius: 2px; transform: rotate(45deg) scale(.85); }
 .dot.sq { border-radius: 2px; }
@@ -6140,48 +6180,69 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .switch:checked::after { transform: translateX(14px); }
 .btn { width: 100%; margin-top: 8px; padding: 7px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--hover); color: var(--text); cursor: pointer; }
 .btn:hover { border-color: var(--accent); }
-.hint { color: var(--muted); font-size: 11px; }
 .groups { display: grid; gap: 2px; }
 .groups button { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; text-align: left; }
 .groups button:hover { background: var(--hover); }
 .groups button.off { opacity: .38; }
 .groups button .n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* 아래: 범례 · 단추 */
-#legend { bottom: 14px; left: 14px; max-width: calc(100vw - 290px); display: flex; flex-wrap: wrap; gap: 2px 4px; padding: 5px 6px; }
+#legend { bottom: 14px; left: 14px; max-width: calc(100vw - 330px); display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; padding: 5px 6px; }
 #legend button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; cursor: pointer; }
 #legend button:hover { background: var(--hover); }
 #legend button.off { opacity: .38; }
+.ramp { display: inline-flex; align-items: center; gap: 8px; padding: 2px 8px; color: var(--text-2); font-size: 12px; }
+.ramp i { display: inline-block; width: 22px; height: 8px; border-radius: 2px; }
 #tools { bottom: 14px; right: 14px; display: flex; gap: 2px; padding: 4px; }
-/* 표로 보기 */
-#table { top: 62px; right: 14px; bottom: 66px; width: min(540px, calc(100vw - 28px)); display: flex; flex-direction: column; }
-#table .head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; font-weight: 650; }
-#table .head span { color: var(--muted); font-weight: 400; font-size: 12px; }
-#table .head .icon-btn { margin-left: auto; width: 26px; height: 26px; }
-#table .wrap { flex: 1; overflow: auto; padding: 0 6px 8px; }
+/* 오른쪽: 목록 · 분석 */
+.drawer { top: 62px; right: 14px; bottom: 66px; width: min(540px, calc(100vw - 28px)); display: flex; flex-direction: column; }
+.drawer .head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; font-weight: 650; }
+.drawer .head .mascot { width: 30px; height: 25px; }
+.drawer .head span { color: var(--muted); font-weight: 400; font-size: 12px; }
+.drawer .head .icon-btn { margin-left: auto; width: 26px; height: 26px; }
+.drawer .wrap { flex: 1; overflow: auto; padding: 0 8px 10px; }
 #table table { width: 100%; border-collapse: collapse; font-size: 12px; }
 #table th { position: sticky; top: 0; padding: 6px 8px; background: var(--panel-solid); color: var(--muted); font-weight: 600; text-align: left; cursor: pointer; white-space: nowrap; }
 #table th.num, #table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 #table td { padding: 5px 8px; border-top: 1px solid var(--border); color: var(--text-2); }
 #table td.name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-#table td.name small, #info li small.dir { color: var(--muted); }
+#table td.name small { color: var(--muted); }
 #table tbody tr { cursor: pointer; }
 #table tbody tr:hover td { background: var(--hover); }
-#table .more { padding: 8px; color: var(--muted); font-size: 12px; }
+.more { padding: 8px; color: var(--muted); font-size: 12px; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 2px 4px 6px; }
+.cards > * { padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--hover); text-align: left; }
+.cards button { cursor: pointer; }
+.cards button:hover { border-color: var(--accent); }
+.cards b { display: block; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cards span { color: var(--muted); font-size: 11px; }
+.cards .hot b { color: var(--leaf); text-shadow: 0 0 12px var(--leaf-soft); }
+.sec-note { margin: 0 6px 4px; color: var(--muted); font-size: 11px; }
 /* 마우스를 올린 노드 */
-#tip { position: fixed; z-index: 3; padding: 6px 10px; border-radius: 8px; background: var(--panel-solid); border: 1px solid var(--border); box-shadow: var(--shadow); pointer-events: none; max-width: 380px; }
+#tip { position: fixed; z-index: 3; padding: 6px 10px; border-radius: 9px; background: var(--panel-solid); border: 1px solid var(--border); box-shadow: var(--shadow); pointer-events: none; max-width: 380px; }
 #tip b { display: block; font-weight: 600; word-break: break-all; }
 #tip span { color: var(--muted); font-size: 12px; }
-#empty { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 15px; pointer-events: none; }
+#peek { position: fixed; z-index: 0; top: 76px; right: -46px; width: 230px; height: 192px; pointer-events: none; opacity: .92; }
+#peek .mascot { width: 100%; height: 100%; filter: drop-shadow(0 0 28px rgba(70, 110, 255, .28)); }
+:root[data-theme="light"] #peek { opacity: .85; }
+#empty { position: fixed; inset: 0; z-index: 1; display: grid; place-items: center; align-content: center; gap: 14px; color: var(--muted); font-size: 15px; pointer-events: none; }
+#empty .mascot { width: 150px; height: 125px; filter: drop-shadow(0 0 30px rgba(80, 120, 255, .35)); }
 @media (max-width: 700px) {
   #legend { max-width: calc(100vw - 28px); bottom: 66px; }
   #info { top: auto !important; bottom: 120px; max-height: 45vh !important; }
+  #banner { top: auto; bottom: 120px; max-width: calc(100vw - 28px); }
 }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <radialGradient id="gmBody" cx="42%" cy="30%" r="78%"><stop offset="0" stop-color="#27326e"/><stop offset=".55" stop-color="#0e1330"/><stop offset="1" stop-color="#060914"/></radialGradient>
+  <linearGradient id="gmRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9db8ff" stop-opacity=".95"/><stop offset=".45" stop-color="#3d6df2" stop-opacity=".12"/><stop offset="1" stop-color="#7f9cff" stop-opacity=".75"/></linearGradient>
+  <radialGradient id="gmEye" cx="40%" cy="36%" r="72%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#b9c5ff"/></radialGradient>
+</defs></svg>
+<div id="peek" aria-hidden="true"></div>
 <canvas id="c" tabindex="0" aria-label="구조 그래프 — 표로 보기는 오른쪽 아래 목록 단추"></canvas>
 <div class="hud" id="top">
-  <div class="row1"><span id="repo">gitch graph</span>
+  <div class="row1"><span id="logo"></span><span id="repo">gitch graph</span>
     <button class="icon-btn" id="noteBtn" type="button" title="안내" aria-label="안내" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button></div>
   <div class="tabs" id="tabs" role="tablist" aria-label="관계"></div>
   <div id="stats"></div>
@@ -6193,6 +6254,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     <span>그리기</span><div class="line"><div class="seg" id="style"></div></div>
   </div>
 </div>
+<div class="hud" id="banner" hidden><span class="dot"></span><span id="bannerText"></span><button id="bannerClear" type="button">풀기</button></div>
 <aside class="hud" id="info" aria-live="polite" hidden></aside>
 <button class="hud icon-btn" id="gear" type="button" title="그래프 설정" aria-label="그래프 설정" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
 <aside class="hud" id="panel" hidden>
@@ -6209,7 +6271,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   <details open><summary>묶음</summary><div class="sec"><div class="groups" id="groups"></div></div></details>
   <details open><summary>표시</summary><div class="sec">
     <div class="row col"><span class="lab">배치</span><div class="seg" id="layout"></div></div>
-    <div class="row col" id="colorRow"><span class="lab">색</span><div class="seg" id="colorBy"></div></div>
+    <div class="row col"><span class="lab">색</span><div class="seg" id="colorBy"></div></div>
+    <div class="row col"><span class="lab">크기</span><div class="seg" id="sizeBy"></div></div>
     <label class="row" id="arrowRow">화살표<input class="switch" type="checkbox" id="arrows"></label>
     <label class="row">이름 항상 보이기<input class="switch" type="checkbox" id="names"></label>
     <label class="row col"><span class="lab">이름이 보이는 확대<b id="fadeV"></b></span><input type="range" id="fade" min="0" max="3" step="0.05"></label>
@@ -6224,21 +6287,26 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     <button class="btn" id="animate" type="button">다시 움직이기</button>
   </div></details>
 </aside>
-<aside class="hud" id="table" hidden>
+<aside class="hud drawer" id="table" hidden>
   <div class="head">목록 <span id="tableNote"></span><button class="icon-btn" id="tableClose" type="button" title="닫기" aria-label="목록 닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="wrap"><table><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table><div class="more" id="tmore" hidden></div></div>
+</aside>
+<aside class="hud drawer" id="ana" hidden>
+  <div class="head"><span id="anaLogo"></span>분석 <span id="anaNote"></span><button class="icon-btn" id="anaClose" type="button" title="닫기" aria-label="분석 닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="wrap" id="anaBody"></div>
 </aside>
 <div class="hud" id="legend"></div>
 <div class="hud" id="tools">
   <button class="icon-btn" id="zin" type="button" title="가까이 (+)" aria-label="가까이"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button>
   <button class="icon-btn" id="zout" type="button" title="멀리 (-)" aria-label="멀리"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
   <button class="icon-btn" id="fit" type="button" title="전체 보기 (F)" aria-label="전체 보기"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  <button class="icon-btn" id="anaBtn" type="button" title="분석 (A) — 순환 · 많이 쓰이는 것 · 안 쓰이는 것 · 핫스팟 …" aria-label="분석"><svg viewBox="0 0 24 24"><circle cx="6" cy="17" r="2.2"/><circle cx="12" cy="8" r="2.2"/><circle cx="18" cy="14" r="2.2"/><path d="M7.4 15.3 10.7 9.9M13.7 9.5l2.8 2.9"/></svg></button>
   <button class="icon-btn" id="list" type="button" title="표로 보기" aria-label="표로 보기"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.5M4.5 12h.5M4.5 18h.5"/></svg></button>
   <button class="icon-btn" id="png" type="button" title="그림(PNG)으로 저장" aria-label="그림으로 저장"><svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14"/></svg></button>
   <button class="icon-btn" id="theme" type="button" title="밝게 · 어둡게" aria-label="밝게 또는 어둡게"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
 </div>
 <div id="tip" hidden></div>
-<div id="empty" hidden>그릴 것이 없습니다</div>
+<div id="empty" hidden><span id="emptyLogo"></span>그릴 것이 없습니다</div>
 <script id="graph-data" type="application/json">
 HTMLEOF
   sed 's/</\\u003c/g'
@@ -6265,8 +6333,9 @@ HTMLEOF
   const hsize = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : b >= 1024 ? Math.round(b / 1024) + " KB" : b + " B");
   const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const MASCOT = (cls) => `<svg class="mascot ${cls || ""}" viewBox="0 0 120 100" aria-hidden="true"><path class="body" d="M16 74C6 46 26 14 62 9C94 5 116 28 114 56C113 82 92 96 62 96C38 96 22 88 16 74Z"/><path class="rim" d="M16 74C6 46 26 14 62 9C94 5 116 28 114 56C113 82 92 96 62 96C38 96 22 88 16 74Z"/><g class="eye e1" transform="translate(48 44) rotate(-16)"><g class="lid"><path class="white" d="M-12 0Q0-16 12 0Q0 16-12 0Z"/><ellipse class="pupil" cx="0" cy="1" rx="2.7" ry="8.2"/></g></g><g class="eye e2" transform="translate(86 62) rotate(14)"><g class="lid"><path class="white" d="M-14 0Q0-17 14 0Q0 17-14 0Z"/><ellipse class="pupil" cx="0" cy="1" rx="3" ry="9.2"/></g></g></svg>`;
 
-  // ----- 색: 언어 계열은 범주 색 세 칸(모든 관계에서 같은 계열은 같은 색), 모듈 종류는 앱 · 라이브러리 · 테스트 -----
+  // ----- 색: 언어 계열은 범주 색 세 칸(노드가 많은 셋, 모든 관계에서 같은 색), 모듈 종류는 앱 · 라이브러리 · 테스트, 바뀐 횟수는 파랑 네 단계 -----
   const FAMILY = { ts: "web", js: "web", vue: "web", svelte: "web", npm: "web", swift: "swift", tuist: "swift", python: "python", go: "go", rust: "rust", cargo: "rust", kotlin: "jvm", java: "jvm", gradle: "jvm" };
   const EXTFAM = { ts: "web", tsx: "web", js: "web", jsx: "web", mjs: "web", cjs: "web", mts: "web", cts: "web", vue: "web", svelte: "web", swift: "swift", py: "python", pyi: "python", go: "go", rs: "rust", kt: "jvm", kts: "jvm", java: "jvm" };
   const FAMNAME = { web: "TS/JS", swift: "Swift", python: "Python", go: "Go", rust: "Rust", jvm: "Kotlin/Java", lang: "그 밖의 언어", other: "그 밖의 파일", ext: "외부 패키지 · 모듈" };
@@ -6275,46 +6344,67 @@ HTMLEOF
   const APP_T = /^(app|appClip|executable|commandLineTool|watch2App|watch2Extension|appExtension|messagesExtension|stickerPackExtension|tvTopShelfExtension|extensionKitExtension|systemExtension|xpc)$/;
   const TEST_T = /^(test|unitTests|uiTests)$/;
   const TEST_PATH = /(^|\/)(tests?|__tests__|specs?|[A-Za-z]*Tests|androidTest|testFixtures)(\/|$)|[._-](test|spec)\.[A-Za-z]+$|Tests?\.(swift|kt|java)$|(^|\/)test_[^/]*\.py$/;
+  const ENTRY = /(^|\/)(main|index|App|AppDelegate|SceneDelegate|lib|mod|build|setup|__main__|__init__|conftest|Package|Project|Workspace)\.[A-Za-z]+$|App\.swift$|\.config\.[cm]?[jt]s$|\.d\.ts$|\.stories\.[jt]sx?$/;
   const famOf = (d, rel) => {
     if (d.kind === "package" || (rel === "files" && d.kind === "module")) return "ext";
     if (rel === "tree" && d.kind === "folder") { for (const e of Object.keys(d.exts || {})) if (EXTFAM[e]) return EXTFAM[e]; return "other"; }
     return FAMILY[d.group] || "other";
   };
   const roleOf = (d) => (d.kind === "package" ? "ext" : APP_T.test(d.type || "") ? "app" : TEST_T.test(d.type || "") || TEST_PATH.test(d.path || "") ? "test" : "lib");
-  // 색 세 칸은 노드가 가장 많은 계열 셋에(같으면 우선순위), 칸 순서는 우선순위대로 — 저장소가 달라도 TS/JS 는 파랑, Swift 는 주황이 되기 쉽게
   const famCount = {};
   for (const v of ORDER) for (const d of VIEWS[v].nodes) { const f = famOf(d, v); if (PRIORITY.includes(f)) famCount[f] = (famCount[f] || 0) + 1; }
   const top3 = Object.keys(famCount).sort((a, b) => famCount[b] - famCount[a] || PRIORITY.indexOf(a) - PRIORITY.indexOf(b)).slice(0, 3);
-  const colored = PRIORITY.filter((f) => top3.includes(f));
+  const colored = PRIORITY.filter((f) => top3.includes(f));   // 칸 순서는 우선순위대로 — 저장소가 달라도 TS/JS 파랑 · Swift 주황이 되기 쉽게
   const SLOT = {};
   colored.forEach((f, i) => { SLOT[f] = "s" + (i + 1); });
   const ROLESLOT = { app: "s1", lib: "s4", test: "s3" };
 
-  // ----- 설정: 필터 · 표시 · 힘은 모든 탭 공통, 단위 · 그리기 · 배치 · 색은 탭마다 -----
+  // ----- 관계 사이에 나눠 쓰는 값: 파일의 바뀐 횟수(같이 바뀜) · 줄 수(파일 import) · import 쌍(숨은 결합 찾기) -----
+  const CHG = new Map(), LNS = new Map(), IMP = new Set();
+  if (VIEWS.changes) for (const d of VIEWS.changes.nodes) if (d.changes) CHG.set(d.id, d);
+  if (VIEWS.files) { for (const d of VIEWS.files.nodes) if (d.lines) LNS.set(d.id, d.lines); for (const e of VIEWS.files.edges) { IMP.add(e.source + "\u0000" + e.target); IMP.add(e.target + "\u0000" + e.source); } }
+  const DIRCHG = new Map();   // 폴더 경로 → 그 아래 파일들의 바뀐 횟수 합 (tree 탭의 색)
+  for (const [id, d] of CHG) { const segs = id.split("/"); segs.pop(); let p = ""; DIRCHG.set("./", (DIRCHG.get("./") || 0) + d.changes); for (const s of segs) { p = p ? p + "/" + s : s; DIRCHG.set(p + "/", (DIRCHG.get(p + "/") || 0) + d.changes); } }
+
+  // ----- 설정: 필터 · 표시 · 힘은 모든 탭 공통, 단위 · 그리기 · 배치 · 색 · 크기는 탭마다 -----
   const P = { lang: "all", ext: true, heur: true, tests: true, orph: true, onlyFound: false, minDeg: 0, local: false, localDepth: 1, arrows: false, names: false, size: 1, width: 1, center: 0.4, repel: 10, link: 0.7, dist: 40 };
   const hidden = new Set();
   const C = {};
   const VS = {};
   let vs = null, m = null, view = { x: 0, y: 0, k: 1 };
-  const LAYOUTS = { files: [["force", "힘"], ["layers", "층"]], modules: [["layers", "층"], ["force", "힘"]], changes: [["force", "힘"], ["layers", "층"]], tree: [["radial", "방사형"], ["layers", "층"], ["force", "힘"]] };
+  const LAYOUTS = { files: [["force", "힘"], ["layers", "층"]], modules: [["layers", "층"], ["force", "힘"]], changes: [["force", "힘"], ["layers", "층"]], tree: [["tidy", "나무"], ["radial", "방사형"], ["layers", "층"], ["force", "힘"]] };
   function stateFor(rel) {
     if (VS[rel]) return VS[rel];
     const roles = VIEWS[rel].nodes.some((d) => d.kind === "module" && (APP_T.test(d.type || "") || TEST_T.test(d.type || "")));
-    return (VS[rel] = { rel, unit: "file", depth: 2, style: rel === "modules" ? "box" : "dot", layout: LAYOUTS[rel][0][0], colorBy: rel === "modules" && roles ? "role" : "family", models: {} });
+    return (VS[rel] = { rel, unit: "file", depth: 2, style: rel === "modules" ? "box" : "dot", layout: LAYOUTS[rel][0][0], colorBy: rel === "modules" && roles ? "role" : "family", sizeBy: "auto", models: {} });
   }
-  const byRole = () => vs.colorBy === "role" && vs.rel === "modules";   // 종류(앱 · 라이브러리 · 테스트) 색은 모듈 탭에서만
-  const groupKey = (n) => (byRole() ? "r:" + n.role : "f:" + n.fam);
+  const heatOk = () => CHG.size > 0 && vs.rel !== "modules";
+  const colorMode = () => (vs.colorBy === "role" && vs.rel === "modules" ? "role" : vs.colorBy === "heat" && heatOk() ? "heat" : "family");
+  const groupKey = (n) => (colorMode() === "role" ? "r:" + n.role : "f:" + n.fam);
+  function heatOf(n) {
+    if (n.members) { let s = 0; for (const o of n.members) s += heatOf(o); return s; }
+    if (m.rel === "tree" && n.kind === "folder") return DIRCHG.get(n.id) || 0;
+    const c = CHG.get(n.id);
+    return c ? c.changes : n.d.changes || 0;
+  }
+  function linesOf(n) {
+    if (n.members) { let s = 0; for (const o of n.members) s += linesOf(o); return s; }
+    return n.d.lines || LNS.get(n.id) || 0;
+  }
+  let heatMax = 1;
   const colorOf = (n) => {
-    if (byRole()) return n.role === "ext" ? C.ext : C[ROLESLOT[n.role]] || C.other;
+    const mode = colorMode();
+    if (mode === "role") return n.role === "ext" ? C.ext : C[ROLESLOT[n.role]] || C.other;
+    if (mode === "heat") { const v = heatOf(n); if (!v) return n.fam === "ext" ? C.ext : C.dim; return C["h" + (1 + Math.min(3, Math.floor((Math.log(v + 1) / Math.log(heatMax + 1)) * 4)))]; }
     return SLOT[n.fam] ? C[SLOT[n.fam]] : n.fam === "ext" ? C.ext : C.other;
   };
   const colorOfKey = (k) => (k[0] === "r" ? (k === "r:ext" ? C.ext : C[ROLESLOT[k.slice(2)]] || C.other) : SLOT[k.slice(2)] ? C[SLOT[k.slice(2)]] : k === "f:ext" ? C.ext : C.other);
   const keyName = (k) => (k[0] === "r" ? ROLENAME[k.slice(2)] : FAMNAME[k.slice(2)]) || k.slice(2);
   function readTheme() {
-    const cs = getComputedStyle(root);
-    for (const k of ["bg", "text", "text-2", "muted", "line", "accent", "halo", "s1", "s2", "s3", "s4"]) C[k] = cs.getPropertyValue("--" + k).trim();
-    C.other = cs.getPropertyValue("--node-other").trim(); C.ext = cs.getPropertyValue("--node-ext").trim();
-    if (m) { renderGroups(); if (sel) renderInfo(); }
+    const cs = getComputedStyle(root), g = (k) => cs.getPropertyValue("--" + k).trim();
+    for (const k of ["bg", "text", "text-2", "muted", "line", "ink", "accent", "leaf", "hl", "halo", "core", "box", "s1", "s2", "s3", "s4", "h1", "h2", "h3", "h4", "glow", "glow2"]) C[k] = g(k);
+    C.other = g("node-other"); C.ext = g("node-ext"); C.dim = g("node-ext");
+    if (m) { renderGroups(); renderInfo(); if (!$("ana").hidden) renderAna(); }
     request();
   }
   function setTheme(t, save) {
@@ -6346,23 +6436,26 @@ HTMLEOF
   function aggregate(base, depth) {   // 파일을 폴더(앞 depth 단계)로 묶고, 연결은 폴더 사이로 더한다
     const groups = new Map(), map = new Map(), nodes = [], edges = [];
     for (const n of base.nodes) {
-      if (n.kind !== "file" || !n.d.path) { const c = node(n.d, base.rel); c.fam = n.fam; map.set(n, c); nodes.push(c); continue; }
-      const segs = n.d.path.split("/"); segs.pop();
-      const parts = segs.slice(0, depth), key = parts.join("/");
+      let key = null;
+      if (n.kind === "file" && n.d.path) key = n.d.path.split("/").slice(0, -1).slice(0, depth).join("/");
+      else if (n.kind === "folder" && n.d.group === "go") key = (n.d.path === "." ? "" : n.d.path || "").split("/").slice(0, depth).join("/");   // Go 패키지(폴더 노드)는 그 폴더 묶음으로
+      if (key === null) { const c = node(n.d, base.rel); c.fam = n.fam; map.set(n, c); nodes.push(c); continue; }
       let g = groups.get(key);
       if (!g) {
         g = node({ id: key ? key + "/" : "./", label: key || META.repo, kind: "folder", group: "folder", path: key || ".", files: 0, lines: 0 }, base.rel);   // 이름은 폴더 경로 전체 — 같은 이름(src 등)이 섞이지 않게
         g.members = []; g.famCount = {}; g.tests = 0;
         groups.set(key, g); nodes.push(g);
       }
+      map.set(n, g);
+      if (n.kind !== "file") continue;
       g.members.push(n); g.d.files++;
       if (n.d.lines) g.d.lines += n.d.lines;
       if (n.d.changes) g.d.changes = (g.d.changes || 0) + n.d.changes;
       g.famCount[n.fam] = (g.famCount[n.fam] || 0) + 1;
       if (n.test) g.tests++;
-      map.set(n, g);
     }
     for (const g of groups.values()) {
+      if (!g.members.length) { g.fam = colored.includes("go") ? "go" : "lang"; delete g.d.lines; continue; }   // 파일 없이 Go 패키지 노드만 든 폴더
       let best = "other", bc = -1;
       for (const [f, c] of Object.entries(g.famCount)) if (c > bc || (c === bc && f < best)) { best = f; bc = c; }
       g.fam = best; g.test = g.tests === g.members.length; g.role = g.test ? "test" : "lib";
@@ -6387,16 +6480,26 @@ HTMLEOF
     if (!st.models[key]) st.models[key] = aggregate(st.models.f, st.depth);
     return st.models[key];
   }
-  const metric = (n) => (n.members ? n.members.length : m.rel === "changes" ? n.d.changes || 0 : m.rel === "tree" ? n.d.files || 0 : n.deg);
+  const SIZES = () => [["auto", "자동"], ["deg", "연결"], ...(m.nodes.some((n) => linesOf(n)) ? [["lines", "줄"]] : []), ...(heatOk() ? [["changes", "바뀐 횟수"]] : [])];
+  function metric(n) {
+    const by = vs.sizeBy;
+    if (by === "deg") return n.deg;
+    if (by === "lines") return linesOf(n);
+    if (by === "changes") return heatOf(n);
+    return n.members ? n.members.length : m.rel === "changes" ? n.d.changes || 0 : m.rel === "tree" ? n.d.files || 0 : n.deg;
+  }
   function sizeNodes() {
     let maxM = 1;
     for (const n of m.nodes) maxM = Math.max(maxM, metric(n));
+    heatMax = 1;
+    for (const n of m.nodes) heatMax = Math.max(heatMax, heatOf(n));
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.font = `600 13px ${FONT}`;
-    for (const n of m.nodes) { n.r = P.size * (3.2 + 8.5 * Math.sqrt(metric(n) / maxM)); n.w = Math.max(58, ctx.measureText(n.label).width + 26) * Math.sqrt(P.size); n.h = 30 * Math.sqrt(P.size); }
+    for (const n of m.nodes) { n.r = P.size * (3.4 + 8.5 * Math.sqrt(metric(n) / maxM)); n.w = Math.max(58, ctx.measureText(n.label).width + 26) * Math.sqrt(P.size); n.h = 30 * Math.sqrt(P.size); }
     ctx.font = `12px ${FONT}`;
     for (const n of m.nodes) n.lw = ctx.measureText(n.label).width;
     ctx.restore();
+    m.byR = m.nodes.slice().sort((a, b) => (a.id === "./") - (b.id === "./") || b.r - a.r || byId(a, b));   // 이름은 큰 노드부터 자리를 잡는다(뿌리 폴더는 위에 저장소 이름이 있으니 맨 뒤)
   }
   const box = () => vs.style === "box";
   const halfW = (n) => (box() ? n.w / 2 : n.r);
@@ -6442,12 +6545,14 @@ HTMLEOF
     }
     visNodes = m.nodes.filter((n) => n.vis);
     visEdges = m.edges.filter((e) => e.vis);
+    m.ana = null;
     $("empty").hidden = visNodes.length > 0;
+    $("peek").hidden = !visNodes.length;
   }
 
   // ----- 화면 · 보기 -----
   let W = 0, H = 0, dpr = 1, sel = null, hover = null, query = "", matches = [], matchSet = null, matchIdx = -1;
-  let pending = false, tween = null, morph = null, dimT = 0;
+  let pending = false, tween = null, morph = null, dimT = 0, HL = null, pathFrom = null;
   const clampK = (k) => clamp(k, 0.02, 10);
   function request() { if (!pending) { pending = true; requestAnimationFrame(frame); } }
   function resize() { dpr = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; canvas.width = Math.max(1, Math.round(W * dpr)); canvas.height = Math.max(1, Math.round(H * dpr)); if (sel) placeInfo(); request(); }
@@ -6456,12 +6561,16 @@ HTMLEOF
     for (const n of list) { const hw = n.hw != null ? n.hw : halfW(n), hh = n.hh != null ? n.hh : halfH(n); x0 = Math.min(x0, n.x - hw); y0 = Math.min(y0, n.y - hh); x1 = Math.max(x1, n.x + hw); y1 = Math.max(y1, n.y + hh); }
     return [x0, y0, x1, y1];
   }
+  function margins() {   // 그래프가 보일 빈 곳: 왼쪽 창과, 열려 있으면 오른쪽 창(목록 · 분석)을 피한다
+    const drawer = !$("ana").hidden || !$("table").hidden || !$("panel").hidden;
+    return { l: W > 900 && (sel || W > 1300) ? 400 : 20, r: drawer && W > 1100 ? Math.min(570, W * 0.42) : 40 };
+  }
   function fitView(list) {
     list = list || visNodes;
     if (!list.length || !W) return null;
-    const [x0, y0, x1, y1] = bounds(list), left = W > 900 ? 400 : 20, padY = 60;
-    const k = clampK(Math.min((W - left - 40) / Math.max(x1 - x0, 1), (H - padY * 2) / Math.max(y1 - y0, 1), 2));
-    return { k, x: left + (W - left - 40) / 2 - ((x0 + x1) / 2) * k, y: H / 2 - ((y0 + y1) / 2) * k };
+    const [x0, y0, x1, y1] = bounds(list), { l, r } = margins(), padY = 60;
+    const k = clampK(Math.min((W - l - r) / Math.max(x1 - x0, 1), (H - padY * 2) / Math.max(y1 - y0, 1), 2));
+    return { k, x: l + (W - l - r) / 2 - ((x0 + x1) / 2) * k, y: H / 2 - ((y0 + y1) / 2) * k };
   }
   function animateTo(target, ms) {
     if (!target) return;
@@ -6484,13 +6593,13 @@ HTMLEOF
     };
     request();
   }
-  function centerOn(n, k) { m.userMoved = true; k = clampK(k); animateTo({ k, x: (W > 900 ? 400 + (W - 440) / 2 : W / 2) - n.x * k, y: H / 2 - n.y * k }); }
+  function centerOn(n, k) { const { l, r } = margins(); m.userMoved = true; k = clampK(k); animateTo({ k, x: l + (W - l - r) / 2 - n.x * k, y: H / 2 - n.y * k }); }
 
-  // ----- 힘 배치 (Barnes–Hut) -----
+  // ----- 힘 배치 (Barnes–Hut) + 겹침 막기 -----
   const THETA2 = 0.81, ALPHA_MIN = 0.003, DECAY = 0.0228;
   let alpha = 0, running = false;
   function seed() {   // 이름 순 해바라기 나선 — 같은 폴더가 가까이서 시작해 빨리 모인다
-    m.nodes.slice().sort(byId).forEach((n, i) => { const r = (box() ? 16 : 7) * Math.sqrt(i + 0.5), a = i * 2.399963; n.x = r * Math.cos(a); n.y = r * Math.sin(a); n.vx = n.vy = 0; });
+    m.nodes.slice().sort(byId).forEach((n, i) => { const r = (box() ? 18 : 7) * Math.sqrt(i + 0.5), a = i * 2.399963; n.x = r * Math.cos(a); n.y = r * Math.sin(a); n.vx = n.vy = 0; });
   }
   function linkParams() {
     const deg = new Map();
@@ -6543,6 +6652,39 @@ HTMLEOF
     if (q.n && q.n !== n) push(n, q.n.x, q.n.y, 1, f0);
     if (q.more) for (const o of q.more) if (o !== n) push(n, o.x, o.y, 1, f0);
   }
+  // 겹침 풀기: 격자로 가까운 쌍만 보고, 상자는 덜 겹친 축으로 · 점은 중심선으로 밀어낸다 (pos 가 있으면 그 자리 값을 고친다)
+  function collide(list, strength, pos) {
+    const isBox = box(), pad = isBox ? 12 : 3;
+    let cell = 8;
+    for (const n of list) cell = Math.max(cell, (isBox ? n.w : n.r * 2) + pad * 2);
+    const X = pos ? (n) => pos.get(n)[0] : (n) => n.x, Y = pos ? (n) => pos.get(n)[1] : (n) => n.y;
+    const move = pos ? (n, dx, dy) => { const p = pos.get(n); p[0] += dx; p[1] += dy; } : (n, dx, dy) => { if (n.fx === null) { n.x += dx; n.y += dy; } };
+    const grid = new Map(), key = (gx, gy) => gx * 100003 + gy;
+    for (const n of list) { const k = key(Math.floor(X(n) / cell), Math.floor(Y(n) / cell)); const b = grid.get(k); if (b) b.push(n); else grid.set(k, [n]); }
+    for (const n of list) {
+      const gx = Math.floor(X(n) / cell), gy = Math.floor(Y(n) / cell);
+      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+        const b = grid.get(key(gx + i, gy + j));
+        if (!b) continue;
+        for (const o of b) {
+          if (o.i <= n.i) continue;
+          let dx = X(o) - X(n), dy = Y(o) - Y(n);
+          if (!dx && !dy) { dx = (o.i % 7) - 3 || 1; dy = (o.i % 5) - 2 || 1; }
+          if (isBox) {
+            const ox = (n.w + o.w) / 2 + pad - Math.abs(dx), oy = (n.h + o.h) / 2 + pad - Math.abs(dy);
+            if (ox <= 0 || oy <= 0) continue;
+            if (ox < oy) { const s = (ox / 2) * strength * Math.sign(dx); move(n, -s, 0); move(o, s, 0); }
+            else { const s = (oy / 2) * strength * Math.sign(dy); move(n, 0, -s); move(o, 0, s); }
+          } else {
+            const d = Math.hypot(dx, dy), min = n.r + o.r + pad;
+            if (d >= min) continue;
+            const s = ((min - d) / 2 / d) * strength;
+            move(n, -dx * s, -dy * s); move(o, dx * s, dy * s);
+          }
+        }
+      }
+    }
+  }
   function tick() {
     for (const e of visEdges) {
       const s = e.s, t = e.t;
@@ -6567,30 +6709,15 @@ HTMLEOF
       if (n.fx !== null) { n.x = n.fx; n.y = n.fy; n.vx = n.vy = 0; continue; }
       n.vx *= 0.58; n.vy *= 0.58; n.x += n.vx; n.y += n.vy;
     }
+    if (box() || visNodes.length <= 4000) collide(visNodes, box() ? 0.8 : 0.5);
     alpha += (0 - alpha) * DECAY;
   }
 
   // ----- 층(위 → 아래: 의존하는 쪽이 위, tuist graph 처럼) · 방사형(tree) — 자리를 옮길 때는 미끄러지듯 -----
   function layersTargets() {
-    const state = new Map(), back = new Set(), order = [];
-    for (const r of visNodes) {
-      if (state.has(r)) continue;
-      state.set(r, 1);
-      const stack = [[r, 0]];
-      while (stack.length) {
-        const top = stack[stack.length - 1], n = top[0];
-        if (top[1] < n.out.length) {
-          const e = n.out[top[1]++];
-          if (!e.vis) continue;
-          const st = state.get(e.t);
-          if (st === 1) back.add(e); else if (!st) { state.set(e.t, 1); stack.push([e.t, 0]); }
-        } else { state.set(n, 2); order.push(n); stack.pop(); }
-      }
-    }
-    const rank = new Map(visNodes.map((n) => [n, 0]));
-    for (let j = order.length - 1; j >= 0; j--) { const n = order[j], r = rank.get(n); for (const e of n.out) if (e.vis && !back.has(e)) rank.set(e.t, Math.max(rank.get(e.t), r + 1)); }
+    const { rank } = analyze();
     const layers = [];
-    for (const n of visNodes) (layers[rank.get(n)] || (layers[rank.get(n)] = [])).push(n);
+    for (const n of visNodes) (layers[rank.get(n) || 0] || (layers[rank.get(n) || 0] = [])).push(n);
     const pos = new Map();
     for (const L of layers) if (L) { L.sort((a, b) => (a.fam < b.fam ? -1 : a.fam > b.fam ? 1 : byId(a, b))); L.forEach((n, i) => pos.set(n, i)); }
     for (let sweep = 0; sweep < 8; sweep++) {   // 이웃 평균 자리로 정렬해 엇갈림을 줄인다
@@ -6616,35 +6743,79 @@ HTMLEOF
     }
     return T;
   }
-  function radialTargets() {
+  function forest() {   // 보이는 연결로 만든 숲(tree 의 포함 관계): 뿌리 · 아이 · 깊이 · 잎 수. 뿌리 없이 도는 곳은 아무 노드에서 시작
+    const kids = new Map(), hasParent = new Set(), depth = new Map(), children = new Map(), order = [], roots = [];
+    for (const e of visEdges) { if (!kids.has(e.s)) kids.set(e.s, []); kids.get(e.s).push(e.t); hasParent.add(e.t); }
+    const grow = (r) => {
+      roots.push(r); depth.set(r, 0);
+      const queue = [r];
+      for (let qi = 0; qi < queue.length; qi++) {
+        const n = queue[qi], ch = [];
+        order.push(n);
+        for (const k of kids.get(n) || []) if (!depth.has(k)) { depth.set(k, depth.get(n) + 1); ch.push(k); queue.push(k); }
+        ch.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "folder" ? -1 : 1) || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));   // 폴더 먼저, 이름 순
+        children.set(n, ch);
+      }
+    };
+    for (const n of visNodes) if (!hasParent.has(n) && !depth.has(n)) grow(n);
+    for (const n of visNodes) if (!depth.has(n)) grow(n);
+    const leaves = new Map();
+    for (let i = order.length - 1; i >= 0; i--) { const n = order[i], ch = children.get(n); leaves.set(n, ch.length ? ch.reduce((s, c) => s + leaves.get(c), 0) : 1); }
+    return { roots, depth, children, leaves, order };
+  }
+  function radialTargets() {   // 방사형: 뿌리가 가운데, 깊이마다 고리 하나, 각도는 아래 잎 수만큼
     const T = new Map();
     if (!visNodes.length) return T;
-    const kids = new Map(), hasParent = new Set();
-    for (const e of visEdges) { if (!kids.has(e.s)) kids.set(e.s, []); kids.get(e.s).push(e.t); hasParent.add(e.t); }
-    let roots = visNodes.filter((n) => !hasParent.has(n));
-    if (!roots.length) roots = [visNodes[0]];
-    const depth = new Map(), children = new Map(), leaves = new Map(), order = [], queue = roots.slice();
-    roots.forEach((r) => depth.set(r, 0));
-    for (let qi = 0; qi < queue.length; qi++) {
-      const n = queue[qi], ch = [];
-      order.push(n);
-      for (const k of kids.get(n) || []) if (!depth.has(k)) { depth.set(k, depth.get(n) + 1); ch.push(k); queue.push(k); }
-      ch.sort((a, b) => (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));
-      children.set(n, ch);
-    }
-    for (let i = order.length - 1; i >= 0; i--) { const n = order[i], ch = children.get(n); leaves.set(n, ch.length ? ch.reduce((s, c) => s + leaves.get(c), 0) : 1); }
-    let maxD = 1, total = 0;
-    for (const n of order) maxD = Math.max(maxD, depth.get(n));
+    const { roots, depth, children, leaves, order } = forest(), isBox = box(), off = roots.length > 1 ? 1 : 0;
+    let total = 0, maxD = 0;
     for (const r of roots) total += leaves.get(r);
-    const ring = Math.max(box() ? 190 : 120, (total * (box() ? 40 : 18)) / (2 * Math.PI * maxD));
-    const place = (n, start, span) => {
-      const d = depth.get(n), a = start + span / 2;
-      T.set(n, [Math.cos(a) * d * ring, Math.sin(a) * d * ring]);
+    for (const n of order) maxD = Math.max(maxD, depth.get(n) + off);
+    // 고리 반지름: 그 고리의 노드가 자기 몫의 호 안에 들어갈 만큼(점은 노드 크기, 상자는 대각선) — 이름은 겹치면 그리지 않는다
+    const span = (n) => (2 * Math.PI * leaves.get(n)) / total, size = (n) => (isBox ? Math.hypot(n.w, n.h) + 14 : n.r * 2 + 10), ring = [0];
+    for (let d = 1; d <= maxD; d++) {
+      let need = ring[d - 1] + (isBox ? 90 : 70);
+      for (const n of order) if (depth.get(n) + off === d) need = Math.max(need, size(n) / span(n));
+      ring[d] = need;
+    }
+    const place = (n, start, sp) => {
+      const a = start + sp / 2, r = ring[depth.get(n) + off];
+      T.set(n, [Math.cos(a) * r, Math.sin(a) * r]);
       let s = start;
-      for (const c of children.get(n)) { const sp = (span * leaves.get(c)) / leaves.get(n); place(c, s, sp); s += sp; }
+      for (const c of children.get(n)) { const csp = (sp * leaves.get(c)) / leaves.get(n); place(c, s, csp); s += csp; }
     };
     let s = -Math.PI / 2;
-    for (const r of roots) { const sp = (2 * Math.PI * leaves.get(r)) / total; place(r, s, sp); s += sp; }
+    for (const r of roots) { const sp = span(r); place(r, s, sp); s += sp; }
+    return T;
+  }
+  function treeTargets() {   // 가로 나무: 깊이는 오른쪽으로, 형제는 아래로 한 줄씩 — 상자가 겹칠 수 없다
+    const T = new Map();
+    if (!visNodes.length) return T;
+    const { roots, depth, children, order } = forest(), isBox = box(), L = [], R = [];
+    // 이름은 d3 의 tidy tree 처럼: 아이가 있으면 왼쪽, 잎이면 오른쪽 — 연결선과 겹치지 않게. 열 간격은 그 이름까지 넣어 잡는다
+    for (const n of order) {
+      const d = depth.get(n), text = Math.min(n.lw, 220) + 8;
+      n.side = children.get(n).length ? -1 : 1;
+      L[d] = Math.max(L[d] || 0, isBox ? n.w / 2 : n.r + (n.side < 0 ? text : 0));
+      R[d] = Math.max(R[d] || 0, isBox ? n.w / 2 : n.r + (n.side > 0 ? text : 0));
+    }
+    const colX = [0];
+    for (let d = 1; d < L.length; d++) colX[d] = colX[d - 1] + R[d - 1] + (isBox ? 60 : 28) + L[d];
+    let rowH = isBox ? 0 : 20, row = 0;
+    for (const n of order) rowH = Math.max(rowH, isBox ? n.h + 12 : n.r * 2 + 6);
+    const place = (n) => {
+      const ch = children.get(n);
+      let y;
+      if (!ch.length) y = row++ * rowH;
+      else { const ys = ch.map(place); y = (ys[0] + ys[ys.length - 1]) / 2; }
+      T.set(n, [colX[depth.get(n)], y]);
+      return y;
+    };
+    for (const r of roots) { place(r); row += 0.6; }
+    return T;
+  }
+  function separate(T) {   // 목표 자리에서 겹친 것을 풀어 둔다
+    const list = [...T.keys()];
+    for (let i = 0; i < 40; i++) collide(list, 1, T);
     return T;
   }
   function morphTo(T, fit) {
@@ -6659,19 +6830,100 @@ HTMLEOF
     if (fit) animateTo(fitView([...T].map(([n, [x, y]]) => ({ x, y, hw: halfW(n), hh: halfH(n) }))), dur);
     request();
   }
+  const targets = () => separate(vs.layout === "layers" ? layersTargets() : vs.layout === "tidy" ? treeTargets() : radialTargets());
   function applyLayout(reset) {
     $("forces").style.opacity = vs.layout === "force" ? "" : ".45";
     if (vs.layout === "force") { startForce(reset, reset ? 1 : 0.35); return; }
-    morphTo(vs.layout === "layers" ? layersTargets() : radialTargets(), !m.userMoved || reset);
+    morphTo(targets(), !m.userMoved || reset);
   }
   function firstLayout() {   // 모델을 처음 보일 때: 힘은 나선에서 움직이고, 층 · 방사형은 바로 그 자리에
     seed();
     if (vs.layout === "force") { m.userMoved = false; startForce(false, 1); return; }
     running = false; morph = null;
-    const T = vs.layout === "layers" ? layersTargets() : radialTargets();
-    for (const [n, [x, y]] of T) { n.x = x; n.y = y; }
+    for (const [n, [x, y]] of targets()) { n.x = x; n.y = y; }
     const f = fitView(); if (f) Object.assign(view, f);
     request();
+  }
+
+  // ----- 분석: 순환(Tarjan) · 층(가장 긴 경로) · 많이 쓰이는 것 · 안 쓰이는 것 · 사슬 · 핫스팟 · 숨은 결합 -----
+  function analyze() {
+    if (m.ana) return m.ana;
+    const idx = new Map(), low = new Map(), on = new Set(), stack = [], comp = new Map(), comps = [];
+    let counter = 0;
+    for (const r of visNodes) {   // 반복형 Tarjan — 큰 그래프에서도 재귀 깊이 없이
+      if (idx.has(r)) continue;
+      const work = [[r, 0]];
+      idx.set(r, counter); low.set(r, counter); counter++; stack.push(r); on.add(r);
+      while (work.length) {
+        const top = work[work.length - 1], n = top[0];
+        if (top[1] < n.out.length) {
+          const e = n.out[top[1]++];
+          if (!e.vis || !m.directed) continue;
+          const t = e.t;
+          if (!idx.has(t)) { idx.set(t, counter); low.set(t, counter); counter++; stack.push(t); on.add(t); work.push([t, 0]); }
+          else if (on.has(t)) low.set(n, Math.min(low.get(n), idx.get(t)));
+        } else {
+          work.pop();
+          if (work.length) { const p = work[work.length - 1][0]; low.set(p, Math.min(low.get(p), low.get(n))); }
+          if (low.get(n) === idx.get(n)) {
+            const c = [];
+            let x;
+            do { x = stack.pop(); on.delete(x); comp.set(x, comps.length); c.push(x); } while (x !== n);
+            comps.push(c);
+          }
+        }
+      }
+    }
+    if (!m.directed) {   // 방향 없는 그래프(같이 바뀜)의 층: 묶음마다 연결이 가장 많은 노드에서 몇 걸음인지
+      const rank = new Map();
+      for (const r of visNodes.slice().sort((a, b) => b.deg - a.deg || byId(a, b))) {
+        if (rank.has(r)) continue;
+        rank.set(r, 0);
+        const q = [r];
+        for (let i = 0; i < q.length; i++) for (const e of [...q[i].out, ...q[i].inc]) { if (!e.vis) continue; const o = e.s === q[i] ? e.t : e.s; if (!rank.has(o)) { rank.set(o, rank.get(q[i]) + 1); q.push(o); } }
+      }
+      return (m.ana = { comp, comps, cycles: [], rank, chain: [], chainE: [] });
+    }
+    // 층: 순환을 한 덩어리로 줄인 그래프에서 위(아무도 의존하지 않음)부터의 가장 긴 경로
+    const crank = new Array(comps.length).fill(0), prevE = new Array(comps.length).fill(null);
+    for (let ci = comps.length - 1; ci >= 0; ci--) {   // Tarjan 은 끝난 순서(뒤집으면 위상 순서)로 덩어리를 낸다
+      for (const n of comps[ci]) for (const e of n.out) {
+        if (!e.vis) continue;
+        const cj = comp.get(e.t);
+        if (cj === undefined || cj === ci) continue;
+        if (crank[ci] + 1 > crank[cj]) { crank[cj] = crank[ci] + 1; prevE[cj] = e; }
+      }
+    }
+    const rank = new Map();
+    for (const n of visNodes) rank.set(n, comp.has(n) ? crank[comp.get(n)] : 0);
+    let deepest = -1;
+    for (let ci = 0; ci < comps.length; ci++) if (deepest < 0 || crank[ci] > crank[deepest]) deepest = ci;
+    const chainE = [], chain = [];   // 가장 긴 사슬: 연결을 거슬러 올라가 모은다(순환 덩어리를 지나면 들어온 노드와 나간 노드가 다를 수 있다)
+    for (let ci = deepest; ci >= 0 && prevE[ci]; ci = comp.get(prevE[ci].s)) chainE.unshift(prevE[ci]);
+    for (const e of chainE) { if (chain[chain.length - 1] !== e.s) chain.push(e.s); chain.push(e.t); }
+    if (!chain.length && deepest >= 0) chain.push(comps[deepest][0]);
+    const cycles = comps.filter((c) => c.length > 1).sort((a, b) => b.length - a.length);
+    return (m.ana = { comp, comps, cycles, rank, chain, chainE });
+  }
+  function reach(n, dir) {   // 전이 닫힘: dir "out" = 이것이 쓰는 것 전체, "in" = 이것을 쓰는 것 전체(영향 범위)
+    const seen = new Set([n]), q = [n];
+    for (let i = 0; i < q.length; i++) for (const e of dir === "out" ? q[i].out : q[i].inc) { if (!e.vis) continue; const o = dir === "out" ? e.t : e.s; if (!seen.has(o)) { seen.add(o); q.push(o); } }
+    seen.delete(n);
+    return seen;
+  }
+  function shortestPath(a, b) {   // 방향을 따라, 안 되면 거꾸로, 그래도 안 되면 방향 없이
+    for (const mode of ["out", "in", "any"]) {
+      const prev = new Map([[a, null]]), q = [a];
+      for (let i = 0; i < q.length && !prev.has(b); i++) {
+        const n = q[i], list = mode === "out" ? n.out.map((e) => [e, e.t]) : mode === "in" ? n.inc.map((e) => [e, e.s]) : [...n.out.map((e) => [e, e.t]), ...n.inc.map((e) => [e, e.s])];
+        for (const [e, o] of list) if (e.vis && !prev.has(o)) { prev.set(o, [n, e]); q.push(o); }
+      }
+      if (!prev.has(b)) continue;
+      const nodes = [b], edges = [];
+      for (let x = b; prev.get(x); x = prev.get(x)[0]) { edges.push(prev.get(x)[1]); nodes.push(prev.get(x)[0]); }
+      return { nodes: nodes.reverse(), edges, mode };
+    }
+    return null;
   }
 
   // ----- 그리기 -----
@@ -6688,21 +6940,28 @@ HTMLEOF
     const busy = draw();
     if (running || tween || morph || busy) request();
   }
-  function focusSet() {
-    const f = hover || sel;
-    if (!f || !f.vis) return null;
-    const s = new Set([f]);
-    for (const e of f.out) if (e.vis) s.add(e.t);
-    for (const e of f.inc) if (e.vis) s.add(e.s);
-    return s;
+  function focusSet() {   // 밝게 둘 노드: 올린 노드의 이웃 > 강조(분석 · 경로) > 고른 노드의 이웃
+    const f = hover || (HL ? null : sel);
+    if (f && f.vis) {
+      const s = new Set([f]);
+      for (const e of f.out) if (e.vis) s.add(e.t);
+      for (const e of f.inc) if (e.vis) s.add(e.s);
+      return s;
+    }
+    return HL ? HL.nodes : null;
   }
   function rr(x, y, w, h, r) { if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
   function shape(n, grow) {
-    if (box()) { rr(n.x - n.w / 2 - grow, n.y - n.h / 2 - grow, n.w + grow * 2, n.h + grow * 2, 7 + grow); return; }
-    const r = n.r + grow;
+    if (box()) { rr(n.x - n.w / 2 - grow, n.y - n.h / 2 - grow, n.w + grow * 2, n.h + grow * 2, 8 + grow); return; }
+    const r = Math.max(n.r, 1.8 / view.k) + grow;
     if (n.fam === "ext") { const q = r * 1.25; ctx.moveTo(n.x, n.y - q); ctx.lineTo(n.x + q, n.y); ctx.lineTo(n.x, n.y + q); ctx.lineTo(n.x - q, n.y); ctx.closePath(); }
     else if (n.kind === "folder" || n.kind === "module") { const q = r * 0.92; rr(n.x - q, n.y - q, q * 2, q * 2, q * 0.35); }
     else { ctx.moveTo(n.x + r, n.y); ctx.arc(n.x, n.y, r, 0, Math.PI * 2); }
+  }
+  function core(n, scale) {   // git 노드처럼 가운데를 비운다
+    const r = n.r * scale;
+    if (n.kind === "folder" || n.kind === "module") { rr(n.x - r * 0.92, n.y - r * 0.92, r * 1.84, r * 1.84, r * 0.3); return; }
+    ctx.moveTo(n.x + r, n.y); ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
   }
   function clip(n, dx, dy) {   // 중심에서 (dx, dy) 쪽으로 나가 노드 테두리에 닿는 점
     const l = Math.hypot(dx, dy) || 1;
@@ -6714,14 +6973,25 @@ HTMLEOF
     const s = e.s, t = e.t;
     if (box() && vs.layout === "layers" && Math.abs(t.y - s.y) > 1) {
       const down = t.y > s.y, y1 = s.y + (down ? s.h / 2 : -s.h / 2), y2 = t.y + (down ? -t.h / 2 : t.h / 2);
-      return { x1: s.x, y1, x2: t.x, y2, curve: true, ux: 0, uy: down ? 1 : -1 };
+      return { x1: s.x, y1, x2: t.x, y2, curve: "v", ux: 0, uy: down ? 1 : -1 };
+    }
+    if (vs.layout === "radial" && !isNaN(s.x + t.x)) {   // 방사형은 바깥쪽으로 흐르는 곡선(d3 의 radial link 처럼)
+      const r1 = Math.hypot(s.x, s.y), r2 = Math.hypot(t.x, t.y), rm = (r1 + r2) / 2, f1 = r1 ? rm / r1 : 0, f2 = r2 ? rm / r2 : 0;
+      const [x1, y1] = clip(s, s.x * f1 - s.x || t.x - s.x, s.y * f1 - s.y || t.y - s.y), [x2, y2] = clip(t, t.x * f2 - t.x || s.x - t.x, t.y * f2 - t.y || s.y - t.y), l = Math.hypot(x2 - t.x * f2, y2 - t.y * f2) || 1;
+      return { x1, y1, x2, y2, curve: "r", c1x: s.x * f1, c1y: s.y * f1, c2x: t.x * f2, c2y: t.y * f2, ux: (x2 - t.x * f2) / l, uy: (y2 - t.y * f2) / l };
+    }
+    if (vs.layout === "tidy" && Math.abs(t.x - s.x) > 1) {
+      const right = t.x > s.x, x1 = s.x + (right ? halfW(s) + 1 : -halfW(s) - 1), x2 = t.x + (right ? -halfW(t) - 1 : halfW(t) + 1);
+      return { x1, y1: s.y, x2, y2: t.y, curve: "h", ux: right ? 1 : -1, uy: 0 };
     }
     const [x1, y1] = clip(s, t.x - s.x, t.y - s.y), [x2, y2] = clip(t, s.x - t.x, s.y - t.y), l = Math.hypot(x2 - x1, y2 - y1) || 1;
     return { x1, y1, x2, y2, curve: false, ux: (x2 - x1) / l, uy: (y2 - y1) / l };
   }
   function strokeEdge(g) {
     ctx.moveTo(g.x1, g.y1);
-    if (g.curve) { const my = (g.y2 - g.y1) / 2; ctx.bezierCurveTo(g.x1, g.y1 + my, g.x2, g.y2 - my, g.x2, g.y2); }
+    if (g.curve === "v") { const my = (g.y2 - g.y1) / 2; ctx.bezierCurveTo(g.x1, g.y1 + my, g.x2, g.y2 - my, g.x2, g.y2); }
+    else if (g.curve === "r") ctx.bezierCurveTo(g.c1x, g.c1y, g.c2x, g.c2y, g.x2, g.y2);
+    else if (g.curve === "h") { const mx = (g.x2 - g.x1) / 2; ctx.bezierCurveTo(g.x1 + mx, g.y1, g.x2 - mx, g.y2, g.x2, g.y2); }
     else ctx.lineTo(g.x2, g.y2);
   }
   function arrowHead(g, size) {
@@ -6729,21 +6999,21 @@ HTMLEOF
     ctx.moveTo(x, y); ctx.lineTo(x - g.ux * a - g.uy * b, y - g.uy * a + g.ux * b); ctx.lineTo(x - g.ux * a + g.uy * b, y - g.uy * a - g.ux * b); ctx.closePath();
   }
   function draw() {
-    const k = view.k, F = focusSet(), f = hover || sel, isBox = box(), lit0 = !!(F || matchSet);
+    const k = view.k, F = focusSet(), f = hover || (HL ? null : sel), isBox = box(), lit0 = !!(F || matchSet);
     let busy = false;
     dimT += ((lit0 ? 1 : 0) - dimT) * 0.22;
     if (Math.abs(dimT - (lit0 ? 1 : 0)) > 0.01) busy = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+    ctx.clearRect(0, 0, W, H);   // 배경은 페이지의 남색 빛(앱 아이콘처럼)
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * view.x, dpr * view.y);
     const vx0 = -view.x / k, vy0 = -view.y / k, vx1 = vx0 + W / k, vy1 = vy0 + H / k;
     const seen = (n, mg) => n.x + halfW(n) + mg > vx0 && n.x - halfW(n) - mg < vx1 && n.y + halfH(n) + mg > vy0 && n.y - halfH(n) - mg < vy1;
-    const hot = (e) => f && (e.s === f || e.t === f);
+    const hot = f ? (e) => e.s === f || e.t === f : HL ? (HL.edges ? (e) => HL.edges.has(e) : (e) => HL.nodes.has(e.s) && HL.nodes.has(e.t)) : () => false;
     const showArrows = m.directed && (P.arrows || isBox);
-    // 연결: 보통은 한 번에(많을수록 옅게), 고른 노드에 닿은 것은 보라
-    const ink = isBox ? C.muted : C.line;   // 다이어그램(상자)은 tuist graph 처럼 또렷한 선
-    ctx.strokeStyle = ink; ctx.fillStyle = ink;
-    const base = (isBox ? 0.85 : clamp(1.6 / Math.sqrt(visEdges.length / 400 + 0.01), 0.22, 1)) * (1 - dimT * 0.75);
+    // 연결: 보통은 한 번에(많을수록 옅게), 강조된 것은 파랑 빛
+    const ink = isBox ? C.ink : C.line;
+    ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineCap = "round";
+    const base = (isBox ? 0.9 : clamp(1.6 / Math.sqrt(visEdges.length / 400 + 0.01), 0.22, 1)) * (1 - dimT * 0.75);
     for (const dashed of [false, true]) {
       ctx.globalAlpha = Math.min(1, base);
       ctx.setLineDash(dashed ? [4 / k, 3 / k] : []);
@@ -6756,52 +7026,60 @@ HTMLEOF
         }
       } else {
         ctx.lineWidth = P.width / k; ctx.beginPath();
-        for (const e of visEdges) if (e.h === dashed && !hot(e)) { ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); }
+        const curvy = vs.layout === "tidy" || vs.layout === "radial";
+        for (const e of visEdges) if (e.h === dashed && !hot(e)) { if (curvy) strokeEdge(geom(e)); else { ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); } }
         ctx.stroke();
         if (showArrows && visEdges.length < 6000) { ctx.beginPath(); for (const e of visEdges) if (e.h === dashed && !hot(e) && seen(e.t, 10)) arrowHead(geom(e), 6 / k); ctx.fill(); }
       }
     }
     ctx.setLineDash([]);
-    if (f && f.vis) {
-      ctx.globalAlpha = 0.95; ctx.strokeStyle = C.accent; ctx.fillStyle = C.accent;
-      for (const e of visEdges) {
-        if (!hot(e)) continue;
-        ctx.lineWidth = (P.width * (m.rel === "changes" ? 1.2 + Math.log2(Math.max(e.w, 1)) : 1.7)) / k;
+    if (f || HL) {
+      const hots = visEdges.filter(hot);
+      ctx.globalAlpha = 0.95; ctx.strokeStyle = C.hl; ctx.fillStyle = C.hl;
+      if (hots.length <= 400) { ctx.shadowColor = C.accent; ctx.shadowBlur = 10; }
+      const wHL = hots.length > 150 ? 1.1 : hots.length > 40 ? 1.5 : HL && !f ? 2.4 : 1.8;   // 많이 강조할수록 가늘게
+      for (const e of hots) {
+        ctx.lineWidth = (P.width * (m.rel === "changes" ? 1.2 + Math.log2(Math.max(e.w, 1)) : wHL)) / k;
         ctx.setLineDash(e.h ? [5 / k, 3 / k] : []);
         const g = geom(e); ctx.beginPath(); strokeEdge(g); ctx.stroke();
         if (m.directed) { ctx.beginPath(); arrowHead(g, 9 / k); ctx.fill(); }
       }
-      ctx.setLineDash([]);
+      ctx.shadowBlur = 0; ctx.setLineDash([]);
     }
-    // 노드: 고르거나 찾은 것과 이웃만 밝게(나머지는 천천히 흐리게)
+    // 노드: git 노드처럼 색 고리 + 가운데 빈 곳, 강조된 것과 이웃만 밝게(나머지는 천천히 흐리게)
     for (const n of visNodes) {
       const lit = !lit0 || (F && F.has(n)) || (!F && matchSet && matchSet.has(n));
-      const want = lit ? 1 : 0.14;
+      const want = lit ? 1 : 0.13;
       n.fade += (want - n.fade) * 0.22;
       if (Math.abs(n.fade - want) > 0.01) busy = true;
       if (!seen(n, 0)) continue;
       const col = colorOf(n);
-      if (isBox) {   // 상자: 옅게 칠하고 테두리는 그 색, 글자는 본문 색
+      if (isBox) {   // 상자: 남색 바탕에 그 색 테두리 · 살짝 그 색, 글자는 본문 색
         ctx.globalAlpha = n.fade;
-        ctx.fillStyle = C.bg; ctx.beginPath(); shape(n, 0); ctx.fill();
-        ctx.globalAlpha = n.fade * 0.22; ctx.fillStyle = col; ctx.fill();
-        ctx.globalAlpha = n.fade; ctx.strokeStyle = col; ctx.lineWidth = 1.6 / k;
+        ctx.fillStyle = C.box; ctx.beginPath(); shape(n, 0); ctx.fill();
+        ctx.globalAlpha = n.fade * 0.2; ctx.fillStyle = col; ctx.fill();
+        ctx.globalAlpha = n.fade; ctx.strokeStyle = col; ctx.lineWidth = 1.7 / k;
         if (n.fam === "ext" || n.role === "ext") ctx.setLineDash([4 / k, 3 / k]);
         ctx.stroke(); ctx.setLineDash([]);
       } else {
         ctx.globalAlpha = n.fade; ctx.fillStyle = col;
         ctx.beginPath(); shape(n, 0); ctx.fill();
+        if (n.r * k >= 3.4 && n.fam !== "ext") { ctx.fillStyle = C.core; ctx.beginPath(); core(n, 0.5); ctx.fill(); }
       }
     }
     ctx.globalAlpha = 1;
-    for (const n of [sel, hover]) {   // 고른 노드 · 올린 노드: 보라 테두리와 빛
-      if (!n || !n.vis) continue;
-      ctx.save(); ctx.shadowColor = C.accent; ctx.shadowBlur = 18;
-      ctx.lineWidth = 2.4 / k; ctx.strokeStyle = C.accent;
-      ctx.beginPath(); shape(n, 2.5 / k); ctx.stroke(); ctx.restore();
+    // 고른 노드 · 올린 노드: 앱 아이콘의 초록 노드처럼 빛나게
+    const glowN = new Set([sel, hover, pathFrom].filter((n) => n && n.vis));
+    if (HL && HL.ends) for (const n of HL.ends) if (n.vis) glowN.add(n);
+    for (const n of glowN) {
+      ctx.save(); ctx.shadowColor = C.leaf; ctx.shadowBlur = 22;
+      ctx.lineWidth = 2.6 / k; ctx.strokeStyle = C.leaf;
+      ctx.beginPath(); shape(n, 2.5 / k); ctx.stroke();
+      if (!isBox) { ctx.fillStyle = C.leaf; ctx.beginPath(); core(n, 0.5); ctx.fill(); }
+      ctx.restore();
     }
     if (matchSet && !F) { ctx.lineWidth = 1.6 / k; ctx.strokeStyle = C.accent; ctx.beginPath(); for (const n of matches) if (n.vis && seen(n, 4)) shape(n, 2 / k); ctx.stroke(); }
-    // 이름: 상자는 안에(글자가 읽힐 만큼 크면), 점은 아래(확대할수록 큰 노드부터, 강조된 것은 늘)
+    // 이름: 상자는 안에, 점은 아래 — 다른 이름과 겹치면 그리지 않는다(강조된 것 → 큰 노드 순서로 자리 잡기)
     ctx.textAlign = "center"; ctx.lineJoin = "round";
     if (isBox) {
       if (13 * k >= 4.5) {
@@ -6813,21 +7091,44 @@ HTMLEOF
         }
       }
     } else {
-      ctx.font = `${12 / k}px ${FONT}`; ctx.textBaseline = "top";
+      const sideways = vs.layout === "tidy";
+      ctx.font = `${12 / k}px ${FONT}`; ctx.textBaseline = sideways ? "middle" : "top";
+      const taken = new Map(), CW = 90, CH = 16, kk = (a, b) => a * 100003 + b;
+      const free = (x0, y0, x1, y1) => {
+        for (let gx = Math.floor(x0 / CW); gx <= Math.floor(x1 / CW); gx++) for (let gy = Math.floor(y0 / CH); gy <= Math.floor(y1 / CH); gy++) {
+          const b = taken.get(kk(gx, gy));
+          if (b) for (const r of b) if (r[0] < x1 && r[2] > x0 && r[1] < y1 && r[3] > y0) return false;
+        }
+        return true;
+      };
+      const take = (r) => { for (let gx = Math.floor(r[0] / CW); gx <= Math.floor(r[2] / CW); gx++) for (let gy = Math.floor(r[1] / CH); gy <= Math.floor(r[3] / CH); gy++) { const key = kk(gx, gy); const b = taken.get(key); if (b) b.push(r); else taken.set(key, [r]); } };
+      const order = [];
+      if (F) for (const n of F) order.push(n);
+      if (matchSet) for (const n of matches) order.push(n);
+      for (const n of m.byR) order.push(n);
+      const done = new Set();
       let drawn = 0;
-      for (const n of visNodes) {
+      for (const n of order) {
+        if (done.has(n) || !n.vis) continue;
+        done.add(n);
         const lit = (F && F.has(n)) || (matchSet && matchSet.has(n)) || n === sel;
         let a;
         if (lit) a = 1;
         else if (lit0) a = 0;
-        else a = P.names || (m.rel === "tree" && n.d.depth <= 1) ? 1 : clamp((k * (0.55 + n.r / 9) - m.fade) / 0.45, 0, 1);
+        else a = P.names || vs.layout === "tidy" || vs.layout === "layers" || (m.rel === "tree" && n.d.depth <= 1) ? 1 : clamp((k * (0.55 + n.r / 9) - m.fade) / 0.45, 0, 1);   // 나무 · 층은 이름이 곧 내용 — 겹치지 않는 만큼 늘 보인다
         a *= lit ? 1 : n.fade;
         if (a < 0.04 || !seen(n, 60 / k)) continue;
-        if (++drawn > 2500) break;
-        const y = n.y + n.r + 3 / k;
+        const rr0 = Math.max(n.r, 1.8 / k), side = sideways ? n.side || 1 : 0, tw = Math.min(n.lw, 260) + 6;
+        const sx = (n.x + side * rr0) * k + view.x + side * 4, sy = side ? n.y * k + view.y : (n.y + rr0) * k + view.y + 3;
+        const rect = side > 0 ? [sx, sy - 8, sx + tw, sy + 8] : side < 0 ? [sx - tw, sy - 8, sx, sy + 8] : [sx - tw / 2, sy, sx + tw / 2, sy + 15];
+        if (!free(rect[0], rect[1], rect[2], rect[3])) continue;
+        take(rect);
+        if (++drawn > 1500) break;
+        const lx = side ? n.x + side * (rr0 + 4 / k) : n.x, ly = side ? n.y : n.y + rr0 + 3 / k;
+        ctx.textAlign = side > 0 ? "left" : side < 0 ? "right" : "center";
         ctx.globalAlpha = a;
-        ctx.lineWidth = 3.5 / k; ctx.strokeStyle = C.halo; ctx.strokeText(n.label, n.x, y);
-        ctx.fillStyle = lit || !lit0 ? C.text : C.muted; ctx.fillText(n.label, n.x, y);
+        ctx.lineWidth = 3.5 / k; ctx.strokeStyle = C.halo; ctx.strokeText(n.label, lx, ly);
+        ctx.fillStyle = lit || !lit0 ? C.text : C.muted; ctx.fillText(n.label, lx, ly);
       }
     }
     ctx.globalAlpha = 1;
@@ -6845,9 +7146,10 @@ HTMLEOF
     }
     return best;
   }
-  const famLabel = (n) => (byRole() ? ROLENAME[n.role] : FAMNAME[n.fam]) || n.d.group || n.kind;
+  const famLabel = (n) => (colorMode() === "role" ? ROLENAME[n.role] : FAMNAME[n.fam]) || n.d.group || n.kind;
   const dirOf = (n) => { const p = n.d.path || ""; const i = p.lastIndexOf("/"); return n.kind === "file" && i > 0 ? p.slice(0, i) : ""; };
   const dotClass = (n) => (n.fam === "ext" ? "dot ext" : n.kind === "folder" || n.kind === "module" ? "dot sq" : "dot");
+  const dotHtml = (n) => `<span class="${dotClass(n)}" style="background:${colorOf(n)}"></span>`;
   const METRIC = () => (m.agg ? ["파일", (n) => (n.members ? n.members.length : 0)] : { files: ["줄", (n) => n.d.lines || 0], modules: ["연결", (n) => n.deg], changes: ["바뀐 횟수", (n) => n.d.changes || 0], tree: ["파일", (n) => n.d.files || 0] }[m.rel]);
   function select(n) {
     const was = sel;
@@ -6866,8 +7168,11 @@ HTMLEOF
     pairs = pairs.filter((p) => p[0].vis);
     if (!pairs.length || !title) return "";
     pairs.sort((a, b) => b[0].w - a[0].w || byId(a[1], b[1]));
-    const items = pairs.slice(0, 400).map(([e, o]) => `<li data-i="${o.i}" title="${esc(o.id + (e.d.via ? "\n" + e.d.via.join(", ") : ""))}"><span class="${dotClass(o)}" style="background:${colorOf(o)}"></span><span class="name">${esc(o.label)}</span><small>${esc(edgeNote(e))}</small></li>`).join("");
-    return `<h3><span class="arrow">${arrowCh}</span>${esc(title)} · ${pairs.length}</h3><ul>${items}</ul>`;
+    const seen = new Map();
+    for (const [, o] of pairs) seen.set(o.label, (seen.get(o.label) || 0) + 1);
+    const where = (o) => (seen.get(o.label) > 1 && dirOf(o) ? ` <small class="dir">${esc(dirOf(o).split("/").slice(-2).join("/"))}</small>` : "");
+    const items = pairs.slice(0, 400).map(([e, o]) => `<li data-i="${o.i}" title="${esc(o.id + (e.d.via ? "\n" + e.d.via.join(", ") : ""))}">${dotHtml(o)}<span class="name">${esc(o.label)}${where(o)}</span><small>${esc(edgeNote(e))}</small></li>`).join("");
+    return `<h3 class="sec-title"><span class="arrow">${arrowCh}</span>${esc(title)} · ${pairs.length}</h3><ul class="rows">${items}</ul>`;
   }
   function placeInfo() {
     const info = $("info");
@@ -6877,29 +7182,57 @@ HTMLEOF
   }
   function renderInfo() {
     const info = $("info");
-    if (!sel) { info.hidden = true; info.innerHTML = ""; return; }
-    const n = sel, rows = [];
+    if (!sel || !m) { info.hidden = true; info.innerHTML = ""; return; }
+    const n = sel, a = analyze(), rows = [];
     for (const [k, v] of Object.entries(n.d)) {
       if (k === "id" || k === "label" || k === "kind" || k === "group" || k === "path" || !(k in KEYNAME)) continue;
-      const val = k === "bytes" ? hsize(v) : k === "exts" ? Object.entries(v).map(([a, b]) => `${a} ${b}`).join(" · ") : typeof v === "boolean" ? (v ? "예" : "아니오") : typeof v === "object" ? JSON.stringify(v) : v;
+      const val = k === "bytes" ? hsize(v) : k === "exts" ? Object.entries(v).map(([x, y]) => `${x} ${y}`).join(" · ") : typeof v === "boolean" ? (v ? "예" : "아니오") : typeof v === "object" ? JSON.stringify(v) : v;
       rows.push(`<tr><th>${esc(KEYNAME[k] || k)}</th><td>${esc(val)}</td></tr>`);
     }
+    const c = CHG.get(n.id);
+    if (c && m.rel !== "changes") rows.push(`<tr><th>바뀐 횟수</th><td>${c.changes}${c.lastChanged ? " · 마지막 " + esc(c.lastChanged) : ""}</td></tr>`);
+    const ca = n.inc.filter((e) => e.vis).length, ce = n.out.filter((e) => e.vis).length;
+    const imp = m.directed ? reach(n, "in").size : 0, all = m.directed ? reach(n, "out").size : 0;
+    const cyc = a.comp.has(n) ? a.comps[a.comp.get(n)].length : 1;
     const [outT, inT] = LISTS[m.rel] || ["나가는 연결", "들어오는 연결"];
-    let html = `<div class="head"><span class="${dotClass(n)}" style="background:${colorOf(n)}"></span><h2>${esc(n.label)}</h2><button class="icon-btn" type="button" title="닫기 (Esc)" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
-    html += `<div class="sub">${esc(KINDNAME[n.kind] || n.kind)} · ${esc(famLabel(n))} · 연결 ${n.deg}${n.test ? " · 테스트" : ""}</div>`;
+    let html = `<div class="head">${dotHtml(n)}<h2>${esc(n.label)}</h2><button class="icon-btn" type="button" title="닫기 (Esc)" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+    html += `<div class="sub">${esc(KINDNAME[n.kind] || n.kind)} · ${esc(famLabel(n))}${n.test ? " · 테스트" : ""}</div>`;
     if (n.d.path || n.id !== n.label) html += `<div class="path">${esc(n.d.path || n.id)}</div>`;
+    if (m.directed) {
+      const inst = ca + ce ? (ce / (ca + ce)).toFixed(2) : "–";
+      html += `<div class="metrics"><div title="이것을 쓰는 것(직접)"><b>${ca}</b><span>들어옴</span></div><div title="이것이 쓰는 것(직접)"><b>${ce}</b><span>나감</span></div><div title="나감 ÷ (들어옴 + 나감) — 1 에 가까울수록 남에게 기대고, 0 에 가까울수록 남이 기댄다"><b>${inst}</b><span>불안정도</span></div>`
+        + `<div title="바꾸면 영향을 받는 것(전이)"><b>${imp}</b><span>영향 범위</span></div><div title="이것이 기대는 것 전체(전이)"><b>${all}</b><span>전체 의존</span></div><div class="${cyc > 1 ? "warn" : ""}" title="순환 의존 덩어리의 크기"><b>${cyc > 1 ? cyc : "없음"}</b><span>순환</span></div></div>`;
+      html += `<div class="actions"><button type="button" data-act="in">영향 범위 보기</button><button type="button" data-act="out">전체 의존 보기</button>${cyc > 1 ? '<button type="button" data-act="cyc">순환 보기</button>' : ""}<button type="button" data-act="path" class="${pathFrom === n ? "on" : ""}">경로 찾기</button><button type="button" data-act="local" class="${P.local ? "on" : ""}">주변만</button></div>`;
+    } else html += `<div class="actions"><button type="button" data-act="path" class="${pathFrom === n ? "on" : ""}">경로 찾기</button><button type="button" data-act="local" class="${P.local ? "on" : ""}">주변만</button></div>`;
     if (rows.length) html += `<table>${rows.join("")}</table>`;
     if (!m.directed) html += list(outT, [...n.out.map((e) => [e, e.t]), ...n.inc.map((e) => [e, e.s])], "↔");
     else html += list(outT, n.out.map((e) => [e, e.t]), "→") + list(inT, n.inc.map((e) => [e, e.s]), "←");
     if (n.members) {   // 폴더로 묶었을 때: 안의 파일 — 누르면 파일 단위로 그 파일
-      const mem = n.members.slice().sort((a, b) => b.deg - a.deg || byId(a, b));
-      html += `<h3>안의 파일 · ${mem.length}</h3><ul>` + mem.slice(0, 300).map((o) => `<li data-m="${esc(o.id)}" title="${esc(o.id)}"><span class="${dotClass(o)}" style="background:${colorOf(o)}"></span><span class="name">${esc(o.label)}</span><small>연결 ${o.deg}</small></li>`).join("") + "</ul>";
+      const mem = n.members.slice().sort((x, y) => y.deg - x.deg || byId(x, y));
+      html += `<h3 class="sec-title">안의 파일 · ${mem.length}</h3><ul class="rows">` + mem.slice(0, 300).map((o) => `<li data-m="${esc(o.id)}" title="${esc(o.id)}">${dotHtml(o)}<span class="name">${esc(o.label)}</span><small>연결 ${o.deg}</small></li>`).join("") + "</ul>";
     }
     info.innerHTML = html; info.hidden = false; placeInfo();
     info.querySelector(".head .icon-btn").onclick = () => select(null);
     for (const li of info.querySelectorAll("li[data-i]")) li.onclick = () => { const o = m.nodes[+li.dataset.i]; select(o); centerOn(o, Math.max(view.k, 1.2)); };
     for (const li of info.querySelectorAll("li[data-m]")) li.onclick = () => { setUnit("file"); const o = m.nodeOf.get(li.dataset.m); if (o && o.vis) { select(o); centerOn(o, Math.max(view.k, 1.4)); } };
+    for (const b of info.querySelectorAll("[data-act]")) b.onclick = () => act(b.dataset.act, n);
   }
+  function act(what, n) {
+    if (what === "in") { const s = reach(n, "in"); highlight([n, ...s], null, `${n.label} 을(를) 바꾸면 영향을 받는 것 ${s.size}개`, [n]); }
+    else if (what === "out") { const s = reach(n, "out"); highlight([n, ...s], null, `${n.label} 이(가) 기대는 것 전체 ${s.size}개`, [n]); }
+    else if (what === "cyc") { const a = analyze(), c = a.comps[a.comp.get(n)]; highlight(c, null, `순환 의존 ${c.length}개: ${c.slice(0, 4).map((x) => x.label).join(" ⇄ ")}${c.length > 4 ? " …" : ""}`); }
+    else if (what === "path") { pathFrom = pathFrom === n ? null : n; canvas.classList.toggle("picking", !!pathFrom); if (pathFrom) banner(`경로 찾기: ${n.label} 에서 — 끝 노드를 누르세요 (Esc 취소)`); else clearHL(); renderInfo(); request(); }
+    else if (what === "local") { P.local = !P.local; $("local").checked = P.local; $("localRow").hidden = !P.local; m.userMoved = false; filtersChanged(); }
+  }
+  function banner(text) { $("bannerText").textContent = text; $("banner").hidden = false; }
+  function highlight(nodes, edges, title, ends, fit = true) {
+    HL = { nodes: new Set(nodes), edges: edges ? new Set(edges) : null, title, ends: ends || [] };
+    banner(title);
+    const vis = [...HL.nodes].filter((n) => n.vis);
+    if (fit && vis.length) { m.userMoved = true; animateTo(fitView(vis)); }
+    request();
+  }
+  function clearHL() { HL = null; pathFrom = null; canvas.classList.remove("picking"); $("banner").hidden = true; if (sel) renderInfo(); request(); }
   function setQuery(s) {
     query = s.trim().toLowerCase();
     matchSet = null;
@@ -6913,26 +7246,112 @@ HTMLEOF
   let sortKey = "deg", sortDir = -1;
   function renderTable() {
     const [mName, mFn] = METRIC();
-    const cols = [["label", "이름", ""], ["grp", "묶음", ""], ["in", m.directed ? "들어옴" : "", "num"], ["out", m.directed ? "나감" : "연결", "num"], ["m", mName, "num"]].filter((c) => c[1]);
+    const cols = [["label", "이름", ""], ["grp", "묶음", ""], ["in", m.directed ? "들어옴" : "", "num"], ["out", m.directed ? "나감" : "연결", "num"], ["m", mName, "num"], ["chg", CHG.size && m.rel !== "changes" && m.rel !== "modules" ? "바뀐 횟수" : "", "num"]].filter((c) => c[1]);
     $("thead").innerHTML = cols.map(([key, name, cls]) => `<th class="${cls}" data-k="${key}">${esc(name)}${sortKey === key ? (sortDir < 0 ? " ↓" : " ↑") : ""}</th>`).join("");
-    const val = (n, key) => (key === "label" ? n.label.toLowerCase() : key === "grp" ? famLabel(n) : key === "in" ? n.inc.length : key === "out" ? (m.directed ? n.out.length : n.deg) : key === "m" ? mFn(n) : n.deg);
+    const val = (n, key) => (key === "label" ? n.label.toLowerCase() : key === "grp" ? famLabel(n) : key === "in" ? n.inc.length : key === "out" ? (m.directed ? n.out.length : n.deg) : key === "m" ? mFn(n) : key === "chg" ? heatOf(n) : n.deg);
     const rows = (matchSet ? matches : visNodes).slice().sort((a, b) => { const x = val(a, sortKey), y = val(b, sortKey); return (x < y ? -1 : x > y ? 1 : byId(a, b)) * sortDir; });
-    const shown = rows.slice(0, 1500);
-    $("tbody").innerHTML = shown.map((n) => `<tr data-i="${n.i}"><td class="name" title="${esc(n.id)}">${esc(n.label)}${dirOf(n) ? ` <small>${esc(dirOf(n))}</small>` : ""}</td><td><span class="${dotClass(n)}" style="background:${colorOf(n)};display:inline-block;margin-right:6px"></span>${esc(famLabel(n))}</td>${m.directed ? `<td class="num">${n.inc.length}</td>` : ""}<td class="num">${m.directed ? n.out.length : n.deg}</td><td class="num">${mFn(n)}</td></tr>`).join("");
+    const shown = rows.slice(0, 1500), chg = cols.some((c) => c[0] === "chg");
+    $("tbody").innerHTML = shown.map((n) => `<tr data-i="${n.i}"><td class="name" title="${esc(n.id)}">${esc(n.label)}${dirOf(n) ? ` <small>${esc(dirOf(n))}</small>` : ""}</td><td>${dotHtml(n).replace('class="dot', 'style="display:inline-block;margin-right:6px" class="dot')}${esc(famLabel(n))}</td>${m.directed ? `<td class="num">${n.inc.length}</td>` : ""}<td class="num">${m.directed ? n.out.length : n.deg}</td><td class="num">${mFn(n)}</td>${chg ? `<td class="num">${heatOf(n) || ""}</td>` : ""}</tr>`).join("");
     $("tableNote").textContent = `${rows.length}개`;
     $("tmore").hidden = rows.length <= shown.length;
     $("tmore").textContent = `앞의 ${shown.length}개만 보입니다 — 찾기로 좁히세요`;
     for (const th of $("thead").querySelectorAll("th")) th.onclick = () => { const k2 = th.dataset.k; if (sortKey === k2) sortDir = -sortDir; else { sortKey = k2; sortDir = k2 === "label" || k2 === "grp" ? 1 : -1; } renderTable(); };
     for (const tr of $("tbody").querySelectorAll("tr")) tr.onclick = () => { const o = m.nodes[+tr.dataset.i]; select(o); centerOn(o, Math.max(view.k, 1.2)); };
   }
+
+  // ----- 분석 창 -----
+  function renderAna() {
+    const body = $("anaBody"), a = analyze(), deps = m.directed && m.rel !== "tree";
+    const vis = visNodes, inner = vis.filter((n) => n.fam !== "ext"), ext = vis.filter((n) => n.fam === "ext"), cnt = new Map();
+    for (const n of vis) cnt.set(n.label, (cnt.get(n.label) || 0) + 1);
+    const nm = (n) => (cnt.get(n.label) > 1 && dirOf(n) ? `${n.label} (${dirOf(n).split("/").pop()})` : n.label);   // 같은 이름(index.ts 등)은 폴더를 붙여 구별
+    const indeg = (n) => n.inc.filter((e) => e.vis).length, outdeg = (n) => n.out.filter((e) => e.vis).length, deg = (n) => indeg(n) + outdeg(n);
+    const near = (n) => { const s = new Set([n]); for (const e of n.out) if (e.vis) s.add(e.t); for (const e of n.inc) if (e.vis) s.add(e.s); return s; };
+    const jump = (n) => { select(n); centerOn(n, Math.max(view.k, 1.3)); };
+    const users = (n) => { const s = reach(n, "in"); highlight([n, ...s], null, `${n.label} 을(를) 바꾸면 영향을 받는 것 ${s.size}개`, [n]); };
+    const needs = (n) => { const s = reach(n, "out"); highlight([n, ...s], null, `${n.label} 이(가) 기대는 것 전체 ${s.size}개`, [n]); };
+    const showChain = () => highlight(a.chain, a.chainE, `${m.rel === "tree" ? "가장 깊은 경로" : "가장 긴 의존 사슬"} ${a.chainE.length}단계: ${a.chain.map(nm).join(m.rel === "tree" ? " / " : " → ")}`, [a.chain[0], a.chain[a.chain.length - 1]]);
+    const top = (list, f, k) => list.filter((n) => f(n) > 0).sort((x, y) => f(y) - f(x) || byId(x, y)).slice(0, k || 12);
+    const item = (n, v, txt, pick) => ({ n, label: nm(n), title: n.id, v, txt, pick: pick || (() => jump(n)) });
+    const cards = [], S = [];
+    const card = (v, t, hot, pick) => cards.push({ v, t, hot, pick });
+    const add = (title, note, items) => { if (items.length) S.push({ title, note, items }); };
+    if (m.rel === "tree") {
+      const folders = vis.filter((n) => n.kind === "folder"), root = folders.find((n) => n.id === "./"), sub = folders.filter((n) => n !== root);
+      card(folders.length, "폴더", false, null);
+      card(root ? root.d.files : vis.length - folders.length, "파일", false, null);
+      card(a.chainE.length, "가장 깊은 경로(단계)", false, a.chain.length > 1 ? showChain : null);
+      add("가장 큰 폴더", "아래 모든 파일 수 — 누르면 그 안을 강조한다.", top(sub, (n) => n.d.files || 0).map((n) => item(n, n.d.files, `${n.d.files}개${n.d.bytes ? " · " + hsize(n.d.bytes) : ""}`, () => { const s = reach(n, "out"); highlight([n, ...s], null, `${n.label} 안 ${s.size}개`, [n]); })));
+      add("파일이 바로 많이 든 폴더", "하위 폴더가 아니라 그 폴더에 바로 든 파일 — 나눌 후보.", top(folders, (n) => n.d.filesHere || 0).map((n) => item(n, n.d.filesHere, `${n.d.filesHere}개`)));
+      add("하위 폴더가 많은 폴더", "바로 아래 폴더 수.", top(folders, (n) => n.d.dirs || 0).map((n) => item(n, n.d.dirs, `${n.d.dirs}개`)));
+      if (a.chain.length > 1) add("가장 깊은 경로", "뿌리에서 가장 깊이 내려가는 폴더 길.", [{ label: a.chain.map(nm).join(" / "), title: a.chain[a.chain.length - 1].id, v: 1, txt: `${a.chainE.length}단계`, pick: showChain }]);
+      if (DIRCHG.size) add("자주 바뀌는 폴더", "그 아래 파일들이 바뀐 횟수의 합 — 일이 몰리는 곳.", top(sub, (n) => DIRCHG.get(n.id) || 0).map((n) => item(n, DIRCHG.get(n.id), `${DIRCHG.get(n.id)}번`)));
+      if (root && root.d.exts) add("많은 확장자", "누르면 그 확장자가 많은 폴더를 강조한다.", Object.entries(root.d.exts).sort((x, y) => y[1] - x[1]).map(([x, c]) => ({ label: "." + x, v: c, txt: `${c}개`, pick: () => highlight(folders.filter((n) => n.d.exts && n.d.exts[x]), null, `.${x} 이(가) 많은 폴더`) })));
+    } else if (deps) {
+      const unused = inner.filter((n) => indeg(n) === 0 && !n.test && !ENTRY.test(n.d.path || n.id) && !(n.kind === "file" && n.d.group === "go") && (m.rel !== "modules" || n.role === "lib")).sort((x, y) => linesOf(y) - linesOf(x) || byId(x, y));
+      const inCycles = a.cycles.flat();
+      card(a.cycles.length, "순환 의존", a.cycles.length > 0, a.cycles.length ? () => highlight(inCycles, null, `순환 의존 ${a.cycles.length}덩어리 · 노드 ${inCycles.length}개`) : null);
+      card(a.chainE.length, "가장 긴 사슬(단계)", false, a.chain.length > 1 ? showChain : null);
+      card(unused.length, m.rel === "modules" ? "아무도 안 쓰는 모듈" : "아무도 안 쓰는 것", unused.length > 0, unused.length ? () => highlight(unused, null, `아무도 안 쓰는 것 ${unused.length}개`) : null);
+      card(vis.length, "노드", false, null);
+      card(visEdges.length, "연결", false, null);
+      card(ext.length, "외부 패키지 · 모듈", false, ext.length ? () => highlight(ext, null, `외부 패키지 · 모듈 ${ext.length}개`, [], false) : null);
+      add("순환 의존", "서로가 서로를 (돌고 돌아) 쓰는 덩어리 — 나누기 어렵고 하나를 고치면 함께 흔들린다." + (visEdges.some((e) => e.h) ? " 추정 연결(점선)도 센다 — 설정 › 필터에서 끄면 확실한 것만." : ""), a.cycles.slice(0, 15).map((c) => ({ label: c.slice(0, 3).map(nm).join(" ⇄ ") + (c.length > 3 ? ` 외 ${c.length - 3}` : ""), title: c.map((x) => x.id).join("\n"), v: c.length, txt: `${c.length}개`, pick: () => highlight(c, null, `순환 의존 ${c.length}개: ${c.slice(0, 4).map(nm).join(" ⇄ ")}${c.length > 4 ? " …" : ""}`) })));
+      if (a.chain.length > 1) add("가장 긴 의존 사슬", "위에서부터 가장 깊이 이어지는 길 — 맨 아래를 바꾸면 위까지 영향이 간다.", [{ label: a.chain.map(nm).join(" → "), title: a.chain.map((x) => x.id).join("\n"), v: 1, txt: `${a.chainE.length}단계`, pick: showChain }]);
+      add("가장 많이 쓰이는 것", "들어오는 연결이 많은 중심 — 바꾸면 영향이 크다. 누르면 영향 범위.", top(inner, indeg).map((n) => item(n, indeg(n), `${indeg(n)}곳`, () => users(n))));
+      add("가장 많이 쓰는 것", "나가는 연결이 많다 — 여러 곳에 기대어 바뀌기 쉽다. 누르면 전체 의존.", top(inner, outdeg).map((n) => item(n, outdeg(n), `${outdeg(n)}개`, () => needs(n))));
+      add("많이 쓰이는데 불안정한 것", "여럿이 기대는데 자신도 많이 기댄다(불안정도 ≥ 0.5) — 안정된 쪽에 기대게 나누면 좋다.", inner.filter((n) => indeg(n) >= 3 && outdeg(n) / deg(n) >= 0.5).sort((x, y) => indeg(y) - indeg(x) || byId(x, y)).slice(0, 10).map((n) => item(n, indeg(n), `쓰는 곳 ${indeg(n)} · 불안정 ${(outdeg(n) / deg(n)).toFixed(2)}`)));
+      add(m.rel === "modules" ? "아무도 의존하지 않는 모듈" : "아무도 가져오지 않는 것", m.rel === "modules" ? "앱 · 테스트가 아닌데 쓰는 곳이 없다." : "진입점 · 테스트를 빼고 들어오는 연결이 없다 — 지워도 되는지 볼 후보(Go 는 패키지 단위라 뺌).", unused.slice(0, 20).map((n) => item(n, linesOf(n) || 1, linesOf(n) ? `${linesOf(n)}줄` : "", () => highlight([n], null, `${n.label} — 들어오는 연결 없음`, [n]))));
+      add("많이 쓰는 외부 패키지", "저장소 밖 의존 — 올리거나 바꿀 때 볼 곳.", top(ext, indeg).map((n) => item(n, indeg(n), `${indeg(n)}곳`, () => highlight([...near(n)], null, `${n.label} 을(를) 쓰는 것 ${near(n).size - 1}개`, [n]))));
+    } else {
+      const seen = new Set();
+      let groups = 0;
+      for (const r of vis) { if (seen.has(r)) continue; groups++; seen.add(r); const q = [r]; for (let i = 0; i < q.length; i++) for (const o of near(q[i])) if (!seen.has(o)) { seen.add(o); q.push(o); } }
+      card(vis.length, m.agg ? "폴더" : "파일", false, null);
+      card(visEdges.length, "같이 바뀐 쌍", false, null);
+      card(groups, "따로 바뀌는 묶음", false, null);
+      add("가장 자주 같이 바뀌는 쌍", "한 커밋에 함께 든 횟수 — 하나를 고칠 때 다른 하나도 볼 곳.", visEdges.slice().sort((x, y) => y.w - x.w || byId(x.s, y.s)).slice(0, 12).map((e) => ({ n: e.s, label: `${nm(e.s)} ↔ ${nm(e.t)}`, title: `${e.s.id}\n${e.t.id}`, v: e.w, txt: `${e.w}번${e.d.degree != null ? " · " + e.d.degree + "%" : ""}`, pick: () => highlight([e.s, e.t], [e], `${nm(e.s)} ↔ ${nm(e.t)} · ${e.w}번 같이 바뀜`, [e.s, e.t]) })));
+      add("여러 파일과 같이 바뀌는 것", "많은 파일과 엮여 바뀐다 — 변경이 퍼지는 중심.", top(inner, deg).map((n) => item(n, deg(n), `${deg(n)}개`, () => highlight([...near(n)], null, `${n.label} 와(과) 같이 바뀌는 것 ${near(n).size - 1}개`, [n]))));
+    }
+    if ((m.rel === "files" || m.rel === "changes") && !m.agg) {   // 폴더 사이 연결 — 지금 고른 깊이
+      const fk = (n) => (n.kind === "file" && n.d.path ? n.d.path.split("/").slice(0, -1).slice(0, vs.depth).join("/") || "." : null), pairs = new Map();
+      for (const e of visEdges) {
+        const x = fk(e.s), y = fk(e.t);
+        if (!x || !y || x === y) continue;
+        const key = m.directed ? x + " → " + y : [x, y].sort().join(" ↔ "), p = pairs.get(key) || { label: key, v: 0, edges: [] };
+        p.v += e.w; p.edges.push(e); pairs.set(key, p);
+      }
+      add(`폴더 사이 연결 (${vs.depth}단계)`, "폴더를 넘나드는 연결이 많은 쌍 — 경계가 흐린 곳. 깊이는 위의 단위 › 폴더 단계를 따른다.", [...pairs.values()].sort((x, y) => y.v - x.v).slice(0, 12).map((p) => ({ label: p.label, v: p.v, txt: `${p.edges.length}개`, pick: () => { const s = new Set(); for (const e of p.edges) { s.add(e.s); s.add(e.t); } highlight([...s], p.edges, `폴더 사이: ${p.label} · 연결 ${p.edges.length}개`); } })));
+    }
+    if (CHG.size && (m.rel === "files" || m.rel === "changes")) {   // 핫스팟 = 바뀐 횟수 × 줄(로그) — 자주 고치는 큰 파일
+      const hs = vis.filter((n) => heatOf(n) && linesOf(n)).map((n) => ({ n, s: heatOf(n) * Math.log(linesOf(n) + 1) })).sort((x, y) => y.s - x.s || byId(x.n, y.n)).slice(0, 12);
+      add("핫스팟", "자주 바뀌면서 큰 것(바뀐 횟수 × 줄) — 버그와 고칠 일이 모이는 곳.", hs.map((h) => item(h.n, h.s, `${heatOf(h.n)}번 · ${linesOf(h.n)}줄`)));
+    }
+    if (VIEWS.changes && VIEWS.files && (m.rel === "files" || m.rel === "changes") && !m.agg) {   // 숨은 결합 — 같이 바뀌는데 import 는 없다
+      const hid = VIEWS.changes.edges.filter((e) => (e.weight || 0) >= 2 && !IMP.has(e.source + "\u0000" + e.target)).sort((x, y) => (y.weight || 0) - (x.weight || 0))
+        .map((e) => ({ x: m.nodeOf.get(e.source), y: m.nodeOf.get(e.target), w: e.weight })).filter((h) => h.x && h.y && h.x.vis && h.y.vis).slice(0, 12);
+      add("숨은 결합", "import 로는 이어지지 않는데 자주 같이 바뀐다 — 보이지 않는 의존이나 복사된 코드일 수 있다.", hid.map((h) => ({ n: h.x, label: `${nm(h.x)} ↔ ${nm(h.y)}`, title: `${h.x.id}\n${h.y.id}`, v: h.w, txt: `${h.w}번 같이`, pick: () => highlight([h.x, h.y], [], `숨은 결합: ${nm(h.x)} ↔ ${nm(h.y)} (${h.w}번 같이 바뀜, import 없음)`, [h.x, h.y]) })));
+    }
+    let html = `<div class="cards">${cards.map((c, i) => (c.pick ? `<button type="button" data-c="${i}" class="${c.hot ? "hot" : ""}">` : `<div class="${c.hot ? "hot" : ""}">`) + `<b>${c.v}</b><span>${esc(c.t)}</span>${c.pick ? "</button>" : "</div>"}`).join("")}</div>`;
+    S.forEach((s, si) => {
+      const max = Math.max(1, ...s.items.map((it) => it.v));
+      html += `<h3 class="sec-title">${esc(s.title)}</h3><p class="sec-note">${esc(s.note)}</p><ul class="rows" data-s="${si}">` + s.items.map((it, i) => `<li data-k="${i}" title="${esc(it.title || it.label)}">${it.n ? dotHtml(it.n) : ""}<span class="name">${esc(it.label)}</span><small>${esc(it.txt)}</small><span class="bar"><i style="width:${Math.max(6, Math.round((it.v / max) * 100))}%"></i></span></li>`).join("") + "</ul>";
+    });
+    if (!S.length) html += `<p class="sec-note">이 보기에서 더 볼 것이 없습니다.</p>`;
+    body.innerHTML = html;
+    $("anaNote").textContent = `${RELNAME[m.rel]}${m.agg ? ` · 폴더 ${m.depth}단계` : ""}`;
+    for (const b of body.querySelectorAll("[data-c]")) b.onclick = () => cards[+b.dataset.c].pick();
+    for (const ul of body.querySelectorAll("ul[data-s]")) { const s = S[+ul.dataset.s]; for (const li of ul.querySelectorAll("li")) li.onclick = () => s.items[+li.dataset.k].pick(); }
+  }
   function renderGroups() {
     const counts = new Map();
     for (const n of m.nodes) counts.set(groupKey(n), (counts.get(groupKey(n)) || 0) + 1);
-    const order = (byRole() ? ["r:app", "r:lib", "r:test", "r:ext"] : [...colored.map((f) => "f:" + f), "f:lang", "f:other", "f:ext"]).filter((k) => counts.has(k));
+    const order = (colorMode() === "role" ? ["r:app", "r:lib", "r:test", "r:ext"] : [...colored.map((f) => "f:" + f), "f:lang", "f:other", "f:ext"]).filter((k) => counts.has(k));
     const item = (k) => `<button type="button" data-k="${k}" class="${hidden.has(k) ? "off" : ""}" title="누르면 숨기기 · 보이기"><span class="${k.endsWith(":ext") ? "dot ext" : "dot"}" style="background:${colorOfKey(k)}"></span>${esc(keyName(k))} <span class="n">${counts.get(k)}</span></button>`;
     $("groups").innerHTML = order.map(item).join("");
-    $("legend").innerHTML = order.length > 1 ? order.map(item).join("") : "";
-    $("legend").hidden = order.length <= 1;
+    if (colorMode() === "heat") $("legend").innerHTML = `<span class="ramp">바뀐 횟수 <span>적음</span><i style="background:${C.h1}"></i><i style="background:${C.h2}"></i><i style="background:${C.h3}"></i><i style="background:${C.h4}"></i><span>많음(${heatMax})</span></span>`;
+    else $("legend").innerHTML = order.length > 1 ? order.map(item).join("") : "";
+    $("legend").hidden = !$("legend").innerHTML;
     for (const b of document.querySelectorAll("#groups button, #legend button")) b.onclick = () => { const g = b.dataset.k; if (hidden.has(g)) hidden.delete(g); else hidden.add(g); filtersChanged(); renderGroups(); };
   }
   function filtersChanged() {
@@ -6940,10 +7359,11 @@ HTMLEOF
     if (sel && !sel.vis) sel = null;
     if (hover && !hover.vis) hover = null;
     renderInfo(); setQuery($("q").value);
+    if (!$("ana").hidden) renderAna();
     applyLayout(false);
   }
 
-  // ----- 탭 · 단위 · 언어 · 그리기 -----
+  // ----- 탭 · 단위 · 언어 · 그리기 · 색 · 크기 -----
   function seg(el, items, cur, onPick) {
     el.innerHTML = items.map(([v, t]) => `<button type="button" data-v="${v}" class="${v === cur ? "on" : ""}">${t}</button>`).join("");
     for (const b of el.querySelectorAll("button")) b.onclick = () => onPick(b.dataset.v);
@@ -6956,11 +7376,11 @@ HTMLEOF
     seg($("unit"), [["file", "파일"], ["folder", "폴더"]], vs.unit, setUnit);
     $("depth").hidden = vs.unit !== "folder";
     $("depth").value = String(vs.depth);
-    seg($("style"), [["dot", "점"], ["box", "상자"]], vs.style, (v) => { vs.style = v; renderControls(); sizeNodes(); m.userMoved = false; applyLayout(true); });
+    seg($("style"), [["dot", "점"], ["box", "상자"]], vs.style, (v) => { vs.style = v; if (v === "box" && vs.layout === "radial") vs.layout = "tidy"; renderControls(); sizeNodes(); m.userMoved = false; applyLayout(true); });
     seg($("layout"), LAYOUTS[REL], vs.layout, (v) => { vs.layout = v; renderControls(); m.userMoved = false; applyLayout(true); });
-    const roles = REL === "modules";
-    $("colorRow").hidden = !roles;
-    seg($("colorBy"), [["family", "언어"], ["role", "종류"]], vs.colorBy, (v) => { vs.colorBy = v; hidden.clear(); renderControls(); filtersChanged(); });
+    const colors = [["family", "언어"], ...(REL === "modules" ? [["role", "종류"]] : []), ...(heatOk() ? [["heat", "바뀐 횟수"]] : [])];
+    seg($("colorBy"), colors, colorMode(), (v) => { vs.colorBy = v; hidden.clear(); renderControls(); filtersChanged(); });
+    seg($("sizeBy"), SIZES(), vs.sizeBy, (v) => { vs.sizeBy = v; sizeNodes(); renderControls(); applyLayout(false); });
     $("arrowRow").hidden = !m.directed;
     $("extRow").hidden = !m.nodes.some((n) => n.fam === "ext");
     $("heurRow").hidden = !m.edges.some((e) => e.h);
@@ -6975,14 +7395,13 @@ HTMLEOF
     $("noteBtn").hidden = !notes.length;
     if (!notes.length) $("notes").hidden = true;
   }
-  function setUnit(u) {
-    if (u === vs.unit) return;
-    vs.unit = u; switchModel();
-  }
+  function setUnit(u) { if (u === vs.unit) return; vs.unit = u; switchModel(); }
   function switchModel() {
-    sel = null; hover = null; morph = null; tween = null; running = false;
+    sel = null; hover = null; morph = null; tween = null; running = false; HL = null; pathFrom = null;
+    $("banner").hidden = true; canvas.classList.remove("picking");
     m = modelFor(vs); view = m.view;
     sizeNodes(); refreshVisible(); renderControls(); renderInfo(); setQuery($("q").value);
+    if (!$("ana").hidden) renderAna();
     if (!m.laid) { m.laid = true; firstLayout(); } else request();
     if (!$("table").hidden) renderTable();
   }
@@ -7001,11 +7420,24 @@ HTMLEOF
   const tip = $("tip");
   function showTip(n, px, py) {
     if (!n) { tip.hidden = true; return; }
-    const [mName, mFn] = METRIC();
-    tip.innerHTML = `<b>${esc(n.label)}</b><span>${esc(famLabel(n))} · ${esc(mName)} ${mFn(n)}${m.rel !== "modules" ? " · 연결 " + n.deg : ""}</span>`;
+    const [mName, mFn] = METRIC(), c = heatOf(n);
+    tip.innerHTML = `<b>${esc(n.label)}</b><span>${esc(famLabel(n))} · ${esc(mName)} ${mFn(n)}${m.rel !== "modules" ? " · 연결 " + n.deg : ""}${c && m.rel !== "changes" ? " · 바뀐 " + c + "번" : ""}${pathFrom && pathFrom !== n ? " · 누르면 여기까지 경로" : ""}</span>`;
     tip.hidden = false;
     const w = tip.offsetWidth, h = tip.offsetHeight;
     tip.style.left = Math.min(px + 16, W - w - 8) + "px"; tip.style.top = Math.min(py + 16, H - h - 8) + "px";
+  }
+  function pick(n) {   // 누르기: 경로 찾는 중이면 끝 노드, 아니면 고르기
+    if (pathFrom && n && n !== pathFrom) {
+      const a = pathFrom, p = shortestPath(a, n);
+      pathFrom = null; canvas.classList.remove("picking");
+      if (!p) { banner(`${a.label} 와(과) ${n.label} 사이에 길이 없습니다`); HL = { nodes: new Set([a, n]), edges: new Set(), title: "", ends: [a, n] }; request(); return; }
+      const how = p.mode === "out" ? "→" : p.mode === "in" ? "←" : "–";
+      highlight(p.nodes, p.edges, `경로 ${p.edges.length}단계: ${p.nodes.map((x) => x.label).join(` ${how} `)}`, [a, n]);
+      sel = n; renderInfo();
+      return;
+    }
+    if (!n && HL) { clearHL(); return; }
+    select(n);
   }
   canvas.addEventListener("pointerdown", (ev) => {
     canvas.setPointerCapture(ev.pointerId);
@@ -7051,7 +7483,7 @@ HTMLEOF
     pointers.delete(ev.pointerId);
     if (pointers.size < 2) pinch = null;
     canvas.classList.remove("dragging");
-    if (down && !down.moved) select(down.n);
+    if (down && !down.moved) pick(down.n);
     if (down && down.n) { down.n.fx = null; down.n.fy = null; }
     down = null;
   };
@@ -7068,6 +7500,15 @@ HTMLEOF
     if (n && n.members) { setUnit("file"); return; }   // 폴더를 두 번 누르면 파일 단위로
     if (n) { select(n); centerOn(n, Math.max(view.k * 1.8, 1.5)); } else zoomAt(ev.clientX, ev.clientY, 1.8, 300);
   });
+  // 마스코트 눈동자는 커서 쪽을 본다
+  document.addEventListener("pointermove", (ev) => {
+    for (const p of document.querySelectorAll(".mascot .pupil")) {
+      const r = p.closest(".eye").getBoundingClientRect();
+      if (!r.width) continue;
+      const dx = ev.clientX - (r.left + r.width / 2), dy = ev.clientY - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1, f = Math.min(1, d / 180);
+      p.style.transform = `translate(${((dx / d) * 4.4 * f).toFixed(2)}px, ${((dy / d) * 2 * f).toFixed(2)}px)`;
+    }
+  }, { passive: true });
   const q = $("q");
   q.addEventListener("input", () => setQuery(q.value));
   q.addEventListener("keydown", (ev) => {
@@ -7075,29 +7516,43 @@ HTMLEOF
     if (ev.key !== "Enter" || !matches.length) return;
     matchIdx = (matchIdx + (ev.shiftKey ? -1 : 1) + matches.length) % matches.length;
     const n = matches[matchIdx];
-    select(n); centerOn(n, Math.max(view.k, 1.3));
+    pick(n); centerOn(n, Math.max(view.k, 1.3));
     $("hits").textContent = `${matchIdx + 1}/${matches.length}`;
   });
   document.addEventListener("keydown", (ev) => {
     if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLSelectElement || (ev.target instanceof HTMLButtonElement && ev.key === "Enter")) return;
     if (ev.key === "/") { ev.preventDefault(); q.focus(); q.select(); }
-    else if (ev.key === "Escape") { if (!$("table").hidden) toggleTable(false); else select(null); }
+    else if (ev.key === "Escape") { if (pathFrom || HL) clearHL(); else if (!$("table").hidden) toggleDrawer("table", false); else if (!$("ana").hidden) toggleDrawer("ana", false); else select(null); }
     else if (ev.key === "f" || ev.key === "F") { m.userMoved = false; animateTo(fitView()); }
+    else if (ev.key === "a" || ev.key === "A") toggleDrawer("ana", $("ana").hidden);
     else if (ev.key === "+" || ev.key === "=") zoomAt(W / 2, H / 2, 1.4, 260);
     else if (ev.key === "-") zoomAt(W / 2, H / 2, 1 / 1.4, 260);
     else if (/^[1-4]$/.test(ev.key) && ORDER[+ev.key - 1]) show(ORDER[+ev.key - 1]);
   });
-  function togglePanel(open) { $("panel").hidden = !open; $("gear").classList.toggle("on", open); $("gear").setAttribute("aria-expanded", String(open)); if (open) toggleTable(false); }
-  function toggleTable(open) { $("table").hidden = !open; $("list").classList.toggle("on", open); if (open) { togglePanel(false); renderTable(); } }
+  function togglePanel(open) { $("panel").hidden = !open; $("gear").classList.toggle("on", open); $("gear").setAttribute("aria-expanded", String(open)); if (open) { toggleDrawer("table", false); toggleDrawer("ana", false); } }
+  function toggleDrawer(id, open) {
+    $(id).hidden = !open; $(id === "table" ? "list" : "anaBtn").classList.toggle("on", open);
+    if (!open) return;
+    togglePanel(false); toggleDrawer(id === "table" ? "ana" : "table", false);
+    if (id === "table") renderTable(); else renderAna();
+  }
   $("gear").onclick = () => togglePanel($("panel").hidden);
-  $("list").onclick = () => toggleTable($("table").hidden);
-  $("tableClose").onclick = () => toggleTable(false);
+  $("list").onclick = () => toggleDrawer("table", $("table").hidden);
+  $("anaBtn").onclick = () => toggleDrawer("ana", $("ana").hidden);
+  $("tableClose").onclick = () => toggleDrawer("table", false);
+  $("anaClose").onclick = () => toggleDrawer("ana", false);
+  $("bannerClear").onclick = () => clearHL();
   $("zin").onclick = () => zoomAt(W / 2, H / 2, 1.4, 260);
   $("zout").onclick = () => zoomAt(W / 2, H / 2, 1 / 1.4, 260);
   $("fit").onclick = () => { m.userMoved = false; animateTo(fitView()); };
   $("theme").onclick = () => setTheme(root.dataset.theme === "dark" ? "light" : "dark", true);
-  $("png").onclick = () => {   // 지금 보이는 그래프만(설정 창 · 목록 없이) 그림으로
-    canvas.toBlob((b) => {
+  $("png").onclick = () => {   // 지금 보이는 그래프만(설정 창 · 목록 없이) 남색 배경과 함께 그림으로
+    const out = document.createElement("canvas"); out.width = canvas.width; out.height = canvas.height;
+    const o = out.getContext("2d"), g1 = o.createRadialGradient(out.width * 0.62, out.height * 0.32, 0, out.width * 0.62, out.height * 0.32, out.width * 0.7);
+    o.fillStyle = C.bg; o.fillRect(0, 0, out.width, out.height);
+    g1.addColorStop(0, C.glow); g1.addColorStop(1, "rgba(0,0,0,0)"); o.fillStyle = g1; o.fillRect(0, 0, out.width, out.height);
+    o.drawImage(canvas, 0, 0);
+    out.toBlob((b) => {
       if (!b) return;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(b); a.download = `${META.repo}-${REL}${m.agg ? "-folders" : ""}.png`;
@@ -7138,6 +7593,7 @@ HTMLEOF
   // ----- 시작 -----
   document.title = `${META.repo}${META.scope ? "/" + META.scope : ""} — gitch graph`;
   $("repo").textContent = META.repo + (META.scope ? " / " + META.scope : "");
+  $("logo").innerHTML = MASCOT(); $("emptyLogo").innerHTML = MASCOT(); $("anaLogo").innerHTML = MASCOT(); $("peek").innerHTML = MASCOT("big");
   let saved = null;
   try { saved = localStorage.getItem("gitch-graph-theme"); } catch (e) { /* 저장소를 못 쓰면 기본(어둡게) */ }
   setTheme(saved === "light" ? "light" : "dark", false);

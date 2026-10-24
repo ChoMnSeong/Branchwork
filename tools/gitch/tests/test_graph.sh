@@ -539,9 +539,14 @@ test_graph_formats_and_output() {
   [ -f "$T/out/g.html" ] || fail "html 파일이 없음"
   grep -q '<script id="graph-data" type="application/json">' "$T/out/g.html" || fail "데이터 블록 없음"
   grep -q '"relation": "files"' "$T/out/g.html" || fail "데이터에 관계가 없음"
-  for id in panel table legend info q; do grep -q "id=\"$id\"" "$T/out/g.html" || fail "html 에 #$id 가 없음"; done   # 설정 창 · 표로 보기 · 범례 · 정보 · 찾기
+  for id in panel table legend info q ana banner peek; do grep -q "id=\"$id\"" "$T/out/g.html" || fail "html 에 #$id 가 없음"; done   # 설정 창 · 표로 보기 · 범례 · 정보 · 찾기 · 분석 · 강조 알림 · 마스코트
   grep -q '<html lang="ko" data-theme="dark">' "$T/out/g.html" || fail "기본은 어두운 화면이어야"
   assert_eq "$(grep -o '</script>' "$T/out/g.html" | wc -l | tr -d ' ')" "2" "데이터 속 </script> 가 그대로 들어감"
+  if command -v node >/dev/null 2>&1; then   # 보기 스크립트 문법(브라우저 없이)
+    awk '/^<script>$/ { on = 1; next } /^<\/script>$/ { on = 0 } on' "$T/out/g.html" > "$T/out/viewer.js"
+    grep -q 'function renderAna' "$T/out/viewer.js" || fail "보기 스크립트를 찾지 못함"
+    node --check "$T/out/viewer.js" 2>"$T/out/node.err" || fail "보기 스크립트 문법 오류\n$(cat "$T/out/node.err")"
+  fi
   grep -Eq '<(script|link)[^>]+(src|href)=' "$T/out/g.html" && fail "외부 파일(CDN)을 불러옴"
   grep -q 'http' "$T/out/g.html" && fail "인터넷 주소가 들어 있음"
   awk '/<script id="graph-data"/ { on = 1; next } /<\/script>/ { on = 0 } on' "$T/out/g.html" > "$T/out/data.json"
