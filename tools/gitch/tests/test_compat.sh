@@ -17,6 +17,34 @@ test_install_links_gitch_and_gitsw_shim() {
   run gitsw status --json; assert_ok; assert_json "$OUT"
 }
 
+test_install_without_accounts_links_command() {
+  # 계정이 없으면(설정 파일 없음) 명령 · 터미널만 연결한다 — 예전에는 「먼저 gitch add」로 멈춰, gitch add 가 안 되던 사람은 gitch 를 아예 못 썼다
+  rm -f "$HOME/bin/gitch" "$HOME/bin/gitsw"
+  run "$GITSW_SRC" install; assert_ok "계정 없이 install"; assert_out "계정이 아직 없어"; assert_out "gitch add"
+  local self; self=$(resolve_path "$GITSW_SRC")
+  [ "$(resolve_path "$HOME/bin/gitch")" = "$self" ] || fail "~/bin/gitch 가 연결되지 않음"
+  [ "$(grep -c '# >>> gitsw >>>' "$RC_FILE")" -eq 1 ] || fail "터미널 연동이 없음"
+  # 계정 없이 깔면 모든 저장소의 커밋이 막히므로 useConfigOnly · 훅은 아직
+  assert_eq "$(git config --global --get user.useConfigOnly)" "" "계정 없이 useConfigOnly 를 켜면 안 됨"
+  assert_eq "$(git config --global --get hook.gitsw-pre-commit.event)" "" "계정 없이 검사 훅을 깔면 안 됨"
+  # 계정이 필요 없는 명령은 바로 된다
+  mkdir -p "$T/solo" && cd "$T/solo" && git init -q && printf 'import { b } from "./b";\n' > a.ts && printf 'export const b = 1;\n' > b.ts && git add -A
+  run gitch g --json; assert_ok "계정 없이 gitch g"; assert_json "$OUT"
+  # 계정을 만든 뒤 다시 하면 나머지까지
+  mk_config
+  run gitch install; assert_ok
+  assert_eq "$(git config --global --get user.useConfigOnly)" "true"
+  [ "$(git config --global --get hook.gitsw-pre-commit.event)" = pre-commit ] || fail "계정을 만든 뒤 전역 훅이 설치되지 않음"
+}
+
+test_app_opens_gitrochi() {
+  mac_only || return 0                                   # Windows 는 설치 폴더의 Gitrochi.exe 를 기본 앱으로 연다
+  local app="$HOME/Applications/Gitrochi.app"
+  mkdir -p "$app/Contents/Resources" && cp "$GITSW_SRC" "$app/Contents/Resources/gitch"
+  run "$app/Contents/Resources/gitch" app; assert_ok "gitch app"; assert_out "Gitrochi 를 엽니다"
+  grep -qF "open -a $app" "$T/opened" || fail "이 gitch 가 든 앱을 열지 않음\n$(cat "$T/opened" 2>&1)"
+}
+
 test_install_keeps_user_gitsw_file() {
   mk_config
   printf '#!/bin/sh\necho mine\n' > "$HOME/bin/gitsw"; chmod +x "$HOME/bin/gitsw"
