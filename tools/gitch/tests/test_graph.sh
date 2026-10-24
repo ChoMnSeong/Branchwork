@@ -818,3 +818,29 @@ test_graph_check_modules() {
   run gitch graph check --json; assert_rc 1; assert_json "$OUT"
   assert_eq "$(gr_q '[.violations[] | "\(.kind) \(.source) \(.target)"] | sort | join(" | ")')" "forbid tuist:AFeature tuist:BFeature | layers tuist:Domain tuist:AFeature"
 }
+
+gr_chrome() {   # 시험에 쓸 Chrome — GITCH_TEST_CHROME 이 먼저, 없으면 실패(그 시험은 건너뛴다)
+  local c
+  for c in "${GITCH_TEST_CHROME:-}" "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "$(command -v google-chrome 2>/dev/null)" "$(command -v chromium 2>/dev/null)"; do
+    [ -n "$c" ] && [ -x "$c" ] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+
+test_graph_html_in_browser() {   # 헤드리스 Chrome 에서: 오류 없이 그리고, 배치 · 그리기마다 겹친 노드가 없고, PNG 로 저장된다 (Chrome · Node 22 가 없으면 건너뜀)
+  local chrome
+  chrome=$(gr_chrome) || return 0
+  node -e 'process.exit(typeof WebSocket === "function" ? 0 : 1)' 2>/dev/null || return 0
+  gr_repo "$T/browser"
+  printf '{"name":"root","workspaces":["packages/*"]}\n' | gr_put package.json
+  printf '{"name":"@x/a","dependencies":{"@x/b":"1"}}\n' | gr_put packages/a/package.json
+  printf '{"name":"@x/b"}\n' | gr_put packages/b/package.json
+  local i
+  for i in 1 2 3 4 5 6 7 8; do printf 'import { v%s } from "./f%s"\nexport const v%s = 1\n' $(( i % 8 + 1 )) $(( i % 8 + 1 )) "$i" | gr_put "packages/a/src/f$i.ts"; done
+  gr_commit one
+  for i in 2 3; do echo "// $i" >> packages/a/src/f1.ts; echo "// $i" >> packages/a/src/f2.ts; gr_commit "c$i"; done   # 같이 바뀌는 쌍
+  run gitch graph files --out "$T/out/browser.html"; assert_ok
+  run node "$ROOT/tests/graph_browser.mjs" "$chrome" "$T/out/browser.html" "$T"
+  assert_ok "브라우저에서 확인 실패"
+  assert_out '"ok":true'
+}
