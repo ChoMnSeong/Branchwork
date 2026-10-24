@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// ⌘, 설정: 계정(GitHub·GitLab), AI, 규칙, 도구(실행 파일 위치), 화면(테마), 업데이트
+/// ⌘, 설정: 계정(GitHub·GitLab), AI, 규칙, 도구(실행 파일 위치), CLI(gitch), 화면(테마), 업데이트
 struct SettingsView: View {
     var body: some View {
         TabView {
@@ -13,6 +13,8 @@ struct SettingsView: View {
                 .tabItem { Label("Rules", systemImage: "text.badge.checkmark") }
             ToolsSettings()
                 .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+            CLISettings()
+                .tabItem { Label { Text(verbatim: "CLI") } icon: { Image(systemName: "terminal") } }
             AppearanceSettings()
                 .tabItem { Label("Appearance", systemImage: "paintpalette") }
             UpdateSettings()

@@ -1,4 +1,4 @@
-# shellcheck shell=bash
+# shellcheck shell=bash disable=SC2088  # 화면 표시용 ~ 문자열
 # 상태 출력 / scan / doctor / install / AI 연동 / PR / 기타
 
 misc_repo() {
@@ -205,6 +205,51 @@ test_export_import_uninstall_version() {
   run gitch install; assert_ok "다시 설치"
 }
 
+test_install_banner_fits_terminal() {
+  mk_config
+  # 터미널이 아니면 로고 없이 단계만
+  run gitch install; assert_ok; assert_out "◆ 명령  1/5"; assert_out "설치 완료"; assert_no_out "⣿"
+  export GITSW_BANNER=always GITSW_ANIM=0
+  COLUMNS=100 LINES=40 run gitch install; assert_ok; assert_out "⣸⣿⣿⣿⣿⣿⣿⣿⡷"
+  COLUMNS=80 LINES=24 run gitch install; assert_ok; assert_out "⢿⣿⣿⡇ ⢀⡆"; assert_no_out "⣸⣿⣿⣿⣿⣿⣿⣿⡷"
+  COLUMNS=40 LINES=24 run gitch install; assert_ok; assert_out "⣿⣿⠃⢀⡄"
+  COLUMNS=20 LINES=24 run gitch install; assert_ok; assert_out "gitch v"; assert_no_out "⣿"
+  unset GITSW_BANNER GITSW_ANIM
+}
+
+test_install_refuses_app_outside_applications() {
+  mk_config
+  local app
+  # 다운로드 폴더의 앱: 응용 프로그램 폴더로 옮기면 끊기므로 연결하지 않는다
+  app="$T/Downloads/Gitrochi.app"
+  mkdir -p "$app/Contents/Resources"; cp "$GITSW_SRC" "$app/Contents/Resources/gitch"
+  run "$app/Contents/Resources/gitch" install; assert_fail "다운로드 폴더의 앱에 연결하면 안 됨"
+  assert_out "응용 프로그램 폴더 밖의 앱"; assert_out "/Applications/Gitrochi.app/Contents/Resources/gitch install"
+  # 임시 위치(App Translocation): 다음에 앱을 열면 다른 곳이 된다
+  app="$T/AppTranslocation/0A1B2C/d/Gitrochi.app"
+  mkdir -p "$app/Contents/Resources"; cp "$GITSW_SRC" "$app/Contents/Resources/gitch"
+  run "$app/Contents/Resources/gitch" install; assert_fail "임시 위치의 앱에 연결하면 안 됨"; assert_out "임시 위치(App Translocation)"
+  [ "$(resolve_path "$HOME/bin/gitch")" = "$(resolve_path "$GITSW_SRC")" ] || fail "거부했는데 ~/bin/gitch 가 바뀜"
+  # ~/Applications 의 앱은 된다
+  app="$HOME/Applications/Gitrochi.app"
+  mkdir -p "$app/Contents/Resources"; cp "$GITSW_SRC" "$app/Contents/Resources/gitch"
+  run "$app/Contents/Resources/gitch" install; assert_ok "~/Applications 의 앱"
+  [ "$(resolve_path "$HOME/bin/gitch")" = "$(resolve_path "$app/Contents/Resources/gitch")" ] || fail "~/bin/gitch 가 ~/Applications 의 앱을 가리켜야 함"
+}
+
+test_install_refuses_disk_image() {
+  command -v hdiutil >/dev/null 2>&1 || return 0   # 디스크 이미지는 맥에서만
+  mk_config
+  mkdir -p "$T/img" "$T/mnt"; cp "$GITSW_SRC" "$T/img/gitch"
+  hdiutil create -quiet -srcfolder "$T/img" -volname gitch-test -format UDZO "$T/g.dmg" || fail "이미지를 만들지 못함"
+  hdiutil attach -quiet -nobrowse -readonly -mountpoint "$T/mnt" "$T/g.dmg" || fail "이미지를 붙이지 못함"
+  trap 'hdiutil detach -quiet -force "$T/mnt" 2>/dev/null; cd /; rm -rf "$T"' EXIT
+  # 앱 밖의 gitch 라도 디스크 이미지 안이면 꺼낼 때 끊긴다
+  run "$T/mnt/gitch" install; assert_fail "디스크 이미지 안의 gitch 에 연결하면 안 됨"
+  assert_out "디스크 이미지에서 실행 중"; assert_out "~/.local/share/gitch/"
+  [ "$(resolve_path "$HOME/bin/gitch")" = "$(resolve_path "$GITSW_SRC")" ] || fail "거부했는데 ~/bin/gitch 가 바뀜"
+}
+
 test_fork_flow_without_gh_switch() {
   mk_config; install_quiet
   mk_remote_seeded github-alice alice/lib
@@ -250,7 +295,7 @@ test_backups_skip_identical_and_rules_have_no_case_duplicates() {
   git config -f "$HOME/.config/gitsw/config" org.github.com/TeamX.account bob
   install_quiet; install_quiet; install_quiet
   local n
-  n=$(ls -1d "$HOME/.local/state/gitsw/backups"/*/ 2>/dev/null | grep -c .)
+  n=$(count_dirs "$HOME/.local/state/gitsw/backups"/*/)
   [ "$n" -le 2 ] || fail "같은 내용인데도 백업이 계속 쌓임 ($n 개)"
   git config --global --list --name-only | grep -q 'url.git@github-bob:teamx/' && fail "대소문자만 다른 규칙이 또 생김"
   git config --global --list --name-only | grep -q 'url.git@github-bob:TeamX/' || fail "조직 규칙 없음"
@@ -258,7 +303,7 @@ test_backups_skip_identical_and_rules_have_no_case_duplicates() {
   for i in $(seq 1 32); do mkdir -p "$HOME/.local/state/gitsw/backups/2026010$((i % 9))-0000$i-1"; done
   echo "# change" >> "$HOME/.zshrc"; install_quiet
   [ -d "$HOME/.local/state/gitsw/backups/v1-원본" ] || fail "보관용 폴더는 정리 대상이 아님"
-  n=$(ls -1d "$HOME/.local/state/gitsw/backups"/[0-9]*-[0-9]*-[0-9]*/ | grep -c .)
+  n=$(count_dirs "$HOME/.local/state/gitsw/backups"/[0-9]*-[0-9]*-[0-9]*/)
   [ "$n" -le 30 ] || fail "백업 폴더가 30개를 넘음 ($n)"
 }
 
