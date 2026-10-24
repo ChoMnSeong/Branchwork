@@ -2080,7 +2080,7 @@ dependencies = [
 
 [[package]]
 name = "js-sys"
-version = "0.3.116"
+version = "0.3.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7883d941dae510fb2d978fc3fe018c71c9e2892fd38854de3e8b92c2e5ad9cc5"
 dependencies = [
@@ -3821,7 +3821,7 @@ dependencies = [
 
 [[package]]
 name = "simd-adler32"
-version = "0.3.11"
+version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a219298ac11a56ea9a6d2120044824d6f01aeb034955e7af7bc16858527deea"
 
@@ -5050,7 +5050,7 @@ dependencies = [
 
 [[package]]
 name = "web-sys"
-version = "0.3.116"
+version = "0.3.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88261b9deccee56594c11a3460c462c41f58d148598fe70ad77070126a68aba4"
 dependencies = [
