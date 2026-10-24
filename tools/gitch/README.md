@@ -17,6 +17,19 @@ Gitrochi 맥 앱에 함께 들어 있다(`Gitrochi.app/Contents/Resources/gitch`
 2. **설치** → 무엇이 바뀌는지 보여 준 뒤 `gitch install` 을 실행한다(`~/bin/gitch` 가 앱 안의 gitch 를 가리키므로 앱을 업데이트하면 gitch 도 같이 바뀐다). 앱이 응용 프로그램 폴더(`/Applications` 또는 `~/Applications`)에 있어야 한다 — 디스크 이미지 · 다운로드 폴더 · 임시 위치(App Translocation)의 앱에 연결하면 디스크를 꺼내거나 앱을 옮길 때 끊기므로, 앱도 `gitch install` 도 거부하고 옮길 곳을 알려 준다.
 3. 새 터미널을 연다. 저장소 화면의 커밋 칸 위에 이 저장소의 계정(잠금)과 커밋·push 전 점검(`gitch preflight`)이 보이고, 계정 이름을 눌러 이 저장소의 계정을 바꾼다(`gitch use`).
 
+**CLI 만** — 앱 없이 터미널에서 (curl + macOS 기본 bash)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Gitrochi/Gitrochi/main/tools/gitch/install.sh | bash
+~/.local/share/gitch/gitch add       # 계정이 없으면 (터미널에서 사용자가 직접)
+~/.local/share/gitch/gitch install   # ~/bin/gitch 연결, 자동 규칙, 검사 훅, AI 연동, 터미널 연동
+source ~/.zshrc
+```
+
+- [install.sh](install.sh) 는 [릴리스](https://github.com/Gitrochi/Gitrochi/releases)의 `gitch` 를 `gitch.sha256` 으로 확인한 뒤 `~/.local/share/gitch/gitch` 에 둔다(임시 파일 → mv). 그 자리에 gitch 가 아닌 파일이나 링크가 있으면 덮어쓰지 않고 멈춘다.
+- `gitch install` 은 `~/.zshrc` · `~/.gitconfig` · `~/.claude` · `~/.codex` 를 바꾸므로 설치기가 하지 않고 할 일만 보여 준다.
+- 업데이트: `gitch self-update` — 이렇게 따로 받은 gitch 만 같은 방법으로 바꾼다(바뀐 버전을 보여 줌). 앱에 든 gitch 는 앱과 함께, 저장소의 gitch 는 그 저장소와 함께 바뀐다.
+
 **직접**
 
 ```bash
@@ -175,6 +188,7 @@ git config 형식이다. `gitch config set|add|unset <키> <값>` 으로 바꾸�
 | `~/.local/state/gitsw/backups/` | gitch 가 고치기 전 파일 백업 (내용이 바뀐 것만, 날짜 폴더 최근 30개. 다른 이름의 폴더는 지우지 않음) |
 | `~/.local/share/gitsw/hook` | git 훅 연결 스크립트 (gitch 가 없으면 막지 않고 커밋 · push 때 한 줄로 알림) |
 | `refs/gitsw/backup/*` (저장소 안) | `gitch rescue` 백업 (최근 30개, push 안 됨) |
+| `~/.local/share/gitch/gitch` | 앱 없이 받은 gitch (`install.sh`, `gitch self-update`) |
 
 ## (선택) push 를 Touch ID 로 승인하기
 
@@ -188,9 +202,9 @@ AI 의 push 마다 손가락 승인을 받고 싶다면 하드웨어 키(Secreti
 ## 개발 / 테스트
 
 ```bash
-tools/gitch/tests/run.sh             # 전체 (실제 ~/.gitconfig, ~/.ssh, ~/.claude 는 건드리지 않음: 임시 HOME + 가짜 ssh/gh/원격)
+tools/gitch/tests/run.sh             # 전체 (실제 ~/.gitconfig, ~/.ssh, ~/.claude 는 건드리지 않음: 임시 HOME + 가짜 ssh/gh/curl/원격)
 tools/gitch/tests/run.sh -k guard    # 이름에 guard 가 들어간 테스트만
-shellcheck -s bash -S warning tools/gitch/gitch
+shellcheck -s bash -S warning tools/gitch/gitch tools/gitch/install.sh
 ```
 
 GitHub Actions 「macOS」의 gitch 테스트가 `tools/gitch/**` 를 바꾼 PR 마다 macOS 기본 bash 3.2 로 돈다.

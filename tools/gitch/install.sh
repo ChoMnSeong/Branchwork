@@ -1,0 +1,86 @@
+#!/bin/bash
+# ==========================================================
+#  gitch 설치 — Gitrochi 앱 없이 CLI 만 (macOS 기본 bash 3.2 + curl)
+#    curl -fsSL https://raw.githubusercontent.com/Gitrochi/Gitrochi/main/tools/gitch/install.sh | bash
+#  릴리스의 gitch 를 gitch.sha256 과 맞춰 본 뒤 ~/.local/share/gitch/gitch 에 둔다(같은 폴더의 임시 파일 → mv).
+#  gitch install 은 하지 않는다 — ~/.zshrc, ~/.gitconfig, ~/.claude, ~/.codex 를 바꾸므로 할 일만 보여 준다.
+#  업데이트: gitch self-update (같은 방법으로 받는다)
+# ==========================================================
+
+# shellcheck disable=SC2088  # 화면 표시용 ~ 는 일부러 펼치지 않음
+REPO="Gitrochi/Gitrochi"
+DEST_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gitch"
+DEST="$DEST_DIR/gitch"
+CFG="${GITSW_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/gitsw/config}"
+TMP=""
+
+# 릴리스 목록(GitHub API)에서 초안·시험판이 아니고 gitch 가 든 첫(가장 새) 릴리스 → "태그 주소"
+# Windows 만 고친 릴리스가 최신일 수 있어서 releases/latest 를 쓰지 않는다. gitch 의 self-update 와 같은 내용.
+RELEASE_AWK='
+/^[[:space:]]*"tag_name":/ { tag = $0; sub(/^[^:]*:[[:space:]]*"/, "", tag); sub(/".*/, "", tag); skip = 0 }
+/^[[:space:]]*"(draft|prerelease)":[[:space:]]*true/ { skip = 1 }
+/^[[:space:]]*"browser_download_url":.*\/gitch"/ && !skip { url = $0; sub(/^[^:]*:[[:space:]]*"/, "", url); sub(/".*/, "", url); print tag, url; exit }'
+
+say() { printf '%s\n' "$*"; }
+die() { printf '%s\n' "$*" >&2; exit 1; }
+tilde() { case "$1" in "$HOME"/*) printf '%s' "~/${1#"$HOME"/}" ;; *) printf '%s' "$1" ;; esac; }
+resolve_link() {   # 심볼릭 링크를 끝까지 따라간 실제 경로
+  local p="$1" t
+  while [ -L "$p" ]; do
+    t=$(readlink "$p")
+    case "$t" in /*) p="$t" ;; *) p="$(dirname "$p")/$t" ;; esac
+  done
+  printf '%s' "$(cd "$(dirname "$p")" 2>/dev/null && pwd -P)/$(basename "$p")"
+}
+curl_get() { curl -fsSL --connect-timeout 15 --max-time 120 "$@"; }
+sha256_of() { { shasum -a 256 "$1" 2>/dev/null || sha256sum "$1"; } | awk '{ print $1 }'; }
+gitch_version() { sed -n 's/^GITSW_VERSION="\([^"]*\)".*/\1/p' "$1" 2>/dev/null | head -1; }
+
+main() {
+  local json tag url want have old="" new d
+  command -v curl >/dev/null 2>&1 || die "curl 이 필요합니다."
+  # 그 자리에 다른 것이 있으면 건드리지 않는다
+  [ -L "$DEST" ] && die "$(tilde "$DEST") 가 링크(→ $(tilde "$(resolve_link "$DEST")"))라 덮어쓰지 않았습니다. 지우고 다시 실행하세요."
+  if [ -e "$DEST" ]; then
+    old=$(gitch_version "$DEST")
+    [ -f "$DEST" ] && [ -n "$old" ] || die "$(tilde "$DEST") 에 gitch 가 아닌 파일이 있어 덮어쓰지 않았습니다. 옮기거나 지우고 다시 실행하세요."
+  fi
+
+  json=$(curl_get -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/releases?per_page=20") \
+    || die "릴리스 목록을 받지 못했습니다: https://github.com/$REPO/releases"
+  read -r tag url <<< "$(printf '%s\n' "$json" | tr ',' '\n' | awk "$RELEASE_AWK")"
+  [ -n "$url" ] || die "gitch 가 든 릴리스가 아직 없습니다: https://github.com/$REPO/releases"
+
+  mkdir -p "$DEST_DIR" || die "폴더를 만들지 못했습니다: $(tilde "$DEST_DIR")"
+  TMP=$(mktemp "$DEST_DIR/.gitch-install.XXXXXX") || die "임시 파일을 만들지 못했습니다: $(tilde "$DEST_DIR")"
+  trap 'rm -f "$TMP" "$TMP.sha256"' EXIT
+  say "gitch 받는 중: $url"
+  curl_get -o "$TMP" "$url" && curl_get -o "$TMP.sha256" "$url.sha256" || die "받지 못했습니다: $url"
+  want=$(awk '$2 == "gitch" || $2 == "*gitch" { print $1; exit }' "$TMP.sha256")
+  have=$(sha256_of "$TMP")
+  [ -n "$want" ] && [ "$want" = "$have" ] || die "SHA-256 이 gitch.sha256 과 맞지 않아 설치하지 않았습니다 ($tag)"
+  new=$(gitch_version "$TMP")
+  [ -n "$new" ] && "${BASH:-bash}" -n "$TMP" 2>/dev/null || die "받은 파일이 gitch 가 아닙니다: $url"
+
+  if [ -n "$old" ] && [ "$have" = "$(sha256_of "$DEST")" ]; then
+    say "✔ 이미 최신입니다: gitch $new ($tag) — $(tilde "$DEST")"
+  else
+    chmod 755 "$TMP" && mv -f "$TMP" "$DEST" || die "설치하지 못했습니다: $(tilde "$DEST")"
+    if [ -n "$old" ]; then say "✔ gitch $old → $new ($tag): $(tilde "$DEST")"
+    else say "✔ gitch $new ($tag) 를 설치했습니다: $(tilde "$DEST")"; fi
+  fi
+
+  say ""
+  if [ "$(resolve_link "$HOME/bin/gitch")" = "$(resolve_link "$DEST")" ]; then
+    say "~/bin/gitch 가 이 파일을 가리켜 바로 쓰입니다. AI 규칙·스킬·검사 훅도 새 버전으로 쓰려면: gitch install"
+  else
+    d=$(tilde "$DEST")
+    say "다음은 터미널에서 직접 하세요. gitch install 은 ~/.zshrc, ~/.gitconfig, ~/.claude, ~/.codex 를 바꿉니다(바꾸기 전 파일은 백업)."
+    [ -f "$CFG" ] || say "  $d add        # 계정 추가: 아이디·이메일·서버를 묻고 SSH 키를 만든다"
+    say "  $d install    # ~/bin/gitch 연결, 자동 규칙, 검사 훅, AI 연동, 터미널 연동"
+    say "  source ~/.zshrc"
+  fi
+  say "업데이트: gitch self-update"
+}
+
+main "$@"

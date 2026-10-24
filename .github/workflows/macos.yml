@@ -37,7 +37,7 @@ jobs:
           name: gitrochi-macos
           path: macos/build/Gitrochi.app
 
-  # gitch(앱에 함께 들어가는 셸 도구): macOS 기본 bash 3.2 로 전체 테스트(임시 HOME · 가짜 ssh/gh/원격)
+  # gitch(앱에 함께 들어가는 셸 도구): macOS 기본 bash 3.2 로 전체 테스트(임시 HOME · 가짜 ssh/gh/curl/원격)
   gitch:
     name: gitch 테스트
     if: github.ref_type != 'tag'
@@ -94,6 +94,12 @@ jobs:
           # release 환경에 이름을 바꾸기 전의 BRANCHWORK_UPDATE_KEY 만 있으면 그것을 쓴다(같은 열쇠)
           GITROCHI_UPDATE_KEY: ${{ secrets.GITROCHI_UPDATE_KEY || secrets.BRANCHWORK_UPDATE_KEY }}
         run: macos/build.sh release
+
+      # 앱 없이 gitch 만 쓰는 사람용: tools/gitch/install.sh 와 gitch self-update 가 받는다(아래에서 다른 배포 파일과 함께 올림)
+      - name: gitch (CLI 만)
+        run: |
+          cp tools/gitch/gitch macos/dist/gitch
+          (cd macos/dist && shasum -a 256 gitch > gitch.sha256)
 
       - name: 릴리스에 올리기
         env:

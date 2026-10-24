@@ -177,7 +177,7 @@ git tag v0.3.5 && git push origin v0.3.5   # 태그 실행이 서명한 배포 �
 
 태그 실행은 맥(`macos.yml`)과 Windows(`windows.yml`)가 따로 돌고, 태그와 앱 버전(`Info.plist` · `tauri.conf.json`)이 다르면 멈춥니다. 둘 다 그 태그의 릴리스에 올리며, 릴리스가 없으면 먼저 올리는 쪽이 초안을 만듭니다. 두 올리기 작업은 같은 `concurrency` 그룹에서 하나씩 돌아 초안이 둘 생기지 않습니다.
 
-- 맥: `Gitrochi-0.3.5-macOS.dmg` · `.zip` · `.zip.sig` · `.sha256`
+- 맥: `Gitrochi-0.3.5-macOS.dmg` · `.zip` · `.zip.sig` · `.sha256`, 그리고 앱 없이 쓰는 `gitch` · `gitch.sha256`(`tools/gitch/install.sh` 와 `gitch self-update` 가 받음)
 - Windows(자동 점검까지 통과한 뒤): `Gitrochi_0.3.5_x64-setup.exe` · `.exe.sig` · `_x64_portable.zip`(`Gitrochi.exe` + `LICENSE.txt`) · `_windows.sha256` · `latest.json`. 같은 파일이 그 실행의 아티팩트 `gitrochi-windows` 에도 남습니다.
 
 앱의 업데이트 확인은 초안을 보지 않으므로, 게시하기 전에:
