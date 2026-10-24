@@ -242,3 +242,14 @@ test_branch_policy_rules_and_allow_list() {
   [ "$(jq '[.permissions.allow[] | select(. == "Bash(gitch b)" or . == "Bash(gitch pr status:*)")] | length' "$s")" = 0 ] || fail "겹치는 예전 항목이 남음"
   run gitch doctor --no-net; assert_out "Claude push 정책: 작업 브랜치는 자동"
 }
+
+test_guard_graph_out_and_allowlist() {
+  mk_config
+  expect none 'gitch graph files --json'
+  expect none 'gitch graph --out /tmp/g.html'
+  expect deny 'gitch graph --out ~/.ssh/config'
+  expect deny 'gitch graph tree -o ~/.gitconfig'
+  expect deny 'gitch graph --out=~/.config/gitsw/config'
+  install_quiet
+  jq -e '.permissions.allow | index("Bash(gitch graph:*)")' "$HOME/.claude/settings.json" >/dev/null || fail "gitch graph 가 읽기 명령 허용 목록에 없음"
+}

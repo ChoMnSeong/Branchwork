@@ -57,6 +57,7 @@ gitch doctor
 | `up` · `sync` · `fix` · `rescue` · `ignore` | 커밋 칸 위 ⋯ 메뉴 |
 | `protect` | 사이드바 브랜치 우클릭 — 보호된 브랜치에는 방패 표시 |
 | `c` · `p` · `pl` · `b` · `wt` · `pr` · `ci` · `continue` · `abort` | 앱의 커밋 · push · pull · 브랜치 · 워크트리 · PR · CI 화면(앱도 시스템 git 을 써서 gitch 훅이 그대로 걸린다) |
+| `graph` | 아직 없음 — CLI 만(터미널에서 `gitch graph`, 아래 「구조 그래프」) |
 
 ## 예전 이름 gitsw
 
@@ -98,9 +99,87 @@ gitch scan [--fix]         # ~/Develop 아래 저장소 전체 점검
 gitch report --today       # 오늘 누가(사람/claude/codex) 어디에 무엇을 커밋/push 했나
 ```
 
-`gitch help` 에 전체 명령이 있다. `--json` 은 status / ck / preflight / scan / doctor / list / audit / report 에 있다.
+`gitch help` 에 전체 명령이 있다. `--json` 은 status / ck / preflight / scan / doctor / list / audit / report / graph 에 있다.
 
 종료코드: 0 정상, 1 문제/실패, 2 사용자 확인 필요(`--yes`), 3 커밋할 것 없음, 4 올릴 파일을 고르지 않음(비대화형).
+
+## 구조 그래프 (`gitch graph`)
+
+`tuist graph` 처럼 저장소의 구조와 관계를 그린다. 사람은 그림(html · svg · png)으로 보고, AI · 스크립트는 JSON 으로 읽는다. 추적하는 파일(`git ls-files`)만 본다.
+
+```bash
+gitch graph                                  # 파일 import — 터미널이면 html 을 만들어 브라우저로 연다
+gitch graph modules                          # 모듈/타깃 의존
+gitch graph changes --since "6 months ago"   # 같이 바뀌는 파일 · 핫스팟
+gitch graph tree --depth 2                   # 폴더 크기 · 파일 수
+gitch graph files src/feature                # 그 폴더 아래만 (폴더 밖 대상은 outside: true)
+gitch graph --json | jq -r '.edges[] | select(.target == "src/api/client.ts") | .source'   # 이 파일을 쓰는 곳
+gitch graph modules --out deps.png           # graphviz(dot) 로 그림
+```
+
+| 관계 | 보는 것 | 노드 · 연결 |
+|---|---|---|
+| `files` (기본) | 파일 → 파일 import | 파일, 저장소 밖 패키지(`pkg:npm/react`), Swift 모듈(`module:SwiftUI`), Go 패키지 폴더(`internal/store/`) |
+| `modules` | 모듈/타깃 의존 | `swift:App` · `tuist:App` · `npm:@acme/ui` · `cargo:core` · `go:example.com/x/api` · `gradle::app`, 연결의 `scope`(`devDependencies` · `testImplementation` …) |
+| `changes` | 한 커밋에 같이 바뀐 파일 쌍과 바뀐 횟수(핫스팟) | 파일(`changes` · `lastChanged`), 연결 `weight` = 같이 바뀐 커밋 수 · `degree` = 두 파일 바뀐 횟수 평균에 대한 % |
+| `tree` | 폴더 구조와 크기 | 폴더(`files` · `bytes` · `filesHere` · `dirs` · `exts`), `--files` 면 파일도 |
+
+`files` 가 읽는 것:
+
+| 언어 | 읽는 문장 | 잇는 곳 |
+|---|---|---|
+| TypeScript/JavaScript | `import` · `export … from` · `require()` · `import()` | 상대 경로(확장자 · `index` · `.js` 로 쓴 `.ts`)와 tsconfig `paths` · `baseUrl` 은 파일, 그 밖은 패키지 |
+| Python | `import` · `from … import` (상대 포함) | 모듈 파일 · 패키지(`__init__.py`), 못 찾으면 패키지 |
+| Go | `import` | `go.mod` 의 모듈 안이면 패키지 폴더, 밖이면 모듈(`require` 기준) |
+| Rust | `mod` · `use crate::/self::/super::` · 다른 crate | `a.rs` · `a/mod.rs`, 같은 저장소 crate 는 그 crate 의 파일 |
+| Kotlin/Java | `package` + `import` | 그 이름을 선언한 파일. 같은 패키지 타입은 import 없이 쓰므로 이름으로 추정 |
+| Swift | 파일끼리 import 가 없다 | 다른 파일에 선언된 최상위 타입(class · struct · enum · protocol · actor · typealias) 이름을 쓰면 추정, `import 모듈` 은 모듈 노드 |
+
+- 추정한 연결은 JSON 에 `"heuristic": true`, 그림에서는 점선이다. 같은 두 파일에 정확한 연결이 있으면 더하지 않는다. 주석 · 문자열 속 이름과 `private` 타입은 세지 않는다.
+- `modules`: Package.swift 는 `swift package describe --type json` 으로 읽고(매니페스트를 컴파일해서 몇 초), 안 되면 파일을 직접 읽는다(`GITSW_SWIFT_DESCRIBE=0` 이면 늘 직접). Tuist 는 Project.swift 의 Target 선언과 의존(`.target` · `.project` · `.external` · `.package` · `.sdk`)을, 도우미 함수로 만든 매니페스트(`Project.module(…)`)는 파일 안의 참조를 모은다. 그 밖에 모든 package.json(작업 공간 구성원은 `workspace`), Cargo 의 `path` · `workspace = true` 의존, Go 패키지 사이 import, Gradle 의 `include` · `project(":x")` · `projects.x`.
+- `changes`: `--since 날짜` · `--max-commits N`(기본 1000) · `--max-files N`(기본 30, 더 큰 커밋은 쌍이 너무 많아 뺀다) · `--min N`(기본 2). merge 커밋과 lock 파일은 뺀다.
+- `--no-external` 은 저장소 밖 패키지 · 모듈을 뺀다.
+- 파일마다 프로세스를 띄우지 않고 awk 한 번에 읽는다. 파일 21,000개(150만 줄) 저장소의 `files` 가 Apple Silicon 맥에서 7초 안팎, `modules` · `changes` · `tree` 는 1초 안이다.
+
+| 형식 | |
+|---|---|
+| 기본 | 사람이 보는 터미널이면 `html` 을 만들어 열고, 아니면(스크립트 · AI) `json` 을 표준출력. `--format` 이나 `--out` 의 확장자(`.json` · `.html` · `.svg` · `.png` · `.dot`)로 바꾼다 |
+| `html` | CDN 없는 오프라인 한 페이지: 확대 · 이동, 찾기(`/`), 노드를 누르면 가져오는 것(파랑) · 가져다 쓰는 곳(주황)을 강조하고 목록으로, 배치(힘 · 층 · 방사형), 외부 · 추정 연결 숨기기, 색 범례(누르면 숨김), 다크 모드 |
+| `svg` · `png` | graphviz 의 `dot` 으로 그린다(`brew install graphviz`, 없으면 그렇게 알린다). `--format dot` 은 DOT 원문 |
+| 저장 | `--out 파일`(`-` 는 표준출력). 없으면 html · svg · png 는 `$TMPDIR/gitch-graph/<저장소>-<관계>.<형식>`. 파일로 쓰면 끝에 `GRAPH_FILE=… NODES=… EDGES=…` |
+
+JSON (노드 · 연결이 한 줄에 하나):
+
+```json
+{
+  "tool": "gitch graph",
+  "version": "3.2.0",
+  "relation": "files",
+  "directed": true,
+  "repo": "app",
+  "scope": "",
+  "commit": "872fcdd",
+  "generated": "2026-10-24T10:56:55+0900",
+  "stats": {"nodes":6,"edges":4,"heuristicEdges":1,"languages":{"swift":2,"ts":2},"unresolved":0},
+  "notes": ["Swift: 파일끼리 import 하지 않아서, … 연결로 추정했습니다 (heuristic: true, 그림에서는 점선)."],
+  "nodes": [
+    {"id":"Sources/Feed/FeedModel.swift","kind":"file","label":"FeedModel.swift","group":"swift","path":"Sources/Feed/FeedModel.swift","lang":"swift","lines":1},
+    {"id":"Sources/Feed/FeedView.swift","kind":"file","label":"FeedView.swift","group":"swift","path":"Sources/Feed/FeedView.swift","lang":"swift","lines":6},
+    {"id":"module:SwiftUI","kind":"module","label":"SwiftUI","group":"module","name":"SwiftUI"},
+    {"id":"pkg:npm/react","kind":"package","label":"react","group":"package","ecosystem":"npm","name":"react"},
+    {"id":"src/App.tsx","kind":"file","label":"App.tsx","group":"ts","path":"src/App.tsx","lang":"ts","lines":2},
+    {"id":"src/api/client.ts","kind":"file","label":"client.ts","group":"ts","path":"src/api/client.ts","lang":"ts","lines":1}
+  ],
+  "edges": [
+    {"source":"Sources/Feed/FeedView.swift","target":"Sources/Feed/FeedModel.swift","kind":"type-ref","weight":1,"heuristic":true,"via":["FeedModel"]},
+    {"source":"Sources/Feed/FeedView.swift","target":"module:SwiftUI","kind":"import","weight":1},
+    {"source":"src/App.tsx","target":"pkg:npm/react","kind":"import","weight":1,"via":["react"]},
+    {"source":"src/App.tsx","target":"src/api/client.ts","kind":"import","weight":1,"via":["./api/client"]}
+  ]
+}
+```
+
+연결 `kind`: `import` · `reexport` · `require` · `dynamic-import` · `mod` · `use` · `type-ref`(추정) · `contains` · `depends` · `cochange`. `via` 는 근거(import 한 글 · 쓴 타입 이름, 다섯 개까지), `weight` 는 횟수다.
 
 ## 검사 훅이 막는 것
 
