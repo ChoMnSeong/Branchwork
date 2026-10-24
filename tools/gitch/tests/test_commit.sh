@@ -54,7 +54,7 @@ test_push_pull_cp() {
   run gitch cp -a -m "b"; assert_ok; assert_out "push main → origin"
   assert_eq "$(git -C "$FAKE_REMOTES/github-alice/alice/app.git" log -1 --format=%s main)" "b"
   run gitch p; assert_ok; assert_out "이미 최신"
-  local log="$HOME/.local/state/gitsw/actions.jsonl" here; here=$(pwd -P)
+  local log="$HOME/.local/state/gitsw/actions.jsonl" here; here=$(git rev-parse --show-toplevel)   # 기록은 git 이 준 경로(Windows 는 C:/…)
   [ "$(jq -r --arg r "$here" 'select(.event == "push" and .repo == $r) | .event' "$log" | grep -c .)" -eq 1 ] || fail "push 한 번이 한 번만 기록돼야 함\n$(cat "$log")"
   git push -q origin main:other 2>/dev/null
   [ "$(jq -r --arg r "$here" 'select(.event == "push" and .repo == $r) | .event' "$log" | grep -c .)" -eq 2 ] || fail "git 으로 직접 한 push 도 기록돼야 함\n$(cat "$log")"

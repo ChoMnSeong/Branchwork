@@ -85,8 +85,8 @@ test_install_idempotent_and_rule_order() {
   ol=$(printf '%s\n' "$list" | grep -n 'includeif.hasconfig:remote.\*.url:git@github-bob:teamb/' | tail -1 | cut -d: -f1)
   [ "$fl" -lt "$ol" ] || fail "규칙 순서가 틀림 (folder $fl, org $ol)"
   [ "$(git config --global user.useConfigOnly)" = true ] || fail "useConfigOnly"
-  grep -q '# >>> gitsw >>>' "$HOME/.zshrc" || fail "zshrc 연동"
-  [ "$(grep -c '# >>> gitsw >>>' "$HOME/.zshrc")" -eq 1 ] || fail "zshrc 블록 중복"
+  grep -q '# >>> gitsw >>>' "$RC_FILE" || fail "zshrc 연동"
+  [ "$(grep -c '# >>> gitsw >>>' "$RC_FILE")" -eq 1 ] || fail "zshrc 블록 중복"
   echo tok > "$FAKE_GH/tokens/alice"; echo tok > "$FAKE_GH/tokens/bob"
   run gitch doctor --no-net; assert_ok; assert_out "DOCTOR_PROBLEMS=0"
   rm "$FAKE_GH/tokens/bob"
@@ -200,7 +200,7 @@ test_export_import_uninstall_version() {
   run gitch uninstall --yes; assert_ok
   git config --global --get hook.gitsw-pre-commit.command >/dev/null && fail "전역 훅이 남음"
   git config --global --get-regexp '^url\.' >/dev/null && fail "insteadOf 가 남음"
-  grep -q '# >>> gitsw >>>' "$HOME/.zshrc" && fail "zshrc 블록이 남음"
+  grep -q '# >>> gitsw >>>' "$RC_FILE" && fail "zshrc 블록이 남음"
   [ -f "$HOME/.config/gitsw/config" ] || fail "설정 파일은 남겨야 함"
   run gitch install; assert_ok "다시 설치"
 }
@@ -218,6 +218,7 @@ test_install_banner_fits_terminal() {
 }
 
 test_install_refuses_app_outside_applications() {
+  mac_only || return 0   # Windows 는 test_windows_install_location
   mk_config
   local app
   # 다운로드 폴더의 앱: 응용 프로그램 폴더로 옮기면 끊기므로 연결하지 않는다
@@ -301,7 +302,7 @@ test_backups_skip_identical_and_rules_have_no_case_duplicates() {
   git config --global --list --name-only | grep -q 'url.git@github-bob:TeamX/' || fail "조직 규칙 없음"
   mkdir -p "$HOME/.local/state/gitsw/backups/v1-원본"
   for i in $(seq 1 32); do mkdir -p "$HOME/.local/state/gitsw/backups/2026010$((i % 9))-0000$i-1"; done
-  echo "# change" >> "$HOME/.zshrc"; install_quiet
+  echo "# change" >> "$RC_FILE"; install_quiet
   [ -d "$HOME/.local/state/gitsw/backups/v1-원본" ] || fail "보관용 폴더는 정리 대상이 아님"
   n=$(count_dirs "$HOME/.local/state/gitsw/backups"/[0-9]*-[0-9]*-[0-9]*/)
   [ "$n" -le 30 ] || fail "백업 폴더가 30개를 넘음 ($n)"

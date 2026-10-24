@@ -84,6 +84,7 @@ pub fn run() {
             system::open_url,
             system::reveal_path,
             system::open_terminal,
+            system::open_console,
             system::app_ready,
             update::update_check,
             update::update_install,

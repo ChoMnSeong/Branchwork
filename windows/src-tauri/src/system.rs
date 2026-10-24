@@ -141,6 +141,8 @@ pub struct EnvInfo {
     /// %APPDATA% / %LOCALAPPDATA% (맥은 Application Support) — 프로그램 설치 위치를 찾을 때
     app_data: String,
     local_app_data: String,
+    /// 앱과 함께 설치되는 파일(gitch 등)이 있는 폴더 — Windows 는 설치 폴더(Gitrochi.exe 옆)
+    resource_dir: String,
 }
 
 #[tauri::command]
@@ -165,6 +167,7 @@ pub fn env_info(app: AppHandle) -> EnvInfo {
         selftest_open: std::env::var("GITROCHI_SELFTEST_OPEN").ok().filter(|s| !s.is_empty()),
         app_data: dirs::data_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
         local_app_data: dirs::data_local_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
+        resource_dir: app.path().resource_dir().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
     }
 }
 
@@ -241,6 +244,27 @@ pub fn open_terminal(path: String) -> Result<(), String> {
         Command::new("open").args(["-a", "Terminal", &path]).spawn().map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// 새 콘솔 창에서 프로그램 하나를 띄운다(gitch add · setup · doctor 처럼 묻거나 길게 보여 주는 것). 끝나도 창은 프로그램이 닫는다.
+#[tauri::command]
+pub fn open_console(program: String, args: Vec<String>, cwd: String) -> Result<(), String> {
+    if !cfg!(windows) {
+        return Err("Opening a console window is only supported on Windows".into());
+    }
+    let cwd = crate::process::native(&cwd);
+    let mut cmd = Command::new(crate::process::native(&program));
+    cmd.args(&args);
+    if Path::new(&cwd).is_dir() {
+        cmd.current_dir(&cwd);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+        cmd.creation_flags(CREATE_NEW_CONSOLE);
+    }
+    cmd.spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// 화면이 준비되면 창을 보여 준다(처음부터 띄우면 흰 화면이 번쩍인다)

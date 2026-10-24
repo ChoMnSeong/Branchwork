@@ -11,7 +11,8 @@ mk_release() {
   echo setup > "$dl/Gitrochi_${tag#v}_x64-setup.exe"
   if [ "$src" != - ]; then
     cp "$src" "$dl/gitch"
-    (cd "$dl" && shasum -a 256 gitch > gitch.sha256)
+    # 릴리스 작업(맥)은 shasum, Windows 의 Git Bash 에는 sha256sum 만 있을 수 있다
+    (cd "$dl" && { shasum -a 256 gitch 2>/dev/null || sha256sum gitch; } > gitch.sha256)
     [ "$opt" = badsum ] && printf '%064d  gitch\n' 0 > "$dl/gitch.sha256"
   fi
   for f in "$dl"/*; do
@@ -50,7 +51,7 @@ only_gitch_in() { [ "$(ls -A "$1")" = gitch ] || fail "임시 파일이 남음: 
 standalone_copy() {   # 설치기가 두는 자리에 이 gitch 를 두고 ~/bin/gitch 를 거기로
   mkdir -p "$HOME/.local/share/gitch"
   cp "$GITSW_SRC" "$HOME/.local/share/gitch/gitch"
-  ln -sfn "$HOME/.local/share/gitch/gitch" "$HOME/bin/gitch"
+  mklink_ "$HOME/.local/share/gitch/gitch" "$HOME/bin/gitch"
 }
 
 test_installer_installs_release_gitch_without_running_install() {
@@ -65,7 +66,7 @@ test_installer_installs_release_gitch_without_running_install() {
   assert_out "~/.local/share/gitch/gitch add"
   assert_out "~/.local/share/gitch/gitch install"
   # gitch install 은 사용자가 직접 — 설치기는 ~/.zshrc · ~/.gitconfig · ~/.claude · ~/bin 을 건드리지 않는다
-  [ ! -e "$HOME/.zshrc" ] || fail "~/.zshrc 를 바꿈"
+  [ ! -e "$RC_FILE" ] || fail "~/.zshrc 를 바꿈"
   [ -z "$(git config --global --get-regexp '^hook\.gitsw-')" ] || fail "전역 검사 훅을 설치함"
   [ -z "$(ls -A "$HOME/.claude")" ] || fail "~/.claude 를 바꿈"
   [ "$(resolve_path "$HOME/bin/gitch")" = "$(resolve_path "$GITSW_SRC")" ] || fail "~/bin/gitch 를 바꿈"
@@ -73,9 +74,9 @@ test_installer_installs_release_gitch_without_running_install() {
   mk_config
   run bash "$ROOT/install.sh"; assert_ok; assert_out "이미 최신입니다: gitch 9.9.9 (v0.3.7)"
   assert_no_out "gitch add"; assert_out "~/.local/share/gitch/gitch install"
-  [ ! -e "$HOME/.zshrc" ] && [ -z "$(git config --global --get-regexp '^hook\.gitsw-')" ] || fail "계정이 있다고 gitch install 을 실행함"
+  [ ! -e "$RC_FILE" ] && [ -z "$(git config --global --get-regexp '^hook\.gitsw-')" ] || fail "계정이 있다고 gitch install 을 실행함"
   # 이미 ~/bin/gitch 가 이 파일이면 바로 쓰인다
-  ln -sfn "$d/gitch" "$HOME/bin/gitch"
+  mklink_ "$d/gitch" "$HOME/bin/gitch"
   run bash "$ROOT/install.sh"; assert_ok; assert_out "바로 쓰입니다"; assert_no_out "다음은 터미널에서 직접"
 }
 
@@ -86,9 +87,11 @@ test_installer_refuses_to_overwrite_other_files() {
   mkdir -p "$d"; echo "my notes" > "$d/gitch"
   run bash "$ROOT/install.sh"; assert_fail; assert_out "gitch 가 아닌 파일"
   assert_eq "$(cat "$d/gitch")" "my notes" "gitch 가 아닌 파일을 덮어씀"
-  rm "$d/gitch"; ln -s "$GITSW_SRC" "$d/gitch"
-  run bash "$ROOT/install.sh"; assert_fail; assert_out "링크"
-  [ -L "$d/gitch" ] || fail "링크를 덮어씀"
+  if mac_only; then   # Git Bash 의 ln -s 는 링크 대신 복사본을 만든다
+    rm "$d/gitch"; ln -s "$GITSW_SRC" "$d/gitch"
+    run bash "$ROOT/install.sh"; assert_fail; assert_out "링크"
+    [ -L "$d/gitch" ] || fail "링크를 덮어씀"
+  fi
   rm "$d/gitch"; mkdir "$d/gitch"
   run bash "$ROOT/install.sh"; assert_fail; assert_out "gitch 가 아닌 파일"
   [ -d "$d/gitch" ] || fail "폴더를 덮어씀"
@@ -140,7 +143,7 @@ test_self_update_replaces_standalone_copy() {
   run gitch self-update; assert_ok; assert_out "gitch $cur → 9.9.9 (v0.3.7): ~/.local/share/gitch/gitch"
   cmp -s "$d/gitch" "$T/new" || fail "바뀌지 않음"
   [ -x "$d/gitch" ] || fail "실행 권한 없음"
-  [ -L "$HOME/bin/gitch" ] || fail "~/bin/gitch 링크가 사라짐"
+  is_linkish "$HOME/bin/gitch" || fail "~/bin/gitch 링크가 사라짐"
   only_gitch_in "$d"
   run gitch version; assert_out "gitch 9.9.9"
   run gitch self-update; assert_ok; assert_out "이미 최신입니다: gitch 9.9.9 (v0.3.7)"

@@ -2,13 +2,13 @@
 
 여러 Git 계정(GitHub 개인 계정들 + 회사 GitLab)을 한 컴퓨터에서 섞이지 않게 쓰기 위한 도구.
 사람이 터미널에서 쓰는 것과 AI(Claude Code, Codex 등)가 쓰는 것을 모두 고려했다.
-Gitrochi 맥 앱에 함께 들어 있다(`Gitrochi.app/Contents/Resources/gitch`). MIT 라이선스(저장소 [LICENSE](../../LICENSE)) · © 2026 jjunhaa0211.
+Gitrochi 맥 앱(`Gitrochi.app/Contents/Resources/gitch`)과 Windows 앱(설치 폴더의 `gitch`, 보통 `%LOCALAPPDATA%\Gitrochi\gitch`)에 함께 들어 있다. MIT 라이선스(저장소 [LICENSE](../../LICENSE)) · © 2026 jjunhaa0211.
 
 - 저장소마다 계정을 **잠그고**, 커밋/push 할 때 작성자·push 주소를 검사한다.
 - 폴더 / GitHub 조직 / 주소로 **계정을 자동으로 고른다**.
 - 비밀값·큰 파일·강제 push·다른 계정 커밋을 **git 훅에서 막는다** (어떤 도구로 git 을 써도 적용).
 - AI 에게는 규칙(CLAUDE.md/AGENTS.md), 스킬, Claude Code 명령 검사 훅을 깔아 준다.
-- macOS 기본 bash 3.2 + git 만으로 동작한다 (jq 는 Claude 훅/JSON 요약에만 사용).
+- macOS 기본 bash 3.2 + git 만으로 동작한다 (jq 는 Claude 훅/JSON 요약에만 사용). Windows 는 Git for Windows 의 Git Bash 로 돈다 — 아래 [Windows](#windows).
 
 ## 설치
 
@@ -43,6 +43,19 @@ gitch doctor
 터미널에서 `gitch install` 을 하면 맨 위에 로고(앱 아이콘의 두 눈)가 창 크기에 맞춰 크게·중간·작게(아주 좁으면 이름만) 나오고, 단계(명령 · 터미널 · 자동 규칙 · 검사 훅 · AI 도구)별로 설치한다. 로고는 사람이 보는 터미널에서만 나온다(`GITSW_BANNER=never` 로 끄고 `always` 로 켠다).
 
 새 컴퓨터: `gitch import <내보낸 설정>` → `gitch install` → `gitch setup` (SSH 키 생성·등록).
+
+### Windows
+
+Git for Windows(Git Bash)만 있으면 된다. gitch 는 bash 스크립트라 Gitrochi 도 Git Bash 의 `bash.exe` 로 실행한다.
+
+- **Gitrochi 에서**: 설정 > CLI 는 맥과 같다. 계정 추가 · SSH 키 · doctor 는 새 콘솔 창(Git Bash)에서 열린다. 설치 프로그램으로 깐 Gitrochi(옆에 `uninstall.exe`)만 연결한다 — 포터블 zip · 빌드 폴더에 연결하면 옮기거나 지울 때 끊기므로 앱도 `gitch install` 도 거부한다.
+- **CLI 만**: Git Bash 에서 위의 `curl … | bash` 그대로. 다음 안내의 `source ~/.zshrc` 대신 `source ~/.bashrc`.
+- `gitch install` 이 맥과 다르게 하는 것
+  - `~/bin/gitch` · `~/bin/gitsw`: Git Bash 의 `ln -s` 는 링크 대신 복사본을 만들어서, 대상 경로를 적은 작은 연결 스크립트(`# gitch-link: <경로>` + `exec`)로 만든다. 앱을 업데이트하면 gitch 도 같이 바뀌는 것은 맥과 같다.
+  - `~/bin/gitch.cmd` · `gitsw.cmd`: PowerShell · cmd · Codex 에서 `gitch` 로 부르게 Git Bash 로 넘긴다. 사용자 PATH(레지스트리, `%VAR%` 는 그대로)에 `%USERPROFILE%\bin` 이 없으면 넣는다 — `gitch uninstall` 은 gitch 가 넣었을 때만 뺀다.
+  - 터미널 연동: `~/.zshrc` 대신 Git Bash 의 `~/.bashrc` (PATH + 프롬프트 마지막 줄 앞에 이 저장소 계정).
+  - SSH 설정에 `UseKeychain`(맥 전용 옵션 — Windows 의 OpenSSH 는 모르는 옵션이라 멈춘다)을 넣지 않는다. 공개키 복사 · 페이지 열기는 `clip` · 기본 브라우저.
+- Claude Code 검사 훅에는 jq 가 필요하다: `winget install jqlang.jq`
 
 ## Gitrochi 앱에서
 
@@ -207,7 +220,7 @@ tools/gitch/tests/run.sh -k guard    # 이름에 guard 가 들어간 테스트�
 shellcheck -s bash -S warning tools/gitch/gitch tools/gitch/install.sh
 ```
 
-GitHub Actions 「macOS」의 gitch 테스트가 `tools/gitch/**` 를 바꾼 PR 마다 macOS 기본 bash 3.2 로 돈다.
+GitHub Actions 「macOS」의 gitch 테스트가 `tools/gitch/**` 를 바꾼 PR 마다 macOS 기본 bash 3.2 로, 「Windows」가 Git Bash 로 돈다(Windows 전용은 `tests/test_windows.sh`, 가짜 PowerShell 로 실제 사용자 PATH 는 건드리지 않음).
 
 ## 제거
 

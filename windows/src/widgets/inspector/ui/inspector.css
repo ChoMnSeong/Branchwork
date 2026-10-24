@@ -114,3 +114,65 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--text) 5%, transparent);
 }
+
+/* 커밋 칸 위 gitch 바(계정 · 점검) */
+.gitch-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+}
+.gitch-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.gitch-account {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.gitch-warn,
+.gitch-bar .warn,
+.gitch-popover .warn {
+  color: var(--orange);
+}
+.gitch-bar .ok,
+.gitch-popover .ok {
+  color: var(--green);
+}
+.gitch-bar .stop,
+.gitch-popover .stop {
+  color: var(--red);
+}
+.gitch-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.gitch-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.gitch-popover-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}

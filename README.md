@@ -167,7 +167,7 @@
 - **에이전트 탭**: 워크트리 카드(새 파일·수정·삭제 수, 원격 대비 ↑↓)와 그 안의 Claude Code · Codex · Gemini CLI 세션 상태(작업 중 · 권한 요청 · 입력 대기 · 종료). 세션 시작(워크트리 선택 또는 새 워크트리, 맡길 작업, 권한 모드). 상태는 Gitrochi 가 띄운 세션에 `--settings` 로 더한 훅이 남기는 파일로 판단하며, 사용자 설정·훅은 그대로
 - **터미널**: 그래프 아래 패널에서 저장소 폴더의 셸(맥 zsh · Windows PowerShell/WSL). 탭 여러 개, 높이 조절, 숨겨도 계속 실행. 맥은 [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm), Windows 는 [xterm.js](https://xtermjs.org)
 - **도구**(설정 > 도구): git · Claude Code · Codex · Gemini CLI · gh · 터미널 셸을 자동으로 찾고, 못 찾으면 **불러오기**로 직접 지정. Windows 는 WSL 안의 도구도
-- **gitch**(맥, 설정 > CLI): 여러 Git 계정을 섞이지 않게 쓰는 셸 도구를 앱에 함께 넣었습니다(예전 이름 gitsw). 설치하면 저장소마다 계정을 잠그고, 폴더 · 조직 규칙으로 계정을 고르고, 잘못된 작성자 · 비밀값 · 강제 push 를 git 훅에서 막습니다(터미널 · AI 에이전트 · Gitrochi 모두). 커밋 칸 위에 이 저장소의 계정과 커밋 · push 전 점검이 보이고, 계정 이름을 눌러 계정을 바꿉니다 — [tools/gitch](tools/gitch/README.md)
+- **gitch**(맥 · Windows, 설정 > CLI): 여러 Git 계정을 섞이지 않게 쓰는 셸 도구를 앱에 함께 넣었습니다(예전 이름 gitsw). 설치하면 저장소마다 계정을 잠그고, 폴더 · 조직 규칙으로 계정을 고르고, 잘못된 작성자 · 비밀값 · 강제 push 를 git 훅에서 막습니다(터미널 · AI 에이전트 · Gitrochi 모두). 커밋 칸 위에 이 저장소의 계정과 커밋 · push 전 점검이 보이고, 계정 이름을 눌러 계정을 바꿉니다. Windows 는 Git for Windows 의 Git Bash 로 돌고, PowerShell · cmd 에서도 `gitch` 로 부릅니다 — [tools/gitch](tools/gitch/README.md)
   - **CLI 만**(앱 없이): `curl -fsSL https://raw.githubusercontent.com/Gitrochi/Gitrochi/main/tools/gitch/install.sh | bash` — 릴리스의 gitch 를 SHA-256 으로 확인해 `~/.local/share/gitch/gitch` 에 둡니다. 계정 추가와 `gitch install` 은 설치기가 보여 주는 대로 직접 하고, 업데이트는 `gitch self-update`
 - **탭**: 맥은 기본 창 탭(탭을 끌어 새 창으로), Windows 는 창 안의 탭. 다시 켜면 탭 복원
 - **화면 테마**: 시스템 · 라이트 · 다크
@@ -190,7 +190,7 @@ macos/     맥 앱(SwiftUI)
   Resources/ Tools/ Vendor/SwiftTerm/  build.sh
 windows/   Windows 앱(Tauri 2 + React): src-tauri(Rust), src(Feature-Sliced Design: app·pages·widgets·features·entities·shared), tests
 docs/      README 이미지와 데모 저장소 스크립트
-tools/gitch  여러 Git 계정용 셸 도구(bash 3.2 + git) — 맥 앱에 함께 들어감, tests/run.sh
+tools/gitch  여러 Git 계정용 셸 도구(bash 3.2 + git, Windows 는 Git Bash) — 맥 · Windows 앱에 함께 들어감, tests/run.sh
 ```
 
 **맥** — Swift 6 이상(Xcode 또는 Command Line Tools)만 있으면 됩니다. 외부 패키지를 내려받지 않습니다.

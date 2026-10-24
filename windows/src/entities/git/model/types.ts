@@ -398,7 +398,9 @@ export type SheetKind =
   /** 새 파이프라인(GitLab) / 워크플로 실행(GitHub) */
   | { kind: "runPipeline" }
   /** 커밋 정리(인터랙티브 리베이스) */
-  | { kind: "interactiveRebase" };
+  | { kind: "interactiveRebase" }
+  /** gitch 자동 백업(되돌리기 · 새 브랜치로 꺼내기) */
+  | { kind: "gitchBackups" };
 
 export interface ConfirmRequest {
   title: string;

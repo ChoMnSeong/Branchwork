@@ -68,6 +68,12 @@ export function localBranchMenu(store: RepoStore, b: Branch): MenuItem[] {
   items.push(
     { label: t("Push"), onClick: () => void store.pushBranch(b) },
     { label: t("Copy name"), onClick: () => store.copy(b.name) },
+  );
+  if (store.gitchStatus) {
+    const on = store.gitchProtected.has(b.name);
+    items.push({ label: on ? t("Allow direct push (gitch)") : t("Protect from direct push (gitch)"), onClick: () => void store.setGitchProtected(b.name, !on) });
+  }
+  items.push(
     "divider",
     { label: store.isPinned(b) ? t("Unpin") : t("Pin to top"), onClick: () => store.setPinned(b, !store.isPinned(b)) },
     {
