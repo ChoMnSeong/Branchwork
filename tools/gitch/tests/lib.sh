@@ -1,6 +1,20 @@
 # gitch 테스트 도우미 — 테스트마다 HOME 을 임시 폴더로 바꿔서 실제 설정을 건드리지 않는다.
 # shellcheck shell=bash disable=SC2034
 
+# Windows(Git Bash): gitch 처럼 ~/bin/gitch 는 연결 스크립트, 터미널 연동은 ~/.bashrc
+case "${OSTYPE:-}" in msys*|cygwin*) IS_WIN=1 ;; *) IS_WIN="" ;; esac
+mac_only() { [ -z "$IS_WIN" ]; }       # 맥·리눅스에서만 볼 것: if mac_only; then … fi
+mklink_() {   # $1 대상 $2 링크 — gitch install 이 만드는 것과 같은 모양
+  if [ -z "$IS_WIN" ]; then ln -sfn "$1" "$2"; return; fi
+  printf '#!/bin/sh\n# gitch-link: %s\nexec "%s" "$@"\n' "$1" "$1" > "$2" && chmod +x "$2"
+}
+link_of() {   # $1 이 심볼릭 링크나 연결 스크립트면 가리키는 경로를 출력
+  if [ -L "$1" ]; then readlink "$1"; return 0; fi
+  [ -n "$IS_WIN" ] && [ -f "$1" ] && [ "$(head -1 "$1")" = "#!/bin/sh" ] || return 1
+  sed -n '2s/^# gitch-link: //p' "$1" | grep .
+}
+is_linkish() { link_of "$1" >/dev/null; }
+
 t_setup() {
   T=$(mktemp -d "$TMP_BASE/gitch-t.XXXXXX") || return 1
   T=$(cd "$T" && pwd -P)
@@ -16,7 +30,10 @@ t_setup() {
   mkdir -p "$FAKE_REMOTES" "$FAKE_SSH_USERS" "$FAKE_GH/tokens" "$FAKE_WEB" "$T/fakebin"
   make_fakes
   export PATH="$HOME/bin:$T/fakebin:$ORIG_PATH"
-  ln -s "$GITSW_SRC" "$HOME/bin/gitch"
+  # Windows: 사용자 PATH(레지스트리)는 가짜 PowerShell 로 — 실제 PATH 를 건드리지 않는다
+  export GITSW_POWERSHELL="$T/fakebin/powershell"
+  if [ -n "$IS_WIN" ]; then RC_FILE="$HOME/.bashrc"; else RC_FILE="$HOME/.zshrc"; fi
+  mklink_ "$GITSW_SRC" "$HOME/bin/gitch"
   git config --global init.defaultBranch main
   git config --global advice.detachedHead false
   git config --global advice.skippedCherryPicks false
@@ -93,6 +110,19 @@ if [ -n "$out" ]; then cp "$f" "$out"; else cat "$f"; fi
 EOF
   printf '#!/bin/sh\necho "open $*" >> "%s/opened"\n' "$T" > "$T/fakebin/open"
   printf '#!/bin/sh\ncat > /dev/null\n' > "$T/fakebin/pbcopy"
+  # Windows 의 브라우저(url.dll)·클립보드·PowerShell(사용자 PATH: $T/userpath 에 한 줄씩)
+  printf '#!/bin/sh\nshift; echo "open $*" >> "%s/opened"\n' "$T" > "$T/fakebin/rundll32"
+  printf '#!/bin/sh\ncat > /dev/null\n' > "$T/fakebin/clip"
+  cat > "$T/fakebin/powershell" <<EOF
+#!/bin/bash
+f="$T/userpath"; touch "\$f"
+has() { grep -qixF -- "\$GITSW_PATH_DIR" "\$f"; }
+case "\$GITSW_PATH_OP" in
+  has) if has; then echo yes; else echo no; fi ;;
+  add) if has; then echo same; else echo "\$GITSW_PATH_DIR" >> "\$f"; echo added; fi ;;
+  remove) if has; then grep -vixF -- "\$GITSW_PATH_DIR" "\$f" > "\$f.n"; mv "\$f.n" "\$f"; echo removed; fi ;;
+esac
+EOF
   chmod +x "$T/fakebin/"*
 }
 
@@ -131,9 +161,10 @@ EOF
   } > "$HOME/.ssh/config"
 }
 
-resolve_path() {   # 심볼릭 링크를 끝까지 따라간 실제 경로
+resolve_path() {   # 심볼릭 링크(Windows 는 연결 스크립트도)를 끝까지 따라간 실제 경로
   local p="$1" t
-  while [ -L "$p" ]; do t=$(readlink "$p"); case "$t" in /*) p="$t" ;; *) p="$(dirname "$p")/$t" ;; esac; done
+  while t=$(link_of "$p"); do case "$t" in /*) p="$t" ;; *) p="$(dirname "$p")/$t" ;; esac; done
+
   printf '%s' "$(cd "$(dirname "$p")" && pwd -P)/$(basename "$p")"
 }
 

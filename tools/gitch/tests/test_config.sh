@@ -5,7 +5,7 @@ test_config_check_and_list() {
   mk_config
   run gitch config check; assert_ok; assert_out "계정 3개"
   run gitch list --json; assert_ok; assert_json "$OUT"
-  assert_eq "$(printf '%s' "$OUT" | jq -r '.accounts[].id' | tr '\n' ' ')" "alice bob carol "
+  assert_eq "$(printf '%s' "$OUT" | jq -r '.accounts[].id' | tr -d '\r' | tr '\n' ' ')" "alice bob carol "
   assert_eq "$(printf '%s' "$OUT" | jq -r '.accounts[2].hosts')" "gitlab.example.com(포트 2222)"
 }
 
