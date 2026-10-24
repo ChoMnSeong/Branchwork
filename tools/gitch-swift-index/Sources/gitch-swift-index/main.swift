@@ -100,11 +100,12 @@ if let coveredPath {
     }
 }
 
-if result.skipped > 0, let failure = result.firstFailure {
-    say("경고: 인덱스 \(result.skipped)곳을 읽지 못해 건너뛰었습니다(\(failure)).")
-}
+// gitch 는 표준오류 첫 줄만 notes 에 적는다 — 자주 나오고 할 일이 분명한 오래된 인덱스 경고를 먼저
 if !result.stale.isEmpty {
     say("경고: 인덱스가 Swift 파일 \(result.stale.count)개보다 오래됐습니다(예: \(result.stale[0])) — 다시 빌드하면 맞춰집니다.")
+}
+if result.skipped > 0, let failure = result.firstFailure {
+    say("경고: 인덱스 \(result.skipped)곳을 읽지 못해 건너뛰었습니다(\(failure)).")
 }
 if verbose {
     let missing = repo.files.count - result.covered.count
