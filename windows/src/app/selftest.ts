@@ -13,6 +13,7 @@ import { ipc } from "@/shared/api";
 import { dirname, env, isWindows, joinPath, settings, toWslPath } from "@/shared/config";
 import { gitRaw, listDistros, tools } from "@/shared/platform";
 import { theme } from "@/shared/ui";
+import { applyAppLaunch } from "./lib/app-launch";
 
 /**
  * 자동 점검(CI 의 Windows 서버에서): GITROCHI_SELFTEST=<테스트 저장소> 로 켜면
@@ -169,11 +170,19 @@ export async function runSelfTest(): Promise<boolean> {
     return [!!text && text.includes('"event":"Stop"'), text];
   });
   await step("자격 증명 저장소", async () => {
-    await ipc.secretSet("selftest", "값-123");
-    const v = await ipc.secretGet("selftest");
-    await ipc.secretSet("selftest", null);
-    const gone = await ipc.secretGet("selftest");
-    return [v === "값-123" && gone === null, `${v} / ${gone}`];
+    // Use the real OS store, with an account owned only by this run. A failed assertion
+    // must not leave a test credential behind or replace an existing user's account.
+    const name = `selftest-${crypto.randomUUID()}`;
+    const value = `값-${crypto.randomUUID()}`;
+    try {
+      await ipc.secretSet(name, value);
+      const read = await ipc.secretGet(name);
+      await ipc.secretSet(name, null);
+      const gone = await ipc.secretGet(name);
+      return [read === value && gone === null, `write/read=${read === value} removed=${gone === null}`];
+    } finally {
+      await ipc.secretSet(name, null);
+    }
   });
   await step("HTTPS 요청", async () => {
     const r = await ipc.http("GET", "https://api.github.com/zen", { "User-Agent": "Gitrochi" });
@@ -484,6 +493,27 @@ export async function runSelfTest(): Promise<boolean> {
     const n = s.fileHistory.length;
     s.closeFileInspect();
     return [history && rows && blame && gutter, `history=${n} rows=${rows} blame=${s.blameLines.length} gutter=${gutter}`];
+  });
+
+  await step("CLI 앱 링크 → 실행 중인 앱에서 파일·줄 이동", async () => {
+    const route = new URL("gitrochi://open");
+    route.searchParams.set("repo", repo);
+    route.searchParams.set("file", "app.txt");
+    route.searchParams.set("line", "3");
+    const before = workspace.tabs.length;
+    const result = await ipc.run(env.exe, [route.toString()], { timeoutMs: 10000 });
+    let launches: Awaited<ReturnType<typeof ipc.takeAppLaunches>> = [];
+    const received = await until(async () => {
+      launches.push(...await ipc.takeAppLaunches());
+      return launches.length > 0;
+    }, 5000);
+    const good = launches.find((item) => "Ok" in item);
+    if (!good || !("Ok" in good)) return [false, JSON.stringify({ received, result, launches })];
+    await applyAppLaunch(good.Ok);
+    const focused = await until(() => !!document.querySelector('.blame-line[data-line="3"][data-focused="true"]'), 8000);
+    const ok = focused && workspace.tabs.length === before && workspace.active === s && s.fileInspectLine === 3;
+    s.closeFileInspect();
+    return [ok, `received=${received} focused=${focused} tabs=${workspace.tabs.length}/${before}`];
   });
 
   // 그래프 거르기: 브랜치 숨기기(그 브랜치만의 커밋이 빠짐), 모두 보이기, 현재 브랜치만, 고정

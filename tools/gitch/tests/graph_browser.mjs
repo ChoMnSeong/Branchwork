@@ -1,6 +1,7 @@
 // gitch graph html 을 헤드리스 Chrome 으로 열어 본다(외부 모듈 없이 CDP — Node 22 의 fetch · WebSocket).
 // 사용: node graph_browser.mjs <chrome> <html> <임시 폴더> → JSON 한 줄. 페이지 오류가 있거나 겹친 노드가 있으면 종료 코드 1
 import { spawn } from "node:child_process";
+import { mkdir, writeFile } from "node:fs/promises";
 
 const [chromePath, html, tmp] = process.argv.slice(2);
 const port = 9400 + Math.floor(Math.random() * 400);
@@ -50,8 +51,62 @@ try {
   const checks = [];
   for (const [tab, layout, style] of [["", "force", "dot"], ["", "force", "box"], ["", "pack", ""], ["", "layers", "box"], ["2", "layers", "box"], ["2", "force", "box"], ["4", "tidy", "box"], ["4", "radial", "dot"], ["4", "pack", ""]])
     checks.push(await evaluate(settle(tab, layout, style)));
+  const languages = await evaluate(`(() => {
+    const select = document.getElementById("lang"), t = window.gitchGraphTest;
+    const options = [...select.options].map((o) => o.value), checks = [];
+    for (const key of ["1", "2", "4"]) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key }));
+      for (const lang of ["ts", "js", "java", "python", "csharp", "php"]) {
+        select.value = lang; select.dispatchEvent(new Event("change"));
+        const visible = t.visible().filter((n) => n.kind !== "package");
+        checks.push({ key, lang, nodes: visible.length, ok: options.includes(lang) && visible.length > 0 && visible.every((n) => n.langs.includes(lang)) });
+      }
+      if (key !== "2") {
+        select.value = "docker"; select.dispatchEvent(new Event("change"));
+        const visible = t.visible(); checks.push({ key, lang: "docker", nodes: visible.length, ok: visible.length > 0 && visible.every((n) => n.langs.includes("docker")) });
+      }
+    }
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "1" }));
+    document.querySelector('#layout button[data-v="force"]').click();
+    document.querySelector('#unit button[data-v="folder"]').click();
+    select.value = "java"; select.dispatchEvent(new Event("change"));
+    const folders = t.visible(); checks.push({ folder: true, ok: folders.length > 0 && folders.every((n) => n.langs.includes("java")) });
+    select.value = "all"; select.dispatchEvent(new Event("change"));
+    return { options, checks, ok: !["astro", "png", "constructor", "toString"].some((lang) => options.includes(lang)) && checks.every((c) => c.ok) };
+  })()`);
   const png = await evaluate(`new Promise((res) => { const orig = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { HTMLAnchorElement.prototype.click = orig; fetch(this.href).then((x) => x.blob()).then((b) => res({ name: this.download, type: b.type, bytes: b.size })); }; document.getElementById("png").click(); })`);
-  out = { ok: !errors.length && checks.every((c) => c.overlaps === 0) && png.type === "image/png", errors, checks, png };
+  const views = await evaluate(`(() => {
+    const t = window.gitchGraphTest;
+    document.dispatchEvent(new KeyboardEvent("keydown", {key:"1"}));
+    document.querySelector('#layout button[data-v="force"]').click();
+    document.querySelector('#unit button[data-v="file"]').click();
+    t.select("packages/a/src/f1.ts");
+    const data=t.capture(); data.filters.lang="ts"; data.filters.names=true; data.camera.k=1.7;
+    t.restore(data);
+    const input=document.getElementById("viewName"); input.value="__proto__"; document.getElementById("saveView").click();
+    document.getElementById("lang").value="java"; document.getElementById("lang").dispatchEvent(new Event("change"));
+    const saved=document.getElementById("savedViews"); saved.value="__proto__"; saved.dispatchEvent(new Event("change"));
+    const restored=t.capture(); let rejected=false; try {t.restore({schemaVersion:999});}catch {rejected=true;}
+    const detail=document.querySelector("#info details.evidence"); detail?.querySelector("summary").click();
+    const link=detail?.querySelector("a"), source=document.querySelector("#info a.source-link");
+    const evidence=!!link && link.href.startsWith("gitrochi://open?") && new URL(link.href).searchParams.get("line")==="1";
+    const result={ok:restored.filters.lang==="ts" && restored.filters.names && restored.camera.k===1.7 && restored.selected==="packages/a/src/f1.ts" && rejected && evidence && !!source,
+      selected:restored.selected, language:restored.filters.lang, zoom:restored.camera.k, rejected, evidence};
+    document.dispatchEvent(new KeyboardEvent("keydown", {key:"3"})); t.select("packages/a/src/f1.ts");
+    const commit=[...document.querySelectorAll("#info details.evidence a")].find(a=>new URL(a.href).searchParams.has("commit"));
+    result.history=!!commit && /^[0-9a-f]{40}$/.test(new URL(commit.href).searchParams.get("commit")); result.ok &&=result.history;
+    return result;
+  })()`);
+  if (process.env.GITCH_TEST_ARTIFACT_DIR) {
+    await mkdir(process.env.GITCH_TEST_ARTIFACT_DIR, { recursive: true });
+    await evaluate(`(() => { document.dispatchEvent(new KeyboardEvent("keydown", {key:"1"})); window.gitchGraphTest.select("packages/a/src/f1.ts"); const details=document.querySelector("#info details.evidence"); if(details) details.open=true; document.getElementById("gear").click(); for(const d of document.querySelectorAll("#panel > details")) d.open=d.querySelector("#saveView")!==null; document.getElementById("deleteView").click(); document.getElementById("viewName").value="TS 참조"; document.getElementById("saveView").click(); document.getElementById("info").scrollTop=document.getElementById("info").scrollHeight; })()`);
+    for (const theme of ["dark", "light"]) {
+      await evaluate(`document.documentElement.dataset.theme !== ${JSON.stringify(theme)} && document.getElementById("theme").click(); window.gitchGraphTest.redraw(2)`);
+      const shot = await send("Page.captureScreenshot", { format: "png" });
+      await writeFile(`${process.env.GITCH_TEST_ARTIFACT_DIR}/graph-${theme}.png`, Buffer.from(shot.result.data, "base64"));
+    }
+  }
+  out = { ok: !errors.length && checks.every((c) => c.overlaps === 0) && languages.ok && views.ok && png.type === "image/png", errors, checks, languages, views, png };
 } catch (e) {
   out = { ok: false, errors: [...errors, String(e && e.message || e)] };
 } finally {

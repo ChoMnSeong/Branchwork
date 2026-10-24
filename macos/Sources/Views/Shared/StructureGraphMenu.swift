@@ -32,6 +32,13 @@ struct StructureGraphMenu: View {
                         .help(r.detail)
                         .disabled(working)
                 }
+                Divider()
+                Button("Precise file references") { Task { await store?.openStructureGraph(.files, precise: true) } }
+                    .help("Uses an existing index.scip or .gitch/index.scip for symbol references. Shows the analysis coverage when no current index is available.")
+                    .disabled(working)
+                Button("Files affected by changes") { Task { await store?.openAffectedGraph() } }
+                    .help("Shows changed files and the files that depend on them, including uncommitted changes.")
+                    .disabled(working)
             }
             .help(store?.graphProgress ?? summary)
             Menu("Dependencies changed on this branch") {

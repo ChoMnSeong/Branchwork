@@ -90,8 +90,8 @@ enum Gitch {
         /// 메뉴 항목 설명: 터미널에서 같은 그림을 그리는 명령과 무엇을 읽는지
         var detail: String {
             switch self {
-            case .files: return String(localized: "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines).")
-            case .modules: return String(localized: "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds.")
+            case .files: return String(localized: "gitch graph files: source files across many languages, with imports, includes and inferred type references.")
+            case .modules: return String(localized: "gitch graph modules: targets, packages and dependencies from SwiftPM, Tuist, npm, Cargo, Go, Gradle, Maven, Python, .NET, Composer, Bundler, Pub and CMake.")
             case .changes: return String(localized: "gitch graph changes: files that are often committed together, and how often each one changes.")
             case .tree: return String(localized: "gitch graph tree: folders with their size and number of files.")
             }
@@ -139,21 +139,36 @@ enum Gitch {
     /// gitch graph 가 만든 html
     struct GraphPage {
         let file: URL
+        /// 로컬 감시 서버가 준비되면 저장 후 자동 갱신되는 주소. Python 이 없으면 파일로 연다.
+        var liveURL: URL? = nil
         /// 끝 줄(GRAPH_FILE=… NODES=… EDGES=…)의 노드 수. 그 줄이 없으면 nil
         let nodes: Int?
         /// 그릴 것이 없을 때 gitch 가 낸 안내(⚠ 줄, 문구 그대로)
         let hint: String?
     }
 
-    /// gitch graph 가 생긴 버전
+    /// 앱과 버전을 맞추기 전의 gitch graph 최소 버전(옛 CLI 호환용)
     static let graphMinimumVersion = "3.2.0"
 
-    /// 구조 그래프를 그릴 수 없는 이유 — 앱에 든 gitch 가 없거나 gitch graph 가 생기기 전 버전이다. 그릴 수 있으면 nil.
+    /// 새 CLI 는 기능 표시로 확인한다. 앱 버전과 숫자가 다른 옛 CLI 만 버전으로 판단한다.
+    static func supportsGraph(in head: String) -> Bool {
+        let lines = head.components(separatedBy: .newlines)
+        let scheme = lines.filter { $0.range(of: #"^\s*(?:export\s+)?GITCH_VERSION_SCHEME\b"#, options: .regularExpression) != nil }
+        let api = lines.filter { $0.range(of: #"^\s*(?:export\s+)?GITCH_GRAPH_API\b"#, options: .regularExpression) != nil }
+        if !scheme.isEmpty || !api.isEmpty {
+            return scheme.count == 1 && scheme[0] == #"GITCH_VERSION_SCHEME="gitrochi""#
+                && api.count == 1 && api[0].range(of: #"^GITCH_GRAPH_API="[1-9][0-9]*"$"#, options: .regularExpression) != nil
+        }
+        guard let v = version(in: head), v.range(of: #"^\d+(?:\.\d+){0,3}$"#, options: .regularExpression) != nil else { return false }
+        return v.compare(graphMinimumVersion, options: .numeric) != .orderedAscending
+    }
+
+    /// 구조 그래프를 그릴 수 없는 이유 — 앱에 든 gitch 가 없거나 그래프 기능이 없다. 그릴 수 있으면 nil.
     /// 설치한 셸 명령은 따로 받은 예전 gitch 일 수 있어서 앱에 든 것만 본다(그래프는 계정 설정이 필요 없다).
     static let graphUnavailableReason: String? = {
         guard let exe = bundled else { return String(localized: "Couldn't find gitch inside Gitrochi.") }
-        guard let v = version(at: exe), v.compare(graphMinimumVersion, options: .numeric) != .orderedAscending else {
-            return String(localized: "Structure graph needs gitch \(graphMinimumVersion) or later, but the gitch inside Gitrochi is \(version(at: exe) ?? "?").")
+        guard let head = header(at: exe), supportsGraph(in: head) else {
+            return String(localized: "The gitch inside Gitrochi doesn't support structure graphs. Update Gitrochi and try again.")
         }
         return nil
     }()
@@ -194,9 +209,17 @@ enum Gitch {
 
     /// 파일 머리의 GITSW_VERSION="x.y.z"(변수 이름은 예전 그대로)
     static func version(at path: String) -> String? {
+        guard let head = header(at: path) else { return nil }
+        return version(in: head)
+    }
+
+    private static func header(at path: String) -> String? {
         guard let h = FileHandle(forReadingAtPath: path) else { return nil }
         defer { try? h.close() }
-        let head = String(decoding: h.readData(ofLength: 4096), as: UTF8.self)
+        return String(decoding: h.readData(ofLength: 4096), as: UTF8.self)
+    }
+
+    private static func version(in head: String) -> String? {
         guard let start = head.range(of: "GITSW_VERSION=\"")?.upperBound,
               let end = head[start...].firstIndex(of: "\"") else { return nil }
         return String(head[start..<end])
@@ -285,9 +308,31 @@ enum Gitch {
 
     /// `gitch graph <관계> --format html --out <임시 파일> --no-open` — CDN 없는 한 페이지를 만든다.
     /// modules 는 Package.swift 마다 swift package describe 로 몇 초, 큰 저장소의 files 도 몇 초 걸린다(프로세스를 기다리고 출력을 읽는 일은 메인 스레드 밖에서).
-    static func graph(_ relation: GraphRelation, in repo: URL) async throws -> GraphPage {
-        let file = graphFile(relation.rawValue, in: repo)
-        let r = try await runGraph([relation.rawValue, "--format", "html", "--out", file.path, "--no-open"], in: repo)
+    static func graph(_ relation: GraphRelation, in repo: URL, precise: Bool = false) async throws -> GraphPage {
+        let file = graphFile(precise ? "files-precise" : relation.rawValue, in: repo)
+        let r = try await runGraph([relation.rawValue] + (precise ? ["--precise"] : []) + ["--format", "html", "--out", file.path, "--no-open"], in: repo)
+        var page = graphPage(file, result: r)
+        page.liveURL = await graphWatchURL(precise ? "precise" : relation.rawValue, file: file, in: repo)
+        return page
+    }
+
+    static func affectedGraph(base: String? = nil, in repo: URL) async throws -> GraphPage {
+        let file = graphFile("affected", in: repo)
+        let r = try await runGraph(["affected"] + (base.map { ["--base", $0] } ?? []) + ["--format", "html", "--out", file.path, "--no-open"], in: repo)
+        var page = graphPage(file, result: r)
+        if base == nil { page.liveURL = await graphWatchURL("affected", file: file, in: repo) }
+        return page
+    }
+
+    private static func graphWatchURL(_ relation: String, file: URL, in repo: URL) async -> URL? {
+        struct Watch: Decodable { let url: String }
+        guard let r = try? await runGraph(["watch", relation, "--out", file.path, "--no-open", "--detach", "--json"], in: repo),
+              let result = try? JSONDecoder().decode(Watch.self, from: r.data), let url = URL(string: result.url),
+              url.scheme == "http", url.host == "127.0.0.1", url.port != nil, url.user == nil, url.password == nil else { return nil }
+        return url
+    }
+
+    private static func graphPage(_ file: URL, result r: GitResult) -> GraphPage {
         let lines = plain(r.output).components(separatedBy: "\n")
         // 경로에 빈칸이 있을 수 있어 NODES= 는 끝 줄의 뒤에서 찾는다
         let summary = lines.last { $0.hasPrefix("GRAPH_FILE=") }

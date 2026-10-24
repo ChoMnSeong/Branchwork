@@ -1,4 +1,4 @@
-import { countGraphRules, gitch, type GitchAccount, type GitchBackup, type GitchPreflight, type GitchStatus, type GraphCheck, type GraphRelation, graphRelations, graphRulesFile } from "@/entities/gitch";
+import { countGraphRules, gitch, type GitchAccount, type GitchBackup, type GitchPreflight, type GitchStatus, type GraphCheck, type GraphPage, type GraphRelation, graphRelations, graphRulesFile } from "@/entities/gitch";
 import { ipc } from "@/shared/api";
 import { joinPath } from "@/shared/config";
 import { t } from "@/shared/i18n";
@@ -169,13 +169,13 @@ export abstract class RepoGitch extends RepoTerminal {
   }
 
   /** 구조 그래프(gitch graph)를 html 로 만들어 기본 브라우저로 연다. 실패하면 gitch 가 낸 문구를 보여 준다. */
-  async openStructureGraph(relation: GraphRelation) {
+  async openStructureGraph(relation: GraphRelation, precise = false) {
     const path = this.path;
     if (!path || this.graphJob) return;
     this.graphJob = { kind: "draw", relation };
     this.emit();
     try {
-      const page = await gitch.graph(relation, path);
+      const page = await gitch.graph(relation, path, precise);
       if (this.path !== path) return;
       if (page.nodes === 0) {
         // 빈 페이지를 띄우기보다 gitch 가 찾지 못한 것을 먼저 알린다
@@ -184,15 +184,35 @@ export abstract class RepoGitch extends RepoTerminal {
           title: t("Nothing to draw"),
           message: page.hint ?? t("gitch found nothing to draw for {0}.", title),
           actionTitle: t("Open anyway"),
-          action: () => ipc.openHtml(page.file).catch((e) => this.fail(e)),
+          action: () => this.openStructureGraphPage(page).catch((e) => this.fail(e)),
         });
-      } else await ipc.openHtml(page.file);
+      } else await this.openStructureGraphPage(page);
     } catch (e) {
       if (this.path === path) this.fail(e);
     } finally {
       this.graphJob = null;
       this.emit();
     }
+  }
+
+  async openAffectedGraph(base: string | null = null) {
+    const path = this.path;
+    if (!path || this.graphJob) return;
+    this.graphJob = { kind: "draw", relation: "files" };
+    this.emit();
+    try {
+      const page = await gitch.affectedGraph(path, base);
+      if (this.path === path) await this.openStructureGraphPage(page);
+    } catch (error) {
+      if (this.path === path) this.fail(error);
+    } finally {
+      this.graphJob = null;
+      this.emit();
+    }
+  }
+
+  private openStructureGraphPage(page: GraphPage) {
+    return page.liveUrl ? ipc.openUrl(page.liveUrl) : ipc.openHtml(page.file);
   }
 
   /**

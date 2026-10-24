@@ -232,7 +232,7 @@ npx vitest run       # 파서·그래프·CI 단위 테스트
 
 ## 라이선스
 
-[MIT](LICENSE) © 2026 조문성 (ChoMnSeong)
+[MIT](LICENSE) © 2026 조문성 (ChoMnSeong), [jjunhaa0211](https://github.com/jjunhaa0211)
 
 포함된 서드파티 코드: [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) v1.20.0 — MIT ([macos/Vendor/SwiftTerm/LICENSE](macos/Vendor/SwiftTerm/LICENSE)).
 Windows 앱이 쓰는 오픈소스: [Tauri](https://tauri.app)(MIT/Apache-2.0), [React](https://react.dev)(MIT), [xterm.js](https://xtermjs.org)(MIT), [portable-pty](https://github.com/wezterm/wezterm)(MIT), [Lucide](https://lucide.dev) 아이콘(ISC) 등 — 각 패키지의 라이선스를 따릅니다.

@@ -8,7 +8,20 @@
 # ==========================================================
 
 # shellcheck disable=SC2088,SC2016  # 화면 표시용 ~ 와 $HOME 문자열은 일부러 펼치지 않음
-GITSW_VERSION="3.3.0"
+GITSW_VERSION="0.3.11"
+GITCH_VERSION_SCHEME="gitrochi"
+# shellcheck disable=SC2034  # 앱이 이 선언을 실행하지 않고 파일 머리에서 읽는다.
+GITCH_GRAPH_API="1"
+# shellcheck disable=SC2034  # 설치기/업데이터가 받은 파일을 실행하지 않고 배포 방식 표식을 읽는다.
+GITCH_HELPER_API="1"
+# 파서가 옵션을 거부해도 기계 출력 요청은 먼저 알아야 한다. 사람용 색/도움말이 JSON 오류에 섞이지 않게.
+MACHINE_JSON=""
+_gitch_expect_format=""
+for _gitch_argument in "$@"; do
+  [ -n "$_gitch_expect_format" ] && { [ "$_gitch_argument" = json ] && MACHINE_JSON=1; _gitch_expect_format=""; }
+  case "$_gitch_argument" in --json|--format=json) MACHINE_JSON=1 ;; --format) _gitch_expect_format=1 ;; esac
+done
+unset _gitch_expect_format _gitch_argument
 
 # ----- 경로 -----
 CFG="${GITSW_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/gitsw/config}"
@@ -71,7 +84,10 @@ ok()   { printf '%s\n' "${GREEN}✔${RESET} $*"; }
 warn() { printf '%s\n' "${YELLOW}⚠ $*${RESET}"; }
 dim()  { printf '%s\n' "${DIM}$*${RESET}"; }
 err()  { printf '%s\n' "${RED}$*${RESET}" >&2; }
-die()  { err "$@"; exit 1; }
+machine_error() {   # $1 안정적인 코드 $2 종료 코드 $3 메시지 — 오류는 표준오류, 결과는 표준출력
+  printf '{"schemaVersion":1,"error":{"code":%s,"message":%s,"exitCode":%s}}\n' "$(json_str "$1")" "$(json_str "$3")" "$2" >&2
+}
+die()  { if [ -n "$MACHINE_JSON" ]; then machine_error GITCH_ERROR 1 "$*"; else err "$@"; fi; exit 1; }
 browse() {   # 기본 브라우저로 주소 열기 (맥 open, Windows url.dll)
   if [ -n "$IS_WINDOWS" ]; then rundll32 url.dll,FileProtocolHandler "$1" >/dev/null 2>&1; else open "$1" 2>/dev/null; fi
 }
@@ -162,7 +178,8 @@ confirm() {   # $1 질문  $2 yes(1이면 통과)  $3 비대화형일 때 안내
     case "$y" in y|Y|yes|YES) return 0 ;; esac
     say "취소했습니다."; exit 0
   fi
-  err "확인이 필요합니다. 사용자 동의를 받은 뒤 '$3' 로 실행하세요."
+  if [ -n "$MACHINE_JSON" ]; then machine_error GITCH_CONFIRMATION_REQUIRED 2 "확인이 필요합니다. 사용자 동의를 받은 뒤 '$3' 로 실행하세요."
+  else err "확인이 필요합니다. 사용자 동의를 받은 뒤 '$3' 로 실행하세요."; fi
   exit 2
 }
 
@@ -489,11 +506,13 @@ find_binding_any() { local a; for a in "${B_ACC[@]}"; do [ "$a" = "$1" ] && retu
 
 need_config() {   # 설정이 없거나 틀리면 안내하고 종료
   if ! load_config; then
+    [ -n "$MACHINE_JSON" ] && die "설정 파일이 없습니다: $(tilde "$CFG") — 기존 gitch(v1)에서 옮기기: gitch migrate / 새로 만들기: gitch add"
     err "설정 파일이 없습니다: $(tilde "$CFG")"
     err "  기존 gitch(v1)에서 옮기기: gitch migrate   /   새로 만들기: gitch add"
     exit 1
   fi
   if [ ${#CFG_ERRORS[@]} -gt 0 ]; then
+    [ -n "$MACHINE_JSON" ] && die "설정 파일에 문제가 있습니다: $(tilde "$CFG") — ${CFG_ERRORS[*]}"
     local e
     err "설정 파일에 문제가 있습니다: $(tilde "$CFG")"
     for e in "${CFG_ERRORS[@]}"; do err "  - $e"; done
@@ -1798,7 +1817,7 @@ status_cmd() {
   load_config >/dev/null 2>&1
   if ! in_repo; then
     if [ -n "$json" ]; then
-      folder_account . && printf '{"inRepo":false,"folderAccount":%s}\n' "$(json_str "$FA")" || printf '{"inRepo":false,"folderAccount":null}\n'
+      folder_account . && printf '{"schemaVersion":1,"inRepo":false,"folderAccount":%s}\n' "$(json_str "$FA")" || printf '{"schemaVersion":1,"inRepo":false,"folderAccount":null}\n'
       return 0
     fi
     say "${BOLD}[전역 작성자]${RESET} $(global_author_desc)"
@@ -1832,7 +1851,7 @@ status_cmd() {
   if [ -n "$json" ]; then
     local wj="" first=1
     for w in "${warns[@]}"; do [ -n "$first" ] || wj="$wj,"; wj="$wj$(json_str "$w")"; first=""; done
-    printf '{"inRepo":true,"repo":%s,"path":%s,"branch":%s,"author":{"name":%s,"email":%s},"remote":%s,"pushUrl":%s,"upstream":%s,"lockedAccount":%s,"account":%s,"accountSource":%s,"derivedAccount":%s,"folderAccount":%s,"pushAccount":%s,"pushLogin":%s,"unpushedCommits":%s,"signing":%s,"ignored":%s,"warnings":[%s]}\n' \
+    printf '{"schemaVersion":1,"inRepo":true,"repo":%s,"path":%s,"branch":%s,"author":{"name":%s,"email":%s},"remote":%s,"pushUrl":%s,"upstream":%s,"lockedAccount":%s,"account":%s,"accountSource":%s,"derivedAccount":%s,"folderAccount":%s,"pushAccount":%s,"pushLogin":%s,"unpushedCommits":%s,"signing":%s,"ignored":%s,"warnings":[%s]}\n' \
       "$(json_str "$(basename "$top")")" "$(json_str "$top")" "$(json_str "$(cur_branch)")" "$(json_str "$name")" "$(json_str "$email")" \
       "$(json_str "$R_URL")" "$(json_str "$PU_URL")" "$(json_str "$up")" "$(json_str "$R_LOCK")" "$(json_str "$R_ACC")" "$(json_str "$R_SRC")" \
       "$(json_str "$R_DERIVED")" "$(json_str "$fold")" "$(json_str "${push_acc:-unknown}")" "$(json_str "$R_LOGIN")" \
@@ -1963,7 +1982,7 @@ pf_print() {
       [ -n "$first" ] || cj="$cj,"; first=""
       cj="$cj{\"level\":$(json_str "$lv"),\"code\":$(json_str "$code"),\"message\":$(json_str "$msg")}"
     done
-    printf '{"result":%s,"account":%s,"pushAccount":%s,"branch":%s,"ahead":%s,"behind":%s,"checks":[%s]}\n' \
+    printf '{"schemaVersion":1,"result":%s,"account":%s,"pushAccount":%s,"branch":%s,"ahead":%s,"behind":%s,"checks":[%s]}\n' \
       "$(json_str "$PF_LEVEL")" "$(json_str "${PF_ACC:-}")" "$(json_str "${PF_PUSH:-unknown}")" "$(json_str "${PF_BR:-}")" \
       "$(json_num "${PF_AHEAD:-0}")" "$(json_num "${PF_BEHIND:-0}")" "$cj"
     return
@@ -2028,7 +2047,7 @@ check_cmd() {   # gitch ck
   fi
 
   if [ -n "$json" ]; then
-    printf '{"repo":%s,"branch":%s,"account":%s,"locked":%s,"fetched":%s,"hasUpstream":%s,"ahead":%s,"behind":%s,"staged":%s,"unstaged":%s,"untracked":%s,"stash":%s,"inProgress":%s,"conflicts":%s}\n' \
+    printf '{"schemaVersion":1,"repo":%s,"branch":%s,"account":%s,"locked":%s,"fetched":%s,"hasUpstream":%s,"ahead":%s,"behind":%s,"staged":%s,"unstaged":%s,"untracked":%s,"stash":%s,"inProgress":%s,"conflicts":%s}\n' \
       "$(json_str "$(basename "$(repo_top)")")" "$(json_str "$br")" "$(json_str "$acc")" "$(json_bool "$lock")" \
       "$( [ "$fetched" = 1 ] && echo true || echo false)" "$(has_upstream && echo true || echo false)" \
       "$(json_num "$ahead")" "$(json_num "$behind")" "$(json_files "$staged")" "$(json_files "$unstaged")" \
@@ -2374,23 +2393,6 @@ open_cmd() {
   say "$u"; open_url "$u"
 }
 
-app_cmd() {   # Gitrochi 앱을 연다 — 이 gitch 가 든 앱, 없으면 설치된 앱(맥: 응용 프로그램 폴더, Windows: 설치 폴더)
-  local self app="" d
-  self=$(self_path)
-  if [ -n "$IS_WINDOWS" ]; then
-    [ -f "$(dirname "$self")/Gitrochi.exe" ] && app="$(dirname "$self")/Gitrochi.exe"
-    [ -z "$app" ] && [ -n "${LOCALAPPDATA:-}" ] && d="$(posix_path "$LOCALAPPDATA")/Gitrochi/Gitrochi.exe" && [ -f "$d" ] && app=$d
-    [ -n "$app" ] || die "Gitrochi 앱을 찾지 못했습니다 — https://github.com/$GITCH_RELEASES/releases/latest 의 setup.exe 로 설치하세요."
-    browse "$(cygpath -w "$app" 2>/dev/null || printf '%s' "$app")"
-  else
-    case "$self" in *.app/Contents/Resources/gitch) app=${self%/Contents/Resources/gitch} ;; esac
-    if [ -z "$app" ]; then for d in /Applications "$HOME/Applications"; do [ -d "$d/Gitrochi.app" ] && { app="$d/Gitrochi.app"; break; }; done; fi
-    [ -n "$app" ] || die "Gitrochi 앱을 찾지 못했습니다 — https://github.com/$GITCH_RELEASES/releases/latest 에서 받아 응용 프로그램 폴더에 두세요."
-    open -a "$app" || die "앱을 열지 못했습니다: $(tilde "$app")"
-  fi
-  ok "Gitrochi 를 엽니다: $(tilde "$app")"
-}
-
 # ================= 백업 복구 / 정리 / 워크트리 =================
 
 rescue_line() {   # $1 번호 $2 ref
@@ -2625,7 +2627,11 @@ pr_status_cmd() {   # [--json]
   [ -n "$tok" ] || die "gh 에 $R_LOGIN 계정 로그인이 필요합니다. 사용자가 터미널에서: gh auth login --hostname github.com"
   out=$(GH_TOKEN="$tok" gh pr view "$PT_HEAD" -R "$PT_REPO" --json number,url,state,title,isDraft,mergeable,reviewDecision,statusCheckRollup 2>&1) || {
     say "이 브랜치($br)의 PR 이 없습니다. 만들기: gitch pr --title \"...\""; return 0; }
-  if [ -n "$json" ] || ! command -v jq >/dev/null 2>&1; then printf '%s\n' "$out"; return 0; fi
+  if [ -n "$json" ]; then
+    printf '%s\n' "$out" | awk '!added && /^[ \t]*\{/ { sub(/\{/, "{\"schemaVersion\":1,"); added = 1 } { print }'
+    return 0
+  fi
+  if ! command -v jq >/dev/null 2>&1; then printf '%s\n' "$out"; return 0; fi
   printf '%s' "$out" | jq -r '"PR #\(.number) \(.title)\n  상태: \(.state)\(if .isDraft then " (초안)" else "" end)  머지 가능: \(.mergeable)  리뷰: \(.reviewDecision // "없음")\n  \(.url)\n  CI: " + ((.statusCheckRollup // []) | if length == 0 then "없음" else (group_by(.conclusion // .status) | map("\(.[0].conclusion // .[0].status)=\(length)") | join(", ")) end)'
 }
 
@@ -2784,7 +2790,7 @@ scan_cmd() {   # [폴더] [--fix] [--json]
     say "  $line"
   done < <(find_repos "$root")
   if [ -n "$json" ]; then
-    printf '{"root":%s,"total":%s,"ok":%s,"problems":%s,"repos":[%s]}\n' "$(json_str "$root")" "$n" "$okc" "$prob" "$jl"
+    printf '{"schemaVersion":1,"root":%s,"total":%s,"ok":%s,"problems":%s,"repos":[%s]}\n' "$(json_str "$root")" "$n" "$okc" "$prob" "$jl"
   else
     echo ""
     say "저장소 ${n}개: 정상 ${okc}, 문제 ${prob}"
@@ -2829,7 +2835,7 @@ audit_cmd() {   # 이미 push 된 커밋 중 '다른 내 계정' 이메일로 �
       printf '%s\n' "$hits" | head -5 | awk -F'\t' '{ printf "      %s %s  %s  %s\n", $1, $4, $2, $5 }'
     fi
   done <<< "$repos"
-  if [ -n "$json" ]; then printf '{"since":%s,"findings":%s,"repos":[%s]}\n' "$(json_str "$since")" "$total" "$jl"
+  if [ -n "$json" ]; then printf '{"schemaVersion":1,"since":%s,"findings":%s,"repos":[%s]}\n' "$(json_str "$since")" "$total" "$jl"
   else
     [ "$total" -eq 0 ] && say "  ${GREEN}✔${RESET} 문제 없음"
     [ "$total" -gt 0 ] && dim "  (이미 push 된 커밋은 고치지 않습니다. 앞으로는 gitch 검사가 막아 줍니다)"
@@ -3032,7 +3038,7 @@ doctor_print() {
       [ -n "$first" ] || jl="$jl,"; first=""
       jl="$jl{\"section\":$(json_str "$sec"),\"level\":$(json_str "$lv"),\"message\":$(json_str "$msg")}"
     done
-    printf '{"version":%s,"problems":%s,"items":[%s]}\n' "$(json_str "$GITSW_VERSION")" "$DR_PROBLEMS" "$jl"
+    printf '{"schemaVersion":1,"version":%s,"problems":%s,"items":[%s]}\n' "$(json_str "$GITSW_VERSION")" "$DR_PROBLEMS" "$jl"
     return
   fi
   for it in "${DR_ITEMS[@]}"; do
@@ -3087,7 +3093,7 @@ list_cmd() {   # [--check] [--json]
     fi
     i=$((i+1))
   done
-  if [ -n "$json" ]; then printf '{"accounts":[%s]}\n' "$jl"; return 0; fi
+  if [ -n "$json" ]; then printf '{"schemaVersion":1,"accounts":[%s]}\n' "$jl"; return 0; fi
   echo ""
   [ -n "$cur" ] && say "▶ = 현재 저장소 계정"
   [ -z "$check" ] && say "실제 연결까지 확인: gitch list --check"
@@ -4608,10 +4614,12 @@ report_cmd() {   # [--today | --days N | --since YYYY-MM-DD] [--json]
 }
 
 version_cmd() {
-  local dir d
-  dir=$(dirname "$(self_path)")
-  d=$(git -C "$dir" describe --always --dirty --tags 2>/dev/null)
-  say "gitch $GITSW_VERSION${d:+ ($d)} — $(tilde "$(self_path)")"
+  case "${1:-}" in
+    --json) printf '{"schemaVersion":1,"tool":"gitch","version":%s,"versionScheme":%s,"graphApi":%s}\n' "$(json_str "$GITSW_VERSION")" "$(json_str "$GITCH_VERSION_SCHEME")" "$GITCH_GRAPH_API"; return 0 ;;
+    "") ;;
+    *) die "사용법: gitch version [--json]" ;;
+  esac
+  say "gitch $GITSW_VERSION — $(tilde "$(self_path)")"
 }
 
 GITCH_RELEASES="Gitrochi/Gitrochi"   # 따로 받은 gitch 가 업데이트를 받는 곳 (tools/gitch/install.sh 와 같음)
@@ -4648,32 +4656,228 @@ self_update_cmd() {   # 따로 받은 gitch 만 바꾼다 — 앱에 든 것은 
   say "지금: $(tilde "$self") (v$GITSW_VERSION)"
 }
 
+# Helper scripts come only from the selected gitch release directory and need their own matching checksum.
+# Every download is verified before any installed file is promoted.
+release_stage_helpers() {   # $1 staging directory $2 selected gitch URL $3 helper API (empty = historical optional release)
+  local stage=$1 base=${2%/gitch} api=$3 name want have missing=""
+  STAGED_HELPERS=""
+  case "$api" in ""|1) ;; *) die "알 수 없는 그래프 도우미 배포 방식: $api" ;; esac
+  for name in gitch-scip-index gitch-graph-watch; do
+    if ! curl_get -o "$stage/$name" "$base/$name" 2>/dev/null; then
+      [ -z "$api" ] || die "릴리스의 필수 도우미를 받지 못했습니다: $base/$name (설치 파일은 바꾸지 않았습니다)"
+      rm -f "$stage/$name"; missing=1; continue
+    fi
+    curl_get -o "$stage/$name.sha256" "$base/$name.sha256" || die "도우미 체크섬을 받지 못했습니다: $name.sha256 (설치 파일은 바꾸지 않았습니다)"
+    want=$(awk -v name="$name" '$2 == name || $2 == "*" name { print $1; exit }' "$stage/$name.sha256")
+    have=$(sha256_of "$stage/$name")
+    [ -n "$want" ] && [ "$want" = "$have" ] || die "SHA-256 이 $name.sha256 과 맞지 않아 설치 파일을 바꾸지 않았습니다."
+    [ "$(head -1 "$stage/$name")" = '#!/usr/bin/env python3' ] || die "받은 파일이 그래프 도우미가 아닙니다: $name"
+    if command -v python3 >/dev/null 2>&1; then
+      python3 -c 'import ast,sys; ast.parse(open(sys.argv[1], encoding="utf-8").read())' "$stage/$name" 2>/dev/null || die "그래프 도우미 문법이 잘못되어 설치하지 않았습니다: $name"
+    fi
+    STAGED_HELPERS="$STAGED_HELPERS $name"
+  done
+  [ -z "$missing" ] || say "이전 릴리스에는 선택적 그래프 도우미가 없습니다. 기본 CLI는 설치하며 정밀 분석·자동 갱신은 도우미가 포함된 최신 Gitrochi 배포본에서 사용하세요."
+}
+release_promote() {   # $1 staging directory $2 destination directory $3 CLI destination basename
+  local stage=$1 dir=$2 cli=$3 name rollback_name promoted="" existed=""
+  mkdir "$stage/rollback" || die "업데이트 복구 폴더를 만들지 못했습니다."
+  for name in $STAGED_HELPERS "$cli"; do
+    [ ! -L "$dir/$name" ] && { [ ! -e "$dir/$name" ] || [ -f "$dir/$name" ]; } || die "도우미/CLI 대상이 링크나 폴더라 덮어쓰지 않았습니다: $dir/$name"
+    if [ -f "$dir/$name" ]; then cp -p "$dir/$name" "$stage/rollback/$name" || die "기존 파일을 보존하지 못했습니다: $name"; existed="$existed $name"; fi
+    if [ "$name" = "$cli" ]; then chmod 755 "$stage/gitch"; else chmod 755 "$stage/$name"; fi || die "실행 권한을 설정하지 못했습니다: $name"
+  done
+  # Helpers first, CLI last. All checksums and rollback copies already passed.
+  for name in $STAGED_HELPERS "$cli"; do
+    if { [ "$name" = "$cli" ] && mv -f "$stage/gitch" "$dir/$name"; } || { [ "$name" != "$cli" ] && mv -f "$stage/$name" "$dir/$name"; }; then
+      promoted="$promoted $name"
+    else
+      for rollback_name in $promoted; do
+        case " $existed " in *" $rollback_name "*) mv -f "$stage/rollback/$rollback_name" "$dir/$rollback_name" ;; *) rm -f "$dir/$rollback_name" ;; esac
+      done
+      die "설치 파일 교체에 실패해 이전 파일로 되돌렸습니다."
+    fi
+  done
+}
+
 UPDATE_TMP=""
 self_update_standalone() {   # $1 이 파일 — 릴리스의 gitch 를 gitch.sha256 과 맞춰 본 뒤 같은 폴더의 임시 파일 → mv (돌고 있는 셸은 원래 파일을 계속 읽음)
-  local self="$1" dir json tag url want have new
+  local self="$1" dir json tag url want have new scheme helper_api
   dir=$(dirname "$self")
   command -v curl >/dev/null 2>&1 || die "curl 이 필요합니다."
   json=$(curl_get -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$GITCH_RELEASES/releases?per_page=20") \
     || die "릴리스 목록을 받지 못했습니다: https://github.com/$GITCH_RELEASES/releases"
   read -r tag url <<< "$(printf '%s\n' "$json" | tr ',' '\n' | awk "$RELEASE_AWK")"
   [ -n "$url" ] || die "gitch 가 든 릴리스가 아직 없습니다: https://github.com/$GITCH_RELEASES/releases"
-  UPDATE_TMP=$(mktemp "$dir/.gitch-update.XXXXXX") || die "$(tilde "$dir") 에 쓸 수 없어 바꾸지 못했습니다."
-  trap 'rm -f "$UPDATE_TMP" "$UPDATE_TMP.sha256"' EXIT
-  curl_get -o "$UPDATE_TMP" "$url" && curl_get -o "$UPDATE_TMP.sha256" "$url.sha256" || die "받지 못했습니다: $url"
-  want=$(awk '$2 == "gitch" || $2 == "*gitch" { print $1; exit }' "$UPDATE_TMP.sha256")
-  have=$(sha256_of "$UPDATE_TMP")
+  UPDATE_TMP=$(mktemp -d "$dir/.gitch-update.XXXXXX") || die "$(tilde "$dir") 에 쓸 수 없어 바꾸지 못했습니다."
+  trap 'rm -rf "$UPDATE_TMP"' EXIT
+  curl_get -o "$UPDATE_TMP/gitch" "$url" && curl_get -o "$UPDATE_TMP/gitch.sha256" "$url.sha256" || die "받지 못했습니다: $url"
+  want=$(awk '$2 == "gitch" || $2 == "*gitch" { print $1; exit }' "$UPDATE_TMP/gitch.sha256")
+  have=$(sha256_of "$UPDATE_TMP/gitch")
   [ -n "$want" ] && [ "$want" = "$have" ] || die "SHA-256 이 gitch.sha256 과 맞지 않아 바꾸지 않았습니다 ($tag)"
-  new=$(sed -n 's/^GITSW_VERSION="\([^"]*\)".*/\1/p' "$UPDATE_TMP" | head -1)
-  [ -n "$new" ] && "${BASH:-bash}" -n "$UPDATE_TMP" 2>/dev/null || die "받은 파일이 gitch 가 아닙니다: $url"
-  if [ "$have" = "$(sha256_of "$self")" ]; then ok "이미 최신입니다: gitch $GITSW_VERSION ($tag)"; return 0; fi
-  if ver_lt "$new" "$GITSW_VERSION"; then
+  new=$(sed -n 's/^GITSW_VERSION="\([^"]*\)".*/\1/p' "$UPDATE_TMP/gitch" | head -1)
+  [ -n "$new" ] && "${BASH:-bash}" -n "$UPDATE_TMP/gitch" 2>/dev/null || die "받은 파일이 gitch 가 아닙니다: $url"
+  scheme=$(sed -n 's/^GITCH_VERSION_SCHEME="\([^"]*\)".*/\1/p' "$UPDATE_TMP/gitch" | head -1)
+  if [ "$scheme" = gitrochi ]; then
+    [ "$new" = "${tag#v}" ] || die "릴리스 태그($tag)와 gitch 버전($new)이 달라 바꾸지 않았습니다."
+  elif [ -n "$scheme" ]; then
+    die "알 수 없는 gitch 버전 방식($scheme)이라 바꾸지 않았습니다."
+  elif [ "${GITCH_VERSION_SCHEME:-}" = gitrochi ]; then
+    say "릴리스 $tag 는 이전 독립 CLI 버전 방식이라 그대로 뒀습니다. Gitrochi 와 같은 버전의 릴리스를 기다리세요."
+    return 0
+  fi
+  if { [ "$scheme" != gitrochi ] || [ "${GITCH_VERSION_SCHEME:-}" = gitrochi ]; } && ver_lt "$new" "$GITSW_VERSION"; then
     say "지금 gitch($GITSW_VERSION)가 릴리스 $tag 의 gitch($new)보다 새 버전이라 그대로 뒀습니다."
     return 0
   fi
-  chmod 755 "$UPDATE_TMP" && mv -f "$UPDATE_TMP" "$self" || die "바꾸지 못했습니다: $(tilde "$self")"
+  helper_api=$(sed -n 's/^GITCH_HELPER_API="\([^"]*\)".*/\1/p' "$UPDATE_TMP/gitch" | head -1)
+  release_stage_helpers "$UPDATE_TMP" "$url" "$helper_api"
+  if [ "$have" = "$(sha256_of "$self")" ]; then
+    release_promote "$UPDATE_TMP" "$dir" "$(basename "$self")"
+    ok "이미 최신입니다: gitch $GITSW_VERSION ($tag)"; return 0
+  fi
+  release_promote "$UPDATE_TMP" "$dir" "$(basename "$self")"
   ok "gitch $GITSW_VERSION → $new ($tag): $(tilde "$self")"
   dim "  AI 규칙·스킬·검사 훅도 새 버전으로 쓰려면: gitch install"
   log_action self-update "from=$GITSW_VERSION" "to=$new" "release=$tag"
+}
+
+# ================= 데스크톱 앱 =================
+
+APP_USAGE='사용법: gitch app [저장소|폴더] [--repo 폴더] [--file 상대경로] [--line 줄] [--commit 해시] [--view 보기] [--path 앱경로]
+  Gitrochi 데스크톱 앱을 엽니다 (macOS · Windows).
+  앱에 든 CLI 는 함께 배포된 앱을, 소스 저장소의 CLI 는 개발 빌드를 먼저 엽니다.
+  그 밖에는 사용자/시스템에 설치한 Gitrochi 를 찾습니다.
+  --path 앱경로  직접 지정: macOS 의 Gitrochi.app 또는 Windows 의 Gitrochi.exe
+  --repo 폴더    지정한 저장소를 앱의 탭으로 엽니다 (저장소 이름도 가능).
+  --file 경로    저장소 안의 파일 히스토리를 엽니다. --line N 은 blame 의 해당 줄로 이동합니다.
+  --view 보기    graph · files · modules · changes · tree · affected · precise · diff (diff 는 --file 필요)
+  --commit 해시  전체 커밋 해시(40/64자)로 이동. --file 도 주면 그 커밋의 파일 diff 를 엽니다.
+  예: gitch app .
+      gitch app --repo ~/code/project --file src/main.ts --line 25
+      gitch app --path "/Applications/Gitrochi.app"'
+
+# URL 쿼리는 UTF-8 바이트 단위로 인코딩한다. 셸·PowerShell 코드에 경로를 넣지 않는다.
+app_urlencode() {
+  local LC_ALL=C input=$1 char i byte
+  for ((i=0; i<${#input}; i++)); do
+    char=${input:i:1}
+    case "$char" in [a-zA-Z0-9.~_-]) printf '%s' "$char" ;; *) printf -v byte '%d' "'$char"; printf '%%%02X' "$((byte & 255))" ;; esac
+  done
+}
+
+app_route() { # 저장소 · 상대 파일 · 줄 · 보기 · 커밋 → APP_ROUTE
+  local repo=$1 file=$2 line=$3 view=$4 commit=$5 parent native
+  APP_ROUTE=""
+  [ -n "$repo$file$line$view$commit" ] || return 0
+  graph_pick_dir "${repo:-.}"
+  repo=$(git -C "$GRAPH_DIR" rev-parse --show-toplevel) || return 1
+  repo=$(real_dir "$repo") || return 1
+  if [ -n "$file" ]; then
+    case "$file" in /*|*\\*|*:*|../*|*/../*|*/..|..|./*|*/./*|*/.|.|*$'\n'*|*$'\r'*) die "--file 은 저장소 안의 상대 파일 경로여야 합니다: $file" ;; esac
+    # 사라진 파일도 이력을 열 수 있다. 존재하는 부모/심볼릭 링크가 밖을 가리키면 거부한다.
+    parent="$repo/$file"
+    if [ -L "$parent" ]; then die "--file 에 심볼릭 링크 파일을 지정할 수 없습니다: $file"; fi
+    while [ ! -d "$parent" ] && [ "$parent" != / ]; do parent=$(dirname "$parent"); done
+    parent=$(real_dir "$parent") || return 1
+    case "$parent/" in "$repo/"*) ;; *) die "--file 이 저장소 밖을 가리킵니다: $file" ;; esac
+  fi
+  [ -z "$line" ] || { [ -n "$file" ] || die "--line 은 --file 과 함께 사용하세요."; }
+  case "$line" in "") ;; *[!0-9]*|0|0*) die "--line 은 1 이상의 정수여야 합니다." ;; esac
+  [ ${#line} -le 9 ] || die "--line 이 너무 큽니다."
+  case "$view" in ""|graph|files|modules|changes|tree|affected|precise) ;; diff) [ -n "$file" ] || die "--view diff 는 --file 과 함께 사용하세요." ;; *) die "알 수 없는 보기: $view" ;; esac
+  if [ -n "$commit" ]; then
+    case "$commit" in *[!a-fA-F0-9]*) die "--commit 은 전체 커밋 해시(40/64자)여야 합니다." ;; esac
+    [ ${#commit} -eq 40 ] || [ ${#commit} -eq 64 ] || die "--commit 은 전체 커밋 해시(40/64자)여야 합니다."
+  fi
+  native=$repo
+  [ -z "$IS_WINDOWS" ] || native=$(cygpath -w "$repo" 2>/dev/null || printf '%s' "$repo")
+  APP_ROUTE="gitrochi://open?repo=$(app_urlencode "$native")"
+  [ -z "$file" ] || APP_ROUTE="$APP_ROUTE&file=$(app_urlencode "$file")"
+  [ -z "$line" ] || APP_ROUTE="$APP_ROUTE&line=$line"
+  [ -z "$view" ] || APP_ROUTE="$APP_ROUTE&view=$view"
+  [ -z "$commit" ] || APP_ROUTE="$APP_ROUTE&commit=$commit"
+}
+
+app_candidate() {   # $1 후보 → APP_FOUND (경로를 코드로 해석하지 않는다)
+  local p
+  p=$(posix_path "$(expand_path "$1")")
+  p=${p%/}
+  if [ -n "$IS_WINDOWS" ]; then
+    [ -f "$p" ] || return 1
+    case "$p" in *.[eE][xX][eE]) ;; *) return 1 ;; esac
+    APP_FOUND="$(real_dir "$(dirname "$p")")/$(basename "$p")"
+  else
+    case "$p" in *.[aA][pP][pP]) [ -d "$p/Contents/MacOS" ] || return 1 ;; *) return 1 ;; esac
+    APP_FOUND=$(real_dir "$p")
+  fi
+}
+
+app_find() {   # 번들 → 이 소스 저장소의 빌드 → 설치 위치
+  local dir root candidate base
+  APP_FOUND=""
+  dir=$(dirname "$(self_path)")
+  if [ -n "$IS_WINDOWS" ]; then
+    app_candidate "$dir/Gitrochi.exe" && return 0
+    case "$dir" in
+      */tools/gitch)
+        root=${dir%/tools/gitch}
+        for candidate in "$root/windows/src-tauri/target/release/gitrochi.exe" "$root/windows/src-tauri/target/debug/gitrochi.exe"; do
+          app_candidate "$candidate" && return 0
+        done ;;
+    esac
+    for base in "${LOCALAPPDATA:-}" "$HOME/AppData/Local" "${PROGRAMFILES:-${ProgramFiles:-}}" "${PROGRAMW6432:-}"; do
+      [ -n "$base" ] || continue
+      base=$(posix_path "$base")
+      app_candidate "${base%/}/Gitrochi/Gitrochi.exe" && return 0
+      app_candidate "${base%/}/Programs/Gitrochi/Gitrochi.exe" && return 0
+    done
+  else
+    case "$dir" in *.app/Contents/Resources) app_candidate "${dir%/Contents/Resources}" && return 0 ;; esac
+    case "$dir" in */tools/gitch) app_candidate "${dir%/tools/gitch}/macos/build/Gitrochi.app" && return 0 ;; esac
+    for candidate in "$HOME/Applications/Gitrochi.app" /Applications/Gitrochi.app; do
+      app_candidate "$candidate" && return 0
+    done
+  fi
+  return 1
+}
+
+app_cmd() {
+  local explicit="" encoded native repo="" file="" line="" view="" commit="" key
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -h|--help) say "$APP_USAGE"; return 0 ;;
+      --path) [ $# -ge 2 ] && [ -n "$2" ] || die "--path 뒤에 앱 경로를 주세요."; explicit=$2; shift ;;
+      --path=*) explicit=${1#--path=}; [ -n "$explicit" ] || die "--path 뒤에 앱 경로를 주세요." ;;
+      --repo|--file|--line|--view|--commit)
+        key=${1#--}; [ $# -ge 2 ] && [ -n "$2" ] || die "--$key 뒤에 값을 주세요."
+        case "$key" in repo) [ -z "$repo" ] || die "저장소는 한 번만 지정하세요."; repo=$2 ;; file) file=$2 ;; line) line=$2 ;; view) view=$2 ;; commit) commit=$2 ;; esac; shift ;;
+      --repo=*|--file=*|--line=*|--view=*|--commit=*)
+        key=${1%%=*}; key=${key#--}; [ -n "${1#*=}" ] || die "--$key 뒤에 값을 주세요."
+        case "$key" in repo) [ -z "$repo" ] || die "저장소는 한 번만 지정하세요."; repo=${1#*=} ;; file) file=${1#*=} ;; line) line=${1#*=} ;; view) view=${1#*=} ;; commit) commit=${1#*=} ;; esac ;;
+      -*) die "알 수 없는 app 인자: $1"$'\n'"$APP_USAGE" ;;
+      *) [ -z "$repo" ] || die "저장소는 한 번만 지정하세요."; repo=$1 ;;
+    esac
+    shift
+  done
+  if [ -z "$IS_WINDOWS" ]; then
+    case "${GITSW_OS:-${OSTYPE:-}}" in darwin*) ;; *) die "gitch app 은 macOS · Windows 에서 지원합니다." ;; esac
+  fi
+  app_route "$repo" "$file" "$line" "$view" "$commit" || return 1
+  if [ -n "$explicit" ]; then
+    app_candidate "$explicit" || die "Gitrochi 앱을 찾을 수 없습니다: $explicit (gitch app --help)"
+  else
+    app_find || die "Gitrochi 앱을 찾을 수 없습니다. 앱을 설치하거나 gitch app --path <앱경로> 로 지정하세요."
+  fi
+  if [ -n "$IS_WINDOWS" ]; then
+    native=$(cygpath -w "$APP_FOUND" 2>/dev/null || printf '%s' "$APP_FOUND")
+    # 경로는 환경변수로 전달하고 PowerShell 코드는 고정한다 — 공백·따옴표·$ 등을 그대로 보존.
+    encoded=$(printf '%s' '$ErrorActionPreference = "Stop"; try { if ($env:GITCH_APP_ROUTE) { Start-Process -FilePath $env:GITCH_APP_PATH -ArgumentList $env:GITCH_APP_ROUTE -ErrorAction Stop | Out-Null } else { Start-Process -FilePath $env:GITCH_APP_PATH -ErrorAction Stop | Out-Null }; exit 0 } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }' | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n') || return 1
+    GITCH_APP_PATH="$native" GITCH_APP_ROUTE="$APP_ROUTE" "$PS_BIN" -NoProfile -NonInteractive -EncodedCommand "$encoded" || { err "Gitrochi 앱을 열지 못했습니다: $APP_FOUND"; return 1; }
+  else
+    if [ -n "$APP_ROUTE" ]; then open -a "$APP_FOUND" "$APP_ROUTE"; else open -a "$APP_FOUND"; fi || { err "Gitrochi 앱을 열지 못했습니다: $APP_FOUND"; return 1; }
+  fi
+  ok "Gitrochi 앱을 열었습니다: $(tilde "$APP_FOUND")"
 }
 
 # ================= 구조 그래프 =================
@@ -4688,8 +4892,8 @@ self_update_standalone() {   # $1 이 파일 — 릴리스의 gitch 를 gitch.sh
 
 GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|json|svg|png|dot] [--out 파일] [--open|--no-open] [폴더|저장소]
        gitch graph diff [기준] …  ·  gitch graph check …   (각각 --help, graph 는 짧게 g)
-  files    파일 → 파일 import (TS/JS · Python · Go · Rust · Kotlin/Java, Swift 는 타입 이름으로 추정) — 기본
-  modules  모듈/타깃 의존 (Package.swift · Tuist Project.swift · package.json · Cargo.toml · go.mod · Gradle)
+  files    여러 언어의 소스 파일과 import/include (Swift · JVM 타입 이름 참조는 추정) — 기본
+  modules  모듈/타깃 의존 (SwiftPM · Tuist · npm · Cargo · Go · Gradle · Maven · Python · .NET · Composer · Bundler · Pub · CMake)
   changes  자주 같이 커밋되는 파일 쌍과 바뀐 횟수(핫스팟)
   tree     폴더 구조와 크기 · 파일 수
   --format   기본: 사람이 보는 터미널이면 html(만들고 열기), 아니면 json(표준출력). svg · png 는 graphviz 의 dot
@@ -4697,10 +4901,17 @@ GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|
   --json = --format json · --no-external 저장소 밖 패키지 · 모듈 빼기 · [폴더] 그 폴더 아래만
   [저장소]   폴더가 아니면 계정 폴더(설정의 folder) 바로 아래에서 그 이름의 저장소(대소문자 무시, 겹치면 계정/이름) —
              어디서든 gitch g my-app · 저장소 밖에서 그냥 부르면 계정 폴더의 저장소를 알려 준다
-  --lang 언어[,언어]  그 언어만: ts · js · web(ts·js·vue·svelte) · swift · python · go · rust · kotlin · java · jvm(kotlin·java)
+  --lang 언어[,언어]  그 언어만: java · ts · python · c · cpp · csharp · php · ruby 등 (web · jvm 묶음, 확장자·별칭도 가능)
+  --precise / --index 파일  SCIP 컴파일러 인덱스의 실제 참조 추가 (Python 3 필요, 생성 방법: gitch g index --language ts|python|java)
+  gitch g languages --json  언어별 파일 인식 · 정적 import · 모듈 · 정밀 분석 지원 수준
+  gitch g affected [--base 기준]  변경 파일에서 역방향 의존을 따라 영향 파일·모듈 분석(삭제 전 연결 포함)
+  gitch g watch [files|modules|changes|tree|precise|affected]  변경 시 브라우저 자동 갱신 (--detach --json, --interval 초)
+  빠른 분석 결과는 추적 파일 내용으로 캐시한다. --no-cache로 다시 분석한다 (정밀 인덱스는 매번 유효성 확인).
   html 은 네 관계를 한 페이지에 담는다(위 탭으로 바꿈) — 파일 · 폴더 단위, 언어, 점 · 상자(다이어그램) 그리기, 필터,
        폴더 원(멀리서 접히고 가까이서 펼쳐짐), 분석(순환 의존 · 영향 범위 · 안 쓰는 것 · 핫스팟 · 숨은 결합 …), 노드 사이 경로
+       연결 근거에서 파일·줄·커밋을 열고, 설정 > 저장한 보기에서 필터·배치·선택·확대 위치를 저장·가져오기·내보내기
   changes: --since 날짜 · --max-commits N(1000) · --max-files N(30, 더 큰 커밋은 뺌) · --min N(2)
+       이름 변경 전 이력도 현재 파일로 합치며, 연결마다 근거 커밋(최신 20개)과 실제 분석 기간 · 잘린 이력을 표시
   tree: --depth N(0 = 끝까지) · --files(파일도 노드로)'
 
 graph_rel_word() { case "$1" in files) echo "파일 import" ;; modules) echo "모듈 의존" ;; changes) echo "같이 바뀌는 파일" ;; *) echo "폴더 구조" ;; esac; }
@@ -4708,8 +4919,8 @@ graph_rel_word() { case "$1" in files) echo "파일 import" ;; modules) echo "�
 graph_empty_hint() {   # $1 관계 $2 고른 언어
   [ -n "${2:-}" ] && { echo "고른 언어($2)로는 그릴 것이 없습니다 — --lang 을 빼거나 다른 언어를 고르세요."; return 0; }
   case "$1" in
-    files) echo "그릴 파일이 없습니다 — TS/JS · Python · Go · Rust · Kotlin/Java · Swift 파일을 찾지 못했습니다." ;;
-    modules) echo "모듈 설정이 없습니다 — Package.swift · Project.swift · package.json · Cargo.toml · go.mod · settings.gradle(.kts) 를 찾지 못했습니다." ;;
+    files) echo "그릴 파일이 없습니다 — 추적하는 소스 파일을 찾지 못했습니다 (Java · TS/JS · Python · C/C++ · C# · PHP 등)." ;;
+    modules) echo "모듈 설정이 없습니다 — package.json · pom.xml · build.gradle(.kts) · pyproject.toml · requirements.txt · *.csproj · composer.json · Gemfile · pubspec.yaml · CMakeLists.txt · Package.swift 등을 찾지 못했습니다." ;;
     changes) echo "같이 바뀐 파일이 없습니다 — 커밋이 적거나 조건(--since · --min · --max-files)이 좁습니다." ;;
     *) echo "추적하는 파일이 없습니다." ;;
   esac
@@ -4776,28 +4987,128 @@ graph_pick_dir() {   # $1 [폴더|저장소] 자리의 값(없으면 지금 폴�
   die "git 저장소 안의 폴더가 아닙니다: $(tilde "$PWD")"$'\n'"$(graph_repo_hint)"
 }
 
-graph_langs() {   # $1 "swift,ts" → 정규화한 목록(언어 이름은 awk 의 langof 와 같다), 모르는 이름이면 실패
-  local IFS=, w add out=""
-  for w in $1; do
-    case "$(lower "$w")" in
-      ts|tsx|typescript) add=ts ;;
-      js|jsx|javascript) add=js ;;
-      web) add=ts,js,vue,svelte ;;
-      vue) add=vue ;;
-      svelte) add=svelte ;;
-      swift) add=swift ;;
-      py|python) add=python ;;
-      go|golang) add=go ;;
-      rs|rust) add=rust ;;
-      kt|kotlin) add=kotlin ;;
-      java) add=java ;;
-      jvm) add=kotlin,java ;;
-      "") continue ;;
-      *) return 1 ;;
-    esac
-    out="$out${out:+,}$add"
-  done
-  printf '%s' "$out"
+# CLI · 분석기 · HTML 이 같은 목록을 쓴다. 새 언어가 색상 상위 셋에 들지 않아도 필터에서는 사라지지 않게.
+graph_languages() {   # 이름|표시|확장자|별칭|모듈 생태계
+  cat <<'LANGEOF'
+ts|TypeScript|ts tsx mts cts|typescript|npm
+js|JavaScript|js jsx mjs cjs|javascript|npm
+vue|Vue|vue||npm
+svelte|Svelte|svelte||npm
+astro|Astro|astro||npm
+swift|Swift|swift||swift tuist
+python|Python|py pyi pyw|py python3|pypi
+go|Go|go|golang|go
+rust|Rust|rs||cargo
+kotlin|Kotlin|kt kts||gradle maven
+java|Java|java||gradle maven
+scala|Scala|scala sc||gradle maven
+groovy|Groovy|groovy gvy gy gsh||gradle maven
+c|C|c h||cmake
+cpp|C++|cc cpp cxx c++ hh hpp hxx h++ ipp tpp|c++ cplusplus|cmake
+objc|Objective-C|m|objective-c|cmake
+objcpp|Objective-C++|mm|objective-c++|cmake
+csharp|C#|cs csx|c# cs dotnet|dotnet
+fsharp|F#|fs fsx fsi|f#|dotnet
+vb|Visual Basic|vb vbs|visualbasic|dotnet
+php|PHP|php phtml php3 php4 php5 phps||composer
+ruby|Ruby|rb rake gemspec|rb|gem
+dart|Dart|dart||pub
+lua|Lua|lua||
+shell|Shell|sh bash zsh fish ksh|bash zsh sh|
+powershell|PowerShell|ps1 psm1 psd1|pwsh|
+perl|Perl|pl pm t|pl|
+r|R|r rmd||
+julia|Julia|jl||julia
+elixir|Elixir|ex exs||hex
+erlang|Erlang|erl hrl||hex
+haskell|Haskell|hs lhs||cabal
+clojure|Clojure|clj cljs cljc edn||
+ocaml|OCaml|ml mli||
+elm|Elm|elm||elm
+nim|Nim|nim nims||
+zig|Zig|zig zon||
+d|D|d di||
+fortran|Fortran|f f90 f95 f03 f08 for ftn||
+pascal|Pascal|pas pp lpr||
+ada|Ada|adb ads||
+cobol|COBOL|cob cbl cpy||
+lisp|Common Lisp|lisp lsp cl|common-lisp|
+scheme|Scheme|scm ss||
+racket|Racket|rkt rktd||
+sql|SQL|sql||
+graphql|GraphQL|graphql gql||
+protobuf|Protocol Buffers|proto|proto|
+solidity|Solidity|sol||
+move|Move|move||
+vyper|Vyper|vy||
+cairo|Cairo|cairo||
+crystal|Crystal|cr||
+html|HTML|html htm xhtml||npm
+css|CSS|css||npm
+scss|SCSS|scss sass||npm
+less|Less|less||npm
+json|JSON|json jsonc||
+yaml|YAML|yaml yml||
+toml|TOML|toml||
+xml|XML|xml xsd xsl xslt||
+cmake|CMake|cmake||cmake
+make|Make|mk mak|makefile|
+docker|Dockerfile|dockerfile||
+terraform|Terraform|tf tfvars|hcl|
+mdx|MDX|mdx||npm
+verilog|Verilog|v vh sv svh||
+vhdl|VHDL|vhd vhdl||
+assembly|Assembly|asm s||
+matlab|MATLAB|matlab||
+smalltalk|Smalltalk|st||
+tcl|Tcl|tcl tk||
+awk|AWK|awk||
+LANGEOF
+}
+
+graph_languages_cmd() {   # 저장소 없이도 분석 깊이별 지원 범위를 확인한다.
+  case "${1:-}" in ""|--json) ;; --help|-h) say '사용법: gitch g languages [--json] — 언어별 파일 인식 · 정적 import · 추정 · 선택적 인덱스 지원'; return 0 ;; *) die '사용법: gitch g languages [--json]' ;; esac
+  graph_languages | awk -F'|' "$(graph_awk_lib)"'
+    function words(s,   n, a, i, out) { n = split(s, a, " "); out = ""; for (i = 1; i <= n; i++) if (a[i] != "") out = out (out != "" ? "," : "") jstr(a[i]); return "[" out "]" }
+    function manifests(s,   n, a, i, out, m) {
+      n = split(s, a, " "); out = ""
+      for (i = 1; i <= n; i++) {
+        m = ""
+        if (a[i] == "npm") m = "package.json"
+        else if (a[i] == "swift") m = "Package.swift"
+        else if (a[i] == "tuist") m = "Project.swift"
+        else if (a[i] == "pypi") m = "pyproject.toml requirements*.txt requirements*.in setup.cfg Pipfile"
+        else if (a[i] == "go") m = "go.mod"
+        else if (a[i] == "cargo") m = "Cargo.toml"
+        else if (a[i] == "gradle") m = "settings.gradle settings.gradle.kts build.gradle build.gradle.kts"
+        else if (a[i] == "maven") m = "pom.xml"
+        else if (a[i] == "dotnet") m = "*.csproj *.fsproj *.vbproj"
+        else if (a[i] == "composer") m = "composer.json"
+        else if (a[i] == "gem") m = "Gemfile *.gemspec"
+        else if (a[i] == "pub") m = "pubspec.yaml"
+        else if (a[i] == "cmake") m = "CMakeLists.txt"
+        if (m != "") out = out (out != "" ? " " : "") m
+      }
+      return words(out)
+    }
+    BEGIN { printf "{\"schemaVersion\":1,\"tool\":\"gitch graph languages\",\"languages\":[" }
+    {
+      static = $1 ~ /^(ts|js|vue|svelte|astro|mdx|swift|python|go|rust|java|kotlin|c|cpp|objc|objcpp|protobuf|ruby|php|lua|shell|css|scss|less|dart|solidity)$/
+      heuristic = $1 ~ /^(swift|java|kotlin)$/
+      printf "%s\n{\"id\":%s,\"name\":%s,\"extensions\":%s,\"aliases\":%s,\"ecosystem\":%s,\"manifests\":%s,\"fileDetection\":true,\"staticImports\":%s,\"heuristic\":%s,\"preciseBackend\":[\"SCIP\"%s],\"builtInPreciseIndexer\":false}", (n++ ? "," : ""), jstr($1), jstr($2), words($3), words($4), words($5), manifests($5), (static ? "true" : "false"), (heuristic ? "true" : "false"), ($1 == "swift" ? ",\"SwiftIndex\"" : "")
+    }
+    END { print "\n],\"preciseBackendRequirement\":\"SCIP requires an index from a language-specific indexer; SwiftIndex requires the optional Xcode index helper. Backend names describe accepted indexes, not bundled language compilers.\"}" }'
+}
+
+graph_langs() {   # 별칭과 확장자도 받고, 생태계 묶음은 CLI 에서만 제공한다
+  graph_languages | awk -F'|' -v want="$1" '
+    { key[$1] = $1; n = split($3 " " $4, a, " "); for (i = 1; i <= n; i++) key[a[i]] = $1 }
+    END {
+      key["web"] = "ts,js,vue,svelte,astro,html,css,scss,less,mdx"; key["jvm"] = "kotlin,java,scala,groovy"
+      n = split(tolower(want), a, ","); out = ""
+      for (i = 1; i <= n; i++) { gsub(/^[ \t]+|[ \t]+$/, "", a[i]); if (a[i] == "") continue; if (!(a[i] in key)) exit 1; out = out (out == "" ? "" : ",") key[a[i]] }
+      printf "%s", out
+    }'
 }
 
 graph_open() {   # $1 파일 — 기본 앱(브라우저 · 그림 보기)으로 연다
@@ -4830,6 +5141,379 @@ graph_swift_index() {
   command -v gitch-swift-index 2>/dev/null || true
 }
 
+graph_python_runtime() {
+  local name candidate
+  for name in python3 python; do
+    candidate=$(command -v "$name" 2>/dev/null) || continue
+    if "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)' >/dev/null 2>&1; then printf '%s' "$candidate"; return 0; fi
+  done
+  die "정밀 분석과 자동 갱신에는 Python 3.8 이상이 필요합니다. python.org에서 설치하세요. 일반 정적 그래프는 계속 사용할 수 있습니다."
+}
+
+graph_scip_helper() {
+  local helper
+  helper="$(dirname "$(self_path)")/gitch-scip-index"
+  [ -f "$helper" ] || die "정밀 분석 도우미가 없습니다. 최신 Gitrochi 또는 gitch 배포본을 설치하세요."
+  printf '%s' "$helper"
+}
+
+graph_index_cmd() {
+  local lang="" project="my-project" helper runtime
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --language|--lang|-l) shift; lang=${1:-} ;;
+      --project-name) shift; project=${1:-} ;;
+      --json) ;;
+      -h|--help) say 'gitch g index --language ts|python|java [--project-name 이름] — 공식 인덱서 명령 안내(JSON). 만든 index.scip는 gitch g --precise 또는 --index 파일로 읽습니다.'; return 0 ;;
+      *) die "알 수 없는 index 옵션: $1" ;;
+    esac
+    shift
+  done
+  [ -n "$lang" ] || die "--language ts|python|java를 지정하세요."
+  helper=$(graph_scip_helper) || return 1
+  runtime=$(graph_python_runtime) || return 1
+  "$runtime" "$helper" --guide "$lang" --project-name "$project"
+}
+
+graph_scip_merge() {   # covered, scanner records, SCIP records → additive compiler references
+  awk -F'\t' -v covered="$1" -v base="$2" -v idx="$3" 'BEGIN { OFS="\t" }
+    FILENAME == covered { C[$0]=1; next }
+    FILENAME == base {
+      if ($1 == 2 && $4 == "type-ref" && ($2 in C)) next
+      if ($1 == 1) { N[$2]=1; if ($2 in C) sub(/"analysis":"[^"]*"/, "\"analysis\":\"compiler-index\"", $6) }
+      print; next
+    }
+    FILENAME == idx { if ($1 == 1 && ($2 in N)) next; print }
+  ' "$1" "$2" "$3"
+}
+
+graph_content_key() (   # tracked source bytes, index, HEAD and analyzer options; never trust Git's stat cache
+  local tmp=$1 path rel=$2 shallow
+  shift
+  set -o pipefail
+  {
+    printf 'gitch-graph-cache-3\n%s\n' "$GITSW_VERSION"
+    printf '%s\0' "$@"
+    git hash-object --no-filters -- "$(self_path)" || exit 1
+    git rev-parse HEAD 2>/dev/null
+    git ls-files -s -z
+    cat "$tmp/files.z"
+    cat "$tmp/files"
+    if [ "$rel" = files ] || [ "$rel" = modules ]; then
+      : > "$tmp/cache-hash.paths"
+      while IFS= read -r path; do
+        if [ -f "$path" ]; then printf '%s\0' "$path" >> "$tmp/cache-hash.paths"
+        else printf 'missing:%s\0' "$path"; fi
+      done < "$tmp/files"
+      # Batched hashing preserves every filename boundary, including spaces and newlines.
+      # It also notices assume-unchanged files and same-size writes with restored timestamps.
+      xargs -0 git hash-object --no-filters -- < "$tmp/cache-hash.paths" || exit 1
+      printf 'swift-describe:%s\0' "${GITSW_SWIFT_DESCRIBE:-1}"
+    fi
+    git for-each-ref --format='%(refname) %(objectname)' refs/replace
+    shallow=$(git rev-parse --git-path shallow)
+    [ ! -f "$shallow" ] || git hash-object --no-filters -- "$shallow"
+    [ ! -f "$GRAPH_RULES_FILE" ] || git hash-object -- "$GRAPH_RULES_FILE"
+    [ -z "${GRAPH_INDEX:-}" ] || git hash-object -- "$GRAPH_INDEX"
+  } | git hash-object --stdin
+)
+
+graph_cached_collect() {
+  local tmp=$1 rel=$2 key cache dir hit=""
+  # Swift compiler indexes live outside the repository; their own freshness checks must run on every request.
+  if [ "${GRAPH_CACHE:-1}" = 0 ] || [ -n "${GRAPH_INDEX:-}" ] || { [ "$rel" = files ] && grep -q '\.swift$' "$tmp/files" && [ -n "$(graph_swift_index)" ]; }; then
+    graph_collect "$@" || return $?
+    [ ! -f "$tmp/unsafe-paths.records" ] || cat "$tmp/unsafe-paths.records"
+    return 0
+  fi
+  # The temp directory is not part of the stable request key.
+  key=$(graph_content_key "$tmp" "${@:2}" "${GRAPH_INDEX:-}" "$([ "$rel" = changes ] && [ -n "$5" ] && date +%Y%m%d%H%M)") || return 1
+  dir="${XDG_CACHE_HOME:-$HOME/.cache}/gitch/graphs/$(printf '%s' "$PWD" | git hash-object --stdin)"
+  cache="$dir/$key.records"
+  if [ -f "$cache" ]; then cat "$cache"; hit=true
+  else
+    graph_collect "$@" > "$tmp/cache.$rel" || return 1
+    cat "$tmp/cache.$rel"; hit=false
+    if mkdir -p "$dir" 2>/dev/null; then
+      # Atomic replacement; concurrent app and CLI requests never read a half-written entry.
+      local staging
+      staging=$(mktemp "$dir/.entry.XXXXXX") && { cat "$tmp/cache.$rel" > "$staging" && mv -f "$staging" "$cache"; }
+      # Bound stale content entries without deleting another active writer.
+      find "$dir" -type f -name '*.records' -mtime +7 -delete 2>/dev/null
+    fi
+  fi
+  printf '0\tcache\t{"hit":%s,"strategy":"content"}\n' "$hit"
+  [ ! -f "$tmp/unsafe-paths.records" ] || cat "$tmp/unsafe-paths.records"
+}
+
+# NUL filenames must be validated before converting to the tab/newline record format.
+# Splitting first would turn one newline-containing filename into another (possibly outside) path.
+graph_safe_file_list() {   # $1 original NUL list $2 safe LF list $3 diagnostics records [$4 file root]
+  local path probe root=${4:-$PWD} ignored=0 links=0
+  : > "$2"
+  while IFS= read -r -d '' path; do
+    case "$path" in *[$'\001'-$'\037'$'\177']*) ignored=$((ignored + 1)); continue ;; esac
+    probe=$path
+    while [ -n "$probe" ]; do
+      if [ -L "$root/$probe" ]; then links=$((links + 1)); ignored=$((ignored + 1)); break; fi
+      case "$probe" in */*) probe=${probe%/*} ;; *) probe="" ;; esac
+    done
+    [ -z "$probe" ] || continue
+    printf '%s\n' "$path" >> "$2"
+  done < "$1"
+  : > "$3"
+  if [ "$ignored" -gt 0 ]; then
+    printf '0\tignoredPaths\t%d\n' "$ignored" > "$3"
+    printf '0\tignoredSymlinkPaths\t%d\n' "$links" >> "$3"
+    printf '0\tdiagnostic\t{"code":"UNSUPPORTED_PATH","severity":"warning","count":%d,"message":"Paths containing control characters or symbolic links were omitted before reading source files, preserving filename boundaries and repository containment."}\n' "$ignored" >> "$3"
+    printf '0\tnote\t제어 문자 또는 심볼릭 링크가 든 파일 경로 %d개는 안전하게 제외했습니다.\n' "$ignored" >> "$3"
+  fi
+}
+
+graph_affected_cmd() {
+  local GRAPH_AFFECTED=1 GRAPH_AFFECTED_BASE="" a
+  local -a args=()
+  while [ $# -gt 0 ]; do
+    a=$1
+    case "$a" in
+      --base) shift; GRAPH_AFFECTED_BASE=${1:-}; [ -n "$GRAPH_AFFECTED_BASE" ] || die "--base 뒤에 커밋이 필요합니다." ;;
+      --base=*) GRAPH_AFFECTED_BASE=${a#*=} ;;
+      -h|--help) say 'gitch g affected [--base 기준] [--json|--format html] [폴더] — 변경 파일과 역방향 의존 영향 범위. 삭제한 파일은 기준 커밋의 연결도 따라갑니다. 기본 기준은 기본 브랜치와 갈라진 곳이며 커밋하지 않은 변경도 포함합니다.'; return 0 ;;
+      *) args+=("$a") ;;
+    esac
+    shift
+  done
+  graph_cmd files ${args[@]+"${args[@]}"}
+}
+
+graph_affected_prepare() {   # entire repo dependency closure, including deleted files in the base
+  local tmp=$1 base=${GRAPH_AFFECTED_BASE:-} sha path output_path="" output_dir
+  if [ -z "$base" ]; then graph_default_base || return 1; base=$GRAPH_BASE; fi
+  sha=$(git rev-parse --verify "$base^{commit}" 2>/dev/null) || die "영향 범위 기준 커밋이 아닙니다: $base"
+  git diff --name-only --no-renames -z "$sha" -- > "$tmp/changed.z" || return 1
+  git ls-files --others --exclude-standard -z > "$tmp/untracked-all.z" || return 1
+  if [ -n "${out:-}" ] && [ "$out" != - ]; then
+    output_dir=$(real_dir "$(dirname "$out")") && output_path="$output_dir/$(basename "$out")"
+  fi
+  : > "$tmp/untracked.z"
+  while IFS= read -r -d '' path; do
+    [ -z "$output_path" ] || [ "$PWD/$path" != "$output_path" ] || continue
+    printf '%s\0' "$path" >> "$tmp/untracked.z"
+  done < "$tmp/untracked-all.z"
+  cat "$tmp/untracked.z" >> "$tmp/changed.z"
+  graph_safe_file_list "$tmp/changed.z" "$tmp/changed" "$tmp/changed-unsafe.records"
+  graph_safe_file_list "$tmp/untracked.z" "$tmp/untracked" "$tmp/untracked-unsafe.records"
+  # Impact analysis includes new files so their imports and reverse dependencies are meaningful.
+  # Ordinary `graph files` continues to use tracked files only.
+  cat "$tmp/files.z" "$tmp/untracked.z" > "$tmp/affected-files.z"
+  mv "$tmp/affected-files.z" "$tmp/files.z"
+  graph_safe_file_list "$tmp/files.z" "$tmp/files" "$tmp/unsafe-paths.records"
+  # Deleted manifests must not become fallback modules in the current graph. Their nodes
+  # and dependencies come from the base graph, where their actual names are still known.
+  while IFS= read -r path; do [ ! -f "$path" ] || printf '%s\n' "$path"; done < "$tmp/files" > "$tmp/affected-existing.files"
+  mv "$tmp/affected-existing.files" "$tmp/files"
+  : > "$tmp/deleted"
+  while IFS= read -r path; do
+    if [ ! -e "$path" ] && [ ! -L "$path" ]; then printf '%s\n' "$path" >> "$tmp/deleted"; fi
+  done < "$tmp/changed"
+  mkdir -p "$tmp/affected-base"
+  graph_base_extract "$sha" "$tmp/affected-base" || return 1
+  GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' GRAPH_INDEX='' graph_side "$tmp/affected-base" files "" 1 "$repo" "" "$sha" > "$tmp/affected-before" || return 1
+  GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' GRAPH_INDEX='' graph_side "$tmp/affected-base" modules "" 1 "$repo" "" "$sha" > "$tmp/affected-modules-before" || return 1
+  GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' graph_side "$tmp" files "" 1 "$repo" "" > "$tmp/affected-now" || return 1
+  graph_side "$tmp" modules "" 1 "$repo" "" > "$tmp/affected-modules" || return 1
+  awk -F'\t' -v seeds="$tmp/changed" -v now="$tmp/affected-now" -v before="$tmp/affected-before" -v beforemods="$tmp/affected-modules-before" -v mods="$tmp/affected-modules" -v untracked="$tmp/untracked" -v deleted="$tmp/deleted" -v base="$sha" "$(graph_awk_lib)"'
+    FILENAME == seeds { if ($0 != "") { CH[$0]=1; A[$0]=1; Q[++nq]=$0 }; next }
+    FILENAME == untracked { UT[$0]=1; next }
+    FILENAME == deleted { DEL[$0]=1; next }
+    $1 == 1 {
+      KIND[$2]=$3; ECO[$2]=$5
+      if (FILENAME == before) { BF[$2]=$0; BFK[$2]=$3 }
+      if (FILENAME == beforemods) BM[$2]=$0
+      if (FILENAME == now || FILENAME == mods) CURRENT[$2]=1
+      next
+    }
+    $1 == 2 {
+      REV[$3, ++NRV[$3]]=$2
+      if (FILENAME == before) BE[++nbe]=$0
+      if (FILENAME == beforemods) BME[++nbme]=$0
+      next
+    }
+    $1 == 4 { MP[$2, $3]=1; next }
+    END {
+      for (q=1;q<=nq;q++) { t=Q[q]; for (i=1;i<=NRV[t];i++) { s=REV[t,i]; if (!(s in A)) { A[s]=1; Q[++nq]=s } } }
+      # Choose the nearest containing module separately for each ecosystem. A workspace root
+      # does not own every child package merely because it is an ancestor folder.
+      for (f in A) {
+        for (key in MP) {
+          split(key, parts, SUBSEP); id=parts[1]; p=parts[2]; if (p == ".") p=""
+          if (p == "" || f == p || index(f,p "/") == 1) {
+            eco=ECO[id]; len=length(p)
+            if (!((f,eco) in BEST) || len>BEST[f,eco]) BEST[f,eco]=len
+          }
+        }
+        for (key in MP) {
+          split(key, parts, SUBSEP); id=parts[1]; p=parts[2]; if (p == ".") p=""
+          if ((p == "" || f == p || index(f,p "/") == 1) && length(p)==BEST[f,ECO[id]] && !(id in AM)) { AM[id]=1; MQ[++nm]=id }
+        }
+      }
+      for (q=1;q<=nm;q++) { t=MQ[q]; for (i=1;i<=NRV[t];i++) { s=REV[t,i]; if (!(s in AM) && KIND[s] == "module") { AM[s]=1; MQ[++nm]=s } } }
+      nc=0; nf=0; nu=0; c=""; a=""; u=""; ms=""
+      n=sortkeys(CH,K); for(i=1;i<=n;i++) { f=K[i]; c=c (nc++ ? "," : "") jstr(f); if (!(f in KIND)) u=u (nu++ ? "," : "") jstr(f) }
+      n=sortkeys(A,K); for(i=1;i<=n;i++) { f=K[i]; if (KIND[f] == "file" || f in CH) {
+        a=a (nf++ ? "," : "") jstr(f); print "A\t" f "\t" ((f in CH) ? "true" : "false")
+        if (f in DEL) print "D\t" f
+        if (f in UT) print "U\t" f
+        if (f in BF) print "G\tfiles\t" BF[f]
+        else if (!(f in CURRENT)) print "G\tfiles\t1\t" f "\tfile\t" baseof(f) "\tunknown\t\"path\":" jstr(f) ",\"analysis\":\"unresolved\""
+      } }
+      n=sortkeys(AM,K); for(i=1;i<=n;i++) { id=K[i]; ms=ms (i>1 ? "," : "") jstr(id); print "A\t" id "\tfalse"; if (!(id in CURRENT)) print "D\t" id; if (id in BM) print "G\tmodules\t" BM[id] }
+      for (i=1;i<=nbe;i++) print "E\tfiles\t" BE[i]
+      for (i=1;i<=nbme;i++) print "E\tmodules\t" BME[i]
+      print "B\t" base
+      print "0\taffected\t{\"base\":" jstr(base) ",\"changedFiles\":[" c "],\"files\":[" a "],\"modules\":[" ms "],\"unresolvedFiles\":[" u "],\"includesBaseDependencies\":true}"
+      print "0\tnote\t영향 범위는 변경 파일에서 역방향 의존을 따라갑니다. 삭제한 파일은 기준 커밋도 분석합니다. 인식하지 못한 언어·동적 참조·미추적 파일의 영향은 완전하지 않을 수 있습니다."
+    }' "$tmp/changed" "$tmp/untracked" "$tmp/deleted" "$tmp/affected-before" "$tmp/affected-modules-before" "$tmp/affected-now" "$tmp/affected-modules" > "$tmp/affected.ids"
+}
+
+graph_affected_mark() {
+  local rel=${2##*/}; rel=${rel#raw.}
+  awk -F'\t' -v ids="$1" -v rel="$rel" -v scope="${prefix:-}" -v langs="${langs:-}" "$(graph_awk_lib)"'
+    BEGIN{OFS="\t"}
+    function marked(id, attrs) { return attrs (attrs!=""?",":"") "\"affected\":true,\"changed\":" (C[id]=="true"?"true":"false") (id in D?",\"deleted\":true":"") (id in U?",\"untracked\":true":"") }
+    FILENAME==ids {
+      if($1=="A") { A[$2]=1; C[$2]=$3 }
+      else if($1=="D") D[$2]=1
+      else if($1=="U") U[$2]=1
+      else if($1=="B") base=$2
+      else if($1=="G" && $2==rel) { id=$4; text=$0; sub(/^[^\t]*\t[^\t]*\t/,"",text); G[id]=text }
+      else if($1=="E" && $2==rel) { text=$0; sub(/^[^\t]*\t[^\t]*\t/,"",text); E[++ne]=text }
+      else if($1=="0") META=META $0 "\n"
+      next
+    }
+    $1==1 { N[$2]=1; if($2 in A) $6=marked($2,$6) }
+    $1==2 { SEEN[$2,$3,$4]=1 }
+    { print }
+    END {
+      for(id in G) if(!(id in N)) {
+        split(G[id],v,"\t")
+        if(rel=="files" && (!inscope(id) || !langok(id))) continue
+        if(rel=="modules" && !ecook(v[5])) continue
+        v[6]=marked(id,v[6]); N[id]=1; print v[1],v[2],v[3],v[4],v[5],v[6]
+      }
+      for(i=1;i<=ne;i++) {
+        split(E[i],v,"\t"); s=v[2]; t=v[3]
+        if(!(s in A) || !(t in A) || !(s in N) || !(t in N) || ((s,t,v[4]) in SEEN)) continue
+        if(rel=="files" && !(s in D) && !(t in D)) continue
+        v[7]=v[7] (v[7]!=""?",":"") "\"impactFromBase\":true,\"baseCommit\":" jstr(base)
+        print v[1],v[2],v[3],v[4],v[5],v[6],v[7]; SEEN[s,t,v[4]]=1
+      }
+      printf "%s",META
+    }' "$1" "$2"
+}
+
+graph_watch_cmd() {
+  local rel=files dir="" out="" detach="" json="" opn=auto interval=2 a top helper reply url pid prefix value runtime bashpath
+  local -a opts=() extra=() render=()
+  while [ $# -gt 0 ]; do
+    a=$1
+    case "$a" in
+      files|modules|changes|tree|precise|affected) rel=$a ;;
+      --out|-o) shift; out=${1:-}; [ -n "$out" ] || die "--out 뒤에 HTML 파일이 필요합니다." ;;
+      --out=*) out=${a#*=} ;;
+      --interval) shift; interval=${1:-} ;;
+      --detach) detach=1 ;;
+      --json) json=1 ;;
+      --open) opn=1 ;;
+      --no-open) opn=0 ;;
+      --lang|-l|--index|--base|--since|--max-commits|--max-files|--min|--depth)
+        shift; [ -n "${1:-}" ] || die "$a 뒤에 값이 필요합니다."; value=$1
+        if [ "$a" = --index ]; then value=$(posix_path "$value"); case "$value" in /*) ;; *) value="$PWD/$value" ;; esac; fi
+        opts+=("$a" "$value") ;;
+      --no-external|--no-cache|--files|--precise) opts+=("$a") ;;
+      -h|--help) say 'gitch g watch [files|modules|changes|tree|precise|affected] [--out 파일.html] [--interval 초] [--detach --json] [폴더] — 소스 변경 시 자동 갱신. Python 3 필요. 브라우저를 닫으면 감시도 자동 종료합니다.'; return 0 ;;
+      -*) die "알 수 없는 watch 옵션: $a" ;;
+      *) [ -z "$dir" ] || die "감시할 폴더는 하나만 지정하세요."; dir=$a ;;
+    esac
+    shift
+  done
+  is_number "$interval" && [ "$interval" -ge 1 ] && [ "$interval" -le 60 ] || die "--interval은 1~60초입니다."
+  graph_pick_dir "$dir"; dir=$GRAPH_DIR
+  top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || die "git 저장소가 아닙니다: $dir"
+  prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
+  runtime=$(graph_python_runtime) || return 1
+  helper="$(dirname "$(self_path)")/gitch-graph-watch"
+  [ -f "$helper" ] || die "자동 갱신 도우미가 없습니다. 최신 Gitrochi 또는 gitch를 설치하세요."
+  if [ -z "$out" ]; then out="${TMPDIR:-/tmp}/gitch-graph/$(basename "$top")-$rel-live.html"; fi
+  out=$(posix_path "$out")
+  case "$out" in /*) ;; -) die "자동 갱신은 --out에 HTML 파일을 지정해야 합니다." ;; *) out="$PWD/$out" ;; esac
+  case "$out" in *.html|*.htm) ;; *) die "자동 갱신 출력은 .html 파일이어야 합니다." ;; esac
+  render=("$rel"); [ "$rel" != precise ] || render=(files --precise)
+  # A child shell owns graph temporary files and its EXIT trap; this command owns only the watcher.
+  ( graph_cmd "${render[@]}" ${opts[@]+"${opts[@]}"} --format html --out "$out" --no-open "$dir" ) >&2 || return 1
+  for a in ${opts[@]+"${opts[@]}"}; do extra+=("--graph-arg=$a"); done
+  [ -z "$prefix" ] || extra+=("--graph-arg=${prefix%/}")
+  bashpath=$BASH
+  if [ -n "$IS_WINDOWS" ]; then
+    bashpath=$(cygpath -m "$BASH" 2>/dev/null || printf '%s' "$BASH")
+    case "$(lower "$bashpath")" in *.exe) ;; *) bashpath="$bashpath.exe" ;; esac
+  fi
+  reply=$("$runtime" "$helper" --repo "$top" --cli "$(self_path)" --out "$out" --relation "$rel" --interval "$interval" --bash "$bashpath" --serve --detach ${extra[@]+"${extra[@]}"}) || return 1
+  url=$(printf '%s\n' "$reply" | sed -n 's/.*"url"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
+  pid=$(printf '%s\n' "$reply" | sed -n 's/.*"pid"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')
+  [ -n "$url" ] && is_number "$pid" || die "자동 갱신 서버 응답을 읽지 못했습니다."
+  if [ -n "$json" ]; then printf '%s\n' "$reply"; else say "자동 갱신: $url"; fi
+  if [ "$opn" = 1 ] || { [ "$opn" = auto ] && [ -z "$json" ]; }; then browse "$url" || true; fi
+  if [ -z "$detach" ]; then
+    trap 'kill "$pid" 2>/dev/null; exit 0' INT TERM
+    while kill -0 "$pid" 2>/dev/null; do sleep 2; done
+    trap - INT TERM
+  fi
+}
+
+# git log -z 의 상태/경로를 탭 레코드로 바꾼다. 공백 · 따옴표 · 역슬래시는 그대로,
+# 탭/줄바꿈 등 레코드 구분자가 있는 경로만 건너뛰고 개수를 알린다.
+graph_changes_stream() {   # $1 NUL 구분 git log 파일
+  local entry status path old invalid=0
+  while IFS= read -r -d '' entry; do
+    while [[ "$entry" == $'\n'* ]]; do entry=${entry#$'\n'}; done
+    case "$entry" in
+      $'\001'*) entry=${entry//$'\r'/ }; entry=${entry//$'\n'/ }; printf '%s\n' "$entry" ;;
+      R[0-9]*|C[0-9]*)
+        status=$entry
+        IFS= read -r -d '' old && IFS= read -r -d '' path || break
+        case "$old$path" in *[$'\001\002\t\r\n\034\035']*) invalid=$((invalid + 1)); continue ;; esac
+        printf '%s\t%s\t%s\n' "$status" "$old" "$path" ;;
+      A|M|D|T|U|X|B)
+        status=$entry
+        IFS= read -r -d '' path || break
+        case "$path" in *[$'\001\002\t\r\n\034\035']*) invalid=$((invalid + 1)); continue ;; esac
+        printf '%s\t%s\n' "$status" "$path" ;;
+    esac
+  done < "$1"
+  printf '\002%d\n' "$invalid"
+}
+
+# Keep tree filenames NUL-delimited until the complete path has been checked.
+graph_tree_stream() {   # $1 index | tree — stdin git ls-files -s -z / ls-tree -r -l -z
+  local entry header path mode kind oid bytes stage
+  while IFS= read -r -d '' entry; do
+    header=${entry%%$'\t'*}; path=${entry#*$'\t'}
+    [ "$header" != "$entry" ] || continue
+    case "$path" in ""|*[$'\001'-$'\037'$'\177']*) continue ;; esac
+    if [ "$1" = tree ]; then
+      read -r mode kind oid bytes <<< "$header"
+      [ "$kind" = blob ] || continue
+      case "$mode" in 120000|160000) continue ;; esac
+      printf '%s %s %s\n' "$oid" "$bytes" "$path"
+    else
+      read -r mode oid stage <<< "$header"
+      case "$mode" in 120000|160000) continue ;; esac
+      printf '%s %s\n' "$oid" "$path"
+    fi
+  done
+}
+
 graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 since $6 커밋 수 $7 큰 커밋 기준 $8 최소 횟수 $9 깊이 ${10} 파일 포함 ${11} 저장소 이름 ${12} 언어 → 레코드
   local tmp=$1 rel=$2 scope=$3 repo=${11} langs=${12} sx="" sxrc="" sxerr=""
   case "$rel" in
@@ -4843,29 +5527,51 @@ graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 s
       fi
       GITSW_SWIFTERR="$sxerr" awk -v rel="$rel" -v list="$tmp/files" -v scope="$scope" -v noext="$4" -v spm="$tmp/spm.list" -v repo="$repo" -v langs="$langs" \
         -v swiftidx="$tmp/swiftidx" -v swiftcov="$tmp/swiftidx.covered" -v swiftrc="$sxrc" \
-        "$(graph_awk_lib)$(graph_awk_scan)" ;;
+        "$(graph_awk_lib)$(graph_awk_scan)" > "$tmp/scan.$rel" || return 1
+      if [ "$rel" = files ] && [ -n "${GRAPH_INDEX:-}" ]; then
+        local helper runtime
+        helper=$(graph_scip_helper 2> "$tmp/scip.setup.err") || { GRAPH_ANALYSIS_ERROR=$(cat "$tmp/scip.setup.err"); return 1; }
+        runtime=$(graph_python_runtime 2> "$tmp/scip.setup.err") || { GRAPH_ANALYSIS_ERROR=$(cat "$tmp/scip.setup.err"); return 1; }
+        "$runtime" "$helper" --repo "$PWD" --index "$GRAPH_INDEX" --tracked "$tmp/files.z" --scope "$scope" --lang "$langs" --covered "$tmp/scip.covered" --format records > "$tmp/scip.records" || {
+          GRAPH_ANALYSIS_ERROR="SCIP 인덱스를 적용하지 못했습니다. 현재 소스로 인덱스를 다시 생성하세요. $(awk -F'\t' '$2 == "diagnostic" { print $3; exit }' "$tmp/scip.records")"
+          [ -n "$MACHINE_JSON" ] || cat "$tmp/scip.records" >&2
+          return 1;
+        }
+        graph_scip_merge "$tmp/scip.covered" "$tmp/scan.$rel" "$tmp/scip.records"
+      else cat "$tmp/scan.$rel"; fi ;;
     changes)
-      git -c core.quotepath=off log --no-merges --no-renames --name-only --format='%x01%h%x09%cs' ${5:+"--since=$5"} -n "$6" -- ${scope:+"$scope"} 2>/dev/null | \
-        GITSW_LOCKRE="$LOCKFILE_RE" awk -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_changes)" ;;
+      # 현재 경로로 범위를 제한하면 폴더 밖에서 이름을 바꿔 들어온 파일의 옛 이력이 사라진다.
+      # 전체 로그를 최신부터 읽고, rename 을 거슬러 현재 추적 경로에 대응시킨 다음 범위를 적용한다.
+      # N+1개를 읽어 정확히 N개인 이력과 --max-commits 로 잘린 이력을 구별한다.
+      git -c core.quotepath=off log --no-merges --topo-order --find-renames --name-status -z \
+        --format='%x01%H%x09%cI%x09%ct%x09%s' ${5:+"--since=$5"} -n "$(($6 + 1))" > "$tmp/changes.log" 2>/dev/null || true
+      graph_changes_stream "$tmp/changes.log" | \
+        GITSW_LOCKRE="$LOCKFILE_RE" awk -v rel="$rel" -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v langs="$langs" \
+          -v shallow="$(git rev-parse --is-shallow-repository 2>/dev/null)" "$(graph_awk_lib)$(graph_awk_changes)" ;;
     tree)
       # 크기는 인덱스의 blob 크기(git cat-file 한 번) — 파일마다 stat 하지 않는다. 서브모듈(160000)은 뺀다
       if [ -n "${GRAPH_REV:-}" ]; then   # diff 의 기준 커밋: 크기까지 git ls-tree 한 번
-        git ls-tree -r -l -z "$GRAPH_REV" -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[2] == "blob") print a[3], a[4], $2 }'
+        git ls-tree -r -l -z "$GRAPH_REV" -- ${scope:+"$scope"} | graph_tree_stream tree
       else
-        git ls-files -s -z -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[1] != "160000") print a[2], $2 }' | \
+        git ls-files -s -z -- ${scope:+"$scope"} | graph_tree_stream index | \
           git cat-file --batch-check='%(objectname) %(objectsize) %(rest)'
       fi | \
-        awk -v scope="$scope" -v maxd="$9" -v withfiles="${10}" -v repo="$repo" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_tree)" ;;
+        awk -v rel="$rel" -v safeList="$([ ! -f "$tmp/files" ] || printf '%s' "$tmp/files")" -v scope="$scope" -v maxd="$9" -v withfiles="${10}" -v repo="$repo" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_tree)" ;;
   esac
 }
 
 graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … · check …
   case "${1:-}" in
+    watch) shift; graph_watch_cmd "$@"; return $? ;;
+    affected) shift; graph_affected_cmd "$@"; return $? ;;
+    index) shift; graph_index_cmd "$@"; return $? ;;
+    languages) shift; graph_languages_cmd "$@"; return $? ;;
     diff) shift; graph_diff_cmd "$@"; return $? ;;
     check) shift; graph_check_cmd "$@"; return $? ;;
   esac
   local rel="" fmt="" out="" opn=auto dir="" since="" maxc=1000 maxf=30 min=2 depth=0 withfiles="" noext="" langs="" a
-  local top prefix repo tmp n_nodes=0 n_edges=0 n_heur=0 fancy="" rels i
+  local top prefix repo tmp n_nodes=0 n_edges=0 n_heur=0 fancy="" rels i precise="" indexfile=""
+  local GRAPH_INDEX="" GRAPH_CACHE=1 GRAPH_ANALYSIS_ERROR=""
   local -a meta
   while [ $# -gt 0 ]; do
     a=$1
@@ -4877,6 +5583,10 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … 
       --format|-f) shift; fmt=${1:-} ;;
       --format=*) fmt=${a#*=} ;;
       --json) fmt=json ;;
+      --precise) precise=1 ;;
+      --no-cache) GRAPH_CACHE=0 ;;
+      --index) shift; indexfile=${1:-}; [ -n "$indexfile" ] || die "--index 뒤에 SCIP 파일 경로가 필요합니다."; precise=1 ;;
+      --index=*) indexfile=${a#*=}; precise=1 ;;
       --out|-o) shift; out=${1:-}; [ -n "$out" ] || die "--out 뒤에 파일 이름이 필요합니다 (- 는 표준출력)." ;;
       --out=*) out=${a#*=} ;;
       --open) opn=1 ;;
@@ -4902,12 +5612,23 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … 
   done
   is_number "$depth" || die "--depth 는 숫자입니다 (0 = 끝까지)."
   if [ -n "$langs" ]; then
-    langs=$(graph_langs "$langs") && [ -n "$langs" ] || die "--lang 은 ts · js · web · vue · svelte · swift · python · go · rust · kotlin · java · jvm 중에서 고릅니다 (쉼표로 여럿)."
+    langs=$(graph_langs "$langs") && [ -n "$langs" ] || die "--lang 은 Java · TS · Python · C · C++ · C# · PHP · Ruby 등 언어 이름이나 확장자로 고릅니다 (쉼표로 여럿, graph --help)."
   fi
   rel=${rel:-files}; graph_pick_dir "$dir"; dir=$GRAPH_DIR
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
   prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
   repo=$(graph_repo_name "$dir" "$top")
+  if [ -n "$precise" ]; then
+    if [ -z "$indexfile" ]; then
+      if [ -f "$top/.gitch/index.scip" ]; then indexfile="$top/.gitch/index.scip"
+      elif [ -f "$top/index.scip" ]; then indexfile="$top/index.scip"
+      else die "SCIP 인덱스가 없습니다. gitch g index --language ts|python|java로 생성 방법을 확인한 뒤 --index 파일을 지정하세요."; fi
+    fi
+    indexfile=$(posix_path "$indexfile")
+    case "$indexfile" in /*) ;; *) indexfile="$PWD/$indexfile" ;; esac
+    [ -f "$indexfile" ] || die "SCIP 인덱스를 읽지 못했습니다: $indexfile"
+    GRAPH_INDEX=$indexfile
+  fi
 
   # 형식: --format > --out 의 확장자 > 사람이 보는 터미널이면 html(열기), 아니면 json(표준출력)
   out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로(아니면 저장소 안에 C: 폴더가 생긴다)
@@ -4938,17 +5659,21 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … 
   [ "$out" != - ] && fancy_out && fancy=1
   [ -n "$fancy" ] && printf '  %s' "${DIM}$(graph_rel_word "$rel") 모으는 중…${RESET}"
   # -z: 따옴표 · 역슬래시가 든 이름도 그대로 (레코드가 탭 구분이라 탭 · 줄바꿈이 든 이름은 awk 가 건너뛴다)
-  git ls-files -z > "$tmp/files.z" && tr '\0' '\n' < "$tmp/files.z" > "$tmp/files" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
+  git ls-files -z > "$tmp/files.z" && graph_safe_file_list "$tmp/files.z" "$tmp/files" "$tmp/unsafe-paths.records" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
+  if [ -n "${GRAPH_AFFECTED:-}" ]; then graph_affected_prepare "$tmp" || die "변경 영향 범위를 분석하지 못했습니다."; fi
   rels=$rel
   [ "$fmt" = html ] && for a in files modules changes tree; do [ "$a" = "$rel" ] || rels="$rels $a"; done
   for a in $rels; do
-    graph_collect "$tmp" "$a" "$prefix" "$noext" "$since" "$maxc" "$maxf" "$min" "$depth" "$withfiles" "$repo" "$langs" > "$tmp/raw.$a" \
-      || die "그래프를 만들지 못했습니다 ($a)."
+    graph_cached_collect "$tmp" "$a" "$prefix" "$noext" "$since" "$maxc" "$maxf" "$min" "$depth" "$withfiles" "$repo" "$langs" > "$tmp/raw.$a" \
+      || die "${GRAPH_ANALYSIS_ERROR:-그래프를 만들지 못했습니다 ($a).}"
+    if [ -n "${GRAPH_AFFECTED:-}" ]; then graph_affected_mark "$tmp/affected.ids" "$tmp/raw.$a" > "$tmp/marked.$a"; mv "$tmp/marked.$a" "$tmp/raw.$a"; fi
     LC_ALL=C sort -u "$tmp/raw.$a" > "$tmp/rec.$a"
   done
   cp "$tmp/rec.$rel" "$tmp/rec"
   read -r n_nodes n_edges n_heur <<< "$(awk -F'\t' '$1 == 1 { n++ } $1 == 2 { e++; if ($6 == "h") h++ } END { print n + 0, e + 0, h + 0 }' "$tmp/rec")"
-  meta=(-v rel="$rel" -v repo="$repo" -v scope="${prefix%/}" -v commit="$(git rev-parse --short HEAD 2>/dev/null)" -v ver="$GITSW_VERSION" -v when="$(now_iso)" -v langs="$langs")
+  local nativeTop="$top"
+  [ -z "$IS_WINDOWS" ] || nativeTop=$(cygpath -m "$top" 2>/dev/null || printf '%s' "$top")
+  meta=(-v rel="$rel" -v repo="$repo" -v repoPath="$nativeTop" -v scope="${prefix%/}" -v commit="$(git rev-parse --short HEAD 2>/dev/null)" -v ver="$GITSW_VERSION" -v when="$(now_iso)" -v langs="$langs")
   case "$fmt" in
     json) awk "${meta[@]}" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec" > "$tmp/out" ;;
     html)   # {"initial": 처음 탭, "views": {관계: 그 관계의 json, …}}
@@ -4973,8 +5698,12 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … 
     [ "$n_nodes" = 0 ] && warn "$(graph_empty_hint "$rel" "$langs")" >&2
     return 0
   fi
-  mkdir -p "$(dirname "$out")" 2>/dev/null
-  cat "$tmp/out" > "$out" 2>/dev/null || die "쓰지 못했습니다: $out"
+  graph_copy_atomic "$tmp/out" "$out"
+  if [ "$fmt" = json ] && [ -n "$MACHINE_JSON" ]; then
+    [ "$n_nodes" != 0 ] || warn "$(graph_empty_hint "$rel" "$langs")" >&2
+    [ "$opn" != 1 ] || graph_open "$out" >/dev/null 2>&1
+    cat "$tmp/out"; return 0
+  fi
   [ "$n_nodes" = 0 ] && warn "$(graph_empty_hint "$rel" "$langs")"
   ok "구조 그래프 ($(graph_rel_word "$rel")): 노드 ${n_nodes}개 · 연결 ${n_edges}개$( [ "$n_heur" -gt 0 ] && printf ' (추정 %s개)' "$n_heur")"
   say "  $(tilde "$out")"
@@ -5022,22 +5751,27 @@ graph_default_base() {   # 기본 브랜치와 갈라진 곳(merge-base): upstre
 graph_base_extract() {   # $1 커밋 $2 폴더 → 그 커밋의 추적 파일을 $2/src 에 풀고 목록을 $2/files 에 (저장소는 건드리지 않는다)
   mkdir -p "$2/src" || return 1
   git archive --format=tar "$1" | tar -x -C "$2/src" 2>/dev/null || return 1
-  git ls-tree -r --name-only -z "$1" | tr '\0' '\n' > "$2/files"
+  git ls-tree -r --name-only -z "$1" > "$2/files.z" && graph_safe_file_list "$2/files.z" "$2/files" "$2/unsafe-paths.records" "$2/src"
 }
 
 graph_side() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 저장소 $6 언어 [$7 기준 커밋] → 정렬한 레코드 (diff · check 가 양쪽을 같은 방법으로)
   local tmp=$1 rel=$2
+  {
   if [ -z "${7:-}" ]; then
     graph_collect "$tmp" "$rel" "$3" "$4" "" 1000 30 2 0 "" "$5" "$6"
   elif [ "$rel" = tree ]; then
     GRAPH_REV=$7 graph_collect "$tmp" tree "$3" "$4" "" 1000 30 2 0 "" "$5" "$6"
   else
     ( cd "$tmp/src" && graph_collect "$tmp" "$rel" "$3" "$4" "" 1000 30 2 0 "" "$5" "$6" )
-  fi | LC_ALL=C sort -u
+  fi
+  [ ! -f "$tmp/unsafe-paths.records" ] || cat "$tmp/unsafe-paths.records"
+  } | LC_ALL=C sort -u
 }
 
 graph_meta() {   # JSON 머리에 쓰는 awk 변수들 → GRAPH_META 배열
-  GRAPH_META=(-v rel="$1" -v repo="$2" -v scope="${3%/}" -v commit="$(git rev-parse --short HEAD 2>/dev/null)" -v ver="$GITSW_VERSION" -v when="$(now_iso)" -v langs="$4")
+  local nativeTop="$PWD"
+  [ -z "$IS_WINDOWS" ] || nativeTop=$(cygpath -m "$PWD" 2>/dev/null || printf '%s' "$PWD")
+  GRAPH_META=(-v rel="$1" -v repo="$2" -v repoPath="$nativeTop" -v scope="${3%/}" -v commit="$(git rev-parse --short HEAD 2>/dev/null)" -v ver="$GITSW_VERSION" -v when="$(now_iso)" -v langs="$4")
 }
 
 graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
@@ -5078,7 +5812,7 @@ graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
     else die "커밋도 폴더도 아닙니다: $a"$'\n'"$GRAPH_DIFF_USAGE"; fi
   done
   if [ -n "$langs" ]; then
-    langs=$(graph_langs "$langs") && [ -n "$langs" ] || die "--lang 은 ts · js · web · vue · svelte · swift · python · go · rust · kotlin · java · jvm 중에서 고릅니다 (쉼표로 여럿)."
+    langs=$(graph_langs "$langs") && [ -n "$langs" ] || die "--lang 은 Java · TS · Python · C · C++ · C# · PHP · Ruby 등 언어 이름이나 확장자로 고릅니다 (쉼표로 여럿, graph --help)."
   fi
   rel=${rel:-files}; graph_pick_dir "$dir"; dir=$GRAPH_DIR
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
@@ -5111,7 +5845,7 @@ graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
   trap 'rm -rf "$GRAPH_TMP"' EXIT
   fancy_out && [ "$fmt" != json ] && fancy=1
   [ -n "$fancy" ] && printf '  %s' "${DIM}$(graph_rel_word "$rel") 비교하는 중 ($bname → 작업 트리)…${RESET}"
-  git ls-files -z > "$tmp/files.z" && tr '\0' '\n' < "$tmp/files.z" > "$tmp/files" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
+  git ls-files -z > "$tmp/files.z" && graph_safe_file_list "$tmp/files.z" "$tmp/files" "$tmp/unsafe-paths.records" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
   mkdir -p "$tmp/b"
   [ "$rel" = tree ] || graph_base_extract "$bsha" "$tmp/b" || die "기준 커밋의 파일을 풀지 못했습니다: $bsha"
   # 양쪽을 같은 방법으로: swift package describe · Xcode 인덱스는 지금 쪽에만 있으니 끈다
@@ -5131,15 +5865,26 @@ graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
             printf '}}\n'; } | graph_html > "$tmp/out" ;;
   esac
   graph_write "$tmp/out" "$out" "$fmt" "$opn" "$fancy" || return 1
+  [ "$out" = - ] || { [ "$fmt" != json ] || [ -z "$MACHINE_JSON" ]; } || return 0
   [ "$out" = - ] || { ok "의존 비교 ($(graph_rel_word "$rel")): $bname($bsha) → 작업 트리"; say "  $(tilde "$out")"; say "GRAPH_FILE=$out"; }
   return 0
 }
 
+graph_copy_atomic() {
+  local stage
+  mkdir -p "$(dirname "$2")" 2>/dev/null || die "폴더를 만들지 못했습니다: $2"
+  stage=$(mktemp "$(dirname "$2")/.gitch-graph.XXXXXX") || die "쓰지 못했습니다: $2"
+  if ! { cat "$1" > "$stage" && mv -f "$stage" "$2"; }; then rm -f "$stage"; die "쓰지 못했습니다: $2"; fi
+}
+
 graph_write() {   # $1 만든 파일 $2 쓸 곳(- 는 표준출력) $3 형식 $4 열기(1 · 0 · auto) $5 사람 터미널
   if [ "$2" = - ]; then cat "$1"; return 0; fi
-  mkdir -p "$(dirname "$2")" 2>/dev/null
-  cat "$1" > "$2" 2>/dev/null || die "쓰지 못했습니다: $2"
-  if [ "$4" = 1 ] || { [ "$4" = auto ] && [ -n "$5" ] && [ "$3" = html ]; }; then graph_open "$2" && dim "  열었습니다. (열지 않으려면 --no-open)"; fi
+  graph_copy_atomic "$1" "$2"
+  if [ "$4" = 1 ] || { [ "$4" = auto ] && [ -n "$5" ] && [ "$3" = html ]; }; then
+    if [ "$3" = json ] && [ -n "$MACHINE_JSON" ]; then graph_open "$2" >/dev/null 2>&1
+    else graph_open "$2" && dim "  열었습니다. (열지 않으려면 --no-open)"; fi
+  fi
+  [ "$3" != json ] || [ -z "$MACHINE_JSON" ] || cat "$1"
   return 0
 }
 
@@ -5200,7 +5945,13 @@ graph_check_cmd() {   # [--rules 파일] [--base 기준] [--format text|json|htm
   repo=$(graph_repo_name "$dir" "$top")
   rules=$(posix_path "$rules"); out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로
   case "$rules" in "") rules="$top/$GRAPH_RULES_FILE" ;; /*) ;; *) rules="$PWD/$rules" ;; esac
-  if [ -n "$init" ]; then graph_rules_init "$rules"; return 0; fi
+  if [ -n "$init" ]; then
+    if [ "$fmt" = json ]; then
+      graph_rules_init "$rules" >&2
+      printf '{"schemaVersion":1,"tool":"gitch graph check","file":%s,"initialized":true,"ok":true,"base":null,"violations":[]}\n' "$(json_str "$rules")"
+    else graph_rules_init "$rules"; fi
+    return 0
+  fi
   [ -f "$rules" ] || die "규칙 파일이 없습니다: $(tilde "$rules")"$'\n'"  예시로 시작하기: gitch graph check --init${darg:+ $darg}"
   case "$rules" in "$top"/*) shown=${rules#"$top"/} ;; *) shown=$(tilde "$rules") ;; esac   # 결과에 적는 이름 — 저장소 안이면 상대 경로
   case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
@@ -5222,6 +5973,7 @@ graph_check_cmd() {   # [--rules 파일] [--base 기준] [--format text|json|htm
   trap 'rm -rf "$GRAPH_TMP"' EXIT
   awk -v rules="$rules" -v rel="__syntax__" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_check)" /dev/null > "$tmp/syntax"
   if grep -q '^X' "$tmp/syntax"; then
+    [ -z "$MACHINE_JSON" ] || die "규칙 파일에 틀린 줄이 있습니다: $(tilde "$rules")"$'\n'"$(awk -F'\t' '$1 == "X" { printf "%s번 줄: %s\n", $2, $3 }' "$tmp/syntax")"
     err "규칙 파일에 틀린 줄이 있습니다: $(tilde "$rules")"
     awk -F'\t' '$1 == "X" { printf "  %s번 줄: %s\n", $2, $3 }' "$tmp/syntax" >&2
     exit 1
@@ -5231,7 +5983,7 @@ graph_check_cmd() {   # [--rules 파일] [--base 기준] [--format text|json|htm
   fi
   fancy_out && [ "$fmt" != json ] && fancy=1
   [ -n "$fancy" ] && printf '  %s' "${DIM}의존 규칙 검사하는 중…${RESET}"
-  git ls-files -z > "$tmp/files.z" && tr '\0' '\n' < "$tmp/files.z" > "$tmp/files" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
+  git ls-files -z > "$tmp/files.z" && graph_safe_file_list "$tmp/files.z" "$tmp/files" "$tmp/unsafe-paths.records" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
   [ -n "$bsha" ] && { mkdir -p "$tmp/b"; graph_base_extract "$bsha" "$tmp/b" || die "기준 커밋의 파일을 풀지 못했습니다: $bsha"; }
   : > "$tmp/v"
   for rel in $rels; do
@@ -5264,7 +6016,7 @@ graph_check_cmd() {   # [--rules 파일] [--base 기준] [--format text|json|htm
         printf '},"rules":'; graph_check_json "$tmp/v" "$shown" "$bsha" "$n_err"; printf '}\n'; } | graph_html > "$tmp/out" ;;
   esac
   graph_write "$tmp/out" "$out" "$fmt" "$opn" "$fancy" || return 1
-  [ "$out" = - ] || { say "  $(tilde "$out")"; say "GRAPH_FILE=$out"; }
+  [ "$out" = - ] || { [ "$fmt" = json ] && [ -n "$MACHINE_JSON" ]; } || { say "  $(tilde "$out")"; say "GRAPH_FILE=$out"; }
   [ "$n_err" -eq 0 ]
 }
 
@@ -5306,7 +6058,7 @@ graph_check_json() {   # $1 위반 줄들 $2 규칙 파일 $3 기준 커밋 $4 �
       V[++n] = v ",\"existing\":" ($8 == "existing" ? "true" : "false") "}"
     }
     END {
-      printf "{\"tool\":\"gitch graph check\",\"file\":%s,\"base\":%s,\"ok\":%s,\"violations\":[", jstr(rules), (base == "" ? "null" : jstr(base)), (nerr + 0 == 0 ? "true" : "false")
+      printf "{\"schemaVersion\":1,\"tool\":\"gitch graph check\",\"file\":%s,\"base\":%s,\"ok\":%s,\"violations\":[", jstr(rules), (base == "" ? "null" : jstr(base)), (nerr + 0 == 0 ? "true" : "false")
       for (i = 1; i <= n; i++) printf "%s\n  %s", (i > 1 ? "," : ""), V[i]
       printf "%s]}\n", (n ? "\n" : "")
     }' "$1"
@@ -5314,6 +6066,14 @@ graph_check_json() {   # $1 위반 줄들 $2 규칙 파일 $3 기준 커밋 $4 �
 
 # awk 프로그램은 함수 안 heredoc 에 둔다 — 최상위 변수로 읽으면 gitch 를 부를 때마다(훅 포함) 수십 KB 를 한 글자씩 읽게 된다
 graph_awk_lib() {
+  graph_languages | awk -F'|' '
+    BEGIN { print "BEGIN {" }
+    {
+      printf "  LANGEXT[\"%s\"] = \"%s\"\n", $1, $3
+      n = split($3, a, " "); for (i = 1; i <= n; i++) printf "  EXTLANG[\"%s\"] = \"%s\"\n", a[i], $1
+      n = split($5, a, " "); for (i = 1; i <= n; i++) if (a[i] != "") eco[a[i]] = eco[a[i]] (eco[a[i]] == "" ? "" : ",") $1
+    }
+    END { for (e in eco) printf "  ECOLANG[\"%s\"] = \"%s\"\n", e, eco[e]; print "}" }'
   cat <<'AWKEOF'
 function jstr(s) {
   if (s ~ /["\\\001-\037]/) {   # 고칠 글자가 있을 때만 — 노드 · 연결이 수십만 개여도 빠르게
@@ -5373,40 +6133,44 @@ function globre(g,   r, i, c, n, br) {   # Tuist glob → 정규식: ** 는 폴�
 }
 BEGIN { if (langs != "") { NLS = split(langs, LSA, ","); for (LSI = 1; LSI <= NLS; LSI++) LANGOK[LSA[LSI]] = 1 } }
 function langok(p) { return langs == "" || (langof(p) in LANGOK) }   # --lang 으로 고른 언어의 파일인지
-function ecook(eco) {   # modules 의 생태계가 고른 언어에 맞는지
+function ecook(eco,   n, a, i) {   # 모든 모듈 생태계가 공통 언어 목록을 따른다
   if (langs == "") return 1
-  if (eco == "swift" || eco == "tuist") return ("swift" in LANGOK)
-  if (eco == "npm") return ("ts" in LANGOK) || ("js" in LANGOK) || ("vue" in LANGOK) || ("svelte" in LANGOK)
-  if (eco == "cargo") return ("rust" in LANGOK)
-  if (eco == "go") return ("go" in LANGOK)
-  if (eco == "gradle") return ("kotlin" in LANGOK) || ("java" in LANGOK)
+  n = split(ECOLANG[eco], a, ",")
+  for (i = 1; i <= n; i++) if (a[i] in LANGOK) return 1
   return 0
 }
-function langof(p,   e) {   # 언어 이름(그래프의 묶음 · 색) — 지원하지 않는 확장자는 ""
-  e = tolower(extof(p))
-  if (e == "ts" || e == "tsx" || e == "mts" || e == "cts") return "ts"
-  if (e == "js" || e == "jsx" || e == "mjs" || e == "cjs") return "js"
-  if (e == "vue" || e == "svelte") return e
-  if (e == "py" || e == "pyi") return "python"
-  if (e == "go") return "go"
-  if (e == "rs") return "rust"
-  if (e == "kt" || e == "kts") return "kotlin"
-  if (e == "java") return "java"
-  if (e == "swift") return "swift"
-  return ""
+function langof(p,   e, b) {
+  b = tolower(baseof(p)); e = tolower(extof(p))
+  if (b == "cmakelists.txt") return "cmake"
+  if (b ~ /^(gnumakefile|makefile)$/) return "make"
+  if (b ~ /^dockerfile($|\.)/) return "docker"
+  if (b == "gemfile" || b == "rakefile") return "ruby"
+  return (e in EXTLANG) ? EXTLANG[e] : ""
 }
 # 노드 · 연결 모으기 — 같은 노드는 처음 것, 같은 연결(시작 · 끝 · 종류)은 횟수를 더하고 via(근거)는 다섯 개까지
 function addnode(id, kind, label, group, attrs) {
   if (id == "" || (id in NK)) return
   NK[id] = kind; NL[id] = clean(label); NG[id] = group; NA[id] = attrs
 }
-function addedge(s, t, kind, w, h, via, extra,   k) {
+function addedge(s, t, kind, w, h, via, extra,   k, method, confidence, file, ln, proof) {
   if (s == t || s == "" || t == "") return
   k = s "\034" t "\034" kind
   if (!(k in EW)) { EN++; EKEY[EN] = k; EH[k] = h; EXA[k] = extra }
   else if (!h) EH[k] = 0
   if (!h) PAIR[s "\034" t] = 1
   EW[k] += w
+  file = (via in EX) ? via : (s in EX) ? s : ""
+  if (file == "" && rel == "modules" && NG[s] == "go" && SCAN_FILE ~ /\.go$/) file = SCAN_FILE
+  method = h ? "name-heuristic" : rel == "changes" ? "git-history" : rel == "tree" || kind == "contains" ? "git-tree" : kind == "ref" ? "swift-index" : rel == "modules" && file !~ /\.go$/ ? "manifest" : "static-import"
+  confidence = h ? "heuristic" : kind == "ref" ? "indexed" : rel == "changes" || rel == "tree" ? "measured" : "declared"
+  if (extra !~ /"method":/) EMETHOD[k] = method
+  if (extra !~ /"confidence":/) ECONF[k] = confidence
+  if (extra !~ /"evidence":/) {
+    ln = (file == SCAN_FILE) ? SCAN_LINE : RF[file "\034" via] + 0
+    if (!ln) ln = JIMPL[file, via] + 0
+    proof = "{\"file\":" (file == "" ? "null" : jstr(file)) ",\"line\":" (ln ? ln : "null") ",\"method\":" jstr(method) ",\"confidence\":" jstr(confidence) ",\"declaration\":" jstr(via) "}"
+    if (EPN[k] < 20 && !((k, proof) in EPSEEN)) { EPSEEN[k, proof] = 1; EP[k] = EP[k] (EPN[k] ? "," : "") proof; EPN[k]++ }
+  }
   via = clean(via)
   if (via != "" && EVN[k] < 5 && index("\035" EV[k] "\035", "\035" via "\035") == 0) { EV[k] = EV[k] (EVN[k] ? "\035" : "") via; EVN[k]++ }
 }
@@ -5428,6 +6192,8 @@ function emit(   id, i, k, a, n, v, j, at, eco) {
       at = "\"via\":[" at "]"
     }
     if (EXA[k] != "") at = at (at != "" ? "," : "") EXA[k]
+    if (EMETHOD[k] != "") at = at (at != "" ? "," : "") "\"method\":" jstr(EMETHOD[k]) ",\"confidence\":" jstr(ECONF[k])
+    if (EP[k] != "") at = at (at != "" ? "," : "") "\"evidence\":[" EP[k] "]"
     if (EH[k] && (k in ECHK)) at = at (at != "" ? "," : "") "\"checked\":true"
     printf "2\t%s\t%s\t%s\t%d\t%s\t%s\n", a[1], a[2], a[3], EW[k], (EH[k] ? "h" : ""), at
   }
@@ -5458,6 +6224,14 @@ BEGIN {
     else if (b == "Package.swift") SPM[++NSPM] = p
     else if (b == "Project.swift") TUIST[++NTUIST] = p
     else if (b ~ /^settings\.gradle(\.kts)?$/) GSET[++NGSET] = p
+    else if (b ~ /^build\.gradle(\.kts)?$/) GBUILD[++NGBUILD] = p
+    else if (b == "pom.xml") POM[++NPOM] = p
+    else if (b == "pyproject.toml" || py_reqfile(p) || b == "setup.cfg" || b == "Pipfile") PYMAN[++NPYMAN] = p
+    else if (b ~ /\.(csproj|fsproj|vbproj)$/) DOTNET[++NDOTNET] = p
+    else if (b == "composer.json") COMP[++NCOMP] = p
+    else if (b == "Gemfile" || b ~ /\.gemspec$/) GEM[++NGEM] = p
+    else if (b == "pubspec.yaml") PUB[++NPUB] = p
+    else if (b == "CMakeLists.txt") CMAKE[++NCMAKE] = p
   }
   close(list)
   if (rel == "modules") modules_main(); else files_main()
@@ -5491,8 +6265,10 @@ function files_main(   i, p, lg, ins, k, n, K, e) {
     else if (lg == "python") scan_py(p)
     else if (lg == "go") scan_go(p)
     else if (lg == "rust") scan_rs(p)
-    else scan_ts(p)
+    else if (lg ~ /^(ts|js|vue|svelte|astro|mdx)$/) scan_ts(p)
+    else scan_extra(p, lg)
   }
+  SCAN_FILE = ""; SCAN_LINE = 0
   if (swiftrc == "0") swift_index()
   swift_resolve()                                                    # 인덱스에 없는 파일(빌드하지 않은 타깃 · 새 파일)은 이름으로
   jvm_resolve(); go_contains()
@@ -5511,15 +6287,21 @@ function files_main(   i, p, lg, ins, k, n, K, e) {
   if (UNRES) printf "0\tnote\t상대 경로 import · mod 중 %d개는 추적하는 파일에서 찾지 못해 뺐습니다 (빌드 때 생기는 파일 등).\n", UNRES
 }
 function filenode(p,   lg, a) {
-  lg = (p in LANG) ? LANG[p] : tolower(extof(p))
+  lg = (p in LANG) ? LANG[p] : langof(p)
+  if (lg == "") lg = tolower(extof(p))
   if (lg == "") lg = "file"
   a = "\"path\":" jstr(p) ",\"lang\":" jstr(lg)
+  a = a ",\"analysis\":" jstr(swift_indexed(p) ? "compiler-index" : lg ~ /^(swift|kotlin|java|python|go|rust|ts|js|vue|svelte|astro|mdx|c|cpp|objc|objcpp|protobuf|ruby|php|lua|shell|css|scss|less|dart|solidity)$/ ? "static-import" : "file-detection")
   if (p in LINES) a = a ",\"lines\":" LINES[p]
   if (FMOD[p] != "") a = a ",\"modules\":[" jlist(FMOD[p]) "]"
   if (!inscope(p)) a = a ",\"outside\":true"
   addnode(p, "file", baseof(p), lg, a)
 }
 function fedge(s, t, kind, via) { FREF[t] = 1; addedge(s, t, kind, 1, 0, via, "") }
+function unresolved(p, spec, reason) {
+  UNRES++
+  printf "0\tdiagnostic\t{\"code\":\"UNRESOLVED_IMPORT\",\"severity\":\"warning\",\"file\":%s,\"line\":%s,\"declaration\":%s,\"method\":\"static-import\",\"message\":%s}\n", jstr(p), (SCAN_FILE == p ? SCAN_LINE : "null"), jstr(spec), jstr(reason)
+}
 function pedge(s, eco, name, kind, via, extra,   id, a) {   # 저장소 밖 패키지(npm · PyPI · Go · crates · Maven …)
   if (noext || name == "") return
   id = "pkg:" eco "/" name
@@ -5548,7 +6330,7 @@ function refs(p, s,   w) {   # 대문자로 시작하는 이름들(문자열 · 
   while (match(s, /(^|[^A-Za-z0-9_])[A-Z][A-Za-z0-9_]*/)) {   # 낱말을 모두 나누는 것보다 대문자 이름만 찾는 쪽이 빠르다
     w = substr(s, RSTART, RLENGTH); s = substr(s, RSTART + RLENGTH)
     if (!index(UPPER, substr(w, 1, 1))) w = substr(w, 2)
-    if (!((p "\034" w) in RF)) { RF[p "\034" w] = 1; REF[p] = REF[p] "\034" w }
+    if (!((p "\034" w) in RF)) { RF[p "\034" w] = LINES[p]; REF[p] = REF[p] "\034" w }
   }
 }
 
@@ -5556,7 +6338,7 @@ function refs(p, s,   w) {   # 대문자로 시작하는 이름들(문자열 · 
 function scan_ts(p,   line, inc, st, open, allow, rest, m, spec, kw, kind) {
   inc = 0; st = "import"; open = 0
   while ((getline line < p) > 0) {
-    LINES[p]++
+    LINES[p]++; SCAN_FILE = p; SCAN_LINE = LINES[p]
     if (inc) { if (index(line, "*/")) inc = 0; continue }
     if (line ~ /^[ \t]*\/\*/) { if (!index(substr(line, index(line, "/*") + 2), "*/")) inc = 1; continue }
     if (line ~ /^[ \t]*\/\//) continue
@@ -5581,13 +6363,13 @@ function scan_ts(p,   line, inc, st, open, allow, rest, m, spec, kw, kind) {
 }
 function ts_dep(p, spec, kind,   s, t, ck) {
   s = spec
-  if (s ~ /^#/) { UNRES++; return }          # package.json "imports" 별칭
+  if (s ~ /^#/) { unresolved(p, spec, "package.json imports 별칭은 빠른 분석에서 해석하지 못했습니다. SCIP 인덱스를 사용하세요."); return }
   sub(/[?#].*$/, "", s)
   if (s == "") return
   ck = dirof(p) "\034" s                     # 같은 폴더의 같은 import 는 한 번만 푼다
   if (ck in TSRES) t = TSRES[ck]
   else { t = ts_resolve(p, s); TSRES[ck] = t }
-  if (t == "\001") UNRES++
+  if (t == "\001") unresolved(p, spec, "추적 파일에서 경로를 찾지 못했습니다. 생성 파일·별칭·확장자를 확인하세요.")
   else if (substr(t, 1, 1) == "\002") pedge(p, "npm", substr(t, 2), kind, spec, "")
   else fedge(p, t, kind, spec)
 }
@@ -5614,6 +6396,58 @@ function npm_name(s,   a, n) {
   if (s ~ /^@/) { n = split(s, a, "/"); return n >= 2 ? a[1] "/" a[2] : s }
   sub(/\/.*$/, "", s)
   return s
+}
+
+# 새 언어는 먼저 파일을 빠짐없이 보여 주고, 정적인 경로 선언만 잇는다. 실행·평가로 의존을 알아내지는 않는다.
+function scan_extra(p, lg,   line, inc, s, spec, kind, eco, relative) {
+  inc = 0
+  while ((getline line < p) > 0) {
+    LINES[p]++; SCAN_FILE = p; SCAN_LINE = LINES[p]; sub(/\r$/, "", line); s = trim(line)
+    if (inc) { if (index(s, "*/")) inc = 0; continue }
+    if (s ~ /^\/\*/) { if (!index(substr(s, 3), "*/")) inc = 1; continue }
+    if (s ~ /^(\/\/|--)/) continue
+    spec = ""; kind = "import"; eco = lg; relative = 0
+    if (lg ~ /^(c|cpp|objc|objcpp)$/ && s ~ /^#[ \t]*(include|import)[ \t]*[<"]/) {
+      sub(/^#[ \t]*(include|import)[ \t]*[<"]/, "", s); sub(/[>"].*$/, "", s); spec = s; kind = "include"; eco = "system"
+    } else if (lg == "protobuf" && s ~ /^import[ \t]+((public|weak)[ \t]+)?"/) {
+      sub(/^import[ \t]+((public|weak)[ \t]+)?/, "", s); spec = quoted(s); eco = "protobuf"; relative = 1
+    } else if (lg == "ruby" && s ~ /^(require|require_relative|load)[ \t(]+["']/) {
+      relative = s ~ /^require_relative/; spec = quoted(s); kind = "require"; eco = "gem"
+    } else if (lg == "php" && s ~ /^(require|require_once|include|include_once)[ \t(]+["']/) {
+      spec = quoted(s); kind = "include"; eco = "composer"; relative = 1
+    } else if (lg == "lua" && s ~ /^(local[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*=[ \t]*)?require[ \t(]+["']/) {
+      spec = quoted(s); gsub(/\./, "/", spec); kind = "require"
+    } else if (lg == "shell" && s ~ /^(source|\.)[ \t]+["']/) {
+      spec = quoted(s); kind = "source"; relative = 1
+    } else if (lg ~ /^(css|scss|less)$/ && s ~ /^@(import|use|forward)[ \t]+["']/) {
+      spec = quoted(s); eco = "npm"
+    } else if (lg == "dart" && s ~ /^(import|export|part)[ \t]+["']/) {
+      spec = quoted(s); eco = "pub"; relative = spec !~ /^(package|dart):/
+      if (spec ~ /^dart:/) { pedge(p, "dart", spec, kind, spec, ""); continue }
+      if (spec ~ /^package:/) { sub(/^package:/, "", spec); sub(/\/.*$/, "", spec); pedge(p, eco, spec, kind, spec, ""); continue }
+    } else if (lg == "solidity" && s ~ /^import[ \t]/) { spec = quoted(s); eco = "npm" }
+    if (spec != "" && spec !~ /[$`]/) path_dep(p, spec, lg, eco, kind, relative)
+  }
+  close(p)
+}
+function quoted(s) { if (!match(s, /["'][^"']+["']/)) return ""; return substr(s, RSTART + 1, RLENGTH - 2) }
+function path_try(b, lg,   n, a, i, t) {
+  if (b in EX) return b
+  n = split(LANGEXT[lg], a, " ")
+  for (i = 1; i <= n; i++) {
+    if ((b "." a[i]) in EX) return b "." a[i]
+    t = joinp(dirof(b), "_" baseof(b) "." a[i]); if (lg == "scss" && (t in EX)) return t
+    t = joinp(b, "init." a[i]); if (lg == "lua" && (t in EX)) return t
+  }
+  return ""
+}
+function path_dep(p, spec, lg, eco, kind, relative,   b, t) {
+  b = normp(joinp(dirof(p), spec)); t = (b == "\001") ? "" : path_try(b, lg)
+  if (t == "" && !relative && spec !~ /^\.\.?\//) t = path_try(spec, lg)
+  if (t == "" && lg ~ /^(c|cpp|objc|objcpp)$/) t = path_try(joinp("include", spec), lg)
+  if (t != "") fedge(p, t, kind, spec)
+  else if (relative || spec ~ /^\.\.?\//) unresolved(p, spec, "추적 파일에서 상대 경로를 찾지 못했습니다.")
+  else pedge(p, eco, spec, kind, spec, "")
 }
 function ts_configs(   i) { for (i = 1; i <= NTSC; i++) ts_read(TSC[i], dirof(TSC[i]), 0) }
 function ts_read(f, d, lvl,   all, line, v, base, blk, m, k, t, ext) {   # tsconfig 의 baseUrl · paths (extends 는 세 단계까지)
@@ -5675,51 +6509,17 @@ function ts_alias(p, s,   d, i, best, bl, pat, pre, suf, t, r, j) {   # tsconfig
   return ""
 }
 
-# ----- package.json (들여쓰기로 맨 위 키를 가림 — 저장소의 package.json 은 거의 도구가 정리한 모양) -----
-function pj_read(f,   line, top, ind, k, v, sec, m) {
+# ----- package.json: JSON 구조로 읽어 들여쓰기·압축 여부와 무관하게 처리 -----
+function pj_read(f,   j, key, n, a) {
   if (f in PJREAD) return
-  PJREAD[f] = 1; top = -1; sec = ""; PJN[f] = ""; PJDN[f] = 0; PJWN[f] = 0
-  while ((getline line < f) > 0) {
-    sub(/\r$/, "", line)
-    if (top < 0) {
-      if (line ~ /^[ \t]*\{[ \t]*$/ || line ~ /^[ \t]*$/) continue
-      if (!match(line, /^[ \t]*"/)) { pj_flat(f, line); continue }
-      top = RLENGTH - 1
+  PJREAD[f] = 1; json_read(f); PJN[f] = JV[f, "name"]
+  for (j = 1; j <= JN[f]; j++) {
+    key = JK[f, j]; n = split(key, a, "\034")
+    if (n == 2 && a[1] ~ /^(dependencies|devDependencies|peerDependencies|optionalDependencies)$/) {
+      PJDN[f]++; PJD[f, PJDN[f]] = a[2]; PJS[f, PJDN[f]] = a[1]
+    } else if ((n == 2 && a[1] == "workspaces") || (n == 3 && a[1] == "workspaces" && a[2] == "packages")) {
+      PJWN[f]++; PJW[f, PJWN[f]] = JV[f, key]
     }
-    match(line, /^[ \t]*/); ind = RLENGTH
-    if (ind <= top && match(line, /^[ \t]*"[^"]*"[ \t]*:/)) {
-      k = substr(line, RSTART, RLENGTH); sub(/^[ \t]*"/, "", k); sub(/"[ \t]*:$/, "", k)
-      v = substr(line, RSTART + RLENGTH); sec = ""
-      if (k == "name") { if (match(v, /^[ \t]*"[^"]*"/)) { m = substr(v, RSTART, RLENGTH); sub(/^[ \t]*"/, "", m); sub(/"$/, "", m); PJN[f] = m } }
-      else if (k ~ /^(dependencies|devDependencies|peerDependencies|optionalDependencies)$/) { sec = k; pj_deps(f, k, v) }
-      else if (k == "workspaces") { sec = k; pj_ws(f, v) }
-      if (sec != "" && (index(v, "}") || (sec == "workspaces" && index(v, "]") && !index(v, "{")))) sec = ""
-      continue
-    }
-    if (sec == "workspaces") pj_ws(f, line)
-    else if (sec != "") pj_deps(f, sec, line)
-  }
-  close(f)
-}
-function pj_deps(f, sec, s,   m) {
-  while (match(s, /"[^"]+"[ \t]*:/)) {
-    m = substr(s, RSTART, RLENGTH); s = substr(s, RSTART + RLENGTH)
-    sub(/^"/, "", m); sub(/"[ \t]*:$/, "", m)
-    PJDN[f]++; PJD[f, PJDN[f]] = m; PJS[f, PJDN[f]] = sec
-  }
-}
-function pj_ws(f, s,   m, r) {   # 문자열 중 키(뒤에 : 가 붙은 것)가 아닌 것 = 작업 공간 폴더 패턴
-  while (match(s, /"[^"]*"/)) {
-    m = substr(s, RSTART + 1, RLENGTH - 2); r = substr(s, RSTART + RLENGTH); s = r
-    if (r ~ /^[ \t]*:/) continue
-    PJWN[f]++; PJW[f, PJWN[f]] = m
-  }
-}
-function pj_flat(f, s,   m, k, sec) {   # 한 줄로 압축된 package.json
-  if (match(s, /"name"[ \t]*:[ \t]*"[^"]*"/)) { m = substr(s, RSTART, RLENGTH); sub(/^"name"[ \t]*:[ \t]*"/, "", m); sub(/"$/, "", m); PJN[f] = m }
-  for (k = 1; k <= 4; k++) {
-    sec = (k == 1) ? "dependencies" : (k == 2) ? "devDependencies" : (k == 3) ? "peerDependencies" : "optionalDependencies"
-    if (match(s, "\"" sec "\"[ \t]*:[ \t]*\\{[^}]*\\}")) { m = substr(s, RSTART, RLENGTH); sub(/^[^{]*\{/, "", m); pj_deps(f, sec, m) }
   }
 }
 
@@ -5757,7 +6557,7 @@ function py_file(b) {
 function scan_py(p,   line, q, cont, s) {
   q = ""; cont = 0
   while ((getline line < p) > 0) {
-    LINES[p]++
+    LINES[p]++; SCAN_FILE = p; SCAN_LINE = LINES[p]
     sub(/\r$/, "", line)
     if (q != "") { if (count(line, q) % 2) q = ""; continue }     # 삼중 따옴표 문자열(docstring) 안
     if (cont) {                                                  # from x import ( … ) 가 여러 줄
@@ -5817,7 +6617,7 @@ function py_from(p, mod, names,   lvl, rest, base, i, n, a, nm, t, done, miss) {
   }
   if (done && !miss) return
   t = (rest == "") ? py_file2(base) : py_file(base)    # 그 밖의 이름은 모듈 · 패키지 안에 있다
-  if (t != "") fedge(p, t, "import", mod); else if (!done) UNRES++
+  if (t != "") fedge(p, t, "import", mod); else if (!done) unresolved(p, mod, "Python 상대 모듈을 추적 파일에서 찾지 못했습니다.")
 }
 function py_file2(b) { return ((joinp(b, "__init__.py")) in EX) ? joinp(b, "__init__.py") : "" }
 
@@ -5838,7 +6638,7 @@ function go_mods(   i, f, line, m, inreq) {
 function scan_go(p,   line, blk, done) {
   blk = 0; done = 0
   while ((getline line < p) > 0) {
-    LINES[p]++
+    LINES[p]++; SCAN_FILE = p; SCAN_LINE = LINES[p]
     if (done) continue                                  # import 는 파일 머리에만 — 나머지는 줄 수만 센다
     sub(/\r$/, "", line)
     if (blk) { if (line ~ /^[ \t]*\)/) blk = 0; else if (match(line, /"[^"]+"/)) go_dep(p, substr(line, RSTART + 1, RLENGTH - 2)); continue }
@@ -5874,7 +6674,7 @@ function go_dep(p, imp,   d, src, sc) {
     return
   }
   if (d != "\001") {
-    if (!(d in GODIR)) { UNRES++; return }
+    if (!(d in GODIR)) { unresolved(p, imp, "Go 모듈 안에 추적하는 패키지 파일이 없습니다."); return }
     if (d == dirof(p)) return
     if (!(go_fid(d) in NK)) { GOFOLD[d] = 1; addnode(go_fid(d), "folder", (d == "" ? baseof(imp) : d), "go", "\"path\":" jstr(d == "" ? "." : d) ",\"importPath\":" jstr(imp)) }
     addedge(p, go_fid(d), "import", 1, 0, imp, "")
@@ -5932,7 +6732,7 @@ function rs_info(p,   c, rel, st) {   # → RS_SRC(모듈 경로 기준 폴더) 
 function scan_rs(p,   line, s, inuse, stmt, depth, nm, o, c) {
   rs_info(p); inuse = 0; depth = 0; RSIN = 0       # RSIN: 지금 열려 있는 인라인 mod { } 수
   while ((getline line < p) > 0) {
-    LINES[p]++
+    LINES[p]++; SCAN_FILE = p; SCAN_LINE = LINES[p]
     sub(/\r$/, "", line)
     if (index(line, "//")) sub(/\/\/.*$/, "", line)
     if (inuse) { stmt = stmt " " line; if (index(line, ";")) { inuse = 0; rs_use(p, stmt) }; continue }
@@ -5949,7 +6749,7 @@ function scan_rs(p,   line, s, inuse, stmt, depth, nm, o, c) {
 function rs_mod(p, nm,   t) {
   t = joinp(RS_MD, nm ".rs"); if (t in EX) { fedge(p, t, "mod", nm); return }
   t = joinp(RS_MD, nm "/mod.rs"); if (t in EX) { fedge(p, t, "mod", nm); return }
-  UNRES++
+  unresolved(p, nm, "Rust mod 선언의 추적 파일을 찾지 못했습니다.")
 }
 function rs_use(p, s,   i, via) {
   sub(/^use[ \t]+/, "", s); sub(/;.*$/, "", s)
@@ -6007,14 +6807,14 @@ function rs_find(src, mp, seg, k, n, fb,   j, i, b, t) {   # 모듈 경로를 �
 function scan_jvm(p, ins,   line, inc, s, pkg) {
   inc = 0; pkg = ""; JCUR = ""
   while ((getline line < p) > 0) {
-    LINES[p]++
+    LINES[p]++; SCAN_FILE = p; SCAN_LINE = LINES[p]
     sub(/\r$/, "", line)
     if (inc) { if (index(line, "*/")) inc = 0; continue }
     if (line ~ /^[ \t]*\/\*/) { if (!index(substr(line, index(line, "/*") + 2), "*/")) inc = 1; continue }
     if (line ~ /^[ \t]*\/\//) continue
     if (pkg == "" && line ~ /^[ \t]*package[ \t]+[A-Za-z_]/) { s = line; sub(/^[ \t]*package[ \t]+/, "", s); sub(/[^A-Za-z0-9_.].*$/, "", s); pkg = s; JCUR = s; continue }
     if (line ~ /^[ \t]*import[ \t]+/) {
-      if (ins) { s = line; sub(/^[ \t]*import[ \t]+(static[ \t]+)?/, "", s); sub(/[ \t]+as[ \t].*$/, "", s); sub(/[^A-Za-z0-9_.*].*$/, "", s); if (s != "") JIMP[p] = JIMP[p] "\034" s }
+      if (ins) { s = line; sub(/^[ \t]*import[ \t]+(static[ \t]+)?/, "", s); sub(/[ \t]+as[ \t].*$/, "", s); sub(/[^A-Za-z0-9_.*].*$/, "", s); if (s != "") JIMP[p] = JIMP[p] "\034" s; JIMPL[p, s] = LINES[p] }
       continue
     }
     if (line ~ /^[A-Za-z@]/) jvm_decl(p, line)       # 들여쓰기 없는 줄 = 최상위 선언
@@ -6076,7 +6876,7 @@ function jvm_resolve(   i, p, n, a, j, imp, t, k, m, b, w, pk) {
 function scan_swift(p, ins,   line, inc, ml, s) {
   inc = 0; ml = 0
   while ((getline line < p) > 0) {
-    LINES[p]++
+    LINES[p]++; SCAN_FILE = p; SCAN_LINE = LINES[p]
     sub(/\r$/, "", line)
     if (ml) { if (index(line, "\"\"\"")) ml = 0; continue }
     if (inc) { if (index(line, "*/")) inc = 0; continue }
@@ -6222,8 +7022,17 @@ function modules_main() {
   if (ecook("gradle")) gradle_modules()
   if (ecook("swift")) spm_modules()
   if (ecook("tuist")) tuist_modules()
+  if (ecook("maven")) maven_modules()
+  if (ecook("pypi")) python_modules()
+  if (ecook("dotnet")) dotnet_modules()
+  if (ecook("composer")) composer_modules()
+  if (ecook("gem")) gem_modules()
+  if (ecook("pub")) pub_modules()
+  if (ecook("cmake")) cmake_modules()
+  if (!EN) print "0\tnote\t모듈 사이 의존 선언이 없으면 연결 없이 모듈만 표시합니다."
 }
 function mnode(id, label, eco, path, typ,   a) {
+  if (!(id in NK)) printf "4\t%s\t%s\n", id, path
   a = "\"ecosystem\":" jstr(eco) ",\"path\":" jstr(path == "" ? "." : path)
   if (typ != "") a = a ",\"type\":" jstr(typ)
   if (!inscope(path "/")) a = a ",\"outside\":true"
@@ -6231,6 +7040,256 @@ function mnode(id, label, eco, path, typ,   a) {
 }
 function dep(s, t, sc, via) { addedge(s, t, "depends", 1, 0, via, "\"scope\":" jstr(sc)) }
 function xdep(s, eco, name, sc, via) { pedge(s, eco, name, "depends", via, "\"scope\":" jstr(sc)) }
+
+# XML · TOML · JSON 매니페스트는 읽기만 한다. 빌드 도구·setup.py·Gemfile 을 실행하지 않아도 모듈이 나와야 한다.
+function manifest_text(f,   line, s) {
+  s = ""; while ((getline line < f) > 0) { sub(/\r$/, "", line); s = s line "\n" }; close(f); return s
+}
+function xml_text(f,   s, a, b) {
+  s = manifest_text(f)
+  while ((a = index(s, "<!--"))) { b = index(substr(s, a + 4), "-->"); if (!b) return substr(s, 1, a - 1); s = substr(s, 1, a - 1) substr(s, a + b + 6) }
+  return s
+}
+function xml_value(s, tag,   a, b) {
+  if (!match(s, "<" tag "([ \t\n][^>]*)?>")) return ""
+  a = RSTART + RLENGTH; b = index(substr(s, a), "</" tag ">")
+  return b ? trim(substr(s, a, b - 1)) : ""
+}
+function xml_drop(s, tag,   a, b) {
+  while (match(s, "<" tag "([ \t\n][^>]*)?>")) { a = RSTART; b = index(substr(s, a), "</" tag ">"); if (!b) break; s = substr(s, 1, a - 1) substr(s, a + b + length(tag) + 2) }
+  return s
+}
+function xml_attr(s, key,   v) {
+  if (!match(s, "[ \t\n]" key "[ \t\n]*=[ \t\n]*[\"\047][^\"\047]*[\"\047]")) return ""
+  v = substr(s, RSTART, RLENGTH); sub(/^[^=]*=[ \t\n]*["']/, "", v); sub(/["']$/, "", v); return v
+}
+function maven_expand(f, s,   n, key, v) {
+  for (n = 0; n < 12 && match(s, /\$\{[^}]+\}/); n++) {
+    key = substr(s, RSTART + 2, RLENGTH - 3)
+    v = (key == "project.groupId" || key == "pom.groupId") ? MVGROUP[f] : (key == "project.artifactId") ? MVART[f] : MVPROP[f, key]
+    if (v == "") break
+    s = substr(s, 1, RSTART - 1) v substr(s, RSTART + RLENGTH)
+  }
+  return s
+}
+function maven_modules(   i, f, s, own, par, props, tag, val, id, block, group, art, sc, t) {
+  for (i = 1; i <= NPOM; i++) {
+    f = POM[i]; s = xml_text(f); MVTEXT[f] = s; par = xml_value(s, "parent")
+    own = xml_drop(xml_drop(xml_drop(xml_drop(xml_drop(s, "parent"), "dependencies"), "dependencyManagement"), "build"), "profiles")
+    MVGROUP[f] = xml_value(own, "groupId"); if (MVGROUP[f] == "") MVGROUP[f] = xml_value(par, "groupId")
+    MVART[f] = xml_value(own, "artifactId"); props = xml_value(s, "properties")
+    while (match(props, /<[A-Za-z_][A-Za-z0-9_.-]*>/)) { tag = substr(props, RSTART + 1, RLENGTH - 2); val = xml_value(props, tag); MVPROP[f, tag] = val; props = xml_drop(props, tag) }
+    MVGROUP[f] = maven_expand(f, MVGROUP[f]); MVART[f] = maven_expand(f, MVART[f])
+    id = MVGROUP[f] ":" MVART[f]
+    if (MVART[f] == "" || id ~ /\$\{/) continue
+    MVID[f] = "maven:" id; MVLOCAL[id] = f
+  }
+  for (i = 1; i <= NPOM; i++) {
+    f = POM[i]; id = MVID[f]; if (id == "" || !inscope(f)) continue
+    mnode(id, MVGROUP[f] ":" MVART[f], "maven", dirof(f), "project")
+    s = xml_drop(xml_drop(xml_drop(MVTEXT[f], "dependencyManagement"), "build"), "profiles"); s = xml_value(s, "dependencies")
+    while (match(s, /<dependency[ \t\n>]/)) {
+      block = xml_value(s, "dependency"); s = substr(s, RSTART + RLENGTH); t = index(s, "</dependency>"); if (!t) break; s = substr(s, t + 13)
+      group = maven_expand(f, xml_value(block, "groupId")); art = maven_expand(f, xml_value(block, "artifactId")); sc = xml_value(block, "scope"); if (sc == "") sc = "compile"
+      if (group == "" || art == "" || (group art) ~ /\$\{/) continue
+      t = group ":" art
+      if (t in MVLOCAL) { mnode(MVID[MVLOCAL[t]], t, "maven", dirof(MVLOCAL[t]), "project"); dep(id, MVID[MVLOCAL[t]], sc, f) }
+      else xdep(id, "maven", t, sc, f)
+    }
+  }
+}
+function dotnet_node(f,   id) {
+  id = "dotnet:" f
+  if (!(id in NK)) { mnode(id, stemof(f), "dotnet", dirof(f), "project"); NA[id] = NA[id] ",\"lang\":" jstr(f ~ /\.fsproj$/ ? "fsharp" : f ~ /\.vbproj$/ ? "vb" : "csharp") }
+}
+function dotnet_modules(   i, f, id, s, block, name, t) {
+  for (i = 1; i <= NDOTNET; i++) {
+    f = DOTNET[i]; if (!inscope(f)) continue
+    id = "dotnet:" f; dotnet_node(f)
+    s = xml_text(f)
+    while (match(s, /<(ProjectReference|PackageReference)[ \t\n][^>]*>/)) {
+      block = substr(s, RSTART, RLENGTH); s = substr(s, RSTART + RLENGTH); name = xml_attr(block, "Include"); if (name == "" || name ~ /\$\(/) continue
+      if (block ~ /^<ProjectReference/) {
+        gsub(/\\/, "/", name); t = normp(joinp(dirof(f), name))
+        if (t in EX) { dotnet_node(t); dep(id, "dotnet:" t, "ProjectReference", f) }
+      } else xdep(id, "nuget", name, "PackageReference", f)
+    }
+  }
+}
+function py_normal(s) { s = tolower(s); gsub(/[-_.]+/, "-", s); return s }
+function py_reqfile(p) { return baseof(p) ~ /^requirements.*\.(txt|in)$/ || p ~ /(^|\/)requirements\/.*\.(txt|in)$/ }
+function py_requirement(f, s, sc,   nm) {
+  s = trim(s); sub(/^["']/, "", s)
+  if (!match(s, /^[A-Za-z0-9][A-Za-z0-9_.-]*/)) return
+  nm = py_normal(substr(s, RSTART, RLENGTH)); if (nm == "python") return
+  PYDN[f]++; PYDNM[f, PYDN[f]] = nm; PYDS[f, PYDN[f]] = sc
+}
+function py_strings(f, s, sc,   v, q, i, c, skip) {
+  while (match(s, /["']/)) {
+    skip = substr(s, 1, RSTART - 1) ~ /include-group[ \t]*=[ \t]*$/
+    q = substr(s, RSTART, 1); s = substr(s, RSTART + 1); v = ""
+    for (i = 1; i <= length(s); i++) { c = substr(s, i, 1); if (c == q) break; if (q == "\"" && c == "\\") c = substr(s, ++i, 1); v = v c }
+    s = substr(s, i + 1); if (!skip) py_requirement(f, v, sc)
+  }
+}
+function py_brackets(s,   i, c, q, n) {
+  q = ""; n = 0
+  for (i = 1; i <= length(s); i++) {
+    c = substr(s, i, 1)
+    if (q != "") { if (c == "\\" && q == "\"") i++; else if (c == q) q = ""; continue }
+    if (c == "\"" || c == "\047") q = c
+    else if (c == "#") break
+    else if (c == "[") n++; else if (c == "]") n--
+  }
+  return n
+}
+function python_read(f, req,   s, sec, line, key, val, arr, sc, target, level) {
+  if (f in PYREAD) return; PYREAD[f] = 1; sec = ""; arr = 0
+  while ((getline line < f) > 0) {
+    sub(/\r$/, "", line); if (line ~ /^[ \t]*#/) continue; sub(/[ \t]+#.*$/, "", line)
+    s = trim(line)
+    if (req) {
+      if (s ~ /^(-r[ \t]*|--requirement[ =])/) { sub(/^(-r[ \t]*|--requirement[ =]+)/, "", s); target = normp(joinp(dirof(f), trim(s))); if (target in EX) { python_read(target, 1); PYIN[f] = PYIN[f] "\034" target } }
+      else if (s !~ /^-/) py_requirement(f, s, "requirements")
+      continue
+    }
+    if (!arr && s ~ /^\[/) { sec = s; sub(/^\[/, "", sec); sub(/\].*$/, "", sec); arr = 0; continue }
+    if (arr == 2 && s !~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*=[^=]/) { py_requirement(f, s, sc); continue }
+    if (arr == 2) arr = 0
+    if (arr) { py_strings(f, s, sc); level += py_brackets(s); if (level <= 0) arr = 0; continue }
+    if (sec == "options" && s ~ /^install_requires[ \t]*=/) { arr = 2; sc = "dependencies"; val = s; sub(/^[^=]*=/, "", val); py_requirement(f, val, sc); continue }
+    if (index(s, "=")) {
+      key = trim(substr(s, 1, index(s, "=") - 1)); val = trim(substr(s, index(s, "=") + 1)); key = unquote(key)
+      if ((sec == "project" || sec == "tool.poetry" || sec == "metadata") && key == "name") PYNAME[dirof(f)] = unquote(val)
+      else if ((sec == "project" && key == "dependencies") || sec == "project.optional-dependencies" || sec == "dependency-groups") {
+        sc = sec == "project" ? "dependencies" : sec "." key; py_strings(f, val, sc); level = py_brackets(val); if (level > 0) arr = 1
+      } else if (sec ~ /^tool\.poetry(\.group\.[^.]+)?\.(dev-)?dependencies$/ || sec == "packages" || sec == "dev-packages") py_requirement(f, key, sec)
+    }
+  }
+  close(f)
+}
+function python_owner(f,   d, root) {
+  if (f in PYOWN) return PYOWN[f]
+  root = dirof(f); d = root
+  while (1) { if (d in PYROOT) return PYOWN[f] = d; if (d == "") break; d = dirof(d) }
+  if (f ~ /(^|\/)requirements\//) { root = f; sub(/(^|\/)requirements\/.*$/, "", root) }
+  return PYOWN[f] = root
+}
+function python_deps(id, f,   j, nm, sc, t, n, a, k) {
+  if ((id, f) in PYDEPDONE) return; PYDEPDONE[id, f] = 1
+  for (j = 1; j <= PYDN[f]; j++) {
+    nm = PYDNM[f, j]; sc = PYDS[f, j]
+    if (nm in PYLOCAL) { t = PYLOCAL[nm]; mnode(PYID[t], PYNAME[t] == "" ? nm : PYNAME[t], "pypi", t, "package"); dep(id, PYID[t], sc, f) }
+    else xdep(id, "pypi", nm, sc, f)
+  }
+  n = split(PYIN[f], a, "\034"); for (k = 2; k <= n; k++) python_deps(id, a[k])
+}
+function python_modules(   i, f, d, nm, id) {
+  for (i = 1; i <= NPYMAN; i++) { f = PYMAN[i]; python_read(f, py_reqfile(f)); if (!py_reqfile(f)) PYROOT[dirof(f)] = 1 }
+  for (i = 1; i <= NPYMAN; i++) { d = python_owner(PYMAN[i]); nm = PYNAME[d]; if (nm == "") nm = d == "" ? repo : d; PYID[d] = "pypi:" py_normal(nm); PYLOCAL[py_normal(nm)] = d }
+  for (i = 1; i <= NPYMAN; i++) {
+    f = PYMAN[i]; if (!inscope(f)) continue
+    d = python_owner(f); id = PYID[d]; nm = PYNAME[d]; if (nm == "") nm = d == "" ? repo : d
+    mnode(id, nm, "pypi", d, "package")
+    python_deps(id, f)
+  }
+}
+
+# JSON 은 줄 수·들여쓰기에 의존하지 않는다. 압축되거나 여러 줄인 package.json 도 같은 결과가 나와야 한다.
+function json_read(f,   k) {
+  if (f in JREAD) return; JREAD[f] = 1; JTEXT = manifest_text(f); JPOS = 1; json_value(f, "", 0)
+}
+function json_space() { while (substr(JTEXT, JPOS, 1) ~ /[ \t\r\n]/ && JPOS <= length(JTEXT)) JPOS++ }
+function json_string(   s, c) {
+  s = ""; JPOS++
+  while (JPOS <= length(JTEXT)) { c = substr(JTEXT, JPOS++, 1); if (c == "\"") break; if (c == "\\") { c = substr(JTEXT, JPOS++, 1); if (c == "n" || c == "r" || c == "t") c = " " }; s = s c }
+  return s
+}
+function json_value(f, path, depth,   c, key, i, start, value) {
+  if (depth > 64) return
+  json_space(); c = substr(JTEXT, JPOS, 1)
+  if (c == "{" || c == "[") {
+    JPOS++; i = 0; json_space()
+    while (JPOS <= length(JTEXT) && substr(JTEXT, JPOS, 1) != (c == "{" ? "}" : "]")) {
+      start = JPOS
+      if (c == "{") { if (substr(JTEXT, JPOS, 1) != "\"") break; key = json_string(); json_space(); if (substr(JTEXT, JPOS++, 1) != ":") break }
+      else key = ++i
+      json_value(f, path == "" ? key : path "\034" key, depth + 1); json_space()
+      if (substr(JTEXT, JPOS, 1) == ",") { JPOS++; json_space() } else break
+      if (JPOS <= start) break
+    }
+    JPOS++
+  } else {
+    if (c == "\"") value = json_string()
+    else { start = JPOS; while (JPOS <= length(JTEXT) && substr(JTEXT, JPOS, 1) !~ /[ \t\r\n,}\]]/) JPOS++; value = substr(JTEXT, start, JPOS - start) }
+    JV[f, path] = value; JK[f, ++JN[f]] = path
+  }
+}
+function composer_modules(   i, j, f, nm, id, key, n, a, t) {
+  for (i = 1; i <= NCOMP; i++) { f = COMP[i]; json_read(f); nm = JV[f, "name"]; if (nm == "") nm = dirof(f) == "" ? repo : dirof(f); COMPN[f] = nm; COMPF[nm] = f }
+  for (i = 1; i <= NCOMP; i++) {
+    f = COMP[i]; if (!inscope(f)) continue
+    nm = COMPN[f]; id = "composer:" nm; mnode(id, nm, "composer", dirof(f), "package")
+    for (j = 1; j <= JN[f]; j++) {
+      key = JK[f, j]; n = split(key, a, "\034"); if (n != 2 || a[1] !~ /^require(-dev)?$/) continue
+      if (a[2] == "php" || a[2] ~ /^(ext|lib)-/) continue
+      if (a[2] in COMPF) { t = COMPF[a[2]]; mnode("composer:" a[2], a[2], "composer", dirof(t), "package"); dep(id, "composer:" a[2], a[1], f) }
+      else xdep(id, "composer", a[2], a[1], f)
+    }
+  }
+}
+function gem_modules(   i, f, s, line, d, nm, id, sc) {
+  for (i = 1; i <= NGEM; i++) {
+    f = GEM[i]; if (!inscope(f)) continue
+    d = dirof(f); nm = d == "" ? repo : d; id = "gem:" nm; mnode(id, nm, "gem", d, "package")
+    while ((getline line < f) > 0) {
+      s = trim(line); if (s ~ /^#/) continue
+      if (s ~ /^gem[ \t(]+["']/) xdep(id, "gem", quoted(s), "gem", f)
+      else if (s ~ /^[A-Za-z_][A-Za-z0-9_]*\.add_(development_|runtime_)?dependency[ \t(]+["']/) xdep(id, "gem", quoted(s), s ~ /development/ ? "development" : "runtime", f)
+    }
+    close(f)
+  }
+}
+function pub_read(f,   line, sec, key, val, nm) {
+  while ((getline line < f) > 0) {
+    sub(/[ \t]+#.*$/, "", line); if (line ~ /^[ \t]*#/) continue
+    if (line ~ /^name[ \t]*:/) { val = line; sub(/^[^:]*:[ \t]*/, "", val); PUBNAME[f] = unquote(trim(val)) }
+    if (line ~ /^[A-Za-z_][A-Za-z0-9_]*[ \t]*:/) { sec = line; sub(/[ \t]*:.*$/, "", sec); continue }
+    if (sec !~ /^(dependencies|dev_dependencies)$/ || line !~ /^  [A-Za-z_][A-Za-z0-9_]*[ \t]*:/) continue
+    key = trim(line); sub(/[ \t]*:.*$/, "", key); if (key == "flutter" || key == "flutter_localizations") continue
+    PUBDN[f]++; PUBDEP[f, PUBDN[f]] = key; PUBS[f, PUBDN[f]] = sec
+  }
+  close(f)
+}
+function pub_modules(   i, j, f, nm, id, t) {
+  for (i = 1; i <= NPUB; i++) { f = PUB[i]; pub_read(f); nm = PUBNAME[f]; if (nm == "") nm = dirof(f) == "" ? repo : dirof(f); PUBNAME[f] = nm; PUBLOCAL[nm] = f }
+  for (i = 1; i <= NPUB; i++) {
+    f = PUB[i]; if (!inscope(f)) continue
+    id = "pub:" PUBNAME[f]; mnode(id, PUBNAME[f], "pub", dirof(f), "package")
+    for (j = 1; j <= PUBDN[f]; j++) {
+      nm = PUBDEP[f, j]
+      if (nm in PUBLOCAL) { t = PUBLOCAL[nm]; mnode("pub:" nm, nm, "pub", dirof(t), "package"); dep(id, "pub:" nm, PUBS[f, j], f) }
+      else xdep(id, "pub", nm, PUBS[f, j], f)
+    }
+  }
+}
+function cmake_modules(   i, f, s, block, cmd, n, a, id, nm, j, t) {
+  for (i = 1; i <= NCMAKE; i++) {
+    f = CMAKE[i]; s = manifest_text(f); gsub(/#[^\n]*/, "", s)
+    while (match(s, /(add_library|add_executable|target_link_libraries)[ \t\r\n]*\([^)]*\)/)) {
+      block = substr(s, RSTART, RLENGTH); s = substr(s, RSTART + RLENGTH); cmd = block; sub(/[ \t\r\n]*(\().*$/, "", cmd)
+      sub(/^[^(]*\(/, "", block); sub(/\)$/, "", block); gsub(/["\r\n]/, " ", block); n = split(trim(block), a, /[ \t]+/); nm = a[1]
+      if (nm == "" || nm ~ /[$<>]/) continue
+      if (cmd != "target_link_libraries") { CMT[nm] = f; CMTYPE[nm] = cmd == "add_executable" ? "executable" : "library" }
+      else for (j = 2; j <= n; j++) if (a[j] !~ /^(PUBLIC|PRIVATE|INTERFACE|debug|optimized|general)$/ && a[j] !~ /[$<>]/) { CMDN[nm]++; CMD[nm, CMDN[nm]] = a[j] }
+    }
+  }
+  for (nm in CMT) {
+    f = CMT[nm]; if (!inscope(f)) continue
+    id = "cmake:" nm; mnode(id, nm, "cmake", dirof(f), CMTYPE[nm])
+    for (j = 1; j <= CMDN[nm]; j++) { t = CMD[nm, j]; if (t in CMT) { mnode("cmake:" t, t, "cmake", dirof(CMT[t]), CMTYPE[t]); dep(id, "cmake:" t, "link", f) } else xdep(id, "cmake", t, "link", f) }
+  }
+}
 function glob_re(g) {   # 작업 공간 패턴 → 정규식 (packages/* · apps/**)
   gsub(/\./, "\\.", g); gsub(/\*\*/, "\001", g); gsub(/\*/, "[^/]*", g); gsub(/\001/, ".*", g); sub(/\/$/, "", g)
   return "^" g "$"
@@ -6378,12 +7437,16 @@ function gradle_modules(   i, f, d, s, m, e, args, q, path, root, rname, n, mp, 
     for (k = 1; k <= n; k++) {
       q = GMOD[i, k]; path = GDIR[i, q]
       if (!inscope(path "/")) continue
-      id = gradle_id(d, q); mnode(id, q, "gradle", path, "project")
+      GVIS[path] = 1; id = gradle_id(d, q); mnode(id, q, "gradle", path, "project")
       bf = joinp(path, "build.gradle.kts"); if (!(bf in EX)) bf = joinp(path, "build.gradle")
       if (bf in EX) gradle_deps(bf, id, i, d)
     }
     bf = joinp(d, "build.gradle.kts"); if (!(bf in EX)) bf = joinp(d, "build.gradle")      # 루트 프로젝트는 의존이 있을 때만
-    if ((bf in EX) && inscope(joinp(d, "x"))) { before = EN; gradle_deps(bf, gradle_id(d, ":"), i, d); if (EN > before) mnode(gradle_id(d, ":"), rname, "gradle", d, "root") }
+    if (inscope(joinp(d, "x"))) { GVIS[d] = 1; mnode(gradle_id(d, ":"), rname, "gradle", d, "root"); if (bf in EX) gradle_deps(bf, gradle_id(d, ":"), i, d) }
+  }
+  for (i = 1; i <= NGBUILD; i++) {
+    f = GBUILD[i]; d = dirof(f); if ((d in GVIS) || !inscope(f)) continue
+    GVIS[d] = 1; id = gradle_id(d, ":"); mnode(id, d == "" ? repo : d, "gradle", d, "project"); gradle_deps(f, id, 0, d)
   }
 }
 function gradle_id(d, q) { return "gradle:" (d == "" ? "" : d) q }
@@ -6608,42 +7671,77 @@ function tuist_deps(s,   out, m, x, k, n, DI, b) {
 AWKEOF
 }
 
-# changes: git log(%x01해시<TAB>날짜 + 바뀐 파일들) → 같이 바뀐 파일 쌍과 바뀐 횟수
+# changes: NUL 로그를 정규화한 상태/경로 → 현재 파일의 rename 계보 · 같이 바뀜 · 근거 커밋
 graph_awk_changes() {
   cat <<'AWKEOF'
 BEGIN {
-  while ((getline p < list) > 0) if (p != "" && !index(p, "\t")) TR[p] = 1
+  while ((getline p < list) > 0) if (p != "" && !index(p, "\t")) { TR[p] = 1; ACTIVE[p] = p }
   close(list)
+  PLIMIT = 20
 }
-/^\001/ { flush(); split(substr($0, 2), a, "\t"); CSHA = a[1]; CDATE = a[2]; next }
-$0 != "" {
-  if (!($0 in TR) || !inscope($0) || ($0 in SEEN) || !langok($0)) next
-  if ($0 ~ ENVIRON["GITSW_LOCKRE"]) { LOCKS[$0] = 1; next }                 # lock 파일은 매니페스트와 늘 같이 바뀌어 신호가 아니다
-  SEEN[$0] = 1; FL[++NFC] = $0
+/^\001/ {
+  flush()
+  if (NCOM >= maxc) { TRUNC = 1; IGNORE = 1; next }
+  h = substr($0, 2); at = index(h, "\t"); CSHA = substr(h, 1, at - 1); h = substr(h, at + 1)
+  at = index(h, "\t"); CDATE = substr(h, 1, at - 1); h = substr(h, at + 1)
+  at = index(h, "\t"); CTIME = substr(h, 1, at - 1) + 0; CSUBJECT = substr(h, at + 1)
+  next
+}
+/^\002/ { INVALID = substr($0, 2) + 0; next }
+$0 != "" && !IGNORE {
+  n = split($0, a, "\t"); status = substr(a[1], 1, 1); p = a[2]
+  if (status == "R") {
+    # 逆순: new 의 현재 파일 정체성을 old 로 옮긴다. 현재 이름을 재사용한 옛 파일과 섞이지 않게 new 를 닫는다.
+    old = p; p = a[3]; id = ACTIVE[p]
+    if (id != "") { addchange(id); MOVES[old] = id; NRENAME++ }
+    else MOVES[old] = ""
+    CLOSED[p] = 1
+  } else if (status == "C") {
+    p = a[3]; addchange(ACTIVE[p]); CLOSED[p] = 1      # 복사는 새 파일이며 원본 이력을 물려받지 않는다
+  } else {
+    if (status != "D") addchange(ACTIVE[p])
+    if (status == "A" || status == "D") CLOSED[p] = 1
+  }
 }
 END { flush(); changes_out() }
-function flush(   i, j, x, y, t) {   # 커밋 하나 — 파일이 maxf 개 넘게 바뀐 커밋(정리 · 이름 바꾸기)은 쌍이 너무 많아져 뺀다
+function addchange(p) {
+  if (p == "" || !(p in TR) || !inscope(p) || (p in SEEN) || !langok(p)) return
+  if (p ~ ENVIRON["GITSW_LOCKRE"]) { LOCKS[p] = 1; return }
+  SEEN[p] = 1; FL[++NFC] = p
+}
+function flush(   i, j, x, y, t, k, p) {   # 큰 커밋도 rename 계보는 적용하고 통계/쌍에서만 뺀다
   if (CSHA != "") {
     NCOM++
+    if (!HFROM || CTIME < HFROM) { HFROM = CTIME; HFROMDATE = CDATE }
+    if (!HTO || CTIME > HTO) { HTO = CTIME; HTODATE = CDATE }
     if (NFC > maxf) NSKIP++
     else if (NFC > 0) {
       NUSED++
-      for (i = 1; i <= NFC; i++) { CH[FL[i]]++; if (!(FL[i] in LAST)) LAST[FL[i]] = CDATE }
+      if (!AFROM || CTIME < AFROM) { AFROM = CTIME; AFROMDATE = CDATE }
+      if (!ATO || CTIME > ATO) { ATO = CTIME; ATODATE = CDATE }
+      for (i = 1; i <= NFC; i++) {
+        p = FL[i]; CH[p]++
+        if (!(p in LASTTIME) || CTIME > LASTTIME[p]) { LASTTIME[p] = CTIME; LAST[p] = substr(CDATE, 1, 10) }
+      }
       for (i = 1; i < NFC; i++) for (j = i + 1; j <= NFC; j++) {
         x = FL[i] ""; y = FL[j] ""
         if (x > y) { t = x; x = y; y = t }
-        PR[x "\034" y]++
+        k = x "\034" y; PR[k]++
+        if (PR[k] <= PLIMIT) PROOF[k] = PROOF[k] (PR[k] > 1 ? "," : "") "{\"sha\":" jstr(CSHA) ",\"date\":" jstr(CDATE) ",\"subject\":" jstr(CSUBJECT) "}"
       }
     }
+    for (p in CLOSED) delete ACTIVE[p]
+    for (p in MOVES) { if (MOVES[p] != "") ACTIVE[p] = MOVES[p]; else delete ACTIVE[p] }
   }
-  CSHA = ""; NFC = 0; split("", SEEN)
+  CSHA = ""; NFC = 0; split("", SEEN); split("", CLOSED); split("", MOVES)
 }
-function changes_out(   k, a, c, f, g) {
+function changes_out(   k, a, c, f, g, extra) {
   for (k in PR) {
     c = PR[k]
     if (c < min) continue
     split(k, a, "\034")
-    addedge(a[1], a[2], "cochange", c, 0, "", "\"degree\":" int(200 * c / (CH[a[1]] + CH[a[2]]) + 0.5))
+    extra = "\"degree\":" int(200 * c / (CH[a[1]] + CH[a[2]]) + 0.5) ",\"method\":\"git-history\",\"commitCount\":" c ",\"commitsTruncated\":" (c > PLIMIT ? "true" : "false") ",\"commits\":[" PROOF[k] "]"
+    addedge(a[1], a[2], "cochange", c, 0, "", extra)
     KEEP[a[1]] = 1; KEEP[a[2]] = 1
   }
   for (f in CH) {
@@ -6654,9 +7752,16 @@ function changes_out(   k, a, c, f, g) {
   emit()
   printf "0\tcommits\t%d\n0\tanalyzedCommits\t%d\n0\tskippedLargeCommits\t%d\n", NCOM, NUSED, NSKIP
   printf "0\tmaxCommits\t%d\n0\tmaxFiles\t%d\n0\tminCount\t%d\n0\tsince\t%s\n", maxc, maxf, min, (since == "" ? "null" : jstr(since))
+  printf "0\thistoryFrom\t%s\n0\thistoryTo\t%s\n", (HFROMDATE == "" ? "null" : jstr(HFROMDATE)), (HTODATE == "" ? "null" : jstr(HTODATE))
+  printf "0\tanalyzedFrom\t%s\n0\tanalyzedTo\t%s\n", (AFROMDATE == "" ? "null" : jstr(AFROMDATE)), (ATODATE == "" ? "null" : jstr(ATODATE))
+  printf "0\thistoryTruncated\t%s\n0\tshallowHistory\t%s\n0\tfollowedRenames\t%d\n0\tprovenanceLimit\t%d\n0\tskippedHistoryPaths\t%d\n", (TRUNC ? "true" : "false"), (shallow == "true" ? "true" : "false"), NRENAME, PLIMIT, INVALID
   printf "0\tnote\t한 커밋에 같이 바뀐 파일 쌍입니다. weight = 같이 바뀐 커밋 수, degree = 두 파일이 바뀐 횟수 평균에 대한 비율(%%), 노드의 changes = 바뀐 횟수(핫스팟).\n"
+  printf "0\tnote\t이름 변경을 거슬러 현재 추적 경로로 합쳤습니다. 추가/삭제 경계에서 끊어 같은 이름으로 다시 만든 파일의 옛 이력은 합치지 않습니다. 되돌리기는 독립적인 변경 커밋으로 셉니다.\n"
   if (NSKIP) printf "0\tnote\t파일이 %d개 넘게 바뀐 커밋 %d개는 뺐습니다 (정리 · 이름 바꾸기 같은 큰 커밋 — --max-files 로 바꿈).\n", maxf, NSKIP
-  if (NCOM >= maxc) printf "0\tnote\t최근 커밋 %d개만 봤습니다 (--max-commits · --since 로 바꿈).\n", maxc
+  if (TRUNC) printf "0\tnote\t최근 커밋 %d개만 봤습니다 (--max-commits · --since 로 바꿈).\n", maxc
+  if (shallow == "true") print "0\tnote\t얕은 복제의 로컬 이력만 분석했습니다. 원격의 더 오래된 커밋은 포함되지 않습니다."
+  if (NRENAME) printf "0\tnote\t파일 이름 변경 %d건을 거슬러 옛 이력을 현재 파일에 합쳤습니다.\n", NRENAME
+  if (INVALID) printf "0\tnote\t탭/줄바꿈 등 구분 문자가 든 이력 경로 %d건은 분석에서 뺐습니다.\n", INVALID
   for (f in LOCKS) { print "0\tnote\tlock 파일(package-lock.json · Cargo.lock 등)은 매니페스트와 늘 같이 바뀌므로 뺐습니다."; break }
 }
 AWKEOF
@@ -6665,10 +7770,11 @@ AWKEOF
 # tree: "<blob> <크기> <경로>" 줄들 → 폴더 노드(파일 수 · 바이트 · 많은 확장자)와 포함 관계
 graph_awk_tree() {
   cat <<'AWKEOF'
-BEGIN { root = scope; sub(/\/$/, "", root); RID = (root == "") ? "./" : root "/"; RLABEL = (root == "") ? repo : root }
+BEGIN { root = scope; sub(/\/$/, "", root); RID = (root == "") ? "./" : root "/"; RLABEL = (root == "") ? repo : root; if(safeList!="") { while((getline p < safeList)>0) SAFE[p]=1; close(safeList) } }
 {
   if (NF == 2 && $2 == "missing") next
   sz = $2 + 0; p = $0; sub(/^[^ ]+ [^ ]+ /, "", p)
+  if(safeList!="" && !(p in SAFE)) next
   if (p == "" || index(p, "\t") || (p in SEEN) || !inscope(p) || !langok(p)) next
   SEEN[p] = 1; NFILES++; TOTAL += sz
   e = tolower(extof(p)); if (e == "") e = "none"
@@ -6720,7 +7826,7 @@ AWKEOF
 graph_awk_json() {
   cat <<'AWKEOF'
 BEGIN { FS = "\t" }
-$1 == "0" { if ($2 == "note") NOTE[++NN] = $3; else ST[++NS] = jstr($2) ":" $3; next }
+$1 == "0" { if ($2 == "note") NOTE[++NN] = $3; else if ($2 == "diagnostic") DIAG[++ND] = $3; else ST[++NS] = jstr($2) ":" $3; next }
 $1 == "1" { NOD[++NNODE] = "{\"id\":" jstr($2) ",\"kind\":" jstr($3) ",\"label\":" jstr($4) ",\"group\":" jstr($5) ($6 != "" ? "," $6 : "") "}"; next }
 $1 == "3" { CY[$2] = CY[$2] (CY[$2] != "" ? "," : "") "{\"nodes\":[" jarr($4) "]" ($5 != "" ? ",\"before\":[" jarr($5) "]" : "") ($3 == "h" ? ",\"heuristic\":true" : "") "}"; next }
 $1 == "2" {
@@ -6731,10 +7837,12 @@ $1 == "2" {
 END {
   print "{"
   print "  \"tool\": \"gitch graph\","
+  print "  \"schemaVersion\": 1,"
   print "  \"version\": " jstr(ver) ","
   print "  \"relation\": " jstr(rel) ","
   print "  \"directed\": " (rel == "changes" ? "false" : "true") ","
   print "  \"repo\": " jstr(repo) ","
+  print "  \"repoPath\": " jstr(repoPath) ","
   print "  \"scope\": " jstr(scope) ","
   s = ""
   if (langs != "") { n = split(langs, LA, ","); for (i = 1; i <= n; i++) s = s (i > 1 ? "," : "") jstr(LA[i]) }
@@ -6748,6 +7856,10 @@ END {
   s = ""
   for (i = 1; i <= NN; i++) s = s (i > 1 ? ", " : "") jstr(NOTE[i])
   print "  \"notes\": [" s "],"
+  s = ""
+  for (i = 1; i <= ND; i++) s = s (i > 1 ? "," : "") DIAG[i]
+  print "  \"diagnostics\": [" s "],"
+  print "  \"analysisLevels\": {\"detection\":\"file-extension\",\"declared\":\"static-import-or-manifest\",\"heuristic\":\"name-only\",\"indexed\":\"compiler-index\"},"
   if (diffbase != "") print "  \"cycles\": {\"new\": [" CY["new"] "], \"changed\": [" CY["changed"] "], \"gone\": [" CY["gone"] "]},"
   print "  \"nodes\": ["
   for (i = 1; i <= NNODE; i++) print "    " NOD[i] (i < NNODE ? "," : "")
@@ -7201,6 +8313,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .switch:checked::after { transform: translateX(14px); background: var(--panel-solid); }
 .btn { width: 100%; margin-top: 8px; padding: 7px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--hover); color: var(--text); cursor: pointer; }
 .btn:hover { border-color: var(--accent); }
+#viewName, #savedViews { box-sizing: border-box; width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--hover); color: var(--text); font: inherit; }
 .groups { display: grid; gap: 2px; }
 .groups button { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; text-align: left; }
 .groups button:hover { background: var(--hover); }
@@ -7217,6 +8330,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .ramp { display: inline-flex; align-items: center; gap: 8px; padding: 2px 8px; color: var(--text-2); font-size: 12px; }
 .ramp i { display: inline-block; width: 22px; height: 8px; border-radius: 2px; }
 #tools { bottom: 14px; right: 14px; display: flex; gap: 2px; padding: 4px; }
+.evidence { width: 100%; font-size: 11px; color: var(--text-2); overflow-wrap: anywhere; }
+.evidence summary { cursor: pointer; color: var(--muted); }
+.evidence p { margin: 5px 0; line-height: 1.5; }
+.evidence a, #info .source-link, #notes a { color: var(--accent); }
+#info .rows li:has(.evidence) { flex-wrap: wrap; }
 /* 오른쪽: 목록 · 분석 */
 .drawer { top: 62px; right: 14px; bottom: 66px; width: min(540px, calc(100vw - 28px)); display: flex; flex-direction: column; }
 .drawer .head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; font-weight: 650; }
@@ -7280,6 +8398,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     <label class="row">연결 없는 노드<input class="switch" type="checkbox" id="orph"></label>
     <label class="row">찾은 것만 보이기<input class="switch" type="checkbox" id="onlyFound"></label>
     <label class="row" id="diffRow" hidden>바뀐 것만(비교)<input class="switch" type="checkbox" id="onlyDiff"></label>
+    <label class="row" id="affectedRow" hidden>영향받는 것만<input class="switch" type="checkbox" id="onlyAffected"></label>
     <label class="row" id="rulesRow" hidden>규칙 위반 연결 표시<input class="switch" type="checkbox" id="rules"></label>
     <label class="row col"><span class="lab">연결이 이만큼 이상인 노드만<b id="minDegV"></b></span><input type="range" id="minDeg" min="0" max="20" step="1"></label>
     <label class="row">고른 노드 주변만<input class="switch" type="checkbox" id="local"></label>
@@ -7302,6 +8421,16 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     <label class="row col"><span class="lab">연결 힘<b id="linkV"></b></span><input type="range" id="link" min="0" max="1" step="0.01"></label>
     <label class="row col"><span class="lab">연결 거리<b id="distV"></b></span><input type="range" id="dist" min="10" max="250" step="5"></label>
     <button class="btn" id="animate" type="button">다시 움직이기</button>
+  </div></details>
+  <details><summary>저장한 보기</summary><div class="sec">
+    <label class="row col">보기 이름<input id="viewName" type="text" maxlength="80" placeholder="예: Java 변경 영향" aria-label="보기 이름"></label>
+    <select id="savedViews" aria-label="저장한 보기"><option value="">저장한 보기 선택</option></select>
+    <button class="btn" id="saveView" type="button">현재 보기 저장</button>
+    <button class="btn" id="deleteView" type="button">선택한 보기 삭제</button>
+    <button class="btn" id="exportView" type="button">보기 파일로 내보내기</button>
+    <button class="btn" id="importView" type="button">보기 파일 가져오기</button>
+    <input id="viewFile" type="file" accept=".json,application/json" hidden>
+    <p class="sec-note">필터·배치·선택·확대 위치를 저장합니다. 보기 파일을 공유하면 같은 그래프에서 복원할 수 있습니다.</p>
   </div></details>
 </aside>
 <aside class="hud drawer" id="table" hidden>
@@ -7327,6 +8456,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 <script id="graph-data" type="application/json">
 HTMLEOF
   sed 's/</\\u003c/g'
+  printf '</script>\n<script id="graph-languages" type="application/json">\n'
+  graph_languages | awk -F'|' 'BEGIN { printf "[" } { printf "%s[\"%s\",\"%s\",\"%s\",\"%s\"]", (NR > 1 ? "," : ""), $1, $2, $3, $5 } END { print "]" }'
   cat <<'HTMLEOF'
 </script>
 <script>
@@ -7343,22 +8474,74 @@ HTMLEOF
   const RELNAME = { files: "파일 import", modules: "모듈 의존", changes: "같이 바뀌는 파일", tree: "폴더 구조" };
   const TABNAME = { files: "파일", modules: "모듈", changes: "같이 바뀜", tree: "폴더" };
   const KINDNAME = { file: "파일", folder: "폴더", package: "외부 패키지", module: "모듈" };
-  const EDGENAME = { import: "import", reexport: "다시 내보내기", require: "require", "dynamic-import": "동적 import", "type-ref": "타입 이름(추정)", ref: "참조(Xcode 인덱스)", mod: "mod", use: "use", contains: "포함", depends: "의존", cochange: "같이 바뀜" };
-  const KEYNAME = { lang: "언어", lines: "줄", ecosystem: "생태계", name: "이름", local: "저장소 안", outside: "범위 밖", importPath: "import 경로", type: "종류", workspace: "작업 공간", changes: "바뀐 횟수", lastChanged: "마지막 변경", depth: "깊이", files: "파일", bytes: "크기", filesHere: "바로 아래 파일", dirs: "하위 폴더", exts: "확장자", modules: "모듈", status: "비교", filesDelta: "파일 수 변화", bytesDelta: "크기 변화" };
+  const EDGENAME = { include: "include", source: "source", import: "import", reexport: "다시 내보내기", require: "require", "dynamic-import": "동적 import", "type-ref": "타입 이름(추정)", ref: "참조(Xcode 인덱스)", mod: "mod", use: "use", contains: "포함", depends: "의존", cochange: "같이 바뀜" };
+  const KEYNAME = { analysis: "분석 수준", lang: "언어", lines: "줄", ecosystem: "생태계", name: "이름", local: "저장소 안", outside: "범위 밖", importPath: "import 경로", type: "종류", workspace: "작업 공간", changes: "바뀐 횟수", lastChanged: "마지막 변경", depth: "깊이", files: "파일", bytes: "크기", filesHere: "바로 아래 파일", dirs: "하위 폴더", exts: "확장자", modules: "모듈", status: "비교", filesDelta: "파일 수 변화", bytesDelta: "크기 변화" };
   const STATUSNAME = { added: "새로 생김", removed: "없어짐", changed: "바뀜" };
   const LISTS = { files: ["가져오는 것", "가져다 쓰는 곳"], modules: ["의존하는 것", "이것에 의존하는 것"], changes: ["같이 바뀌는 파일", ""], tree: ["안에 든 것", "위 폴더"] };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const hsize = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : b >= 1024 ? Math.round(b / 1024) + " KB" : b + " B");
   const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const METHODNAME = { "file-detection": "파일 인식", "static-import": "정적 import 해석", manifest: "모듈 선언", "name-heuristic": "타입 이름 추정", "swift-index": "Xcode 인덱스", "compiler-index": "컴파일러 인덱스", scip: "SCIP 인덱스", "git-history": "Git 커밋 이력", "git-tree": "Git 파일 목록" };
+  function appLink(file, line, commit) {
+    if (!META.repoPath) return "";
+    const q = new URLSearchParams({ repo: META.repoPath, view: file ? "diff" : "graph" });
+    if (file) { q.set("file", file); q.set("view", "graph"); }
+    if (Number.isInteger(line) && line > 0) q.set("line", String(line));
+    if (commit) q.set("commit", commit);
+    return "gitrochi://open?" + q.toString();
+  }
+  function evidenceHtml(e) {
+    const d = e.d, rows = [];
+    for (const p of (d.evidence || [])) {
+      const label = p.file ? p.file + (p.line ? ":" + p.line : " · 줄 위치 없음") : "선언 위치 정보 없음";
+      const href = p.file ? appLink(p.file, p.line, d.impactFromBase ? d.baseCommit : null) : "";
+      rows.push(`<p>${href ? `<a href="${esc(href)}">${esc(label)}</a>` : esc(label)} · ${esc(METHODNAME[p.method] || p.method || "분석")}<br>${esc(p.symbol || p.declaration || "")}${p.targetLine ? ` → ${esc(p.targetFile)}:${p.targetLine}` : ""}</p>`);
+    }
+    for (const c of (d.commits || [])) rows.push(`<p><a href="${esc(appLink(null, null, c.sha))}">${esc(c.sha.slice(0, 9))}</a> · ${esc(c.date)}<br>${esc(c.subject)}</p>`);
+    if (d.commitsTruncated) rows.push(`<p>전체 ${d.commitCount}개 중 최신 ${(d.commits || []).length}개 표시</p>`);
+    if (!rows.length && d.via) rows.push(`<p>${esc(d.via.join(", "))}</p>`);
+    return rows.length ? `<details class="evidence"><summary>근거 · ${esc(METHODNAME[d.method] || d.method || edgeNote(e))}${d.confidence === "heuristic" ? " (추정)" : ""}</summary>${rows.join("")}</details>` : "";
+  }
   const MARK = '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8.3v4.2c0 2.6 1.1 4.1 3 4.6M12.4 17.3c1.7.1 3-.4 4.1-1.4"/><circle cx="5" cy="5.6" r="2.7"/><circle cx="9.9" cy="17.4" r="2.6"/><circle class="on" cx="18.8" cy="14.3" r="2.6"/></svg>';
 
   // ----- 색: 언어 계열은 세 칸(노드가 많은 셋, 모든 관계에서 같은 색), 모듈 종류는 앱 · 라이브러리 · 테스트, 바뀐 횟수는 주황 네 단계 -----
-  const FAMILY = { ts: "web", js: "web", vue: "web", svelte: "web", npm: "web", swift: "swift", tuist: "swift", python: "python", go: "go", rust: "rust", cargo: "rust", kotlin: "jvm", java: "jvm", gradle: "jvm" };
-  const EXTFAM = { ts: "web", tsx: "web", js: "web", jsx: "web", mjs: "web", cjs: "web", mts: "web", cts: "web", vue: "web", svelte: "web", swift: "swift", py: "python", pyi: "python", go: "go", rs: "rust", kt: "jvm", kts: "jvm", java: "jvm" };
-  const FAMNAME = { web: "TS/JS", swift: "Swift", python: "Python", go: "Go", rust: "Rust", jvm: "Kotlin/Java", lang: "그 밖의 언어", other: "그 밖의 파일", ext: "외부 패키지 · 모듈" };
+  const LANGUAGES = JSON.parse(document.getElementById("graph-languages").textContent);
+  const LANGNAME = Object.assign(Object.create(null), Object.fromEntries(LANGUAGES.map(([id, name]) => [id, name])));
+  const EXTLANG = Object.create(null), ECOLANG = Object.create(null);
+  for (const [id, , exts, ecos] of LANGUAGES) {
+    for (const e of exts.split(" ")) if (e) EXTLANG[e] = id;
+    for (const e of ecos.split(" ")) if (e) (ECOLANG[e] ||= []).push(id);
+  }
+  const FAMILY = Object.assign(Object.create(null), { ...Object.fromEntries(LANGUAGES.map(([id]) => [id, id])), ts: "web", js: "web", vue: "web", svelte: "web", astro: "web", mdx: "web", html: "web", css: "web", scss: "web", less: "web", npm: "web", tuist: "swift", cargo: "rust", kotlin: "jvm", java: "jvm", scala: "jvm", groovy: "jvm", gradle: "jvm", maven: "jvm", pypi: "python", dotnet: "csharp", composer: "php", gem: "ruby", pub: "dart" });
+  const EXTFAM = Object.assign(Object.create(null), Object.fromEntries(Object.entries(EXTLANG).map(([ext, id]) => [ext, FAMILY[id]])));
+  const FAMNAME = Object.assign(Object.create(null), { ...LANGNAME, web: "TS/JS · Web", jvm: "Java/Kotlin · JVM", lang: "그 밖의 언어", other: "그 밖의 파일", ext: "외부 패키지 · 모듈" });
   const ROLENAME = { app: "앱 · 실행 파일", lib: "라이브러리 · 프레임워크", test: "테스트", ext: "외부 패키지" };
-  const PRIORITY = ["web", "swift", "python", "go", "rust", "jvm"];
+  const PRIORITY = [...new Set(["web", "swift", "python", "go", "rust", "jvm", ...Object.values(FAMILY)])];
+  const pathLang = (p) => {
+    const b = (p || "").split("/").pop().toLowerCase();
+    return b === "cmakelists.txt" ? "cmake" : /^(gnumakefile|makefile)$/.test(b) ? "make" : /^dockerfile($|\.)/.test(b) ? "docker" : /^(gemfile|rakefile)$/.test(b) ? "ruby" : EXTLANG[b.split(".").pop()];
+  };
+  const DIRLANGS = new Map();
+  for (const f of VIEWS.files?.nodes || []) if (f.kind === "file") {
+    const p = f.path || f.id, lang = LANGNAME[f.lang] ? f.lang : pathLang(p); if (!LANGNAME[lang]) continue;
+    const dirs = p.split("/"); dirs.pop();
+    while (true) { const dir = dirs.join("/"); if (!DIRLANGS.has(dir)) DIRLANGS.set(dir, new Set()); DIRLANGS.get(dir).add(lang); if (!dirs.length) break; dirs.pop(); }
+  }
+  const langsOf = (d, rel) => {
+    if (d.kind === "package" || (rel === "files" && d.kind === "module")) return [];
+    if (d.lang && LANGNAME[d.lang]) return [d.lang];
+    if (d.kind === "folder" && d.exts) return [...new Set([...Object.keys(d.exts).map((e) => EXTLANG[e]).filter(Boolean), ...(DIRLANGS.get(d.path === "." ? "" : d.path) || [])])];
+    if (d.kind === "module") {
+      const allowed = ECOLANG[d.ecosystem || d.group] || [];
+      const dir = d.path && d.path !== "." ? d.path.replace(/\/$/, "") : "";
+      const found = [...(DIRLANGS.get(dir) || [])].filter((l) => allowed.includes(l));
+      const repoLangs = [...(DIRLANGS.get("") || [])].filter((l) => allowed.includes(l));
+      return found.length ? found : repoLangs.length ? repoLangs : allowed;
+    }
+    const lang = LANGNAME[d.group] ? d.group : pathLang(d.path || d.id);
+    return lang ? [lang] : [];
+  };
   const APP_T = /^(app|appClip|executable|commandLineTool|watch2App|watch2Extension|appExtension|messagesExtension|stickerPackExtension|tvTopShelfExtension|extensionKitExtension|systemExtension|xpc)$/;
   const TEST_T = /^(test|unitTests|uiTests)$/;
   const TEST_PATH = /(^|\/)(tests?|__tests__|specs?|[A-Za-z]*Tests|androidTest|testFixtures)(\/|$)|[._-](test|spec)\.[A-Za-z]+$|Tests?\.(swift|kt|java)$|(^|\/)test_[^/]*\.py$/;
@@ -7387,7 +8570,7 @@ HTMLEOF
   // ----- 설정: 필터 · 표시 · 힘은 모든 탭 공통, 단위 · 그리기 · 배치 · 색 · 크기는 탭마다 -----
   const RULES = RAW.rules || null;   // gitch graph check 결과(규칙 파일이 있을 때)
   let VIOL = null;                   // 지금 모델에서 규칙을 어긴 연결 → 위반
-  const P = { onlyDiff: true, rules: true, lang: "all", ext: true, heur: true, tests: true, orph: true, onlyFound: false, minDeg: 0, local: false, localDepth: 1, arrows: false, names: false, size: 1, width: 1, center: 0.4, repel: 10, link: 0.7, dist: 40 };
+  const P = { onlyDiff: true, onlyAffected: !!META.stats?.affected, rules: true, lang: "all", ext: true, heur: true, tests: true, orph: true, onlyFound: false, minDeg: 0, local: false, localDepth: 1, arrows: false, names: false, size: 1, width: 1, center: 0.4, repel: 10, link: 0.7, dist: 40 };
   const hidden = new Set();
   const C = {};
   const VS = {};
@@ -7440,7 +8623,7 @@ HTMLEOF
     let fam = famOf(d, rel);
     if (PRIORITY.includes(fam) && !colored.includes(fam)) fam = "lang";
     const test = d.kind !== "package" && (TEST_T.test(d.type || "") || TEST_PATH.test(d.path || d.id));
-    return { d, id: d.id, label: d.label || d.id, kind: d.kind, fam, role: roleOf(d), test, x: 0, y: 0, vx: 0, vy: 0, fx: null, fy: null, out: [], inc: [], deg: 0, r: 4, w: 60, h: 30, lw: 40, fade: 1, vis: true, key: ((d.label || "") + "\n" + d.id).toLowerCase() };
+    return { d, id: d.id, label: d.label || d.id, kind: d.kind, fam, langs: langsOf(d, rel), role: roleOf(d), test, x: 0, y: 0, vx: 0, vy: 0, fx: null, fy: null, out: [], inc: [], deg: 0, r: 4, w: 60, h: 30, lw: 40, fade: 1, vis: true, key: ((d.label || "") + "\n" + d.id).toLowerCase() };
   }
   function link(s, t, d, kind, w, h) { const e = { s, t, d, kind, w, h, u: h && !d.checked, vis: true, len: 40, str: 1, bias: 0.5 }; s.out.push(e); t.inc.push(e); return e; }   // u: 이름만으로 한 추정(점선)
   function finish(md) {
@@ -7465,12 +8648,12 @@ HTMLEOF
       let g = groups.get(key);
       if (!g) {
         g = node({ id: key ? key + "/" : "./", label: key || META.repo, kind: "folder", group: "folder", path: key || ".", files: 0, lines: 0 }, base.rel);   // 이름은 폴더 경로 전체 — 같은 이름(src 등)이 섞이지 않게
-        g.members = []; g.famCount = {}; g.tests = 0;
+        g.members = []; g.famCount = {}; g.langs = []; g.tests = 0;
         groups.set(key, g); nodes.push(g);
       }
       map.set(n, g);
       if (n.kind !== "file") continue;
-      g.members.push(n); g.d.files++;
+      g.members.push(n); g.langs = [...new Set([...g.langs, ...n.langs])]; g.d.files++;
       if (n.d.lines) g.d.lines += n.d.lines;
       if (n.d.changes) g.d.changes = (g.d.changes || 0) + n.d.changes;
       g.famCount[n.fam] = (g.famCount[n.fam] || 0) + 1;
@@ -7478,7 +8661,7 @@ HTMLEOF
       if (n.d.status) { g.st = g.st || {}; g.st[n.d.status] = (g.st[n.d.status] || 0) + 1; }
     }
     for (const g of groups.values()) {
-      if (!g.members.length) { g.fam = colored.includes("go") ? "go" : "lang"; delete g.d.lines; continue; }   // 파일 없이 Go 패키지 노드만 든 폴더
+      if (!g.members.length) { g.fam = colored.includes("go") ? "go" : "lang"; g.langs = ["go"]; delete g.d.lines; continue; }   // 파일 없이 Go 패키지 노드만 든 폴더
       let best = "other", bc = -1;
       for (const [f, c] of Object.entries(g.famCount)) if (c > bc || (c === bc && f < best)) { best = f; bc = c; }
       g.fam = best; g.test = g.tests === g.members.length; g.role = g.test ? "test" : "lib";
@@ -7542,9 +8725,10 @@ HTMLEOF
   function refreshVisible() {
     for (const n of m.nodes) {
       let v = !hidden.has(groupKey(n)) && !(!P.ext && n.fam === "ext") && !(!P.tests && n.test);
-      if (P.lang !== "all" && n.fam !== "ext" && n.fam !== P.lang) v = false;
+      if (P.lang !== "all" && n.fam !== "ext" && !n.langs.includes(P.lang)) v = false;
       if (P.onlyFound && matchSet && !matchSet.has(n)) v = false;
       n.vis = v;
+      if (n.vis && m.G.stats?.affected && P.onlyAffected && !(n.d.affected || n.members?.some((o) => o.d.affected))) n.vis = false;
     }
     const pass = () => { for (const e of m.edges) e.vis = e.s.vis && e.t.vis && !(!P.heur && e.h); };
     pass();
@@ -8660,7 +9844,7 @@ HTMLEOF
     const seen = new Map();
     for (const [, o] of pairs) seen.set(o.label, (seen.get(o.label) || 0) + 1);
     const where = (o) => (seen.get(o.label) > 1 && dirOf(o) ? ` <small class="dir">${esc(dirOf(o).split("/").slice(-2).join("/"))}</small>` : "");
-    const items = pairs.slice(0, 400).map(([e, o]) => `<li data-i="${o.i}" title="${esc(o.id + (e.d.via ? "\n" + e.d.via.join(", ") : ""))}">${dotHtml(o)}<span class="name">${esc(o.label)}${where(o)}</span><small>${esc(edgeNote(e))}</small></li>`).join("");
+    const items = pairs.slice(0, 400).map(([e, o]) => `<li data-i="${o.i}" title="${esc(o.id)}">${dotHtml(o)}<span class="name">${esc(o.label)}${where(o)}</span><small>${esc(edgeNote(e))}</small>${evidenceHtml(e)}</li>`).join("");
     return `<h3 class="sec-title"><span class="arrow">${arrowCh}</span>${esc(title)} · ${pairs.length}</h3><ul class="rows">${items}</ul>`;
   }
   function placeInfo() {
@@ -8675,7 +9859,7 @@ HTMLEOF
     const n = sel, a = analyze(), rows = [];
     for (const [k, v] of Object.entries(n.d)) {
       if (k === "id" || k === "label" || k === "kind" || k === "group" || k === "path" || !(k in KEYNAME)) continue;
-      const val = k === "bytes" ? hsize(v) : k === "status" ? STATUSNAME[v] || v : k === "bytesDelta" ? (v < 0 ? "−" : "+") + hsize(Math.abs(v)) : k === "filesDelta" ? (v > 0 ? "+" : "") + v : Array.isArray(v) ? v.join(", ") : k === "exts" ? Object.entries(v).map(([x, y]) => `${x} ${y}`).join(" · ") : typeof v === "boolean" ? (v ? "예" : "아니오") : typeof v === "object" ? JSON.stringify(v) : v;
+      const val = k === "analysis" ? METHODNAME[v] || v : k === "bytes" ? hsize(v) : k === "status" ? STATUSNAME[v] || v : k === "bytesDelta" ? (v < 0 ? "−" : "+") + hsize(Math.abs(v)) : k === "filesDelta" ? (v > 0 ? "+" : "") + v : Array.isArray(v) ? v.join(", ") : k === "exts" ? Object.entries(v).map(([x, y]) => `${x} ${y}`).join(" · ") : typeof v === "boolean" ? (v ? "예" : "아니오") : typeof v === "object" ? JSON.stringify(v) : v;
       rows.push(`<tr><th>${esc(KEYNAME[k] || k)}</th><td>${esc(val)}</td></tr>`);
     }
     const c = CHG.get(n.id);
@@ -8687,6 +9871,7 @@ HTMLEOF
     let html = `<div class="head">${dotHtml(n)}<h2>${esc(n.label)}</h2><button class="icon-btn" type="button" title="닫기 (Esc)" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
     html += `<div class="sub">${esc(KINDNAME[n.kind] || n.kind)} · ${esc(famLabel(n))}${n.test ? " · 테스트" : ""}</div>`;
     if (n.d.path || n.id !== n.label) html += `<div class="path">${esc(n.d.path || n.id)}</div>`;
+    if (n.kind === "file" && META.repoPath) html += `<p><a class="source-link" href="${esc(appLink(n.d.path || n.id, 1, n.d.impactFromBase ? n.d.baseCommit : null))}">앱에서 ${n.d.impactFromBase ? "변경 전 " : ""}파일 열기 ↗</a></p>`;
     if (m.directed) {
       const inst = ca + ce ? (ce / (ca + ce)).toFixed(2) : "–";
       html += `<div class="metrics"><div title="이것을 쓰는 것(직접)"><b>${ca}</b><span>들어옴</span></div><div title="이것이 쓰는 것(직접)"><b>${ce}</b><span>나감</span></div><div title="나감 ÷ (들어옴 + 나감) — 1 에 가까울수록 남에게 기대고, 0 에 가까울수록 남이 기댄다"><b>${inst}</b><span>불안정도</span></div>`
@@ -8702,7 +9887,7 @@ HTMLEOF
     }
     info.innerHTML = html; info.hidden = false; placeInfo();
     info.querySelector(".head .icon-btn").onclick = () => select(null);
-    for (const li of info.querySelectorAll("li[data-i]")) li.onclick = () => { const o = m.nodes[+li.dataset.i]; select(o); centerOn(o, Math.max(view.k, 1.2)); };
+    for (const li of info.querySelectorAll("li[data-i]")) li.onclick = (event) => { if (event.target.closest("details,a")) return; const o = m.nodes[+li.dataset.i]; select(o); centerOn(o, Math.max(view.k, 1.2)); };
     for (const li of info.querySelectorAll("li[data-m]")) li.onclick = () => { setUnit("file"); const o = m.nodeOf.get(li.dataset.m); if (o && o.vis) { select(o); centerOn(o, Math.max(view.k, 1.4)); } };
     for (const b of info.querySelectorAll("[data-act]")) b.onclick = () => act(b.dataset.act, n);
   }
@@ -8900,6 +10085,7 @@ HTMLEOF
     const packed = vs.layout === "pack", unitOk = (REL === "files" || REL === "changes") && !packed;
     $("styleLab").hidden = packed; $("styleLine").hidden = packed;
     $("diffRow").hidden = !m.G.diff; $("rulesRow").hidden = !(VIOL && VIOL.size);
+    $("affectedRow").hidden = !m.G.stats?.affected;
     $("unitLab").hidden = !unitOk; $("unitLine").hidden = !unitOk;
     seg($("unit"), [["file", "파일"], ["folder", "폴더"]], vs.unit, setUnit);
     $("depth").hidden = vs.unit !== "folder";
@@ -8924,10 +10110,13 @@ HTMLEOF
     $("stats").textContent = (D ? `비교 ${D.baseName}(${D.base}) → 작업 트리 · 연결 +${st.addedEdges || 0} −${st.removedEdges || 0}${st.newCycles ? ` · 새 순환 ${st.newCycles}` : ""}${st.changedCycles ? ` · 바뀐 순환 ${st.changedCycles}` : ""}`
       : `${RELNAME[REL]}${m.agg ? ` · 폴더 ${m.depth}단계` : ""} · 노드 ${m.nodes.length} · 연결 ${m.edges.length}${st.heuristicEdges && !m.agg ? ` (추정 ${st.heuristicEdges})` : ""}${G.lang ? " · " + G.lang.join(",") : ""}`) + (nv ? ` · 규칙 위반 ${nv}` : "");
     $("stats").title = `${G.commit ? G.commit + " · " : ""}gitch ${G.version} · ${G.generated || ""}`;
-    const notes = G.notes || [];
-    $("notes").innerHTML = notes.map((t) => `<p>${esc(t)}</p>`).join("");
-    $("noteBtn").hidden = !notes.length;
-    if (!notes.length) $("notes").hidden = true;
+    if (st.affected) $("stats").textContent += ` · 변경 ${st.affected.changedFiles.length}개 → 영향 파일 ${st.affected.files.length}개 · 모듈 ${st.affected.modules.length}개`;
+    const notes = [...(G.notes || [])];
+    if (st.historyFrom) notes.unshift(`실제 이력 ${st.historyFrom} ~ ${st.historyTo} · 사용 ${st.analyzedCommits || 0}/${st.commits || 0} 커밋 · 이름 변경 추적 ${st.followedRenames || 0}개${st.historyTruncated ? " · 커밋 수 제한으로 잘림" : ""}${st.shallowHistory ? " · shallow 저장소: 이전 이력 없음" : ""}`);
+    const diagnostics = G.diagnostics || [];
+    $("notes").innerHTML = notes.map((t) => `<p>${esc(t)}</p>`).join("") + diagnostics.map((d) => `<p>${d.file && META.repoPath ? `<a href="${esc(appLink(d.file, d.line))}">${esc(d.file)}${d.line ? ":" + d.line : ""}</a> · ` : ""}${esc(d.code)}: ${esc(d.message)}</p>`).join("");
+    $("noteBtn").hidden = !notes.length && !diagnostics.length;
+    if (!notes.length && !diagnostics.length) $("notes").hidden = true;
   }
   function setUnit(u) { if (u === vs.unit) return; vs.unit = u; switchModel(); }
   function switchModel() {
@@ -8950,10 +10139,11 @@ HTMLEOF
   }
   function show(rel) { REL = rel; vs = stateFor(rel); switchModel(); }
   function buildLang() {
-    const fams = new Set();
-    for (const v of ORDER) for (const d of VIEWS[v].nodes) { let f = famOf(d, v); if (PRIORITY.includes(f) && !colored.includes(f)) f = "lang"; if (f !== "ext" && f !== "other") fams.add(f); }
-    const opts = [["all", "모든 언어"], ...[...colored, "lang"].filter((f) => fams.has(f)).map((f) => [f, FAMNAME[f]])];
-    $("lang").innerHTML = opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("");
+    const langs = new Set();
+    for (const v of ORDER) for (const d of VIEWS[v].nodes) for (const l of langsOf(d, v)) langs.add(l);
+    const label = (l) => LANGNAME[l] || String(l);
+    const opts = [["all", "모든 언어"], ...[...langs].sort((a, b) => label(a).localeCompare(label(b))).map((l) => [l, label(l)])];
+    $("lang").innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("");
     $("lang").disabled = opts.length <= 2;
   }
 
@@ -9122,6 +10312,7 @@ HTMLEOF
   bindSwitch("arrows", "arrows", request);
   bindSwitch("names", "names", request);
   bindSwitch("onlyDiff", "onlyDiff", () => { m.userMoved = false; filtersChanged(); });
+  bindSwitch("onlyAffected", "onlyAffected", () => { m.userMoved = false; filtersChanged(); });
   bindSwitch("rules", "rules", () => { if (m.pk) m.pk.sig = -1; request(); });
   const fmt = { fade: (v) => v.toFixed(2) + "×", size: (v) => v.toFixed(2) + "×", width: (v) => v.toFixed(1) + "×", center: (v) => v.toFixed(2), repel: (v) => v.toFixed(1), link: (v) => v.toFixed(2), dist: (v) => String(v), minDeg: (v) => (v ? v + "개" : "모두"), localDepth: (v) => v + "단계" };
   for (const key of Object.keys(fmt)) {
@@ -9140,6 +10331,79 @@ HTMLEOF
   }
   $("animate").onclick = () => { vs.layout = "force"; renderControls(); m.userMoved = false; startForce(true, 1); };
 
+  const viewKey = "gitch-graph-views-v1:" + (META.repoPath || META.repo) + ":" + (META.scope || "");
+  const lastKey = viewKey + ":last:" + (RAW.initial || META.relation) + (META.diff ? ":diff" : META.stats?.affected ? ":affected" : META.stats?.precise ? ":precise" : "");
+  function captureView() {
+    return { schemaVersion: 1, tool: "gitch graph view", repo: META.repo, relation: REL, filters: { ...P },
+      display: Object.fromEntries(ORDER.map((r) => { const s = stateFor(r); return [r, { unit: s.unit, depth: s.depth, style: s.style, layout: s.layout, colorBy: s.colorBy, sizeBy: s.sizeBy }]; })),
+      hidden: [...hidden], query: q.value, selected: sel?.id || null, camera: { ...view }, theme: root.dataset.theme,
+      positions: m.nodes.slice(0, 10000).map((n) => [n.id, n.x, n.y, n.fx, n.fy]) };
+  }
+  function restoreView(data) {
+    if (!data || data.schemaVersion !== 1 || data.tool !== "gitch graph view" || !ORDER.includes(data.relation)) throw new Error("호환되는 그래프 보기 파일이 아닙니다.");
+    const filters = data.filters || {};
+    for (const key of Object.keys(P)) {
+      const v = filters[key], el = $(key);
+      if (typeof P[key] === "boolean" && typeof v === "boolean") P[key] = v;
+      else if (typeof P[key] === "number" && typeof v === "number" && Number.isFinite(v)) P[key] = clamp(v, +(el?.min || 0), +(el?.max || 250));
+      else if (key === "lang" && typeof v === "string") P[key] = [...$("lang").options].some((o) => o.value === v) ? v : "all";
+      if (el?.type === "checkbox") el.checked = P[key];
+      else if (el?.type === "range") { el.value = P[key]; if ($(key + "V")) $(key + "V").textContent = fmt[key](P[key]); }
+    }
+    for (const r of ORDER) {
+      const d = data.display?.[r], s = stateFor(r); if (!d || typeof d !== "object") continue;
+      for (const [key, allowed] of Object.entries({ unit: ["file", "folder"], style: ["dot", "box"], colorBy: ["family", "role", "heat"], sizeBy: ["auto", "deg", "lines", "changes"] })) if (allowed.includes(d[key])) s[key] = d[key];
+      if (LAYOUTS[r].some(([id]) => id === d.layout)) s.layout = d.layout;
+      if (Number.isInteger(d.depth)) s.depth = clamp(d.depth, 1, 8);
+    }
+    hidden.clear(); if (Array.isArray(data.hidden)) for (const k of data.hidden.slice(0, 100)) if (typeof k === "string" && /^[fr]:/.test(k)) hidden.add(k);
+    q.value = typeof data.query === "string" ? data.query.slice(0, 1000) : "";
+    $("lang").value = P.lang;
+    show(data.relation);
+    running = false; alpha = 0; morph = null; tween = null;
+    if (Array.isArray(data.positions)) for (const p of data.positions.slice(0, 10000)) {
+      if (!Array.isArray(p) || typeof p[0] !== "string") continue;
+      const n = m.nodeOf.get(p[0]); if (!n || !p.slice(1, 3).every((v) => typeof v === "number" && Number.isFinite(v) && Math.abs(v) < 1e8)) continue;
+      n.x = p[1]; n.y = p[2]; n.vx = n.vy = 0;
+      n.fx = Number.isFinite(p[3]) ? clamp(p[3], -1e8, 1e8) : null; n.fy = Number.isFinite(p[4]) ? clamp(p[4], -1e8, 1e8) : null;
+    }
+    const c = data.camera;
+    if (c && [c.x, c.y, c.k].every((v) => typeof v === "number" && Number.isFinite(v))) { view.x = clamp(c.x, -1e8, 1e8); view.y = clamp(c.y, -1e8, 1e8); view.k = clamp(c.k, 0.01, 100); }
+    sel = typeof data.selected === "string" ? m.nodeOf.get(data.selected) || null : null;
+    if (P.local && sel) refreshVisible();
+    if (sel && !sel.vis) sel = null;
+    setTheme(data.theme === "light" ? "light" : "dark", false);
+    renderControls(); renderInfo(); setQuery(q.value); m.userMoved = true; request();
+    return true;
+  }
+  function readViews() { try { const data = JSON.parse(localStorage.getItem(viewKey) || "{}"); return data && typeof data === "object" && !Array.isArray(data) ? data : {}; } catch { return {}; } }
+  function renderSavedViews() {
+    const data = readViews(), select = $("savedViews"); select.replaceChildren(new Option("저장한 보기 선택", ""));
+    for (const name of Object.keys(data).sort().slice(0, 30)) select.add(new Option(name, name));
+  }
+  function saveLast() { try { sessionStorage.setItem(lastKey, JSON.stringify(captureView())); } catch { /* private mode */ } }
+  window.gitchGraphView = { capture: captureView, restore: restoreView, saveLast };
+  window.addEventListener("beforeunload", saveLast);
+  $("saveView").onclick = () => {
+    const name = $("viewName").value.trim(); if (!name) { $("viewName").focus(); return; }
+    const data = Object.assign(Object.create(null), readViews());
+    if (!Object.hasOwn(data, name) && Object.keys(data).length >= 30) { banner("보기는 30개까지 저장할 수 있습니다."); return; }
+    data[name] = captureView();
+    try { localStorage.setItem(viewKey, JSON.stringify(data)); renderSavedViews(); $("savedViews").value = name; banner("보기를 저장했습니다: " + name); } catch { banner("브라우저 저장 공간이 부족합니다. 보기 파일로 내보내세요."); }
+  };
+  $("savedViews").onchange = () => { const name = $("savedViews").value; if (!name) return; try { restoreView(readViews()[name]); $("viewName").value = name; } catch (e) { banner(e.message); } };
+  $("deleteView").onclick = () => { const name = $("savedViews").value; if (!name) return; const data = readViews(); delete data[name]; try { localStorage.setItem(viewKey, JSON.stringify(data)); renderSavedViews(); } catch { banner("보기를 삭제하지 못했습니다."); } };
+  $("exportView").onclick = () => {
+    const a = document.createElement("a"), url = URL.createObjectURL(new Blob([JSON.stringify(captureView(), null, 2)], { type: "application/json" }));
+    a.href = url; a.download = "gitch-graph-view.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+  $("importView").onclick = () => $("viewFile").click();
+  $("viewFile").onchange = async () => {
+    const file = $("viewFile").files[0]; if (!file) return;
+    try { if (file.size > 4 * 1024 * 1024) throw new Error("보기 파일은 4MB 이하여야 합니다."); restoreView(JSON.parse(await file.text())); banner("보기를 가져왔습니다."); } catch (e) { banner(e.message || "보기 파일을 읽지 못했습니다."); }
+    $("viewFile").value = "";
+  };
+
   // ----- 시작 -----
   document.title = `${META.repo}${META.scope ? "/" + META.scope : ""} — gitch graph`;
   $("repo").textContent = META.repo + (META.scope ? " / " + META.scope : "");
@@ -9151,8 +10415,13 @@ HTMLEOF
   resize();
   buildLang();
   show(REL);
+  renderSavedViews();
+  try { const last = sessionStorage.getItem(lastKey); if (last && location.hash !== "#test") restoreView(JSON.parse(last)); } catch { /* other snapshots may omit this relation */ }
   if (location.hash === "#test") window.gitchGraphTest = {
     state: () => ({ rel: REL, layout: vs.layout, style: vs.style, unit: vs.unit, k: view.k, running, alpha: +alpha.toFixed(4), nodes: visNodes.length, edges: visEdges.length, pack: vs.layout === "pack" && m.pk ? { folders: m.pk.folders.length, agg: m.pk.agg.length, open: m.pk.sig } : null }),
+    visible: () => visNodes.map((n) => ({ id: n.id, langs: n.langs, kind: n.kind })),
+    select: (id) => { const n = m.nodeOf.get(id); if (n) select(n); return !!n; },
+    capture: captureView, restore: restoreView,
     overlaps: () => {   // 겹친 쌍의 수(폴더 원은 형제 원끼리 · 부모 밖으로 나간 원)
       let bad = 0;
       if (vs.layout === "pack" && m.pk) {
@@ -9173,6 +10442,1706 @@ HTMLEOF
 </body>
 </html>
 HTMLEOF
+}
+
+schema_cmd() {
+  local kind=${1:-public}
+  case "$kind" in public|graph|error|languages|status|ck|preflight|rules|version|list|doctor|scan|audit|report|pr|view|watch|index) ;; --help|-h) say '사용법: gitch schema [public|graph|error|languages|status|ck|preflight|rules|version|list|doctor|scan|audit|report|pr|view|watch|index]'; return 0 ;; *) die "알 수 없는 JSON 스키마: $kind" ;; esac
+  printf '{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://github.com/Gitrochi/Gitrochi/blob/main/tools/gitch/schema/gitch-v1.schema.json","title":"gitch public JSON contract version 1","$ref":"#/$defs/%s",' "$kind"
+  cat <<'SCHEMAEOF'
+"$defs": {
+    "commit": {
+      "type": "object",
+      "required": [
+        "sha",
+        "date",
+        "subject"
+      ],
+      "properties": {
+        "sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "subject": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "file",
+        "line",
+        "method",
+        "confidence"
+      ],
+      "properties": {
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "method": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "declaration": {
+          "type": "string"
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "group"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "changes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastChanged": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "enum": [
+            "added",
+            "removed",
+            "changed"
+          ]
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": [
+        "source",
+        "target",
+        "kind",
+        "weight"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "heuristic": {
+          "type": "boolean"
+        },
+        "method": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "via": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "degree": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "commitCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "commitsTruncated": {
+          "type": "boolean"
+        },
+        "commits": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/commit"
+          }
+        }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "version",
+        "relation",
+        "directed",
+        "repo",
+        "repoPath",
+        "scope",
+        "lang",
+        "commit",
+        "generated",
+        "stats",
+        "notes",
+        "diagnostics",
+        "analysisLevels",
+        "nodes",
+        "edges"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch graph"
+        },
+        "version": {
+          "type": "string"
+        },
+        "relation": {
+          "enum": [
+            "files",
+            "modules",
+            "changes",
+            "tree"
+          ]
+        },
+        "directed": {
+          "type": "boolean"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "repoPath": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "lang": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generated": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "object",
+          "required": [
+            "nodes",
+            "edges",
+            "heuristicEdges"
+          ],
+          "properties": {
+            "nodes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "edges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "heuristicEdges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "analyzedCommits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "skippedLargeCommits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "historyFrom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "historyTo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "analyzedFrom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "analyzedTo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "historyTruncated": {
+              "type": "boolean"
+            },
+            "shallowHistory": {
+              "type": "boolean"
+            },
+            "followedRenames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "affected": {
+              "type": "object",
+              "required": [
+                "base",
+                "changedFiles",
+                "files",
+                "modules",
+                "unresolvedFiles",
+                "includesBaseDependencies"
+              ],
+              "properties": {
+                "base": {
+                  "type": "string"
+                },
+                "changedFiles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "modules": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "unresolvedFiles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "includesBaseDependencies": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "code",
+              "severity",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "file": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "analysisLevels": {
+          "type": "object"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "diff": {
+          "type": "object",
+          "required": [
+            "base",
+            "baseName",
+            "head"
+          ],
+          "properties": {
+            "base": {
+              "type": "string"
+            },
+            "baseName": {
+              "type": "string"
+            },
+            "head": {
+              "type": "string"
+            }
+          }
+        },
+        "cycles": {
+          "type": "object"
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "error"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "error": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string"
+            },
+            "exitCode": {
+              "enum": [
+                1,
+                2
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "code": {
+                    "enum": [
+                      "GITCH_ERROR",
+                      "GITCH_CONFIRMATION_REQUIRED"
+                    ]
+                  }
+                },
+                "required": [
+                  "code"
+                ]
+              },
+              "then": {
+                "required": [
+                  "exitCode"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "languages": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "languages",
+        "preciseBackendRequirement"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch graph languages"
+        },
+        "preciseBackendRequirement": {
+          "type": "string"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "extensions",
+              "aliases",
+              "ecosystem",
+              "manifests",
+              "fileDetection",
+              "staticImports",
+              "heuristic",
+              "preciseBackend",
+              "builtInPreciseIndexer"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "extensions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ecosystem": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "manifests": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fileDetection": {
+                "const": true
+              },
+              "staticImports": {
+                "type": "boolean"
+              },
+              "heuristic": {
+                "type": "boolean"
+              },
+              "preciseBackend": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "SCIP",
+                    "SwiftIndex"
+                  ]
+                }
+              },
+              "builtInPreciseIndexer": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "inRepo",
+        "folderAccount"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "inRepo": {
+          "type": "boolean"
+        },
+        "folderAccount": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "repo": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "author": {
+          "type": "object",
+          "required": [
+            "name",
+            "email"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          }
+        },
+        "remote": {
+          "type": "string"
+        },
+        "pushUrl": {
+          "type": "string"
+        },
+        "upstream": {
+          "type": "string"
+        },
+        "lockedAccount": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "accountSource": {
+          "type": "string"
+        },
+        "derivedAccount": {
+          "type": "string"
+        },
+        "pushAccount": {
+          "type": "string"
+        },
+        "pushLogin": {
+          "type": "string"
+        },
+        "unpushedCommits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signing": {
+          "type": "boolean"
+        },
+        "ignored": {
+          "type": "boolean"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "fileStatus": {
+      "type": "object",
+      "required": [
+        "status",
+        "path"
+      ],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "ck": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "repo",
+        "branch",
+        "account",
+        "locked",
+        "fetched",
+        "hasUpstream",
+        "ahead",
+        "behind",
+        "staged",
+        "unstaged",
+        "untracked",
+        "stash",
+        "inProgress",
+        "conflicts"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "repo": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "fetched": {
+          "type": "boolean"
+        },
+        "hasUpstream": {
+          "type": "boolean"
+        },
+        "ahead": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "behind": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "staged": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileStatus"
+          }
+        },
+        "unstaged": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileStatus"
+          }
+        },
+        "untracked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stash": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inProgress": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "result",
+        "account",
+        "pushAccount",
+        "branch",
+        "ahead",
+        "behind",
+        "checks"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "result": {
+          "enum": [
+            "OK",
+            "WARN",
+            "STOP"
+          ]
+        },
+        "account": {
+          "type": "string"
+        },
+        "pushAccount": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "ahead": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "behind": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "level",
+              "code",
+              "message"
+            ],
+            "properties": {
+              "level": {
+                "enum": [
+                  "OK",
+                  "WARN",
+                  "STOP"
+                ]
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "file",
+        "base",
+        "ok",
+        "violations"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch graph check"
+        },
+        "file": {
+          "type": "string"
+        },
+        "base": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "relation",
+              "severity",
+              "line",
+              "rule",
+              "kind",
+              "existing"
+            ],
+            "properties": {
+              "relation": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "rule": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "existing": {
+                "type": "boolean"
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "version": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "version",
+        "versionScheme",
+        "graphApi"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch"
+        },
+        "version": {
+          "type": "string"
+        },
+        "versionScheme": {
+          "const": "gitrochi"
+        },
+        "graphApi": {
+          "const": 1
+        }
+      }
+    },
+    "list": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "accounts"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "accounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "email",
+              "hosts",
+              "rules",
+              "sshKey",
+              "current"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "hosts": {
+                "type": "string"
+              },
+              "rules": {
+                "type": "string"
+              },
+              "sshKey": {
+                "type": "boolean"
+              },
+              "current": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "doctor": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "version",
+        "problems",
+        "items"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "version": {
+          "type": "string"
+        },
+        "problems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "section",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "section": {
+                "type": "string"
+              },
+              "level": {
+                "enum": [
+                  "OK",
+                  "WARN",
+                  "FAIL",
+                  "INFO"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "root",
+        "total",
+        "ok",
+        "problems",
+        "repos"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "root": {
+          "type": "string"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ok": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "problems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repos": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "since",
+        "findings",
+        "repos"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "since": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repos": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "report": {
+      "type": "array",
+      "description": "Legacy report payload remains an array; schema version is selected by this schema document.",
+      "items": {
+        "type": "object"
+      }
+    },
+    "pr": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "number",
+        "url",
+        "state",
+        "title"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "url": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "isDraft": {
+          "type": "boolean"
+        },
+        "mergeable": {
+          "type": "string"
+        },
+        "reviewDecision": {
+          "type": "string"
+        },
+        "statusCheckRollup": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "public": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/graph"
+        },
+        {
+          "$ref": "#/$defs/error"
+        },
+        {
+          "$ref": "#/$defs/languages"
+        },
+        {
+          "$ref": "#/$defs/status"
+        },
+        {
+          "$ref": "#/$defs/ck"
+        },
+        {
+          "$ref": "#/$defs/preflight"
+        },
+        {
+          "$ref": "#/$defs/rules"
+        },
+        {
+          "$ref": "#/$defs/version"
+        },
+        {
+          "$ref": "#/$defs/list"
+        },
+        {
+          "$ref": "#/$defs/doctor"
+        },
+        {
+          "$ref": "#/$defs/scan"
+        },
+        {
+          "$ref": "#/$defs/audit"
+        },
+        {
+          "$ref": "#/$defs/report"
+        },
+        {
+          "$ref": "#/$defs/pr"
+        },
+        {
+          "$ref": "#/$defs/view"
+        },
+        {
+          "$ref": "#/$defs/watch"
+        },
+        {
+          "$ref": "#/$defs/index"
+        }
+      ]
+    },
+    "viewDisplay": {
+      "type": "object",
+      "required": [
+        "unit",
+        "depth",
+        "style",
+        "layout",
+        "colorBy",
+        "sizeBy"
+      ],
+      "properties": {
+        "unit": {
+          "enum": [
+            "file",
+            "folder"
+          ]
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "style": {
+          "enum": [
+            "dot",
+            "box"
+          ]
+        },
+        "layout": {
+          "type": "string"
+        },
+        "colorBy": {
+          "enum": [
+            "family",
+            "role",
+            "heat"
+          ]
+        },
+        "sizeBy": {
+          "enum": [
+            "auto",
+            "deg",
+            "lines",
+            "changes"
+          ]
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "repo",
+        "relation",
+        "filters",
+        "display",
+        "hidden",
+        "query",
+        "selected",
+        "camera",
+        "theme",
+        "positions"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch graph view"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "relation": {
+          "enum": [
+            "files",
+            "modules",
+            "changes",
+            "tree"
+          ]
+        },
+        "filters": {
+          "type": "object"
+        },
+        "display": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/viewDisplay"
+          }
+        },
+        "hidden": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "query": {
+          "type": "string"
+        },
+        "selected": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "camera": {
+          "type": "object",
+          "required": [
+            "x",
+            "y",
+            "k"
+          ],
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "k": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "theme": {
+          "enum": [
+            "dark",
+            "light"
+          ]
+        },
+        "positions": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 5,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "watchDescription": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "url",
+        "stateUrl",
+        "refreshUrl",
+        "pid",
+        "generation",
+        "storageStable"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "stateUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "refreshUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "storageStable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "watchState": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "generation",
+        "phase",
+        "lastError",
+        "updatedAt",
+        "lastChangeAt",
+        "relation",
+        "pid",
+        "watching"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "phase": {
+          "type": "string"
+        },
+        "lastError": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "lastChangeAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "relation": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "watching": {
+          "type": "boolean"
+        },
+        "watchKey": {
+          "type": "string"
+        }
+      }
+    },
+    "watch": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/watchDescription"
+        },
+        {
+          "$ref": "#/$defs/watchState"
+        },
+        {
+          "type": "object",
+          "required": [
+            "schemaVersion",
+            "error",
+            "message"
+          ],
+          "properties": {
+            "schemaVersion": {
+              "const": 1
+            },
+            "error": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "index": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "language",
+        "executable",
+        "arguments",
+        "documentation",
+        "requirements",
+        "output"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "language": {
+          "type": "string"
+        },
+        "executable": {
+          "type": "string"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "documentation": {
+          "type": "string",
+          "format": "uri"
+        },
+        "requirements": {
+          "type": "string"
+        },
+        "output": {
+          "const": "index.scip"
+        }
+      }
+    }
+  }
+}
+SCHEMAEOF
+}
+
+# ================= 셸 자동완성 =================
+# 후보는 한 줄 하나, 스크립트가 인자로 넘긴 낱말만 읽는다. eval/네트워크/상태 변경은 하지 않는다.
+completion_repositories() {
+  local i=0 root d
+  load_config >/dev/null 2>&1
+  while [ $i -lt ${#F_RAW[@]} ]; do
+    root=$(expand_path "${F_RAW[$i]}"); root=${root%/}
+    for d in "$root"/* "$root"/*/*; do
+      [ -e "$d/.git" ] || continue
+      printf '%s\n%s/%s\n' "${d##*/}" "${F_ACC[$i]}" "${d##*/}"
+    done
+    i=$((i + 1))
+  done
+}
+completion_commands() {
+  printf '%s\n' preflight ck c p cp pl up l d b undo amend continue abort rescue o app pr ci publish status use unlock ignore protect clone fork sync fix scan audit prune wt report g graph list add remove org config setup auto sign ai ssh install uninstall migrate export import doctor version self-update completion schema help
+}
+completion_candidates() {   # _complete -- 이후: 실행 파일 이름을 뺀 낱말들(마지막은 입력 중인 낱말)
+  local empty_current=""
+  [ "${1:-}" != --empty-current ] || { empty_current=1; shift; }
+  [ "${1:-}" = -- ] && shift
+  local words=("$@") cur="" prev="" cmd="" n=0 stem="" candidate="" langs="" i
+  [ -z "$empty_current" ] || words+=("")
+  n=${#words[@]}
+  [ "$n" -gt 0 ] && { cmd=${words[0]}; cur=${words[$((n - 1))]}; }
+  [ "$n" -gt 1 ] && prev=${words[$((n - 2))]}
+  {
+    if [ "$n" -le 1 ]; then completion_commands
+    elif [ "$prev" = --lang ] || [[ "$cur" == --lang=* ]]; then
+      langs=${cur#--lang=}; [ "$langs" != "$cur" ] && stem=--lang=
+      case "$langs" in *,*) stem="$stem${langs%,*}," ;; esac
+      graph_languages | cut -d'|' -f1 | while IFS= read -r candidate; do printf '%s%s\n' "$stem" "$candidate"; done
+      printf '%sweb\n%sjvm\n' "$stem" "$stem"
+    elif [ "$prev" = --format ]; then printf '%s\n' html json dot svg png
+    elif [ "$prev" = --view ]; then printf '%s\n' graph files modules changes tree affected precise diff
+    elif [ "$prev" = --language ]; then printf '%s\n' ts js python java kotlin scala
+    elif [ "$prev" = --interval ]; then printf '%s\n' 1 2 5 10 30 60
+    elif [ "$prev" = --commit ]; then git log -10 --format='%H' 2>/dev/null
+    elif [ "$prev" = --base ] || [ "$cmd" = b ] || [ "$cmd" = branch ] || { [ "$cmd" = wt ] && [ "${words[1]:-}" = new ]; } || { { [ "$cmd" = g ] || [ "$cmd" = graph ]; } && [ "${words[1]:-}" = diff ] && [ "$n" -eq 3 ]; }; then
+      git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null
+      [ "${words[1]:-}" = diff ] && printf '%s\n' HEAD files modules tree
+    elif [ "$prev" = --out ] || [ "$prev" = --path ] || [ "$prev" = --repo ] || [ "$prev" = --rules ] || [ "$prev" = --index ] || [ "$prev" = --file ]; then
+      compgen -f -- "$cur"
+    elif [[ "$cur" == -* ]]; then
+      case "$cmd" in
+        g|graph)
+          printf '%s\n' --help --json --format --out --open --no-open --lang --no-external --since --max-commits --max-files --min --depth --files --base --rules --init --precise --index --no-cache
+          [ "${words[1]:-}" != watch ] || printf '%s\n' --detach --interval
+          [ "${words[1]:-}" != index ] || printf '%s\n' --language --project-name ;;
+        ck|check) printf '%s\n' --json --fetch --no-fetch ;;
+        status|st) printf '%s\n' --json --strict --ssh ;;
+        preflight|pf) printf '%s\n' --json --no-fetch ;;
+        c|commit|cp) printf '%s\n' -a -m -F --trailer ;;
+        pr|mr) printf '%s\n' --title --body --base --draft --web --json ;;
+        app) printf '%s\n' --help --path --repo --file --line --commit --view ;;
+        doctor) printf '%s\n' --json --no-net ;;
+        list|ls) printf '%s\n' --json --check ;;
+        scan) printf '%s\n' --json --fix ;;
+        audit) printf '%s\n' --json --since ;;
+        report) printf '%s\n' --json --today --days --since ;;
+        version) printf '%s\n' --json ;;
+      esac
+    else
+      case "$cmd" in
+        use|remove|rm|setup|clone|fork) load_config >/dev/null 2>&1; for i in "${ACC_IDS[@]}"; do printf '%s\n' "$i"; done ;;
+        g|graph)
+          [ "$n" -eq 2 ] && printf '%s\n' files modules changes tree precise affected watch index diff check languages
+          { [ "${words[1]:-}" = watch ] && [ "$n" -eq 3 ]; } && printf '%s\n' files modules changes tree precise affected
+          completion_repositories
+          compgen -d -- "$cur" ;;
+        completion) printf '%s\n' bash zsh fish powershell ;;
+        schema) printf '%s\n' public graph error languages status ck preflight rules version list doctor scan audit report pr view watch index ;;
+        config) printf '%s\n' show path get set add unset edit ;;
+        wt|worktree) printf '%s\n' ls new rm ;;
+        pr|mr) printf '%s\n' status ;;
+        sign) printf '%s\n' on off ;;
+        org) printf '%s\n' add rm ;;
+        ssh) printf '%s\n' prune ;;
+      esac
+    fi
+  } | LC_ALL=C sort -u | while IFS= read -r candidate; do
+    [[ "$candidate" == "$cur"* ]] && [ -n "$candidate" ] && printf '%s\n' "$candidate"
+  done
+  return 0
+}
+
+completion_cmd() {
+  case "${1:-}" in
+    bash) cat <<'COMPLETION'
+# gitch completion bash — source <(gitch completion bash)
+_gitch_completion() {
+  local candidate
+  COMPREPLY=()
+  while IFS= read -r candidate; do COMPREPLY+=("$candidate"); done < <(command gitch _complete -- "${COMP_WORDS[@]:1:COMP_CWORD}" 2>/dev/null)
+}
+complete -o bashdefault -o default -o filenames -F _gitch_completion gitch gitsw
+COMPLETION
+      ;;
+    zsh) cat <<'COMPLETION'
+#compdef gitch gitsw
+# compinit 후 source <(gitch completion zsh)
+_gitch_completion() {
+  local -a candidates
+  candidates=("${(@f)$(command gitch _complete -- "${words[@]:1:$((CURRENT - 1))}" 2>/dev/null)}")
+  if (( ${#candidates} )) && [[ -n ${candidates[1]} ]]; then compadd -a candidates; else _files; fi
+}
+compdef _gitch_completion gitch gitsw
+COMPLETION
+      ;;
+    fish) cat <<'COMPLETION'
+# gitch completion fish | source
+function __gitch_complete
+  set -l words (commandline -opc)
+  set -e words[1]
+  set -l current (commandline -ct)
+  command gitch _complete -- $words "$current" 2>/dev/null | string escape
+end
+complete -c gitch -f -a '(__gitch_complete)'
+complete -c gitsw -f -a '(__gitch_complete)'
+COMPLETION
+      ;;
+    powershell|pwsh) cat <<'COMPLETION'
+# gitch completion powershell | Out-String | Invoke-Expression
+Register-ArgumentCompleter -Native -CommandName gitch,gitsw -ScriptBlock {
+  param($wordToComplete, $commandAst, $cursorPosition)
+  $arguments = @()
+  foreach ($element in @($commandAst.CommandElements | Select-Object -Skip 1)) {
+    if ($element.Extent.EndOffset -ge $cursorPosition) { break }
+    if ($element -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $arguments += $element.Value }
+    else { $arguments += $element.Extent.Text }
+  }
+  $currentWord = $wordToComplete.Trim([char]39, [char]34)
+  $nativeArguments = @('_complete')
+  # gitch.cmd uses legacy native argument passing, which discards empty arguments.
+  if ($currentWord.Length -eq 0) { $nativeArguments += '--empty-current' }
+  else { $arguments += $currentWord }
+  $nativeArguments += '--'
+  $nativeArguments += $arguments
+  & gitch @nativeArguments 2>$null | ForEach-Object {
+    $candidate = [string]$_
+    $quoted = $candidate
+    if ($candidate -match '[^a-zA-Z0-9_./:-]') { $quoted = "'" + $candidate.Replace("'", "''") + "'" }
+    [System.Management.Automation.CompletionResult]::new($quoted, $candidate, 'ParameterValue', $candidate)
+  }
+}
+COMPLETION
+      ;;
+    --help|-h|"") say '사용법: gitch completion bash|zsh|fish|powershell — 스크립트를 표준출력에 생성 (설정 파일은 직접 바꾸지 않음)' ;;
+    *) die '지원하는 셸: bash · zsh · fish · powershell' ;;
+  esac
 }
 
 # ================= 도움말 =================
@@ -9197,7 +12166,7 @@ gitch $GITSW_VERSION — 여러 Git 계정 관리 (계정: $(account_names))
   gitch continue / gitch abort             충돌난 rebase/merge 이어가기 / 취소
   gitch rescue [번호] [--branch 이름|--restore]  자동 백업 목록 / 복구
   gitch o                                  저장소 웹페이지
-  gitch app                                Gitrochi 앱 열기
+  gitch app [--path 앱경로]                Gitrochi 데스크톱 앱 열기 (macOS · Windows)
 
 PR / MR
   gitch pr --title 제목 [--body 내용] [--base 브랜치] [--draft] [--web]
@@ -9225,6 +12194,9 @@ PR / MR
   gitch g <저장소 이름>        어디서든 그 저장소의 그래프 — 계정 폴더에서 찾는다 (예: gitch g my-app)
   gitch graph diff [기준]      이 브랜치에서 더하거나 뺀 의존 · 새 순환 (기본: 기본 브랜치와 갈라진 곳)
   gitch graph check            .gitch/graph.rules 의 의존 규칙 검사, 위반이면 종료 코드 1 (--init 으로 예시)
+  gitch g languages --json     언어별 파일 인식 · 정적 import · 추정 · 선택적 정밀 인덱스 지원표
+  gitch schema [graph|error|…] 공개 JSON Schema v1 (기본: 전체 출력 계약)
+  gitch completion bash|zsh|fish|powershell  명령 · 옵션 · 계정 · 브랜치 · 언어 · 저장소 자동완성 스크립트
 
 계정/설정
   gitch list [--check] [--json]            등록된 계정
@@ -9239,9 +12211,9 @@ PR / MR
   gitch install / gitch uninstall          전체 설치·갱신 / 전역 설정 제거
   gitch migrate / export / import          v1 에서 옮기기 / 설정 내보내기 / 가져오기
   gitch doctor [--json] [--no-net]         문제 진단
-  gitch version / gitch self-update        버전 / 업데이트
+  gitch version [--json] / gitch self-update  버전 / 업데이트
 
-종료코드: 0 정상, 1 문제/실패, 2 사용자 확인 필요(--yes), 3 커밋할 것 없음, 4 올릴 파일을 고르지 않음
+종료코드: 0 정상(커밋할 변경 없음 포함), 1 문제/실패, 2 사용자 확인 필요(--yes), 4 올릴 파일을 고르지 않음
 EOF
 }
 
@@ -9282,7 +12254,10 @@ setup_colors
 
 case "${1:-}" in
   help|-h|--help) help_cmd; exit 0 ;;
-  version|-v|--version) version_cmd; exit 0 ;;
+  version|-v|--version) shift; version_cmd "$@"; exit 0 ;;
+  completion) shift; completion_cmd "$@"; exit $? ;;
+  _complete) shift; completion_candidates "$@"; exit $? ;;
+  schema) shift; schema_cmd "$@"; exit $? ;;
   c|commit) shift; commit_cmd "$@"; rc=$?; [ $rc -eq 3 ] && rc=0; exit $rc ;;
   p|push) shift; push_cmd "$@"; exit $? ;;
   cp) shift; commit_push_cmd "$@"; exit $? ;;
@@ -9299,7 +12274,7 @@ case "${1:-}" in
   abort) shift; abort_cmd "$@"; exit $? ;;
   rescue) shift; rescue_cmd "$@"; exit $? ;;
   o|open) open_cmd; exit $? ;;
-  app) app_cmd; exit $? ;;
+  app) shift; app_cmd "$@"; exit $? ;;
   pr|mr) shift; pr_cmd "$@"; exit $? ;;
   ci) ci_cmd; exit $? ;;
   publish) shift; publish_cmd "$@"; exit $? ;;
@@ -9338,5 +12313,5 @@ case "${1:-}" in
   guard) shift; guard_cmd "$@"; exit 0 ;;
   _hook) shift; hook_main "$@"; exit $? ;;
   "") menu_cmd; exit $? ;;
-  *) err "알 수 없는 명령: $1"; help_cmd; exit 1 ;;
+  *) [ -n "$MACHINE_JSON" ] && die "알 수 없는 명령: $1"; err "알 수 없는 명령: $1"; help_cmd; exit 1 ;;
 esac

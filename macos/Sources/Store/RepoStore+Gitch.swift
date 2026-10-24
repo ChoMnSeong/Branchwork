@@ -127,28 +127,43 @@ extension RepoStore {
     }
 
     /// 구조 그래프(gitch graph)를 html 로 만들어 기본 브라우저로 연다. 실패하면 gitch 가 낸 문구를 보여 준다.
-    func openStructureGraph(_ relation: Gitch.GraphRelation) async {
+    func openStructureGraph(_ relation: Gitch.GraphRelation, precise: Bool = false) async {
         guard let url, graphJob == nil else { return }
         graphJob = .draw(relation)
         defer { graphJob = nil }
         // 메뉴가 닫히고 브라우저가 뜨기까지 몇 초 걸릴 수 있어 VoiceOver 에 먼저 알린다
         if let text = graphProgress { AccessibilityNotification.Announcement(text).post() }
         do {
-            let page = try await Gitch.graph(relation, in: url)
+            let page = try await Gitch.graph(relation, in: url, precise: precise)
             guard self.url == url else { return }
             if page.nodes == 0 {
                 // 빈 페이지를 띄우기보다 gitch 가 찾지 못한 것을 먼저 알린다
                 confirm = ConfirmRequest(title: String(localized: "Nothing to draw"),
                                          message: page.hint ?? String(localized: "gitch found nothing to draw for \(relation.title)."),
                                          actionTitle: String(localized: "Open anyway"), destructive: false) { [weak self] in
-                    await self?.openGraphPage(page.file)
+                    await self?.openGraphPage(page.liveURL ?? page.file)
                 }
             } else {
-                await openGraphPage(page.file)
+                await openGraphPage(page.liveURL ?? page.file)
             }
         } catch {
             guard self.url == url else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// 수정한 파일과 그것을 참조하는 파일을 함께 추려 그린다.
+    func openAffectedGraph(base: String? = nil) async {
+        guard let url, graphJob == nil else { return }
+        graphJob = .draw(.files)
+        defer { graphJob = nil }
+        do {
+            let page = try await Gitch.affectedGraph(base: base, in: url)
+            guard self.url == url else { return }
+            await openGraphPage(page.liveURL ?? page.file)
+        } catch {
+            guard self.url == url else { return }
+            errorMessage = describe(error)
         }
     }
 

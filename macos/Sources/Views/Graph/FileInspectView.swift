@@ -121,6 +121,7 @@ private struct BlamePane: View {
         let committed = lines.filter { !$0.uncommitted }
         let oldest = committed.map(\.date).min() ?? Date()
         let newest = committed.map(\.date).max() ?? Date()
+        ScrollViewReader { proxy in
         ScrollView([.vertical, .horizontal]) {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(lines) { l in
@@ -137,6 +138,8 @@ private struct BlamePane: View {
                     }
                     .font(.system(size: 12, design: .monospaced))
                     .frame(height: 18)
+                    .id(l.id)
+                    .background(store.fileInspectLine == l.id ? Color.accentColor.opacity(0.22) : Color.clear)
                     .overlay(alignment: .top) {
                         if l.startsBlock && l.id > 1 { Divider().opacity(0.6) }
                     }
@@ -148,6 +151,16 @@ private struct BlamePane: View {
             if lines.isEmpty && !store.fileInspectLoading {
                 ContentUnavailableView("No content", systemImage: "doc", description: Text("The file is empty or not committed yet."))
             }
+        }
+        .onChange(of: store.fileInspectLine, initial: true) { _, line in
+            if let line { proxy.scrollTo(line, anchor: .center) }
+        }
+        .onChange(of: store.fileInspectLoading) { _, loading in
+            if !loading, let line = store.fileInspectLine { proxy.scrollTo(line, anchor: .center) }
+        }
+        .onChange(of: store.blameLines.count) { _, _ in
+            if let line = store.fileInspectLine { proxy.scrollTo(line, anchor: .center) }
+        }
         }
     }
 

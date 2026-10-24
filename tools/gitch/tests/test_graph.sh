@@ -536,6 +536,7 @@ EOF
   gr_edge cargo:app pkg:cargo/tempfile depends
   assert_eq "$(gr_q '.edges[] | select(.source == "cargo:app" and .target == "pkg:cargo/tempfile") | .scope')" "dev-dependencies"
   gr_edge go:example.com/svc/cmd/server go:example.com/svc/internal/api depends
+  assert_eq "$(gr_q '.edges[] | select(.source == "go:example.com/svc/cmd/server" and .target == "go:example.com/svc/internal/api") | .evidence[0].file + ":" + (.evidence[0].line|tostring)')" go/cmd/server/main.go:6
   gr_edge go:example.com/svc/internal/api go:example.com/svc/internal/db depends
   gr_edge go:example.com/svc/cmd/server pkg:golang/github.com/google/uuid depends
   gr_no_node pkg:golang/net/http
@@ -642,7 +643,7 @@ test_graph_formats_and_output() {
   grep -q '"relation": "files"' "$T/out/g.html" || fail "데이터에 관계가 없음"
   for id in panel table legend info q ana banner logo; do grep -q "id=\"$id\"" "$T/out/g.html" || fail "html 에 #$id 가 없음"; done   # 설정 창 · 표로 보기 · 범례 · 정보 · 찾기 · 분석 · 강조 알림 · 표시
   grep -q '<html lang="ko" data-theme="dark">' "$T/out/g.html" || fail "기본은 어두운 화면이어야"
-  assert_eq "$(grep -o '</script>' "$T/out/g.html" | wc -l | tr -d ' ')" "2" "데이터 속 </script> 가 그대로 들어감"
+  assert_eq "$(grep -o '</script>' "$T/out/g.html" | wc -l | tr -d ' ')" "3" "데이터 속 </script> 가 그대로 들어감"
   if command -v node >/dev/null 2>&1; then   # 보기 스크립트 문법(브라우저 없이)
     awk '/^<script>$/ { on = 1; next } /^<\/script>$/ { on = 0 } on' "$T/out/g.html" > "$T/out/viewer.js"
     grep -q 'function renderAna' "$T/out/viewer.js" || fail "보기 스크립트를 찾지 못함"
@@ -744,7 +745,7 @@ test_graph_lang_filter() {
   assert_eq "$(gr_q '[.nodes[] | select(.kind == "file") | .lang] | unique | join(",")')" "swift"
   gr_edge ios/View.swift ios/Model.swift type-ref
   gr_json --lang web
-  assert_eq "$(gr_q '.lang | join(",")')" "ts,js,vue,svelte"
+  assert_eq "$(gr_q '.lang | join(",")')" "ts,js,vue,svelte,astro,html,css,scss,less,mdx"
   gr_edge web/a.ts web/b.ts import
   gr_edge web/legacy.js web/c.js require
   gr_no_node ios/Model.swift
@@ -759,7 +760,7 @@ test_graph_lang_filter() {
   gr_json modules --lang rust
   gr_node cargo:core
   gr_no_node npm:web
-  run gitch graph --lang cobol; assert_rc 1; assert_out "--lang 은"
+  run gitch graph --lang unknown-language; assert_rc 1; assert_out "--lang 은"
   assert_eq "$(gitch graph --json | jq -r '.lang')" "null" "고르지 않으면 lang 은 null"
 }
 
@@ -856,9 +857,9 @@ RULES
   run gitch graph check --base "$base" --format text; assert_ok "기존 위반만 있으면 통과"; assert_out "기준에도 있던 위반 2개"
   # html 에 규칙 결과, 그냥 gitch graph html 에도 (규칙 파일이 있으면)
   run gitch graph check --out "$T/out/c.html"; assert_rc 1
-  grep -q '"rules":{"tool":"gitch graph check"' "$T/out/c.html" || fail "check html 에 규칙 결과가 없음"
+  awk '/^<script id="graph-data"/ { active=1; next } active && /^<\/script>/ { exit } active { print }' "$T/out/c.html" | jq -e '.rules.tool == "gitch graph check" and (.rules.violations|type == "array")' >/dev/null || fail "check html 에 규칙 결과가 없음"
   run gitch graph files --out "$T/out/g.html"; assert_ok
-  grep -q '"rules":{"tool":"gitch graph check","file":".gitch/graph.rules"' "$T/out/g.html" || fail "graph html 에 규칙 결과가 없음"
+  awk '/^<script id="graph-data"/ { active=1; next } active && /^<\/script>/ { exit } active { print }' "$T/out/g.html" | jq -e '.rules.tool == "gitch graph check" and .rules.file == ".gitch/graph.rules"' >/dev/null || fail "graph html 에 규칙 결과가 없음"
   # 틀린 규칙은 줄 번호와 함께 멈춘다
   printf '[files]\nforbid src/a\nlayers only\nfrobid a -> b\n[nope]\n' > "$T/bad.rules"
   run gitch graph check --rules "$T/bad.rules"; assert_fail
@@ -893,6 +894,20 @@ test_graph_html_in_browser() {   # 헤드리스 Chrome 에서: 오류 없이 그
   printf '{"name":"root","workspaces":["packages/*"]}\n' | gr_put package.json
   printf '{"name":"@x/a","dependencies":{"@x/b":"1"}}\n' | gr_put packages/a/package.json
   printf '{"name":"@x/b"}\n' | gr_put packages/b/package.json
+  echo 'export class Legacy {}' | gr_put packages/a/src/legacy.js
+  echo '<project><groupId>com.example</groupId><artifactId>java-app</artifactId></project>' | gr_put java/pom.xml
+  echo 'public class App {}' | gr_put java/App.java
+  printf '[project]\nname = "python-app"\ndependencies = ["requests"]\n' | gr_put python/pyproject.toml
+  echo 'class App: pass' | gr_put python/app.py
+  echo '<Project Sdk="Microsoft.NET.Sdk" />' | gr_put dotnet/App.csproj
+  echo 'class App {}' | gr_put dotnet/App.cs
+  echo '{"name":"example/php-app"}' | gr_put php/composer.json
+  echo '<?php class App {}' | gr_put php/app.php
+  echo 'FROM scratch' | gr_put deploy/Dockerfile
+  printf 'import "./logo.png";\nimport "./asset.constructor";\nimport "./asset.toString";\nexport const assets = true;\n' | gr_put packages/a/src/assets.ts
+  printf 'fixture image\n' | gr_put packages/a/src/logo.png
+  printf 'fixture asset\n' | gr_put packages/a/src/asset.constructor
+  printf 'fixture asset\n' | gr_put packages/a/src/asset.toString
   local i
   for i in 1 2 3 4 5 6 7 8; do printf 'import { v%s } from "./f%s"\nexport const v%s = 1\n' $(( i % 8 + 1 )) $(( i % 8 + 1 )) "$i" | gr_put "packages/a/src/f$i.ts"; done
   gr_commit one
@@ -901,4 +916,225 @@ test_graph_html_in_browser() {   # 헤드리스 Chrome 에서: 오류 없이 그
   run node "$ROOT/tests/graph_browser.mjs" "$chrome" "$T/out/browser.html" "$T"
   assert_ok "브라우저에서 확인 실패"
   assert_out '"ok":true'
+}
+
+test_graph_files_more_languages() {
+  gr_repo "$T/multilang"
+  printf '#include "model.h"\n#include <stdio.h>\n// #include "fake.h"\n' | gr_put native/main.c
+  echo 'struct Model {};' | gr_put native/model.h
+  printf '#include "model.hpp"\n' | gr_put native/main.cpp
+  echo 'class Model {};' | gr_put native/model.hpp
+  printf 'require_relative "model"\nrequire "json"\n' | gr_put ruby/main.rb
+  echo 'class Model; end' | gr_put ruby/model.rb
+  printf 'include "model.php";\n' | gr_put php/main.php
+  echo '<?php class Model {}' | gr_put php/model.php
+  printf 'import "model.dart";\n' | gr_put dart/main.dart
+  echo 'class Model {}' | gr_put dart/model.dart
+  printf 'syntax = "proto3";\nimport "model.proto";\n' | gr_put proto/main.proto
+  echo 'syntax = "proto3";' | gr_put proto/model.proto
+  printf '@use "tokens";\n' | gr_put styles/main.scss
+  echo '$color: red;' | gr_put styles/_tokens.scss
+  local f
+  for f in app.cs app.fs app.vb app.scala app.groovy app.lua app.sh app.ps1 app.pl app.R app.jl app.ex app.erl app.hs app.clj app.ml app.elm app.nim app.zig app.d app.f90 app.pas app.adb app.cob app.lisp app.scm app.rkt app.sql app.graphql app.sol app.move app.vy app.cr app.html app.css app.yaml app.tf app.sv app.vhd app.asm app.tcl app.awk; do echo '// example' | gr_put "other/$f"; done
+  echo 'FROM scratch' | gr_put Dockerfile
+  echo 'all:' | gr_put Makefile
+  gr_commit
+  gr_json files
+  gr_edge native/main.c native/model.h include
+  gr_edge native/main.c pkg:system/stdio.h include
+  gr_no_node pkg:system/fake.h
+  gr_edge native/main.cpp native/model.hpp include
+  gr_edge ruby/main.rb ruby/model.rb require
+  gr_edge ruby/main.rb pkg:gem/json require
+  gr_edge php/main.php php/model.php include
+  gr_edge dart/main.dart dart/model.dart import
+  gr_edge proto/main.proto proto/model.proto import
+  gr_edge styles/main.scss styles/_tokens.scss import
+  gr_attr other/app.cs .lang csharp
+  gr_attr other/app.R .lang r
+  gr_attr other/app.cob .lang cobol
+  gr_attr Dockerfile .lang docker
+  gr_attr Makefile .lang make
+  assert_eq "$(gr_q '[.nodes[] | select(.kind == "file")] | length')" "58"
+  gr_json files --lang 'C++,C#,py,cobol'
+  assert_eq "$(gr_q '.lang | join(",")')" "cpp,csharp,python,cobol"
+  gr_node native/main.cpp
+  gr_node other/app.cs
+  gr_node other/app.cob
+  gr_no_node native/main.c
+}
+
+test_graph_modules_maven() {
+  gr_repo "$T/maven"
+  gr_put pom.xml <<'EOF_POM'
+<project><modelVersion>4.0.0</modelVersion><groupId>com.example</groupId><artifactId>root</artifactId><version>1</version><packaging>pom</packaging><modules><module>app</module><module>core</module></modules></project>
+EOF_POM
+  gr_put app/pom.xml <<'EOF_POM'
+<project>
+  <parent><groupId>com.example</groupId><artifactId>root</artifactId><version>1</version></parent>
+  <artifactId>app</artifactId>
+  <properties><lib.group>org.example</lib.group></properties>
+  <dependencyManagement><dependencies><dependency><groupId>ignored</groupId><artifactId>managed</artifactId></dependency></dependencies></dependencyManagement>
+  <!-- <dependencies><dependency><groupId>fake</groupId><artifactId>comment</artifactId></dependency></dependencies> -->
+  <dependencies>
+    <dependency><groupId>${project.groupId}</groupId><artifactId>core</artifactId></dependency>
+    <dependency><groupId>${lib.group}</groupId><artifactId>testing</artifactId><scope>test</scope></dependency>
+  </dependencies>
+  <build><plugins><plugin><artifactId>plugin</artifactId><dependencies><dependency><groupId>ignored</groupId><artifactId>plugin-dep</artifactId></dependency></dependencies></plugin></plugins></build>
+</project>
+EOF_POM
+  echo '<project><groupId>com.example</groupId><artifactId>core</artifactId></project>' | gr_put core/pom.xml
+  gr_commit
+  gr_json modules --lang java
+  gr_node maven:com.example:root
+  gr_edge maven:com.example:app maven:com.example:core depends
+  gr_edge maven:com.example:app pkg:maven/org.example:testing depends
+  gr_no_node pkg:maven/ignored:managed
+  gr_no_node pkg:maven/ignored:plugin-dep
+  gr_no_node pkg:maven/fake:comment
+  gr_json modules --no-external app
+  gr_edge maven:com.example:app maven:com.example:core depends
+  gr_attr maven:com.example:core .outside true
+  gr_no_node maven:com.example:root
+  gr_no_node pkg:maven/org.example:testing
+}
+
+test_graph_modules_python() {
+  gr_repo "$T/python-modules"
+  gr_put app/pyproject.toml <<'EOF_PY'
+[project]
+name = "demo-app"
+dependencies = [
+  "demo_core>=1",
+  "fastapi[standard]>=0.100",
+  "requests>=2; python_version >= '3.10'",
+]
+[project.optional-dependencies]
+test = ["pytest>=8"]
+[dependency-groups]
+dev = ["ruff"]
+[build-system]
+requires = ["setuptools"]
+EOF_PY
+  gr_put core/pyproject.toml <<'EOF_PY'
+[tool.poetry]
+name = "demo-core"
+[tool.poetry.dependencies]
+python = "^3.12"
+pydantic = "^2"
+[tool.poetry.group.test.dependencies]
+pytest = "^8"
+EOF_PY
+  printf 'numpy>=2\n-r requirements-base.txt\n' | gr_put app/requirements.txt
+  printf 'packaging>=24\n' | gr_put app/requirements-base.txt
+  gr_commit
+  gr_json modules --lang python
+  gr_edge pypi:demo-app pypi:demo-core depends
+  gr_edge pypi:demo-app pkg:pypi/requests depends
+  gr_edge pypi:demo-app pkg:pypi/fastapi depends
+  gr_edge pypi:demo-app pkg:pypi/pytest depends
+  gr_edge pypi:demo-app pkg:pypi/ruff depends
+  gr_edge pypi:demo-app pkg:pypi/numpy depends
+  gr_edge pypi:demo-app pkg:pypi/packaging depends
+  gr_edge pypi:demo-core pkg:pypi/pydantic depends
+  gr_no_node pkg:pypi/setuptools
+  gr_no_node pkg:pypi/python
+  gr_no_node pkg:pypi/3-10
+  gr_json modules --lang python --no-external
+  assert_eq "$(gr_q '.nodes | length')" "2"
+  gr_edge pypi:demo-app pypi:demo-core depends
+}
+
+test_graph_modules_dotnet() {
+  gr_repo "$T/dotnet"
+  gr_put app/App.csproj <<'EOF_CS'
+<Project Sdk="Microsoft.NET.Sdk"><ItemGroup>
+<!-- <PackageReference Include="Fake" /> -->
+<ProjectReference
+  Include="..\core\Core.fsproj" />
+<PackageReference Include="Example.Json" Version="1" />
+<PackageReference Update="Only.Version" Version="2" />
+</ItemGroup></Project>
+EOF_CS
+  echo '<Project Sdk="Microsoft.NET.Sdk" />' | gr_put core/Core.fsproj
+  gr_commit
+  gr_json modules --lang csharp
+  gr_edge dotnet:app/App.csproj dotnet:core/Core.fsproj depends
+  gr_edge dotnet:app/App.csproj pkg:nuget/Example.Json depends
+  gr_no_node pkg:nuget/Fake
+  gr_no_node pkg:nuget/Only.Version
+  gr_json modules --no-external app
+  gr_edge dotnet:app/App.csproj dotnet:core/Core.fsproj depends
+  gr_attr dotnet:core/Core.fsproj .outside true
+}
+
+test_graph_modules_composer_bundler_pub_cmake() {
+  gr_repo "$T/other-modules"
+  echo '{"name":"example/app","require":{"php":"^8","ext-json":"*","example/core":"*","psr/log":"^3"},"require-dev":{"phpunit/phpunit":"^11"}}' | gr_put php/app/composer.json
+  printf '{\n "name":\n "example/core"\n}\n' | gr_put php/core/composer.json
+  printf 'source "https://example.com"\ngem "rails"\n# gem "fake"\n' | gr_put ruby/Gemfile
+  printf 'name: demo_app\ndependencies:\n  demo_core:\n    path: ../core\n  http: ^1.0\ndev_dependencies:\n  test: ^1.0\n' | gr_put dart/app/pubspec.yaml
+  printf 'name: demo_core\n' | gr_put dart/core/pubspec.yaml
+  printf 'project(Demo)\nadd_executable(app main.cpp)\nadd_subdirectory(core)\ntarget_link_libraries(app PRIVATE core Threads::Threads)\n' | gr_put native/CMakeLists.txt
+  printf 'add_library(core core.cpp)\n' | gr_put native/core/CMakeLists.txt
+  gr_commit
+  gr_json modules
+  gr_edge composer:example/app composer:example/core depends
+  gr_edge composer:example/app pkg:composer/psr/log depends
+  gr_edge composer:example/app pkg:composer/phpunit/phpunit depends
+  gr_no_node pkg:composer/php
+  gr_no_node pkg:composer/ext-json
+  gr_edge gem:ruby pkg:gem/rails depends
+  gr_no_node pkg:gem/fake
+  gr_edge pub:demo_app pub:demo_core depends
+  gr_edge pub:demo_app pkg:pub/http depends
+  gr_edge cmake:app cmake:core depends
+  gr_edge cmake:app pkg:cmake/Threads::Threads depends
+  gr_json modules --lang php --no-external
+  gr_edge composer:example/app composer:example/core depends
+  gr_no_node cmake:app
+  gr_json modules --lang cpp
+  gr_edge cmake:app cmake:core depends
+  gr_no_node composer:example/app
+}
+
+test_graph_modules_standalone_gradle_and_npm_json() {
+  gr_repo "$T/standalone-modules"
+  printf 'plugins { java }\ndependencies {\n  implementation("org.example:core:1.0")\n}\n' | gr_put jvm/build.gradle.kts
+  gr_put web/package.json <<'EOF_JSON'
+{
+  "name":
+    "web",
+  "workspaces": {"packages": ["packages/*"]},
+  "dependencies": {"@example/core": "workspace:*"}
+}
+EOF_JSON
+  echo '{"name":"@example/core"}' | gr_put web/packages/core/package.json
+  gr_commit
+  gr_json modules --lang java
+  gr_edge gradle:jvm: pkg:maven/org.example:core depends
+  gr_json modules --lang ts
+  gr_edge npm:web npm:@example/core depends
+  gr_attr npm:@example/core .workspace web
+}
+
+test_graph_modules_python_requirements_and_legacy() {
+  gr_repo "$T/requirements"
+  printf '[project]\nname = "demo-app"\n' | gr_put app/pyproject.toml
+  printf -- '-r base.txt\npytest==8.0\n' | gr_put app/requirements/dev.txt
+  printf -- '-r common.txt\nrequests>=2\n' | gr_put app/requirements/base.txt
+  printf -- '-r dev.txt\npackaging>=24\n' | gr_put app/requirements/common.txt
+  printf '[metadata]\nname = legacy\n[options]\ninstall_requires = click>=8\n  numpy==2.0\n' | gr_put legacy/setup.cfg
+  printf '[packages]\n"Django" = "*"\n[dev-packages]\npytest = "*"\n' | gr_put pip/Pipfile
+  gr_commit
+  gr_json modules --lang python
+  gr_edge pypi:demo-app pkg:pypi/requests depends
+  gr_edge pypi:demo-app pkg:pypi/pytest depends
+  gr_edge pypi:demo-app pkg:pypi/packaging depends
+  gr_no_node pypi:app/requirements
+  gr_edge pypi:legacy pkg:pypi/click depends
+  gr_edge pypi:legacy pkg:pypi/numpy depends
+  gr_edge pypi:pip pkg:pypi/django depends
+  gr_edge pypi:pip pkg:pypi/pytest depends
+  assert_eq "$(gr_q '[.edges[] | select(.source == "pypi:demo-app" and .target == "pkg:pypi/requests") | .weight] | add')" "1"
 }

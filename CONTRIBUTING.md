@@ -4,6 +4,13 @@ Gitrochi 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 요�
 
 > **English** — Issues and PRs are welcome in English too. UI text in the code is English (translated into 20 languages), **commit messages are English** (`Area: Imperative summary`), and code comments are in Korean. Run `git config core.hooksPath .githooks` once — the hooks check the Git rules below, and so does CI.
 
+## 기여자
+
+- [조문성 (ChoMnSeong)](https://github.com/ChoMnSeong)
+- [jjunhaa0211](https://github.com/jjunhaa0211) — gitch CLI, 다중 언어 구조 분석, 앱 연동 및 검증 개선
+
+저작권자 표기는 [MIT 라이선스](LICENSE)에 함께 유지합니다.
+
 ## 시작하기
 
 | | 맥 | Windows |
@@ -16,6 +23,8 @@ Gitrochi 에 관심 가져 주셔서 고맙습니다. 버그 제보·기능 요�
 - 받은 뒤 한 번 `git config core.hooksPath .githooks` — 커밋할 때 [Git 규칙](#git-규칙)을 검사합니다.
 - 맥은 SwiftPM 없이 `swiftc` 로 바로 빌드합니다. 새 파일은 `macos/Sources/` 아래 알맞은 폴더에 두면 자동으로 포함됩니다.
 - 맥 앱에 함께 들어가는 [gitch](tools/gitch/README.md)(bash 3.2 + git)를 고쳤으면 `tools/gitch/tests/run.sh` 로 확인합니다(3분쯤, 실제 설정은 건드리지 않음).
+- 정밀 참조·자동 갱신 도우미를 고쳤으면 `python3 tools/gitch/tests/test_scip.py`와 `python3 tools/gitch/tests/test_watch.py`도 실행합니다. 앱 URL 이동은 `bash macos/Tools/test-app-route.sh`로 검증합니다. CI는 JSON Schema 계약도 검증합니다(테스트 의존성 `jsonschema==4.25.1`; 제품 도우미는 Python 표준 라이브러리만 사용).
+- 앱과 gitch는 같은 릴리스 버전을 씁니다. `bash tools/check-versions.sh`로 macOS · Windows · CLI 버전을 한 번에 확인합니다(맥 빌드와 CI에서도 검사).
 - gitch 옆에 들어가는 Xcode 인덱스 도우미 [gitch-swift-index](tools/gitch-swift-index/README.md)(Swift)를 고쳤으면 `tools/gitch-swift-index/tests/run.sh` 로 확인합니다(30초쯤, 예제를 `swift build` 해서 읽음).
 - Windows 는 맥에서도 `npx tauri dev` 로 띄워 볼 수 있습니다(데이터 폴더는 `Gitrochi (Tauri)` 로 분리).
 - 화면을 바꿨다면 [데모 저장소](docs/make-demo-repo.sh)(`docs/make-demo-repo.sh <폴더>`)로 확인하고 스크린샷을 PR 에 붙여 주세요.
@@ -104,7 +113,7 @@ Windows 폴더 규칙(어기면 `windows/tests/architecture.test.ts` 가 실패�
 ### 브랜치
 
 - `main` 은 언제나 빌드되고 배포할 수 있는 상태입니다. 작업은 `main` 에서 딴 브랜치에서 합니다.
-- 이름은 `종류/내용`, 영문 소문자·숫자·`-` 로: `feature/ci-branch-view`, `fix/narrow-graph`, `refactor/…`, `docs/…`, `ci/…`, 버전은 `release/0.3.5`.
+- 이름은 `종류/내용`, 영문 소문자·숫자·`-` 로: `feature/ci-branch-view`, `fix/narrow-graph`, `refactor/…`, `docs/…`, `ci/…`, 버전은 `release/0.3.11`.
 - 한 브랜치에 한 주제. 오래 두지 말고 `git fetch && git rebase origin/main` 으로 최신을 따라갑니다(`main` 을 merge 해 들여오지 않습니다).
 - **`main` 은 PR 로만 바뀝니다.** GitHub 규칙(ruleset)으로 직접 푸시·force push·삭제가 막혀 있고(관리자 포함), `Git 규칙` 검사가 통과해야 합칠 수 있습니다. 로컬 pre-push 훅도 `main` 으로의 푸시를 미리 막습니다.
 - **공동 작업자**(저장소 쓰기 권한)는 이 저장소에 브랜치를 만들고 PR 을 합칠 수 있습니다. 공동 작업자의 PR 은 **다른 사람의 승인 1개**가 있어야 합쳐지고(새로 푸시하면 승인이 풀림), 관리자는 자기 PR 을 승인 없이 합칩니다.
@@ -127,7 +136,7 @@ Area: Imperative summary of the change
 - 검사하는 것: 영어(라틴 문자·문장 부호) · 제목 100자 이내 · 끝에 마침표 없음 · 콜론 뒤 한 칸 · 명령형 · 제목 다음 줄은 빈 줄 · `wip`·`fix`·`update` 처럼 내용 없는 제목 금지.
 - `fixup!`·`squash!` 커밋은 PR 을 올리기 전에 `git rebase -i --autosquash origin/main` 으로 합칩니다.
 - 한 커밋에는 한 가지 주제. 정리(파일 이동)와 동작 변경은 나누고, 커밋마다 빌드가 되게 합니다(`git bisect` 가 쓸 수 있게).
-- 버전 커밋 `Release 0.3.5 (summary)` 와 태그 `v0.3.5` 는 관리자가 만듭니다(아래 「릴리스」).
+- 버전 커밋 `Release 0.3.11 (summary)` 와 태그 `v0.3.11` 는 관리자가 만듭니다(아래 「릴리스」).
 - 이 규칙 전의 기록(한국어 메시지)은 그대로 둡니다.
 
 ### 검사에 걸린 PR 고치기
@@ -167,19 +176,21 @@ git push --force-with-lease
 
 관리자가 합니다. `v*` 태그는 관리자만 만들 수 있고, 업데이트 서명 열쇠(`GITROCHI_UPDATE_KEY`·`TAURI_SIGNING_PRIVATE_KEY`)는 `v*` 태그와 `main` 에서만 쓸 수 있는 `release` 환경에 있어 PR 의 실행에서는 읽을 수 없습니다. `main` 이 PR 로만 바뀌므로 버전도 PR 로 올리고, 합친 뒤 태그를 답니다.
 
+버전은 `macos/Resources/Info.plist`의 `CFBundleShortVersionString`, `tools/gitch/gitch`의 `GITSW_VERSION`, Windows의 `package.json` · `package-lock.json` · `src-tauri/tauri.conf.json` · `src-tauri/Cargo.toml` · Cargo.lock의 gitrochi 패키지를 함께 맞춥니다. `CFBundleVersion`은 별도 빌드 번호입니다. CLI의 `GITCH_VERSION_SCHEME="gitrochi"`는 예전 독립 버전과 구분하는 표식이고, 그래프 지원은 `GITCH_GRAPH_API`로 확인합니다. 버전 변경 뒤 `bash tools/check-versions.sh`가 통과해야 합니다.
+
 ```sh
-git switch -c release/0.3.5            # 버전 올리기(Info.plist · tauri.conf.json · package.json …)
-git commit -m "Release 0.3.5 (summary)"
+git switch -c release/0.3.11            # 버전 올리기(Info.plist · tauri.conf.json · package.json …)
+git commit -m "Release 0.3.11 (summary)"
 git push -u origin HEAD && gh pr create --fill && gh pr merge --auto --merge
 # 합쳐지면
 git switch main && git pull --ff-only
-git tag v0.3.5 && git push origin v0.3.5   # 태그 실행이 서명한 배포 파일을 릴리스 초안에 올린다
+git tag v0.3.11 && git push origin v0.3.11   # 태그 실행이 서명한 배포 파일을 릴리스 초안에 올린다
 ```
 
 태그 실행은 맥(`macos.yml`)과 Windows(`windows.yml`)가 따로 돌고, 태그와 앱 버전(`Info.plist` · `tauri.conf.json`)이 다르면 멈춥니다. 둘 다 그 태그의 릴리스에 올리며, 릴리스가 없으면 먼저 올리는 쪽이 초안을 만듭니다. 두 올리기 작업은 같은 `concurrency` 그룹에서 하나씩 돌아 초안이 둘 생기지 않습니다.
 
-- 맥: `Gitrochi-0.3.5-macOS.dmg` · `.zip` · `.zip.sig` · `.sha256`, 그리고 앱 없이 쓰는 `gitch` · `gitch.sha256`(`tools/gitch/install.sh` 와 `gitch self-update` 가 받음)
-- Windows(자동 점검까지 통과한 뒤): `Gitrochi_0.3.5_x64-setup.exe` · `.exe.sig` · `_x64_portable.zip`(`Gitrochi.exe` + `LICENSE.txt`) · `_windows.sha256` · `latest.json`. 같은 파일이 그 실행의 아티팩트 `gitrochi-windows` 에도 남습니다.
+- 맥: `Gitrochi-0.3.11-macOS.dmg` · `.zip` · `.zip.sig` · `.sha256`, 그리고 앱 없이 쓰는 `gitch` · `gitch.sha256`(`tools/gitch/install.sh` 와 `gitch self-update` 가 받음)
+- Windows(자동 점검까지 통과한 뒤): `Gitrochi_0.3.11_x64-setup.exe` · `.exe.sig` · `_x64_portable.zip`(`Gitrochi.exe` + `LICENSE.txt`) · `_windows.sha256` · `latest.json`. 같은 파일이 그 실행의 아티팩트 `gitrochi-windows` 에도 남습니다.
 
 앱의 업데이트 확인은 초안을 보지 않으므로, 게시하기 전에:
 
@@ -187,8 +198,8 @@ git tag v0.3.5 && git push origin v0.3.5   # 태그 실행이 서명한 배포 �
 2. Windows 업데이트 창에 보일 한 줄을 `latest.json` 의 `notes` 에 넣습니다. 태그 실행은 비워서 올리고(비어 있으면 창에 버전만 보임), Windows 의 「릴리스에 올리기」를 다시 돌리면 다시 비워지므로 게시 직전에 합니다.
 
    ```sh
-   gh release download v0.3.5 -R Gitrochi/Gitrochi -p latest.json   # 받은 파일의 "notes" 를 고치고
-   gh release upload v0.3.5 latest.json -R Gitrochi/Gitrochi --clobber
+   gh release download v0.3.11 -R Gitrochi/Gitrochi -p latest.json   # 받은 파일의 "notes" 를 고치고
+   gh release upload v0.3.11 latest.json -R Gitrochi/Gitrochi --clobber
    ```
 
-3. 게시합니다: `gh release edit v0.3.5 -R Gitrochi/Gitrochi --draft=false --latest`
+3. 게시합니다: `gh release edit v0.3.11 -R Gitrochi/Gitrochi --draft=false --latest`

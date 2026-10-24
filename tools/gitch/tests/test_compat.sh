@@ -7,7 +7,7 @@ test_install_links_gitch_and_gitsw_shim() {
   local self; self=$(resolve_path "$GITSW_SRC")
   [ "$(resolve_path "$HOME/bin/gitch")" = "$self" ] || fail "~/bin/gitch 가 이 파일을 가리키지 않음"
   [ "$(resolve_path "$HOME/bin/gitsw")" = "$self" ] || fail "~/bin/gitsw(예전 이름)가 이 파일을 가리키지 않음"
-  run gitsw version; assert_ok; assert_out "gitch 3."
+  run gitsw version; assert_ok; assert_out "gitch $(sed -n 's/^GITSW_VERSION="\([^" ]*\)".*/\1/p' "$GITSW_SRC" | head -1)"
   if mac_only; then
     grep -qx "alias gitch='noglob gitch'" "$RC_FILE" || fail "gitch alias 없음"
     grep -qx "alias gitsw='noglob gitsw'" "$RC_FILE" || fail "gitsw alias 없음"
@@ -58,7 +58,7 @@ test_install_repoints_shim_from_another_copy() {
   mklink_ "$T/old-gitsw" "$HOME/bin/gitsw"
   run gitch doctor --no-net; assert_out "~/bin/gitsw(예전 이름)가 다른 파일을 가리킵니다"
   install_quiet
-  run gitsw version; assert_ok; assert_out "gitch 3."
+  run gitsw version; assert_ok; assert_out "gitch $(sed -n 's/^GITSW_VERSION="\([^" ]*\)".*/\1/p' "$GITSW_SRC" | head -1)"
   run gitch doctor --no-net; assert_no_out "다른 파일을 가리킵니다"
 }
 

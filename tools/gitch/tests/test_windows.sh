@@ -9,10 +9,10 @@ test_windows_install_links_cmd_and_path() {
   local self; self=$(resolve_path "$GITSW_SRC")
   [ "$(resolve_path "$HOME/bin/gitch")" = "$self" ] || fail "~/bin/gitch 연결 스크립트가 이 파일을 가리키지 않음\n$(cat "$HOME/bin/gitch")"
   [ "$(resolve_path "$HOME/bin/gitsw")" = "$self" ] || fail "~/bin/gitsw"
-  run "$HOME/bin/gitch" version; assert_ok; assert_out "gitch 3."
+  run "$HOME/bin/gitch" version; assert_ok; assert_out "gitch $(sed -n 's/^GITSW_VERSION="\([^" ]*\)".*/\1/p' "$GITSW_SRC" | head -1)"
   grep -q 'gitch-link' "$HOME/bin/gitch.cmd" && grep -q 'bash.exe' "$HOME/bin/gitch.cmd" || fail "gitch.cmd\n$(cat "$HOME/bin/gitch.cmd" 2>&1)"
   [ -f "$HOME/bin/gitsw.cmd" ] || fail "gitsw.cmd 없음"
-  run cmd //c "$(cygpath -w "$HOME/bin/gitch.cmd")" version; assert_ok "cmd 에서 gitch.cmd"; assert_out "gitch 3."
+  run cmd //c "$(cygpath -w "$HOME/bin/gitch.cmd")" version; assert_ok "cmd 에서 gitch.cmd"; assert_out "gitch $(sed -n 's/^GITSW_VERSION="\([^" ]*\)".*/\1/p' "$GITSW_SRC" | head -1)"
   grep -qixF "$(cygpath -w "$HOME/bin")" "$T/userpath" || fail "사용자 PATH 에 ~/bin 이 없음"
   [ -f "$HOME/.local/state/gitsw/windows-path" ] || fail "PATH 를 넣었다는 표시 없음"
   # 훅 연결 스크립트가 ~/bin/gitch 를 부른다

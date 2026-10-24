@@ -9,6 +9,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// 앱 데이터 폴더(Windows: %APPDATA%\Gitrochi).
 /// 맥에서 개발용으로 돌릴 때는 맥 버전 Gitrochi 앱의 폴더와 겹치지 않게 이름을 바꾼다.
 pub fn data_dir() -> PathBuf {
+    // CI/desktop self-tests must not replace a user's settings or agent sessions.
+    if let Some(repo) = std::env::var_os("GITROCHI_SELFTEST") {
+        let path = PathBuf::from(repo);
+        if path.is_absolute() {
+            if let Some(parent) = path.parent() { return parent.join(".gitrochi-selftest-data"); }
+        }
+    }
     let (name, legacy) = if cfg!(windows) { ("Gitrochi", "Branchwork") } else { ("Gitrochi (Tauri)", "Branchwork (Tauri)") };
     let base = dirs::data_dir().unwrap_or_else(std::env::temp_dir);
     let dir = base.join(name);

@@ -1,0 +1,626 @@
+#!/usr/bin/env python3
+"""Serve one live graph on loopback and rebuild it when tracked sources change.
+
+No source directory is served. The caller prepares an initial HTML graph; all
+subsequent graphs are written to staging files and atomically replace that graph
+only after the CLI succeeds. Python 3 standard library only.
+"""
+
+import argparse
+import datetime
+import hashlib
+from http.client import HTTPConnection, HTTPException
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import os
+from pathlib import Path
+import secrets
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from urllib.parse import urlsplit
+
+
+MAX_HTML_BYTES = 64 * 1024 * 1024
+
+
+def graph_arguments(arguments):
+    """Keep an argv array; permit graph filters but never output/control flags."""
+    with_value = {"--lang", "-l", "--since", "--max-commits", "-n", "--max-files", "--min", "--depth", "--base", "--index"}
+    switches = {"--no-external", "--files", "--precise", "--no-cache"}
+    forbidden_words = {"files", "file", "modules", "module", "changes", "change", "tree", "affected", "diff", "check", "watch", "index"}
+    result, values, index, scoped = [], {}, 0, False
+    while index < len(arguments):
+        argument = arguments[index]
+        name, equal, inline = argument.partition("=")
+        if name in with_value:
+            if equal:
+                value = inline
+            else:
+                index += 1
+                value = arguments[index] if index < len(arguments) else ""
+            if not value or value.startswith("--"):
+                raise ValueError("실시간 그래프 옵션에 값이 필요합니다: " + name)
+            result.extend((name, value))
+            values[name] = value
+        elif argument in switches:
+            result.append(argument)
+        elif not argument.startswith("-") and argument not in forbidden_words and not scoped and canonical(argument.rstrip("/")):
+            result.append(argument)
+            scoped = True
+        else:
+            raise ValueError("실시간 갱신에 전달할 수 없는 옵션입니다: " + argument)
+        index += 1
+    return result, values
+
+
+def compact(value):
+    return json.dumps(value, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+
+
+def now():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+
+
+def canonical(value):
+    return (bool(value) and not value.startswith("/") and "\\" not in value
+            and all(part not in ("", ".", "..") for part in value.split("/")))
+
+
+def within(path, parent):
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+class GraphWatch:
+    def __init__(self, args):
+        self.args = args
+        self.repo = Path(args.repo).resolve(strict=True)
+        self.cli = Path(args.cli).resolve(strict=True)
+        output = Path(args.out).absolute()
+        self.output_parent = output.parent.resolve(strict=True)
+        self.output = self.output_parent / output.name
+        self.bash = str(Path(args.bash).resolve(strict=True)) if args.bash else shutil.which("bash")
+        if not self.bash or not Path(self.bash).is_file() or not self.repo.is_dir() or not self.cli.is_file():
+            raise ValueError("저장소, gitch 파일과 bash 실행기를 찾지 못했습니다.")
+        if self.output == self.cli:
+            raise ValueError("그래프 출력과 CLI 파일은 달라야 합니다.")
+        self.read_html(self.output)
+        self.lock = threading.RLock()
+        self.stop = threading.Event()
+        self.refresh = threading.Event()
+        self.started = self.last_client = time.monotonic()
+        self.token = secrets.token_urlsafe(24)
+        self.base_path = "/" + self.token
+        self.cache = {}
+        # Windows stat().st_ctime is creation time rather than POSIX metadata
+        # change time; unchanged stat fields cannot prove unchanged contents.
+        self.cache_can_trust_ctime = os.name != "nt"
+        self.state = {"schemaVersion": 1, "generation": 1, "phase": "idle", "lastError": None,
+                      "updatedAt": now(), "lastChangeAt": None, "relation": args.relation,
+                      "pid": os.getpid(), "watching": True}
+        self.gitdir = Path(self.git("rev-parse", "--absolute-git-dir").decode().strip()).resolve()
+        common = self.gitdir / "commondir"
+        self.common_dir = (self.gitdir / common.read_text().strip()).resolve() if common.is_file() else self.gitdir
+        identity = {"repo": str(self.repo), "cli": str(self.cli), "out": str(self.output), "relation": args.relation,
+                    "bash": self.bash,
+                    "index": args.index, "lang": args.lang, "base": args.base, "since": args.since,
+                    "noExternal": args.no_external, "arguments": args.graph_arg, "interval": args.interval,
+                    "idleTimeout": args.idle_timeout, "maxLifetime": args.max_lifetime, "buildTimeout": args.build_timeout}
+        self.watch_key = hashlib.sha256(compact(identity).encode()).hexdigest()
+        self.state["watchKey"] = self.watch_key
+        self.registry = self.gitdir / "gitch" / "graph-watch" / (self.watch_key + ".json")
+        self.reused = self.find_existing()
+        if self.reused:
+            return
+        preferred = 20000 + int(hashlib.sha256(str(self.repo).encode()).hexdigest()[:8], 16) % 30000
+        self.server = None
+        for port in list(range(preferred, min(preferred + 32, 65536))) + [0]:
+            try:
+                self.server = ThreadingHTTPServer(("127.0.0.1", port), self.make_handler())
+                break
+            except OSError:
+                continue
+        if not self.server:
+            raise ValueError("로컬 실시간 그래프 포트를 열지 못했습니다.")
+        self.server.daemon_threads = True
+        self.origin = "http://127.0.0.1:%d" % self.server.server_address[1]
+        self.storage_stable = self.server.server_address[1] == preferred
+        self.url = self.origin + self.base_path + "/graph"
+
+    def find_existing(self):
+        try:
+            if self.registry.is_symlink() or not within(self.registry.parent.resolve(), self.gitdir) or self.registry.stat().st_size > 16384:
+                return None
+            if os.name != "nt" and stat.S_IMODE(self.registry.stat().st_mode) & 0o077:
+                return None
+            result = json.loads(self.registry.read_text(encoding="utf-8"))
+            if not isinstance(result, dict):
+                return None
+            uri = urlsplit(result.get("stateUrl", ""))
+            graph_uri = urlsplit(result.get("url", ""))
+            if (uri.scheme != "http" or uri.hostname != "127.0.0.1" or not uri.port or uri.username or uri.password
+                    or uri.query or uri.fragment or not uri.path.endswith("/state")
+                    or graph_uri.scheme != uri.scheme or graph_uri.netloc != uri.netloc
+                    or graph_uri.path != uri.path[:-6] + "/graph" or graph_uri.query or graph_uri.fragment):
+                return None
+            # Read loopback directly; a registry entry must never redirect a
+            # health check to another host or consult an HTTP proxy.
+            connection = HTTPConnection("127.0.0.1", uri.port, timeout=0.4)
+            try:
+                connection.request("GET", uri.path)
+                response = connection.getresponse()
+                if response.status != 200:
+                    return None
+                state = json.loads(response.read(16384))
+            finally:
+                connection.close()
+            if state.get("watchKey") == self.watch_key and state.get("watching") and state.get("pid") == result.get("pid"):
+                result["generation"] = state["generation"]
+                result["refreshUrl"] = uri.scheme + "://" + uri.netloc + uri.path[:-6] + "/refresh"
+                return result
+        except (OSError, ValueError, TypeError, AttributeError, HTTPException):
+            pass
+        return None
+
+    def register(self):
+        self.registry.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if self.registry.parent.is_symlink() or not within(self.registry.parent.resolve(), self.gitdir):
+            raise ValueError("실시간 그래프 레지스트리가 저장소 메타데이터 밖을 가리킵니다.")
+        descriptor, temporary = tempfile.mkstemp(prefix=".watch-", dir=str(self.registry.parent))
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+                output.write(compact(self.description()))
+            os.replace(temporary, str(self.registry))
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
+    def unregister(self):
+        try:
+            if not self.registry.is_symlink() and json.loads(self.registry.read_text()).get("pid") == os.getpid():
+                self.registry.unlink()
+        except (OSError, ValueError):
+            pass
+
+    def git(self, *arguments):
+        env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
+        result = subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", str(self.repo), *arguments],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20, env=env)
+        if result.returncode:
+            raise ValueError(result.stderr.decode("utf-8", errors="replace").strip() or "추적 파일 목록을 읽지 못했습니다.")
+        return result.stdout
+
+    def read_html(self, path):
+        # Pin the resolved output parent; never follow a replacement symlink.
+        if path.is_symlink() or path.parent.resolve() != self.output_parent:
+            raise ValueError("그래프 출력이 심볼릭 링크로 바뀌었습니다.")
+        descriptor = os.open(str(path), os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(descriptor, "rb") as source:
+            info = os.fstat(source.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_HTML_BYTES:
+                raise ValueError("그래프는 64 MiB 이하의 일반 HTML 파일이어야 합니다.")
+            html = source.read(MAX_HTML_BYTES + 1)
+        if b"<html" not in html[:2048].lower() or b"</html>" not in html[-2048:].lower():
+            raise ValueError("완전한 HTML 그래프를 찾지 못했습니다.")
+        return html
+
+    def snapshot(self):
+        with self.lock:
+            return dict(self.state)
+
+    def touch(self):
+        with self.lock:
+            self.last_client = time.monotonic()
+
+    def fingerprint_file(self, path, *, source=False):
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            return b"missing"
+        stamp = (info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        key = str(path)
+        if self.cache_can_trust_ctime and key in self.cache and self.cache[key][0] == stamp:
+            return self.cache[key][1]
+        digest = hashlib.sha256()
+        digest.update(repr(stamp).encode())
+        if stat.S_ISLNK(info.st_mode):
+            digest.update(b"symlink:")
+            digest.update(os.fsencode(os.readlink(str(path))))
+        elif stat.S_ISREG(info.st_mode):
+            if source and not within(path.resolve(), self.repo):
+                digest.update(b"outside-repository")
+            else:
+                descriptor = os.open(str(path), os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                with os.fdopen(descriptor, "rb") as stream:
+                    for block in iter(lambda: stream.read(128 * 1024), b""):
+                        digest.update(block)
+        else:
+            digest.update(b"non-regular")
+        result = digest.digest()
+        self.cache[key] = (stamp, result)
+        return result
+
+    def fingerprint(self):
+        tracked = self.git("ls-files", "-z")
+        digest = hashlib.sha256(tracked)
+        alive = set()
+        for raw in sorted(set(tracked.split(b"\0"))):
+            if not raw:
+                continue
+            relative = os.fsdecode(raw)
+            if not canonical(relative):
+                continue
+            path = self.repo / relative
+            if path == self.output:
+                continue
+            # A tracked directory may have been replaced by a link. Never read
+            # its targets; the directory link itself still changes the digest.
+            cursor = path.parent
+            linked = None
+            while cursor != self.repo:
+                if cursor.is_symlink():
+                    linked = cursor
+                    break
+                cursor = cursor.parent
+            actual = linked or path
+            alive.add(str(actual))
+            digest.update(raw)
+            digest.update(self.fingerprint_file(actual, source=True))
+        metadata = [self.gitdir / "HEAD", self.gitdir / "index", self.common_dir / "packed-refs",
+                    self.repo / ".gitch" / "graph.rules"]
+        head = self.gitdir / "HEAD"
+        if head.is_file():
+            reference = head.read_text(errors="replace").strip()
+            if reference.startswith("ref: refs/") and canonical(reference[5:]):
+                metadata.append(self.common_dir / reference[5:])
+        if self.args.index:
+            metadata.append(Path(self.args.index).resolve())
+        elif self.args.relation == "precise" or "--precise" in self.args.graph_arg:
+            # Let the CLI pick its default, including a newly created preferred
+            # .gitch/index.scip; monitor both candidates without pinning one.
+            metadata.extend((self.repo / ".gitch" / "index.scip", self.repo / "index.scip"))
+        # Branch/tag movement can change the default comparison for affected.
+        if self.args.relation == "affected":
+            digest.update(self.git("for-each-ref", "--format=%(refname)%09%(objectname)"))
+        for path in metadata:
+            alive.add(str(path))
+            digest.update(os.fsencode(str(path)))
+            digest.update(self.fingerprint_file(path, source=within(path, self.repo) and not within(path, self.gitdir)))
+        self.cache = {key: value for key, value in self.cache.items() if key in alive}
+        return digest.digest()
+
+    def build_arguments(self, destination):
+        relation = self.args.relation
+        command = [self.bash, self.cli.as_posix(), "graph", "files" if relation == "precise" else relation,
+                   "--format", "html", "--out", destination.as_posix(), "--no-open"]
+        if relation == "precise":
+            command.append("--precise")
+        if self.args.index:
+            command.extend(("--index", self.args.index))
+        if self.args.lang:
+            command.extend(("--lang", self.args.lang))
+        if self.args.no_external:
+            command.append("--no-external")
+        if self.args.base:
+            command.extend(("--base", self.args.base))
+        if self.args.since:
+            command.extend(("--since", self.args.since))
+        command.extend(self.args.graph_arg)
+        return command
+
+    def run_builder(self, destination):
+        command = self.build_arguments(destination)
+        options = {"cwd": str(self.repo), "stdout": subprocess.PIPE, "stderr": subprocess.PIPE}
+        if os.name != "nt":
+            options["start_new_session"] = True
+        process = subprocess.Popen(command, **options)
+        deadline = time.monotonic() + self.args.build_timeout
+        while True:
+            try:
+                output, error = process.communicate(timeout=0.25)
+                return subprocess.CompletedProcess(command, process.returncode, output, error)
+            except subprocess.TimeoutExpired:
+                current = time.monotonic()
+                with self.lock:
+                    expired = current - self.last_client > self.args.idle_timeout or current - self.started > self.args.max_lifetime
+                if expired:
+                    self.stop.set()
+                if not self.stop.is_set() and current < deadline:
+                    continue
+                if os.name == "nt":
+                    # Git Bash can spawn a compiler as a child. Stop the entire
+                    # render tree, rather than leaving it after the watch exits.
+                    try:
+                        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+                    except (OSError, subprocess.TimeoutExpired):
+                        process.kill()
+                else:
+                    try:
+                        os.killpg(process.pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                try:
+                    process.communicate(timeout=1)
+                except subprocess.TimeoutExpired:
+                    if os.name != "nt":
+                        try:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                    else:
+                        process.kill()
+                    process.communicate(timeout=2)
+                raise ValueError("감시가 종료되어 분석을 중단했습니다." if self.stop.is_set() else "그래프 생성 제한 시간이 초과되었습니다.")
+
+    def rebuild(self):
+        with self.lock:
+            self.state.update(phase="building", lastChangeAt=now())
+        descriptor, destination = tempfile.mkstemp(prefix=".gitch-watch-", suffix=".html", dir=str(self.output_parent))
+        os.close(descriptor)
+        destination = Path(destination)
+        try:
+            result = self.run_builder(destination)
+            if result.returncode:
+                error = result.stderr.decode("utf-8", errors="replace").strip()
+                raise ValueError(error[-2000:] or "그래프 생성이 종료 코드 %d로 실패했습니다." % result.returncode)
+            self.read_html(destination)
+            if self.output.is_symlink() or self.output.parent.resolve() != self.output_parent:
+                raise ValueError("그래프 출력 경로가 바뀌어 결과를 교체하지 않았습니다.")
+            with self.lock:
+                os.replace(str(destination), str(self.output))
+                self.state.update(generation=self.state["generation"] + 1, phase="idle", lastError=None, updatedAt=now())
+        except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+            with self.lock:
+                self.state.update(phase="error", lastError=str(exc)[-2000:])
+        finally:
+            try:
+                destination.unlink()
+            except FileNotFoundError:
+                pass
+
+    def injected_html(self):
+        with self.lock:
+            html = self.read_html(self.output)
+            state = self.snapshot()
+        script = """<script id="gitch-live-watch">
+(() => {
+  const stateURL = %s, refreshURL = %s;
+  let generation = %d, busy = false;
+  const badge = document.createElement('button');
+  badge.id = 'gitch-live-status'; badge.type = 'button';
+  badge.style.cssText = 'position:fixed;bottom:10px;left:12px;z-index:9999;padding:5px 9px;border:1px solid #64748b55;border-radius:8px;background:var(--panel,#172033);color:var(--text,#e2e8f0);font:11px system-ui;cursor:pointer';
+  badge.setAttribute('aria-live','polite'); badge.textContent = '실시간 갱신';
+  badge.title = '눌러서 그래프를 다시 분석합니다'; document.body.appendChild(badge);
+  badge.addEventListener('click', async () => {
+    try { await fetch(refreshURL, {method:'POST',headers:{'X-Gitch-Watch':'1'},cache:'no-store'}); } catch (_) {}
+  });
+  async function poll() {
+    if (busy) return; busy = true;
+    try {
+      const response = await fetch(stateURL,{cache:'no-store'});
+      if (!response.ok) throw Error('watch connection');
+      const state = await response.json();
+      if (state.generation > generation) {
+        try { if (window.gitchGraphView && window.gitchGraphView.saveLast) window.gitchGraphView.saveLast(); } catch (_) {}
+        window.dispatchEvent(new CustomEvent('gitch:before-live-reload'));
+        location.reload(); return;
+      }
+      badge.textContent = state.phase === 'building' ? '갱신 중…' : state.lastError ? '갱신 실패 · 눌러서 재시도' : '실시간 갱신';
+      badge.title = state.lastError || '눌러서 그래프를 다시 분석합니다';
+    } catch (_) { badge.textContent = '실시간 연결 재시도'; }
+    finally { busy = false; }
+  }
+  setInterval(poll,1000); poll();
+})();
+</script>""" % (compact(self.origin + self.base_path + "/state"), compact(self.origin + self.base_path + "/refresh"), state["generation"])
+        marker = html.lower().rfind(b"</body>")
+        if marker < 0:
+            marker = html.lower().rfind(b"</html>")
+        return html[:marker] + script.encode("utf-8") + html[marker:]
+
+    def make_handler(self):
+        owner = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def answer(self, status, body, content_type="application/json; charset=utf-8", head=False):
+                self.send_response(status)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Referrer-Policy", "no-referrer")
+                self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+                self.end_headers()
+                if not head:
+                    try:
+                        self.wfile.write(body)
+                    except (BrokenPipeError, ConnectionResetError):
+                        pass
+
+            def valid_host(self):
+                return self.headers.get("Host", "") == owner.origin[7:]
+
+            def do_GET(self, head=False):
+                request = urlsplit(self.path)
+                if not self.valid_host():
+                    self.answer(403, b'{"error":"host"}', head=head)
+                    return
+                if request.path == owner.base_path + "/state" and not request.query:
+                    owner.touch()
+                    self.answer(200, compact(owner.snapshot()).encode(), head=head)
+                elif request.path == owner.base_path + "/graph" and not request.query:
+                    owner.touch()
+                    try:
+                        self.answer(200, owner.injected_html(), "text/html; charset=utf-8", head=head)
+                    except (OSError, ValueError) as exc:
+                        self.answer(503, compact({"error": str(exc)}).encode(), head=head)
+                else:
+                    self.answer(404, b'{"error":"not-found"}', head=head)
+
+            def do_HEAD(self):
+                self.do_GET(head=True)
+
+            def do_POST(self):
+                request = urlsplit(self.path)
+                if (not self.valid_host() or request.path != owner.base_path + "/refresh" or request.query
+                        or self.headers.get("X-Gitch-Watch") != "1"
+                        or self.headers.get("Origin", owner.origin) != owner.origin
+                        or self.headers.get("Content-Length", "0") != "0"):
+                    self.answer(403, b'{"error":"refresh-request"}')
+                    return
+                owner.touch()
+                owner.refresh.set()
+                self.answer(202, b'{"queued":true}')
+
+        return Handler
+
+    def description(self):
+        return {"schemaVersion": 1, "url": self.url, "stateUrl": self.origin + self.base_path + "/state",
+                "refreshUrl": self.origin + self.base_path + "/refresh", "pid": os.getpid(), "generation": self.state["generation"],
+                "storageStable": self.storage_stable}
+
+    def run(self, ready_file=None):
+        if self.reused:
+            if ready_file:
+                Path(ready_file).write_text(compact(self.reused), encoding="utf-8")
+            else:
+                print(compact(self.reused), flush=True)
+            return
+        server_thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True)
+        server_thread.start()
+        self.register()
+        if ready_file:
+            Path(ready_file).write_text(compact(self.description()), encoding="utf-8")
+        else:
+            print(compact(self.description()), flush=True)
+        previous = None
+        scan_failed = False
+        try:
+            while not self.stop.is_set():
+                current = time.monotonic()
+                with self.lock:
+                    expired = current - self.last_client > self.args.idle_timeout or current - self.started > self.args.max_lifetime
+                if expired:
+                    break
+                try:
+                    fingerprint = self.fingerprint()
+                    forced = self.refresh.is_set()
+                    self.refresh.clear()
+                    if previous != fingerprint or forced or scan_failed:
+                        # First rebuild also closes the gap between the caller's
+                        # initial render and this server's first source snapshot.
+                        self.rebuild()
+                        previous = fingerprint
+                    scan_failed = False
+                except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+                    scan_failed = True
+                    with self.lock:
+                        self.state.update(phase="error", lastError=str(exc)[-2000:])
+                self.stop.wait(self.args.interval)
+        finally:
+            with self.lock:
+                self.state["watching"] = False
+            self.server.shutdown()
+            self.server.server_close()
+            server_thread.join(timeout=1)
+            self.unregister()
+
+
+def detach(args, original):
+    descriptor, ready = tempfile.mkstemp(prefix="gitch-graph-watch-", suffix=".json")
+    os.close(descriptor)
+    command = [sys.executable, str(Path(__file__).resolve()), *[arg for arg in original if arg != "--detach"], "--child", "--ready-file", ready]
+    options = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
+               "cwd": args.repo, "close_fds": True}
+    if os.name == "nt":
+        options["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        options["start_new_session"] = True
+    process = subprocess.Popen(command, **options)
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            text = Path(ready).read_text(encoding="utf-8")
+            if text:
+                result = json.loads(text)
+                print(compact(result), flush=True)
+                return 3 if "error" in result else 0
+            if process.poll() is not None:
+                raise ValueError("실시간 그래프 서버를 시작하지 못했습니다.")
+            time.sleep(0.05)
+        process.terminate()
+        raise ValueError("실시간 그래프 서버 시작 시간이 초과되었습니다.")
+    finally:
+        Path(ready).unlink(missing_ok=True)
+
+
+def main():
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace", newline="\n")
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace", newline="\n")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo", required=True)
+    parser.add_argument("--cli", required=True)
+    parser.add_argument("--bash", help="Explicit bash executable (Git Bash on Windows)")
+    parser.add_argument("--out", required=True)
+    parser.add_argument("--relation", choices=("files", "modules", "changes", "tree", "precise", "affected"), default="files")
+    parser.add_argument("--interval", type=float, default=2)
+    parser.add_argument("--index")
+    parser.add_argument("--lang", default="")
+    parser.add_argument("--no-external", action="store_true")
+    parser.add_argument("--base", default="")
+    parser.add_argument("--since", default="")
+    parser.add_argument("--graph-arg", action="append", default=[], help="A permitted graph option/value; use --graph-arg=--lang --graph-arg=ts")
+    parser.add_argument("--serve", action="store_true", help="Serve the graph on loopback (also enabled by default)")
+    parser.add_argument("--detach", action="store_true")
+    parser.add_argument("--idle-timeout", type=float, default=180)
+    parser.add_argument("--max-lifetime", type=float, default=86400)
+    parser.add_argument("--build-timeout", type=float, default=180)
+    parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--ready-file", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    try:
+        if not 0.1 <= args.interval <= 60 or min(args.idle_timeout, args.max_lifetime, args.build_timeout) <= 0:
+            raise ValueError("갱신 간격은 0.1~60초, 수명과 생성 제한 시간은 0초보다 커야 합니다.")
+        if not all(Path(value).is_absolute() for value in (args.repo, args.cli, args.out)):
+            raise ValueError("--repo, --cli, --out에는 절대 경로가 필요합니다.")
+        if args.index:
+            args.index = str(Path(args.index).absolute())
+        args.graph_arg, graph_values = graph_arguments(args.graph_arg)
+        if "--index" in graph_values:
+            normalized = str(Path(graph_values["--index"]).absolute())
+            for index, argument in enumerate(args.graph_arg):
+                if argument == "--index":
+                    args.graph_arg[index + 1] = normalized
+        if not args.index and "--index" in graph_values:
+            args.index = str(Path(graph_values["--index"]).absolute())
+        if args.detach and not args.child:
+            return detach(args, sys.argv[1:])
+        watcher = GraphWatch(args)
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(sig, lambda *_: watcher.stop.set())
+        watcher.run(args.ready_file)
+        return 0
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        result = {"schemaVersion": 1, "error": "watch-unavailable", "message": str(exc)}
+        if args.ready_file:
+            Path(args.ready_file).write_text(compact(result), encoding="utf-8")
+        else:
+            print(compact(result), flush=True)
+        return 3
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -140,23 +140,47 @@ export type GraphRelation = "files" | "modules" | "changes" | "tree";
 /** 메뉴에 보일 관계: 이름과 설명(터미널에서 같은 그림을 그리는 명령과 무엇을 읽는지) */
 export function graphRelations(): { id: GraphRelation; title: string; detail: string }[] {
   return [
-    { id: "files", title: t("File imports"), detail: t("gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines).") },
-    { id: "modules", title: t("Module dependencies"), detail: t("gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds.") },
+    { id: "files", title: t("File imports"), detail: t("gitch graph files: source files across many languages, with imports, includes and inferred type references.") },
+    { id: "modules", title: t("Module dependencies"), detail: t("gitch graph modules: targets, packages and dependencies from SwiftPM, Tuist, npm, Cargo, Go, Gradle, Maven, Python, .NET, Composer, Bundler, Pub and CMake.") },
     { id: "changes", title: t("Files that change together"), detail: t("gitch graph changes: files that are often committed together, and how often each one changes.") },
     { id: "tree", title: t("Folder tree"), detail: t("gitch graph tree: folders with their size and number of files.") },
   ];
 }
 
-/** gitch graph 가 생긴 버전 */
+/** 앱과 버전을 맞추기 전의 gitch graph 최소 버전(옛 CLI 호환용) */
 export const graphMinimumVersion = "3.2.0";
+
+/** 새 CLI 는 기능 표시로 확인한다. 앱 버전과 숫자가 다른 옛 CLI 만 버전으로 판단한다. */
+export function supportsGraph(head: string): boolean {
+  const lines = head.split(/\r?\n/);
+  const scheme = lines.filter((line) => /^\s*(?:export\s+)?GITCH_VERSION_SCHEME\b/.test(line));
+  const api = lines.filter((line) => /^\s*(?:export\s+)?GITCH_GRAPH_API\b/.test(line));
+  if (scheme.length || api.length) {
+    return scheme.length === 1 && scheme[0] === 'GITCH_VERSION_SCHEME="gitrochi"'
+      && api.length === 1 && /^GITCH_GRAPH_API="[1-9][0-9]*"$/.test(api[0]);
+  }
+  const version = versionOf(head);
+  return !!version && /^\d+(?:\.\d+){0,3}$/.test(version) && versionAtLeast(version, graphMinimumVersion);
+}
 
 /** gitch graph 가 만든 html */
 export interface GraphPage {
   file: string;
+  /** Loopback live view, or absent when the optional watcher runtime isn't available. */
+  liveUrl?: string;
   /** 끝 줄(GRAPH_FILE=… NODES=… EDGES=…)의 노드 수. 그 줄이 없으면 null */
   nodes: number | null;
   /** 그릴 것이 없을 때 gitch 가 낸 안내(⚠ 줄, 문구 그대로) */
   hint: string | null;
+}
+
+export function parseGraphWatchURL(raw: string): string | null {
+  try {
+    const result = JSON.parse(raw) as { url?: unknown };
+    if (typeof result.url !== "string") return null;
+    const url = new URL(result.url);
+    return url.protocol === "http:" && url.hostname === "127.0.0.1" && !!url.port && !url.username && !url.password ? url.href : null;
+  } catch { return null; }
 }
 
 /** "3.10.0" >= "3.2.0" 처럼 숫자로 비교 */
@@ -399,15 +423,15 @@ class GitchService {
   }
 
   /**
-   * 구조 그래프를 그릴 수 없는 이유 — 앱에 든 gitch 가 없거나 gitch graph 가 생기기 전 버전이다. 그릴 수 있으면 null.
+   * 구조 그래프를 그릴 수 없는 이유 — 앱에 든 gitch 가 없거나 그래프 기능이 없다. 그릴 수 있으면 null.
    * 설치한 셸 명령은 따로 받은 예전 gitch 일 수 있어서 앱에 든 것만 본다(그래프는 계정 설정이 필요 없다).
    */
   async graphUnavailable(): Promise<string | null> {
     const exe = this.bundled;
     if (!exe || !(await ipc.exists(exe))) return t("Couldn't find gitch inside Gitrochi.");
     if (!(await this.bash())) return t("gitch needs Git for Windows (Git Bash). Install it from https://git-scm.com/download/win.");
-    const v = await this.version(exe);
-    if (!v || !versionAtLeast(v, graphMinimumVersion)) return t("Structure graph needs gitch {0} or later, but the gitch inside Gitrochi is {1}.", graphMinimumVersion, v ?? "?");
+    const header = await ipc.readHead(exe, 4096).catch(() => null);
+    if (!header || !supportsGraph(header.text)) return t("The gitch inside Gitrochi doesn't support structure graphs. Update Gitrochi and try again.");
     return null;
   }
 
@@ -415,10 +439,25 @@ class GitchService {
    * 앱에 든 gitch 로 `gitch graph <관계> --format html --out <임시 파일> --no-open` — CDN 없는 한 페이지를 만든다.
    * modules 는 매니페스트를 읽느라, 큰 저장소의 files 도 몇 초 걸린다.
    */
-  async graph(relation: GraphRelation, repo: string): Promise<GraphPage> {
-    const file = await graphFile(relation, repo);
-    const r = await this.runGraph([relation, "--format", "html", "--out", file, "--no-open"], repo);
-    return { file, ...parseGraphSummary(plain(r.stdout)) };
+  async graph(relation: GraphRelation, repo: string, precise = false): Promise<GraphPage> {
+    const file = await graphFile(precise ? "files-precise" : relation, repo);
+    const r = await this.runGraph([relation, ...(precise ? ["--precise"] : []), "--format", "html", "--out", file, "--no-open"], repo);
+    const liveUrl = await this.graphWatchURL(precise ? "precise" : relation, file, repo);
+    return { file, ...parseGraphSummary(plain(r.stdout)), ...(liveUrl ? { liveUrl } : {}) };
+  }
+
+  async affectedGraph(repo: string, base: string | null = null): Promise<GraphPage> {
+    const file = await graphFile("affected", repo);
+    const r = await this.runGraph(["affected", ...(base ? ["--base", base] : []), "--format", "html", "--out", file, "--no-open"], repo);
+    const liveUrl = base === null ? await this.graphWatchURL("affected", file, repo) : null;
+    return { file, ...parseGraphSummary(plain(r.stdout)), ...(liveUrl ? { liveUrl } : {}) };
+  }
+
+  private async graphWatchURL(relation: string, file: string, repo: string): Promise<string | null> {
+    try {
+      const r = await this.runGraph(["watch", relation, "--out", file, "--no-open", "--detach", "--json"], repo);
+      return parseGraphWatchURL(r.stdout);
+    } catch { return null; }
   }
 
   /**

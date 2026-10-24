@@ -1,0 +1,1545 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Gitrochi/Gitrochi/blob/main/tools/gitch/schema/gitch-v1.schema.json",
+  "title": "gitch public JSON contract version 1",
+  "$ref": "#/$defs/public",
+  "$defs": {
+    "commit": {
+      "type": "object",
+      "required": [
+        "sha",
+        "date",
+        "subject"
+      ],
+      "properties": {
+        "sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "subject": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "file",
+        "line",
+        "method",
+        "confidence"
+      ],
+      "properties": {
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "method": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "declaration": {
+          "type": "string"
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "group"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "lang": {
+          "type": "string"
+        },
+        "changes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastChanged": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "enum": [
+            "added",
+            "removed",
+            "changed"
+          ]
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": [
+        "source",
+        "target",
+        "kind",
+        "weight"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "heuristic": {
+          "type": "boolean"
+        },
+        "method": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "via": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "degree": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "commitCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "commitsTruncated": {
+          "type": "boolean"
+        },
+        "commits": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/commit"
+          }
+        }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "version",
+        "relation",
+        "directed",
+        "repo",
+        "repoPath",
+        "scope",
+        "lang",
+        "commit",
+        "generated",
+        "stats",
+        "notes",
+        "diagnostics",
+        "analysisLevels",
+        "nodes",
+        "edges"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch graph"
+        },
+        "version": {
+          "type": "string"
+        },
+        "relation": {
+          "enum": [
+            "files",
+            "modules",
+            "changes",
+            "tree"
+          ]
+        },
+        "directed": {
+          "type": "boolean"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "repoPath": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "lang": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generated": {
+          "type": "string"
+        },
+        "stats": {
+          "type": "object",
+          "required": [
+            "nodes",
+            "edges",
+            "heuristicEdges"
+          ],
+          "properties": {
+            "nodes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "edges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "heuristicEdges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "analyzedCommits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "skippedLargeCommits": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "historyFrom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "historyTo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "analyzedFrom": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "analyzedTo": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "historyTruncated": {
+              "type": "boolean"
+            },
+            "shallowHistory": {
+              "type": "boolean"
+            },
+            "followedRenames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "affected": {
+              "type": "object",
+              "required": [
+                "base",
+                "changedFiles",
+                "files",
+                "modules",
+                "unresolvedFiles",
+                "includesBaseDependencies"
+              ],
+              "properties": {
+                "base": {
+                  "type": "string"
+                },
+                "changedFiles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "modules": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "unresolvedFiles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "includesBaseDependencies": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "code",
+              "severity",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "warning",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "file": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "line": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "analysisLevels": {
+          "type": "object"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "diff": {
+          "type": "object",
+          "required": [
+            "base",
+            "baseName",
+            "head"
+          ],
+          "properties": {
+            "base": {
+              "type": "string"
+            },
+            "baseName": {
+              "type": "string"
+            },
+            "head": {
+              "type": "string"
+            }
+          }
+        },
+        "cycles": {
+          "type": "object"
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "error"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "error": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string"
+            },
+            "exitCode": {
+              "enum": [
+                1,
+                2
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "code": {
+                    "enum": [
+                      "GITCH_ERROR",
+                      "GITCH_CONFIRMATION_REQUIRED"
+                    ]
+                  }
+                },
+                "required": [
+                  "code"
+                ]
+              },
+              "then": {
+                "required": [
+                  "exitCode"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "languages": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "languages",
+        "preciseBackendRequirement"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch graph languages"
+        },
+        "preciseBackendRequirement": {
+          "type": "string"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "extensions",
+              "aliases",
+              "ecosystem",
+              "manifests",
+              "fileDetection",
+              "staticImports",
+              "heuristic",
+              "preciseBackend",
+              "builtInPreciseIndexer"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "extensions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ecosystem": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "manifests": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fileDetection": {
+                "const": true
+              },
+              "staticImports": {
+                "type": "boolean"
+              },
+              "heuristic": {
+                "type": "boolean"
+              },
+              "preciseBackend": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "SCIP",
+                    "SwiftIndex"
+                  ]
+                }
+              },
+              "builtInPreciseIndexer": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "inRepo",
+        "folderAccount"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "inRepo": {
+          "type": "boolean"
+        },
+        "folderAccount": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "repo": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "author": {
+          "type": "object",
+          "required": [
+            "name",
+            "email"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          }
+        },
+        "remote": {
+          "type": "string"
+        },
+        "pushUrl": {
+          "type": "string"
+        },
+        "upstream": {
+          "type": "string"
+        },
+        "lockedAccount": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "accountSource": {
+          "type": "string"
+        },
+        "derivedAccount": {
+          "type": "string"
+        },
+        "pushAccount": {
+          "type": "string"
+        },
+        "pushLogin": {
+          "type": "string"
+        },
+        "unpushedCommits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signing": {
+          "type": "boolean"
+        },
+        "ignored": {
+          "type": "boolean"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "fileStatus": {
+      "type": "object",
+      "required": [
+        "status",
+        "path"
+      ],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "ck": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "repo",
+        "branch",
+        "account",
+        "locked",
+        "fetched",
+        "hasUpstream",
+        "ahead",
+        "behind",
+        "staged",
+        "unstaged",
+        "untracked",
+        "stash",
+        "inProgress",
+        "conflicts"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "repo": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "fetched": {
+          "type": "boolean"
+        },
+        "hasUpstream": {
+          "type": "boolean"
+        },
+        "ahead": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "behind": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "staged": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileStatus"
+          }
+        },
+        "unstaged": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileStatus"
+          }
+        },
+        "untracked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stash": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inProgress": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "result",
+        "account",
+        "pushAccount",
+        "branch",
+        "ahead",
+        "behind",
+        "checks"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "result": {
+          "enum": [
+            "OK",
+            "WARN",
+            "STOP"
+          ]
+        },
+        "account": {
+          "type": "string"
+        },
+        "pushAccount": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "ahead": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "behind": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "level",
+              "code",
+              "message"
+            ],
+            "properties": {
+              "level": {
+                "enum": [
+                  "OK",
+                  "WARN",
+                  "STOP"
+                ]
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "file",
+        "base",
+        "ok",
+        "violations"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch graph check"
+        },
+        "file": {
+          "type": "string"
+        },
+        "base": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "relation",
+              "severity",
+              "line",
+              "rule",
+              "kind",
+              "existing"
+            ],
+            "properties": {
+              "relation": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "error",
+                  "warning"
+                ]
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "rule": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "existing": {
+                "type": "boolean"
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "version": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "version",
+        "versionScheme",
+        "graphApi"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch"
+        },
+        "version": {
+          "type": "string"
+        },
+        "versionScheme": {
+          "const": "gitrochi"
+        },
+        "graphApi": {
+          "const": 1
+        }
+      }
+    },
+    "list": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "accounts"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "accounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "email",
+              "hosts",
+              "rules",
+              "sshKey",
+              "current"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "hosts": {
+                "type": "string"
+              },
+              "rules": {
+                "type": "string"
+              },
+              "sshKey": {
+                "type": "boolean"
+              },
+              "current": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "doctor": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "version",
+        "problems",
+        "items"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "version": {
+          "type": "string"
+        },
+        "problems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "section",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "section": {
+                "type": "string"
+              },
+              "level": {
+                "enum": [
+                  "OK",
+                  "WARN",
+                  "FAIL",
+                  "INFO"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "root",
+        "total",
+        "ok",
+        "problems",
+        "repos"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "root": {
+          "type": "string"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ok": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "problems": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repos": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "since",
+        "findings",
+        "repos"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "since": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repos": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "report": {
+      "type": "array",
+      "description": "Legacy report payload remains an array; schema version is selected by this schema document.",
+      "items": {
+        "type": "object"
+      }
+    },
+    "pr": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "number",
+        "url",
+        "state",
+        "title"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "url": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "isDraft": {
+          "type": "boolean"
+        },
+        "mergeable": {
+          "type": "string"
+        },
+        "reviewDecision": {
+          "type": "string"
+        },
+        "statusCheckRollup": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "public": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/graph"
+        },
+        {
+          "$ref": "#/$defs/error"
+        },
+        {
+          "$ref": "#/$defs/languages"
+        },
+        {
+          "$ref": "#/$defs/status"
+        },
+        {
+          "$ref": "#/$defs/ck"
+        },
+        {
+          "$ref": "#/$defs/preflight"
+        },
+        {
+          "$ref": "#/$defs/rules"
+        },
+        {
+          "$ref": "#/$defs/version"
+        },
+        {
+          "$ref": "#/$defs/list"
+        },
+        {
+          "$ref": "#/$defs/doctor"
+        },
+        {
+          "$ref": "#/$defs/scan"
+        },
+        {
+          "$ref": "#/$defs/audit"
+        },
+        {
+          "$ref": "#/$defs/report"
+        },
+        {
+          "$ref": "#/$defs/pr"
+        },
+        {
+          "$ref": "#/$defs/view"
+        },
+        {
+          "$ref": "#/$defs/watch"
+        },
+        {
+          "$ref": "#/$defs/index"
+        }
+      ]
+    },
+    "viewDisplay": {
+      "type": "object",
+      "required": [
+        "unit",
+        "depth",
+        "style",
+        "layout",
+        "colorBy",
+        "sizeBy"
+      ],
+      "properties": {
+        "unit": {
+          "enum": [
+            "file",
+            "folder"
+          ]
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "style": {
+          "enum": [
+            "dot",
+            "box"
+          ]
+        },
+        "layout": {
+          "type": "string"
+        },
+        "colorBy": {
+          "enum": [
+            "family",
+            "role",
+            "heat"
+          ]
+        },
+        "sizeBy": {
+          "enum": [
+            "auto",
+            "deg",
+            "lines",
+            "changes"
+          ]
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "tool",
+        "repo",
+        "relation",
+        "filters",
+        "display",
+        "hidden",
+        "query",
+        "selected",
+        "camera",
+        "theme",
+        "positions"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "tool": {
+          "const": "gitch graph view"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "relation": {
+          "enum": [
+            "files",
+            "modules",
+            "changes",
+            "tree"
+          ]
+        },
+        "filters": {
+          "type": "object"
+        },
+        "display": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/viewDisplay"
+          }
+        },
+        "hidden": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "query": {
+          "type": "string"
+        },
+        "selected": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "camera": {
+          "type": "object",
+          "required": [
+            "x",
+            "y",
+            "k"
+          ],
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "k": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "theme": {
+          "enum": [
+            "dark",
+            "light"
+          ]
+        },
+        "positions": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 5,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "watchDescription": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "url",
+        "stateUrl",
+        "refreshUrl",
+        "pid",
+        "generation",
+        "storageStable"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "stateUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "refreshUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "storageStable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "watchState": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "generation",
+        "phase",
+        "lastError",
+        "updatedAt",
+        "lastChangeAt",
+        "relation",
+        "pid",
+        "watching"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "phase": {
+          "type": "string"
+        },
+        "lastError": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "lastChangeAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "relation": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "watching": {
+          "type": "boolean"
+        },
+        "watchKey": {
+          "type": "string"
+        }
+      }
+    },
+    "watch": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/watchDescription"
+        },
+        {
+          "$ref": "#/$defs/watchState"
+        },
+        {
+          "type": "object",
+          "required": [
+            "schemaVersion",
+            "error",
+            "message"
+          ],
+          "properties": {
+            "schemaVersion": {
+              "const": 1
+            },
+            "error": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "index": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "language",
+        "executable",
+        "arguments",
+        "documentation",
+        "requirements",
+        "output"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "language": {
+          "type": "string"
+        },
+        "executable": {
+          "type": "string"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "documentation": {
+          "type": "string",
+          "format": "uri"
+        },
+        "requirements": {
+          "type": "string"
+        },
+        "output": {
+          "const": "index.scip"
+        }
+      }
+    }
+  }
+}

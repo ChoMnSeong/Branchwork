@@ -3,6 +3,7 @@
 
 pub mod helper;
 mod net;
+mod launch;
 mod process;
 mod pty;
 mod system;
@@ -14,7 +15,9 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         // 이미 켜져 있으면 새로 띄우지 않고 기존 창을 앞으로
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .manage(launch::Pending::default())
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            launch::receive(app, args);
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.unminimize();
                 let _ = w.show();
@@ -26,6 +29,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(update::PendingUpdate::default())
         .setup(|app| {
+            launch::receive(app.handle(), std::env::args().skip(1).collect());
             // 배포본에서는 웹뷰의 브라우저 단축키(F5 새로 고침, Ctrl+F 찾기, Ctrl+P 인쇄 등)를 끈다 — 앱 단축키와 겹치지 않게
             #[cfg(all(windows, not(debug_assertions)))]
             if let Some(w) = app.get_webview_window("main") {
@@ -88,6 +92,7 @@ pub fn run() {
             system::open_html,
             system::open_rules,
             system::app_ready,
+            launch::take_app_launches,
             update::update_check,
             update::update_install,
             update::update_verify,
