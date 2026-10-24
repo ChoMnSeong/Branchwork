@@ -178,15 +178,89 @@ export function parseGraphSummary(out: string): { nodes: number | null; hint: st
   return { nodes: m ? Number(m[1]) : null, hint: hint ? hint.slice(1).trim() : null };
 }
 
+/** 「이 브랜치에서 바뀐 의존」 메뉴에 보일 관계 — gitch graph diff 는 같이 바뀌는 파일을 비교하지 않는다 */
+export function graphDiffRelations(): { id: GraphRelation; title: string; detail: string }[] {
+  const title = (id: GraphRelation) => graphRelations().find((r) => r.id === id)?.title ?? id;
+  return [
+    { id: "files", title: title("files"), detail: t("gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away.") },
+    { id: "modules", title: title("modules"), detail: t("gitch graph diff modules: module dependencies added and removed on this branch.") },
+    { id: "tree", title: title("tree"), detail: t("gitch graph diff tree: folders whose number of files or size changed on this branch.") },
+  ];
+}
+
+/** gitch graph check 가 읽는 규칙 파일(저장소 안) */
+export const graphRulesFile = ".gitch/graph.rules";
+
+/** gitch graph check --format json 의 위반 하나(tools/gitch/README.md 「규칙 검사」) */
+export interface GraphViolation {
+  /** files · modules */
+  relation: string;
+  /** error(위반) · warning(이름만으로 추정한 연결이라 실패로 세지 않는다) */
+  severity: string;
+  /** 어긴 규칙의 줄 번호와 그 줄 */
+  line: number;
+  rule: string;
+  /** forbid · layers · no-cycles */
+  kind: string;
+  source: string | null;
+  target: string | null;
+  /** no-cycles: 순환을 이루는 노드 */
+  nodes: string[] | null;
+}
+
+/** gitch graph check --format json */
+export interface GraphCheck {
+  /** 규칙 파일(저장소 안이면 상대 경로) */
+  file: string;
+  ok: boolean;
+  violations: GraphViolation[];
+}
+
+export function parseGraphCheck(out: string): GraphCheck | null {
+  try {
+    const j = JSON.parse(out);
+    if (typeof j?.ok !== "boolean" || !Array.isArray(j.violations)) return null;
+    return {
+      file: text(j.file) ?? graphRulesFile,
+      ok: j.ok,
+      violations: j.violations.map((v: Record<string, unknown>) => ({
+        relation: String(v.relation ?? ""),
+        severity: String(v.severity ?? "error"),
+        line: Number(v.line) || 0,
+        rule: String(v.rule ?? ""),
+        kind: String(v.kind ?? ""),
+        source: text(v.source),
+        target: text(v.target),
+        nodes: Array.isArray(v.nodes) ? v.nodes.map(String) : null,
+      })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 규칙 파일의 규칙 줄 수(# 뒤 주석 · 빈 줄 · [files] 같은 절 머리는 빼고). --init 이 만든 예시는 모두 주석이라 0 */
+export function countGraphRules(text: string): number {
+  return text.split(/\r?\n/).filter((line) => {
+    const rule = line.replace(/#.*/, "").trim();
+    return rule !== "" && !/^\[.*\]$/.test(rule);
+  }).length;
+}
+
+/** 왜 못 했는지는 gitch 가 표준오류에 낸다 */
+function graphFailure(r: { status: number; stdout: string; stderr: string }) {
+  return new GitchError(plain(r.stderr) || plain(r.stdout) || `exit ${r.status}`);
+}
+
 /**
- * 임시 폴더의 gitch-graph/(터미널의 gitch graph 가 쓰는 곳)에 <저장소 폴더>-<관계>-<경로 해시>.html.
+ * 임시 폴더의 gitch-graph/(터미널의 gitch graph 가 쓰는 곳)에 <저장소 폴더>-<이름>-<경로 해시>.html(이름: 관계 · <관계>-diff · check).
  * 다시 그리면 덮어쓰고, 폴더 이름이 같은 다른 저장소 · 워크트리와는 해시로 갈린다.
  */
-async function graphFile(relation: GraphRelation, repo: string): Promise<string> {
+async function graphFile(kind: string, repo: string): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(slash(repo))));
   const hash = [...digest.slice(0, 4)].map((b) => b.toString(16).padStart(2, "0")).join("");
   const name = slash(repo).replace(/\/+$/, "").split("/").pop() || "repo";
-  return joinPath(env.temp, "gitch-graph", `${name}-${relation}-${hash}.html`);
+  return joinPath(env.temp, "gitch-graph", `${name}-${kind}-${hash}.html`);
 }
 
 class GitchService {
@@ -342,14 +416,53 @@ class GitchService {
    * modules 는 매니페스트를 읽느라, 큰 저장소의 files 도 몇 초 걸린다.
    */
   async graph(relation: GraphRelation, repo: string): Promise<GraphPage> {
+    const file = await graphFile(relation, repo);
+    const r = await this.runGraph([relation, "--format", "html", "--out", file, "--no-open"], repo);
+    return { file, ...parseGraphSummary(plain(r.stdout)) };
+  }
+
+  /**
+   * `gitch graph diff [--base 기준] <관계> --format html --out <임시 파일> --no-open` — 기준과 지금 작업 트리(커밋하지 않은 바꿈 포함)의
+   * 의존을 비교해 더한 것은 초록, 뺀 것은 빨간 점선으로 그린 페이지. 기준이 null 이면 gitch 가 고른다(기본 브랜치와 갈라진 곳).
+   * 기준 커밋을 임시 폴더에 풀어 같은 방법으로 한 번 더 읽으므로 큰 저장소는 몇 초 걸린다.
+   */
+  async graphDiff(relation: GraphRelation, base: string | null, repo: string): Promise<string> {
+    const file = await graphFile(`${relation}-diff`, repo);
+    await this.runGraph(["diff", ...(base ? ["--base", base] : []), relation, "--format", "html", "--out", file, "--no-open"], repo);
+    return file;
+  }
+
+  /**
+   * `gitch graph check --format json`. 위반이 있으면 gitch 는 1 로 끝나지만 실패가 아니다(결과 JSON 을 낸다).
+   * 규칙 파일에 틀린 줄이 있으면 JSON 없이 1 로 끝나고, 틀린 줄을 표준오류에 낸다.
+   */
+  async graphRulesCheck(repo: string): Promise<GraphCheck> {
+    const r = await this.runGraph(["check", "--format", "json"], repo, [0, 1]);
+    const result = parseGraphCheck(r.stdout);
+    if (!result) throw graphFailure(r);
+    return result;
+  }
+
+  /** `gitch graph check --format html --out <임시 파일> --no-open` — 규칙을 어긴 연결을 빨갛게 그린 페이지(위반이 있어 1 로 끝나도 만든다) */
+  async graphCheckPage(repo: string): Promise<string> {
+    const file = await graphFile("check", repo);
+    const r = await this.runGraph(["check", "--format", "html", "--out", file, "--no-open"], repo, [0, 1]);
+    if (!plain(r.stdout).includes("GRAPH_FILE=")) throw graphFailure(r);
+    return file;
+  }
+
+  /** `gitch graph check --init` — 예시(모두 # 주석)가 든 규칙 파일을 만든다 */
+  async graphRulesInit(repo: string): Promise<void> {
+    await this.runGraph(["check", "--init"], repo);
+  }
+
+  /** 앱에 든 gitch 로 `gitch graph …`. 종료 코드가 ok 에 없으면 gitch 가 낸 까닭으로 던진다 */
+  private async runGraph(args: string[], repo: string, ok = [0]) {
     const reason = await this.graphUnavailable();
     if (reason) throw new GitchError(reason);
-    const file = await graphFile(relation, repo);
-    const r = await this.spawn(["graph", relation, "--format", "html", "--out", file, "--no-open"], repo, 600_000, this.bundled);
-    const out = plain(r.stdout);
-    // 왜 못 그렸는지는 gitch 가 표준오류에 낸다
-    if (r.status !== 0) throw new GitchError(plain(r.stderr) || out || `exit ${r.status}`);
-    return { file, ...parseGraphSummary(out) };
+    const r = await this.spawn(["graph", ...args], repo, 600_000, this.bundled);
+    if (!ok.includes(r.status)) throw graphFailure(r);
+    return r;
   }
 
   /** 자동 백업 목록 */

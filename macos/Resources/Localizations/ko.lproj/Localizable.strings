@@ -1,5 +1,33 @@
 /* Gitrochi — ko. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ 와(과) 이 브랜치에는 공통 커밋이 없습니다.";
+"Check again" = "다시 검사";
+"Check dependency rules…" = "의존 규칙 검사…";
+"Checking dependency rules…" = "의존 규칙 검사하는 중…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = ".gitch/graph.rules 의 규칙대로 의존을 검사하고(gitch graph check) 어긴 것을 보여 줍니다.";
+"Compare" = "비교";
+"Compare dependencies" = "의존 비교";
+"Compare with" = "비교 기준";
+"Compare with…" = "다른 기준과 비교…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "커밋하지 않은 바꿈까지 든 지금 작업 트리의 의존을 이 브랜치가 기본 브랜치와 갈라진 곳과 비교해(gitch graph diff) 바뀐 것을 브라우저에서 엽니다.";
+"Comparing dependencies…" = "의존 비교하는 중…";
+"Couldn't check the rules" = "규칙을 검사하지 못했습니다";
+"Create rules file" = "규칙 파일 만들기";
+"Default branch (where this branch split off)" = "기본 브랜치 (갈라진 곳)";
+"Dependencies changed on this branch" = "이 브랜치에서 바뀐 의존";
+"Dependency rules" = "의존 규칙";
+"Edit rules" = "규칙 고치기";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "고른 브랜치 · 태그와 이 브랜치가 갈라진 곳과 비교해서 이 브랜치에서 바뀐 것만 보입니다. 커밋하지 않은 바꿈(추적하는 파일)도 들어갑니다.";
+"Line %lld" = "%1$lld번 줄";
+"No dependency rules yet" = "아직 의존 규칙이 없습니다";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "아직 규칙이 없습니다. 예시 앞의 # 를 지우고 이 저장소에 맞게 고친 뒤 다시 검사하세요.";
+"No violations" = "위반 없음";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "브랜치나 태그를 고릅니다. 이 브랜치가 그것과 갈라진 곳과 비교합니다.";
+"Rules %lld" = "규칙 %1$lld개";
+"View as graph" = "그래프로 보기";
+"Violations %lld" = "위반 %1$lld개";
+"Warnings %lld" = "경고 %1$lld개";
+"Warnings are links guessed only from names, so they don't count as violations." = "경고는 이름만으로 추정한 연결이라 위반으로 세지 않습니다.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(변경이 길어 앞부분만 보고 설명했습니다.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n인증이 필요합니다. 터미널에서 한 번 push/pull 해서 자격 증명(키체인·SSH 키)을 저장한 뒤 다시 시도하세요.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\n토큰에 api 권한이 있어야 하고, 승인은 그 MR 을 승인할 수 있는 사람만 할 수 있습니다.";
@@ -982,6 +1010,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch 가 이 저장소의 계정을 모릅니다. gitch use <계정> 으로 잠그세요.";
 "gitch found nothing to draw for %@." = "%1$@: gitch 가 그릴 것을 찾지 못했습니다.";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: 자주 같이 커밋되는 파일과 파일마다 바뀐 횟수.";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check 는 이 저장소의 .gitch/graph.rules 에서 규칙을 읽습니다. 주석으로 둔 예시가 든 파일을 만들고(gitch graph check --init) 열까요?";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: 이 브랜치에서 더하고 뺀 import 와, 새로 생기거나 커지거나 줄거나 없어진 순환.";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: 이 브랜치에서 더하고 뺀 모듈 의존.";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: 이 브랜치에서 파일 수나 크기가 바뀐 폴더.";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: 어느 파일이 어느 파일을 import 하는지(TypeScript · JavaScript · Python · Go · Rust · Kotlin · Java). Swift 파일은 쓰는 타입 이름으로 잇습니다(점선).";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: Package.swift · Tuist · package.json · Cargo · Go · Gradle 의 타깃과 패키지. Package.swift 를 읽는 데 몇 초 걸립니다.";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: 폴더마다 크기와 파일 수.";

@@ -1,5 +1,33 @@
 /* Gitrochi — th. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ ไม่มีคอมมิตร่วมกับแบรนช์นี้";
+"Check again" = "ตรวจอีกครั้ง";
+"Check dependency rules…" = "ตรวจกฎการพึ่งพา…";
+"Checking dependency rules…" = "กำลังตรวจกฎการพึ่งพา…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = "ตรวจการพึ่งพาตามกฎใน .gitch/graph.rules (gitch graph check) และแสดงรายการสิ่งที่ฝ่าฝืน";
+"Compare" = "เปรียบเทียบ";
+"Compare dependencies" = "เปรียบเทียบการพึ่งพา";
+"Compare with" = "เปรียบเทียบกับ";
+"Compare with…" = "เปรียบเทียบกับ…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "เปรียบเทียบการพึ่งพาในเวิร์กกิงทรี รวมถึงการเปลี่ยนแปลงที่ยังไม่ได้คอมมิต กับจุดที่แบรนช์นี้แยกออกจากแบรนช์เริ่มต้น (gitch graph diff) แล้วเปิดสิ่งที่เปลี่ยนในเบราว์เซอร์";
+"Comparing dependencies…" = "กำลังเปรียบเทียบการพึ่งพา…";
+"Couldn't check the rules" = "ตรวจกฎไม่ได้";
+"Create rules file" = "สร้างไฟล์กฎ";
+"Default branch (where this branch split off)" = "แบรนช์เริ่มต้น (จุดที่แยกออกมา)";
+"Dependencies changed on this branch" = "การพึ่งพาที่เปลี่ยนในแบรนช์นี้";
+"Dependency rules" = "กฎการพึ่งพา";
+"Edit rules" = "แก้ไขกฎ";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "Gitrochi เปรียบเทียบกับจุดที่แบรนช์นี้แยกออกมาจากแบรนช์หรือแท็กที่คุณเลือก จึงเห็นเฉพาะการเปลี่ยนแปลงของแบรนช์นี้ รวมถึงการเปลี่ยนแปลงที่ยังไม่ได้คอมมิตในไฟล์ที่ติดตามอยู่";
+"Line %lld" = "บรรทัด %1$lld";
+"No dependency rules yet" = "ยังไม่มีกฎการพึ่งพา";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "ยังไม่มีกฎ ลบ # หน้าตัวอย่างออก ปรับให้เข้ากับรีโพสิทอรีนี้ แล้วตรวจอีกครั้ง";
+"No violations" = "ไม่มีการฝ่าฝืน";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "เลือกแบรนช์หรือแท็ก Gitrochi จะเปรียบเทียบกับจุดที่แบรนช์นี้แยกออกมาจากสิ่งที่เลือก";
+"Rules %lld" = "กฎ %1$lld ข้อ";
+"View as graph" = "ดูเป็นกราฟ";
+"Violations %lld" = "ฝ่าฝืน %1$lld รายการ";
+"Warnings %lld" = "คำเตือน %1$lld รายการ";
+"Warnings are links guessed only from names, so they don't count as violations." = "คำเตือนคือการเชื่อมโยงที่เดาจากชื่ออย่างเดียว จึงไม่นับเป็นการฝ่าฝืน";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(diff ยาวเกินไป จึงอธิบายเฉพาะส่วนต้นเท่านั้น)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nต้องยืนยันตัวตน พุช/พูลในเทอร์มินัลหนึ่งครั้งเพื่อบันทึกข้อมูลประจำตัว (พวงกุญแจหรือคีย์ SSH) แล้วลองอีกครั้ง";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nโทเค็นต้องมีสโคป api และเฉพาะผู้ที่มีสิทธิ์อนุมัติ MR นี้เท่านั้นจึงจะอนุมัติได้";
@@ -984,6 +1012,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch ไม่รู้ว่ารีโพซิทอรีนี้ใช้บัญชีใด ล็อกด้วย gitch use <บัญชี>";
 "gitch found nothing to draw for %@." = "%1$@: gitch ไม่พบสิ่งที่จะวาด";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: ไฟล์ที่มักคอมมิตพร้อมกัน และแต่ละไฟล์เปลี่ยนบ่อยแค่ไหน";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check อ่านกฎจาก .gitch/graph.rules ในรีโพสิทอรีนี้ สร้างไฟล์ที่มีตัวอย่างแบบคอมเมนต์ไว้ (gitch graph check --init) แล้วเปิดหรือไม่";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: import ที่เพิ่มและลบในแบรนช์นี้ และวงจรที่เกิดขึ้น ใหญ่ขึ้น เล็กลง หรือหายไป";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: การพึ่งพาของโมดูลที่เพิ่มและลบในแบรนช์นี้";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: โฟลเดอร์ที่จำนวนไฟล์หรือขนาดเปลี่ยนในแบรนช์นี้";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: ไฟล์ไหน import ไฟล์ไหน สำหรับ TypeScript, JavaScript, Python, Go, Rust, Kotlin และ Java ส่วนไฟล์ Swift จะเชื่อมจากชื่อไทป์ที่ใช้ (เส้นประ)";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: target และแพ็กเกจจาก Package.swift, Tuist, package.json, Cargo, Go และ Gradle การอ่าน Package.swift ใช้เวลาสองสามวินาที";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: โฟลเดอร์พร้อมขนาดและจำนวนไฟล์";

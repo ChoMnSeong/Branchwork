@@ -486,6 +486,10 @@ enum SheetKind: Identifiable {
     case runPipeline
     /// 커밋 정리(인터랙티브 리베이스)
     case interactiveRebase
+    /// 이 브랜치에서 바뀐 의존(gitch graph diff)의 기준 고르기
+    case graphDiff
+    /// 의존 규칙 검사 결과(gitch graph check)
+    case graphCheck
 
     var id: String {
         switch self {
@@ -499,6 +503,8 @@ enum SheetKind: Identifiable {
         case .splitCommits: return "split"
         case .runPipeline: return "runPipeline"
         case .interactiveRebase: return "interactiveRebase"
+        case .graphDiff: return "graphDiff"
+        case .graphCheck: return "graphCheck"
         }
     }
 }

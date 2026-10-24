@@ -178,3 +178,43 @@ struct CloneSheet: View {
         return last.hasSuffix(".git") ? String(last.dropLast(4)) : last
     }
 }
+
+/// 「이 브랜치에서 바뀐 의존」의 기준 고르기(gitch graph diff). 고른 브랜치 · 태그와 이 브랜치가 갈라진 곳과 비교한다.
+struct GraphDiffSheet: View {
+    @Environment(RepoStore.self) private var store
+    @ViewState private var relation = Gitch.GraphRelation.files
+    /// 빈 글자면 gitch 가 고른다(기본 브랜치와 갈라진 곳)
+    @ViewState private var base = ""
+
+    var body: some View {
+        SheetFrame(title: String(localized: "Compare dependencies"), confirmTitle: String(localized: "Compare"), canConfirm: true,
+                   onConfirm: {
+                       let r = relation, b = base
+                       Task { await store.openGraphDiff(r, base: b.isEmpty ? nil : b) }
+                   }) {
+            Section {
+                Picker("Structure graph", selection: $relation) {
+                    ForEach(Gitch.GraphRelation.compared) { Text($0.title).tag($0) }
+                }
+                Picker("Compare with", selection: $base) {
+                    Text("Default branch (where this branch split off)").tag("")
+                    Divider()
+                    ForEach(store.localBranches.filter { !$0.isCurrent }) { b in
+                        Label(b.name, systemImage: "arrow.triangle.branch").tag(b.name)
+                    }
+                    Divider()
+                    ForEach(store.remoteBranches) { b in
+                        Label(b.name, systemImage: "cloud").tag(b.name)
+                    }
+                    Divider()
+                    ForEach(store.tags) { t in
+                        Label(t.name, systemImage: "tag").tag(t.name)
+                    }
+                }
+            } footer: {
+                Text("Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+}

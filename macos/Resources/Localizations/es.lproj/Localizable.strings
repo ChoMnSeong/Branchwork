@@ -1,5 +1,33 @@
 /* Gitrochi — es. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ no tiene ningún commit en común con esta rama.";
+"Check again" = "Volver a comprobar";
+"Check dependency rules…" = "Comprobar reglas de dependencias…";
+"Checking dependency rules…" = "Comprobando reglas de dependencias…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = "Comprueba las dependencias según las reglas de .gitch/graph.rules (gitch graph check) y enumera lo que las incumple.";
+"Compare" = "Comparar";
+"Compare dependencies" = "Comparar dependencias";
+"Compare with" = "Comparar con";
+"Compare with…" = "Comparar con…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "Compara las dependencias de tu directorio de trabajo, incluidos los cambios sin commit, con el punto donde esta rama se separó de la rama predeterminada (gitch graph diff) y abre los cambios en el navegador.";
+"Comparing dependencies…" = "Comparando dependencias…";
+"Couldn't check the rules" = "No se pudieron comprobar las reglas";
+"Create rules file" = "Crear archivo de reglas";
+"Default branch (where this branch split off)" = "Rama predeterminada (punto de separación)";
+"Dependencies changed on this branch" = "Dependencias cambiadas en esta rama";
+"Dependency rules" = "Reglas de dependencias";
+"Edit rules" = "Editar reglas";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "Gitrochi compara con el punto donde esta rama se separó de la rama o etiqueta que elijas, así que solo se muestran los cambios de esta rama. Se incluyen los cambios sin commit en archivos con seguimiento.";
+"Line %lld" = "Línea %1$lld";
+"No dependency rules yet" = "Todavía no hay reglas de dependencias";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "Todavía no hay reglas. Quita el # delante de los ejemplos, adáptalos a este repositorio y vuelve a comprobar.";
+"No violations" = "Sin infracciones";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "Elige una rama o etiqueta. Gitrochi compara con el punto donde esta rama se separó de ella.";
+"Rules %lld" = "%1$lld reglas";
+"View as graph" = "Ver como grafo";
+"Violations %lld" = "%1$lld infracciones";
+"Warnings %lld" = "%1$lld advertencias";
+"Warnings are links guessed only from names, so they don't count as violations." = "Las advertencias son enlaces deducidos solo a partir de nombres, así que no cuentan como infracciones.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(El diff era largo, así que solo se explicó el principio.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nSe requiere autenticación. Haz push/pull una vez en una terminal para guardar tus credenciales (Llavero o clave SSH) y vuelve a intentarlo.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nEl token necesita el ámbito api, y solo pueden aprobar este MR las personas con permiso para aprobarlo.";
@@ -962,6 +990,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch no sabe qué cuenta usa este repositorio. Vincúlalo con gitch use <cuenta>.";
 "gitch found nothing to draw for %@." = "gitch no encontró nada que dibujar para %1$@.";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: archivos que suelen ir juntos en un commit y cuántas veces cambia cada uno.";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check lee sus reglas de .gitch/graph.rules en este repositorio. ¿Crear el archivo con ejemplos comentados (gitch graph check --init) y abrirlo?";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: imports añadidos y eliminados en esta rama, y ciclos que aparecieron, crecieron, se redujeron o desaparecieron.";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: dependencias de módulos añadidas y eliminadas en esta rama.";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: carpetas cuyo número de archivos o tamaño cambió en esta rama.";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: qué archivo importa a cuál, para TypeScript, JavaScript, Python, Go, Rust, Kotlin y Java. Los archivos Swift se enlazan por los nombres de tipo que usan (líneas discontinuas).";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: targets y paquetes de Package.swift, Tuist, package.json, Cargo, Go y Gradle. Leer Package.swift tarda unos segundos.";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: carpetas con su tamaño y número de archivos.";

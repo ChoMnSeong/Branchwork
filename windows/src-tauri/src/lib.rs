@@ -86,6 +86,7 @@ pub fn run() {
             system::open_terminal,
             system::open_console,
             system::open_html,
+            system::open_rules,
             system::app_ready,
             update::update_check,
             update::update_install,

@@ -1,7 +1,8 @@
 import Foundation
 import AppKit
+import UniformTypeIdentifiers
 
-/// 터미널(Terminal.app)에서 폴더 열기·에이전트(Claude Code·Codex·Gemini CLI) 실행, 기본 브라우저로 파일 열기
+/// 터미널(Terminal.app)에서 폴더 열기·에이전트(Claude Code·Codex·Gemini CLI) 실행, 기본 브라우저 · 글 편집기로 파일 열기
 enum Launcher {
     private static var terminal: URL? {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
@@ -19,6 +20,16 @@ enum Launcher {
             return
         }
         _ = try await ws.open([file], withApplicationAt: browser, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    /// 일반 텍스트를 여는 앱(TextEdit 이나 사용자가 고른 편집기)으로 연다 — .rules 처럼 묶인 앱이 없는 확장자도
+    @MainActor static func openInTextEditor(_ file: URL) async throws {
+        let ws = NSWorkspace.shared
+        guard let editor = ws.urlForApplication(toOpen: .plainText) else {
+            ws.open(file)
+            return
+        }
+        _ = try await ws.open([file], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration())
     }
 
     static func openTerminal(at path: String) {

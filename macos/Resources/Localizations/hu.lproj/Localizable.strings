@@ -1,5 +1,33 @@
 /* Gitrochi — hu. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ és ez az ág nem rendelkezik közös committal.";
+"Check again" = "Újraellenőrzés";
+"Check dependency rules…" = "Függőségi szabályok ellenőrzése…";
+"Checking dependency rules…" = "Függőségi szabályok ellenőrzése…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = "Ellenőrzi a függőségeket a .gitch/graph.rules szabályai szerint (gitch graph check), és felsorolja, mi sérti őket.";
+"Compare" = "Összevetés";
+"Compare dependencies" = "Függőségek összevetése";
+"Compare with" = "Összevetés ezzel";
+"Compare with…" = "Összevetés ezzel…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "Összeveti a munkakönyvtár függőségeit – a nem commitolt módosításokkal együtt – azzal a ponttal, ahol ez az ág levált az alapértelmezett ágról (gitch graph diff), és megnyitja a változásokat a böngészőben.";
+"Comparing dependencies…" = "Függőségek összevetése…";
+"Couldn't check the rules" = "Nem sikerült ellenőrizni a szabályokat";
+"Create rules file" = "Szabályfájl létrehozása";
+"Default branch (where this branch split off)" = "Alapértelmezett ág (leválási pont)";
+"Dependencies changed on this branch" = "Ezen az ágon változott függőségek";
+"Dependency rules" = "Függőségi szabályok";
+"Edit rules" = "Szabályok szerkesztése";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "A Gitrochi azzal a ponttal veti össze, ahol ez az ág levált a kiválasztott ágról vagy címkéről, így csak ennek az ágnak a változásai látszanak. A követett fájlok nem commitolt módosításai is benne vannak.";
+"Line %lld" = "%1$lld. sor";
+"No dependency rules yet" = "Még nincsenek függőségi szabályok";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "Még nincsenek szabályok. Törölje a # jelet a példák elől, igazítsa őket ehhez a tárolóhoz, majd ellenőrizze újra.";
+"No violations" = "Nincs szabálysértés";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "Válasszon egy ágat vagy címkét. A Gitrochi azzal a ponttal veti össze, ahol ez az ág levált róla.";
+"Rules %lld" = "%1$lld szabály";
+"View as graph" = "Megtekintés gráfként";
+"Violations %lld" = "%1$lld szabálysértés";
+"Warnings %lld" = "%1$lld figyelmeztetés";
+"Warnings are links guessed only from names, so they don't count as violations." = "A figyelmeztetések csak nevek alapján kikövetkeztetett kapcsolatok, ezért nem számítanak szabálysértésnek.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(A diff hosszú volt, ezért csak az eleje kapott magyarázatot.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nHitelesítés szükséges. Futtasson egyszer push/pull parancsot egy terminálban a hitelesítő adatok mentéséhez (kulcskarika vagy SSH-kulcs), majd próbálja újra.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nA tokennek api hatókör kell, és csak az hagyhatja jóvá, aki jogosult ennek az MR-nek a jóváhagyására.";
@@ -971,6 +999,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "A gitch nem tudja, melyik fiókot használja ez a tároló. Zárolja a gitch use <fiók> paranccsal.";
 "gitch found nothing to draw for %@." = "%1$@: a gitch nem talált megrajzolnivalót.";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: a gyakran együtt commitolt fájlok, és hogy az egyes fájlok milyen gyakran változnak.";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "A gitch graph check a tároló .gitch/graph.rules fájljából olvassa a szabályokat. Létrehozza a fájlt kikommentezett példákkal (gitch graph check --init), és megnyitja?";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: az ezen az ágon hozzáadott és eltávolított importok, valamint a megjelent, megnőtt, összement vagy eltűnt körök.";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: az ezen az ágon hozzáadott és eltávolított modulfüggőségek.";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: mappák, amelyekben ezen az ágon megváltozott a fájlok száma vagy a méret.";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: melyik fájl melyiket importálja (TypeScript, JavaScript, Python, Go, Rust, Kotlin és Java). A Swift-fájlokat az általuk használt típusnevek alapján köti össze (szaggatott vonalak).";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: targetek és csomagok a Package.swift, a Tuist, a package.json, a Cargo, a Go és a Gradle alapján. A Package.swift beolvasása néhány másodpercig tart.";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: mappák a méretükkel és a fájljaik számával.";

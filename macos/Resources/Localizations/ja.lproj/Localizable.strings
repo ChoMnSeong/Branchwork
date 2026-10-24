@@ -1,5 +1,33 @@
 /* Gitrochi — ja. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ とこのブランチには共通のコミットがありません。";
+"Check again" = "再チェック";
+"Check dependency rules…" = "依存関係のルールをチェック…";
+"Checking dependency rules…" = "依存関係のルールをチェック中…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = ".gitch/graph.rules のルールで依存関係をチェックし (gitch graph check)、違反を一覧にします。";
+"Compare" = "比較";
+"Compare dependencies" = "依存関係の比較";
+"Compare with" = "比較対象";
+"Compare with…" = "比較対象を選択…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "未コミットの変更を含む作業ツリーの依存関係を、このブランチがデフォルトブランチから分かれた地点と比べ (gitch graph diff)、変わった部分をブラウザーで開きます。";
+"Comparing dependencies…" = "依存関係を比較中…";
+"Couldn't check the rules" = "ルールをチェックできませんでした";
+"Create rules file" = "ルールファイルを作成";
+"Default branch (where this branch split off)" = "デフォルトブランチ (分かれた地点)";
+"Dependencies changed on this branch" = "このブランチで変わった依存関係";
+"Dependency rules" = "依存関係のルール";
+"Edit rules" = "ルールを編集";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "選んだブランチやタグからこのブランチが分かれた地点と比べるので、このブランチの変更だけが表示されます。追跡中のファイルの未コミットの変更も含みます。";
+"Line %lld" = "%1$lld 行目";
+"No dependency rules yet" = "依存関係のルールがまだありません";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "まだルールがありません。例の先頭の # を消し、このリポジトリに合わせて直してから、もう一度チェックしてください。";
+"No violations" = "違反なし";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "ブランチまたはタグを選びます。このブランチがそこから分かれた地点と比べます。";
+"Rules %lld" = "ルール %1$lld 件";
+"View as graph" = "グラフで見る";
+"Violations %lld" = "違反 %1$lld 件";
+"Warnings %lld" = "警告 %1$lld 件";
+"Warnings are links guessed only from names, so they don't count as violations." = "警告は名前だけから推測したつながりなので、違反には数えません。";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(差分が長いため、先頭部分だけを見て説明しました。)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n認証が必要です。ターミナルで一度 push/pull を実行して資格情報 (キーチェーンまたは SSH キー) を保存してから、もう一度お試しください。";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nトークンに api スコープが必要です。また、この MR を承認できるのは、承認権限を持つユーザーだけです。";
@@ -989,6 +1017,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch はこのリポジトリのアカウントを把握していません。gitch use <アカウント> でロックしてください。";
 "gitch found nothing to draw for %@." = "%1$@: gitch は描くものを見つけられませんでした。";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: よく一緒にコミットされるファイルと、各ファイルの変更回数。";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check はこのリポジトリの .gitch/graph.rules からルールを読みます。コメントアウトした例を入れたファイルを作成して (gitch graph check --init) 開きますか？";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: このブランチで追加・削除された import と、新しくできた・大きくなった・小さくなった・なくなった循環。";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: このブランチで追加・削除されたモジュールの依存関係。";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: このブランチでファイル数やサイズが変わったフォルダー。";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: どのファイルがどのファイルを import しているか (TypeScript、JavaScript、Python、Go、Rust、Kotlin、Java)。Swift のファイルは使っている型名でつなぎます (点線)。";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: Package.swift、Tuist、package.json、Cargo、Go、Gradle のターゲットとパッケージ。Package.swift の読み込みには数秒かかります。";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: フォルダーごとのサイズとファイル数。";

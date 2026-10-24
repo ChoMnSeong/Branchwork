@@ -1,5 +1,33 @@
 /* Gitrochi — vi. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ không có commit chung nào với nhánh này.";
+"Check again" = "Kiểm tra lại";
+"Check dependency rules…" = "Kiểm tra quy tắc phụ thuộc…";
+"Checking dependency rules…" = "Đang kiểm tra quy tắc phụ thuộc…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = "Kiểm tra các phụ thuộc theo quy tắc trong .gitch/graph.rules (gitch graph check) và liệt kê những gì vi phạm.";
+"Compare" = "So sánh";
+"Compare dependencies" = "So sánh phụ thuộc";
+"Compare with" = "So sánh với";
+"Compare with…" = "So sánh với…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "So sánh các phụ thuộc trong thư mục làm việc, kể cả thay đổi chưa commit, với điểm mà nhánh này tách ra từ nhánh mặc định (gitch graph diff), rồi mở các thay đổi trong trình duyệt.";
+"Comparing dependencies…" = "Đang so sánh phụ thuộc…";
+"Couldn't check the rules" = "Không thể kiểm tra quy tắc";
+"Create rules file" = "Tạo tệp quy tắc";
+"Default branch (where this branch split off)" = "Nhánh mặc định (điểm tách ra)";
+"Dependencies changed on this branch" = "Phụ thuộc đã thay đổi trên nhánh này";
+"Dependency rules" = "Quy tắc phụ thuộc";
+"Edit rules" = "Sửa quy tắc";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "Gitrochi so sánh với điểm mà nhánh này tách ra từ nhánh hoặc tag bạn chọn, nên chỉ hiện các thay đổi của nhánh này. Thay đổi chưa commit trong các tệp được theo dõi cũng được tính.";
+"Line %lld" = "Dòng %1$lld";
+"No dependency rules yet" = "Chưa có quy tắc phụ thuộc";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "Chưa có quy tắc. Hãy xóa dấu # trước các ví dụ, chỉnh cho phù hợp với kho lưu trữ này rồi kiểm tra lại.";
+"No violations" = "Không có vi phạm";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "Chọn một nhánh hoặc tag. Gitrochi so sánh với điểm mà nhánh này tách ra từ đó.";
+"Rules %lld" = "%1$lld quy tắc";
+"View as graph" = "Xem dạng đồ thị";
+"Violations %lld" = "%1$lld vi phạm";
+"Warnings %lld" = "%1$lld cảnh báo";
+"Warnings are links guessed only from names, so they don't count as violations." = "Cảnh báo là các liên kết chỉ đoán từ tên, nên không bị tính là vi phạm.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff quá dài nên chỉ phần đầu được giải thích.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nCần xác thực. Hãy chạy push/pull một lần trong terminal để lưu thông tin đăng nhập (Chuỗi khóa hoặc khóa SSH), rồi thử lại.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken cần có scope api, và chỉ những người có quyền phê duyệt MR này mới phê duyệt được.";
@@ -945,6 +973,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch không biết kho này dùng tài khoản nào. Khóa nó bằng gitch use <tài khoản>.";
 "gitch found nothing to draw for %@." = "gitch không tìm thấy gì để vẽ cho %1$@.";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: các tệp thường được commit cùng nhau và số lần thay đổi của từng tệp.";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check đọc quy tắc từ .gitch/graph.rules trong kho lưu trữ này. Tạo tệp với các ví dụ ở dạng chú thích (gitch graph check --init) rồi mở nó?";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: các import được thêm và xóa trên nhánh này, cùng các vòng phụ thuộc mới xuất hiện, lớn lên, nhỏ đi hoặc biến mất.";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: các phụ thuộc giữa mô-đun được thêm và xóa trên nhánh này.";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: các thư mục có số tệp hoặc kích thước thay đổi trên nhánh này.";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: tệp nào import tệp nào, cho TypeScript, JavaScript, Python, Go, Rust, Kotlin và Java. Tệp Swift được nối theo tên kiểu mà chúng dùng (đường nét đứt).";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: target và gói từ Package.swift, Tuist, package.json, Cargo, Go và Gradle. Việc đọc Package.swift mất vài giây.";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: các thư mục cùng kích thước và số tệp.";
