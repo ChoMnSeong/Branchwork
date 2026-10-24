@@ -193,20 +193,23 @@ export function showMenuBelow(el: HTMLElement, items: MenuItem[]) {
   menuState.show(items, r.left, r.bottom + 4);
 }
 
-function MenuList({ items, x, y, onDone }: { items: MenuItem[]; x: number; y: number; onDone: () => void }) {
+/** flipX: 하위 메뉴일 때 부모 메뉴의 왼쪽 끝 — 오른쪽에 자리가 없으면 부모를 덮지 않게 그 왼쪽으로 연다 */
+function MenuList({ items, x, y, flipX, onDone }: { items: MenuItem[]; x: number; y: number; flipX?: number; onDone: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x, y });
   const [open, setOpen] = useState<number | null>(null);
-  const [subPos, setSubPos] = useState({ x: 0, y: 0 });
+  const [subPos, setSubPos] = useState({ x: 0, y: 0, flipX: 0 });
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
+    const fits = x + r.width <= window.innerWidth - 6;
+    const left = !fits && flipX != null ? flipX - r.width - 2 : x;
     setPos({
-      x: Math.max(4, Math.min(x, window.innerWidth - r.width - 6)),
+      x: Math.max(4, Math.min(left, window.innerWidth - r.width - 6)),
       y: Math.max(4, Math.min(y, window.innerHeight - r.height - 6)),
     });
-  }, [x, y]);
+  }, [x, y, flipX]);
   return (
     <>
       <div className="menu" ref={ref} style={{ left: pos.x, top: pos.y }} onMouseDown={(e) => e.stopPropagation()}>
@@ -221,7 +224,7 @@ function MenuList({ items, x, y, onDone }: { items: MenuItem[]; x: number; y: nu
               onMouseEnter={(e) => {
                 if (it.submenu && !it.disabled) {
                   const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  setSubPos({ x: r.right + 2, y: r.top - 4 });
+                  setSubPos({ x: r.right + 2, y: r.top - 4, flipX: ref.current?.getBoundingClientRect().left ?? r.left });
                   setOpen(i);
                 } else setOpen(null);
               }}
@@ -240,7 +243,7 @@ function MenuList({ items, x, y, onDone }: { items: MenuItem[]; x: number; y: nu
         )}
       </div>
       {open !== null && items[open] !== "divider" && (items[open] as { submenu?: MenuItem[] }).submenu && (
-        <MenuList items={(items[open] as { submenu: MenuItem[] }).submenu} x={subPos.x} y={subPos.y} onDone={onDone} />
+        <MenuList items={(items[open] as { submenu: MenuItem[] }).submenu} x={subPos.x} y={subPos.y} flipX={subPos.flipX} onDone={onDone} />
       )}
     </>
   );
