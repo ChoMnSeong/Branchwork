@@ -1,7 +1,8 @@
 import { type Branch, type Commit, isWIP, type RefLabel, short } from "@/entities/git";
+import { gitch, graphRelations } from "@/entities/gitch";
 import type { RepoStore } from "@/entities/repo";
 import { t } from "@/shared/i18n";
-import type { MenuItem } from "@/shared/ui";
+import { type MenuItem, tip } from "@/shared/ui";
 
 /** 브랜치·태그 배지 우클릭 메뉴(그래프 배지와 커밋 메뉴에서 같이 쓴다) */
 export function refMenu(store: RepoStore, ref: RefLabel): MenuItem[] {
@@ -159,4 +160,26 @@ export function commitMenu(store: RepoStore, c: Commit): MenuItem[] {
   }
   items.push("divider", { label: t("Copy SHA"), onClick: () => store.copy(c.id) }, { label: t("Copy message"), onClick: () => store.copy(c.subject) });
   return items;
+}
+
+/**
+ * 저장소 메뉴(툴바 · ≡ 메뉴)의 「Structure graph」: 관계를 고르면 앱에 든 gitch 로 html 을 만들어 기본 브라우저로 연다(gitch graph).
+ * gitch 계정이 없어도 되는 기능이라, 계정을 만들어 두었을 때만 보이는 커밋 칸 위 ⋯ 메뉴가 아니라 저장소 메뉴에 둔다.
+ */
+export function structureGraphMenu(store: RepoStore | null): MenuItem {
+  const summary = t("Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser.");
+  // 앱에 든 gitch 를 아직 안 봤으면(보통은 저장소를 열 때 봐 둔다) 켜 두고, 누르면 그릴 때 다시 본다
+  const reason = gitch.graphReason;
+  if (reason === undefined) void gitch.checkGraph();
+  if (!store?.path || reason) return { label: t("Structure graph"), disabled: true, tip: tip(t("Structure graph"), reason ?? summary) };
+  return {
+    label: t("Structure graph"),
+    tip: tip(t("Structure graph"), store.drawingGraph ? t("Drawing the structure graph…") : summary),
+    submenu: graphRelations().map((r) => ({
+      label: r.title,
+      tip: tip(r.title, r.detail),
+      disabled: store.drawingGraph != null,
+      onClick: () => void store.openStructureGraph(r.id),
+    })),
+  };
 }

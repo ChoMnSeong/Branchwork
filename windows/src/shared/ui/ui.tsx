@@ -159,6 +159,8 @@ export type MenuItem =
       checked?: boolean;
       shortcut?: string;
       submenu?: MenuItem[];
+      /** 마우스를 올리면 뜨는 설명(data-tip 형식) */
+      tip?: string;
     };
 
 class MenuState extends Observable {
@@ -215,6 +217,7 @@ function MenuList({ items, x, y, onDone }: { items: MenuItem[]; x: number; y: nu
             <div
               key={i}
               className={`menu-item ${it.disabled ? "disabled" : ""} ${it.danger ? "danger" : ""} ${open === i ? "open" : ""}`}
+              data-tip={it.tip}
               onMouseEnter={(e) => {
                 if (it.submenu && !it.disabled) {
                   const r = (e.currentTarget as HTMLElement).getBoundingClientRect();

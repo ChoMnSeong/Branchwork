@@ -134,6 +134,61 @@ export function fromPosix(p: string): string {
   return m ? `${m[1].toUpperCase()}:${m[2] ?? "/"}` : p;
 }
 
+/** gitch graph 가 그리는 관계(tools/gitch/README.md 「구조 그래프」) */
+export type GraphRelation = "files" | "modules" | "changes" | "tree";
+
+/** 메뉴에 보일 관계: 이름과 설명(터미널에서 같은 그림을 그리는 명령과 무엇을 읽는지) */
+export function graphRelations(): { id: GraphRelation; title: string; detail: string }[] {
+  return [
+    { id: "files", title: t("File imports"), detail: t("gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines).") },
+    { id: "modules", title: t("Module dependencies"), detail: t("gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds.") },
+    { id: "changes", title: t("Files that change together"), detail: t("gitch graph changes: files that are often committed together, and how often each one changes.") },
+    { id: "tree", title: t("Folder tree"), detail: t("gitch graph tree: folders with their size and number of files.") },
+  ];
+}
+
+/** gitch graph 가 생긴 버전 */
+export const graphMinimumVersion = "3.2.0";
+
+/** gitch graph 가 만든 html */
+export interface GraphPage {
+  file: string;
+  /** 끝 줄(GRAPH_FILE=… NODES=… EDGES=…)의 노드 수. 그 줄이 없으면 null */
+  nodes: number | null;
+  /** 그릴 것이 없을 때 gitch 가 낸 안내(⚠ 줄, 문구 그대로) */
+  hint: string | null;
+}
+
+/** "3.10.0" >= "3.2.0" 처럼 숫자로 비교 */
+export function versionAtLeast(v: string, min: string): boolean {
+  const a = v.split(".").map((x) => parseInt(x, 10) || 0);
+  const b = min.split(".").map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  }
+  return true;
+}
+
+/** gitch graph 의 표준출력 → 노드 수와 안내. 경로에 빈칸이 있을 수 있어 NODES= 는 끝 줄의 뒤에서 찾는다 */
+export function parseGraphSummary(out: string): { nodes: number | null; hint: string | null } {
+  const lines = out.split(/\r?\n/);
+  const summary = [...lines].reverse().find((l) => l.startsWith("GRAPH_FILE="));
+  const m = summary?.match(/ NODES=(\d+)(?!.* NODES=)/);
+  const hint = lines.find((l) => l.startsWith("⚠"));
+  return { nodes: m ? Number(m[1]) : null, hint: hint ? hint.slice(1).trim() : null };
+}
+
+/**
+ * 임시 폴더의 gitch-graph/(터미널의 gitch graph 가 쓰는 곳)에 <저장소 폴더>-<관계>-<경로 해시>.html.
+ * 다시 그리면 덮어쓰고, 폴더 이름이 같은 다른 저장소 · 워크트리와는 해시로 갈린다.
+ */
+async function graphFile(relation: GraphRelation, repo: string): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(slash(repo))));
+  const hash = [...digest.slice(0, 4)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const name = slash(repo).replace(/\/+$/, "").split("/").pop() || "repo";
+  return joinPath(env.temp, "gitch-graph", `${name}-${relation}-${hash}.html`);
+}
+
 class GitchService {
   /** 앱에 든 gitch(설치 폴더의 gitch) */
   get bundled(): string | null {
@@ -258,6 +313,43 @@ class GitchService {
   async runRaw(args: string[], repo: string, timeoutMs = 120_000): Promise<{ status: number; output: string }> {
     const r = await this.spawn(args, repo, timeoutMs);
     return { status: r.status, output: plain(r.stdout + (r.stderr ? "\n" + r.stderr : "")) };
+  }
+
+  /** 메뉴에 쓸 graphUnavailable() 결과(앱에 든 gitch 는 앱이 켜진 동안 바뀌지 않아 한 번만 본다). 아직 안 봤으면 undefined */
+  graphReason: string | null | undefined = undefined;
+  private graphCheck: Promise<string | null> | null = null;
+
+  checkGraph(): Promise<string | null> {
+    this.graphCheck ??= this.graphUnavailable().then((r) => (this.graphReason = r));
+    return this.graphCheck;
+  }
+
+  /**
+   * 구조 그래프를 그릴 수 없는 이유 — 앱에 든 gitch 가 없거나 gitch graph 가 생기기 전 버전이다. 그릴 수 있으면 null.
+   * 설치한 셸 명령은 따로 받은 예전 gitch 일 수 있어서 앱에 든 것만 본다(그래프는 계정 설정이 필요 없다).
+   */
+  async graphUnavailable(): Promise<string | null> {
+    const exe = this.bundled;
+    if (!exe || !(await ipc.exists(exe))) return t("Couldn't find gitch inside Gitrochi.");
+    if (!(await this.bash())) return t("gitch needs Git for Windows (Git Bash). Install it from https://git-scm.com/download/win.");
+    const v = await this.version(exe);
+    if (!v || !versionAtLeast(v, graphMinimumVersion)) return t("Structure graph needs gitch {0} or later, but the gitch inside Gitrochi is {1}.", graphMinimumVersion, v ?? "?");
+    return null;
+  }
+
+  /**
+   * 앱에 든 gitch 로 `gitch graph <관계> --format html --out <임시 파일> --no-open` — CDN 없는 한 페이지를 만든다.
+   * modules 는 매니페스트를 읽느라, 큰 저장소의 files 도 몇 초 걸린다.
+   */
+  async graph(relation: GraphRelation, repo: string): Promise<GraphPage> {
+    const reason = await this.graphUnavailable();
+    if (reason) throw new GitchError(reason);
+    const file = await graphFile(relation, repo);
+    const r = await this.spawn(["graph", relation, "--format", "html", "--out", file, "--no-open"], repo, 600_000, this.bundled);
+    const out = plain(r.stdout);
+    // 왜 못 그렸는지는 gitch 가 표준오류에 낸다
+    if (r.status !== 0) throw new GitchError(plain(r.stderr) || out || `exit ${r.status}`);
+    return { file, ...parseGraphSummary(out) };
   }
 
   /** 자동 백업 목록 */

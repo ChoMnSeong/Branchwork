@@ -1,4 +1,5 @@
-import { gitch, type GitchAccount, type GitchBackup, type GitchPreflight, type GitchStatus } from "@/entities/gitch";
+import { gitch, type GitchAccount, type GitchBackup, type GitchPreflight, type GitchStatus, type GraphRelation, graphRelations } from "@/entities/gitch";
+import { ipc } from "@/shared/api";
 import { t } from "@/shared/i18n";
 import { RepoTerminal } from "./terminal";
 
@@ -17,6 +18,8 @@ export abstract class RepoGitch extends RepoTerminal {
   async refreshGitch(fetch = false) {
     const path = this.path;
     const gen = ++this.gitchGen;
+    // 저장소 메뉴의 구조 그래프를 켤지(앱에 든 gitch 버전) — 계정 설정과 상관없이 한 번 봐 둔다
+    void gitch.checkGraph();
     if (!path || !(await gitch.hasConfig())) {
       if (this.gitchStatus || this.gitchPreflight || this.gitchAccounts.length || this.gitchProtected.size) {
         this.gitchStatus = null;
@@ -140,6 +143,36 @@ export abstract class RepoGitch extends RepoTerminal {
     }
     const pick = String(index + 1);
     return this.runGitch(toBranch ? ["rescue", pick, "--branch", toBranch] : ["rescue", pick, "--restore", "--yes"]);
+  }
+
+  /** 그리는 중인 구조 그래프(그동안 메뉴 항목을 끈다 — 읽기만 하는 일이라 busy 와 달리 다른 작업은 막지 않는다) */
+  drawingGraph: GraphRelation | null = null;
+
+  /** 구조 그래프(gitch graph)를 html 로 만들어 기본 브라우저로 연다. 실패하면 gitch 가 낸 문구를 보여 준다. */
+  async openStructureGraph(relation: GraphRelation) {
+    const path = this.path;
+    if (!path || this.drawingGraph) return;
+    this.drawingGraph = relation;
+    this.emit();
+    try {
+      const page = await gitch.graph(relation, path);
+      if (this.path !== path) return;
+      if (page.nodes === 0) {
+        // 빈 페이지를 띄우기보다 gitch 가 찾지 못한 것을 먼저 알린다
+        const title = graphRelations().find((r) => r.id === relation)?.title ?? relation;
+        this.ask({
+          title: t("Nothing to draw"),
+          message: page.hint ?? t("gitch found nothing to draw for {0}.", title),
+          actionTitle: t("Open anyway"),
+          action: () => ipc.openHtml(page.file).catch((e) => this.fail(e)),
+        });
+      } else await ipc.openHtml(page.file);
+    } catch (e) {
+      if (this.path === path) this.fail(e);
+    } finally {
+      this.drawingGraph = null;
+      this.emit();
+    }
   }
 
   /** 아래 터미널 탭에서 gitch 명령(doctor 처럼 길게 보여 주는 것) */

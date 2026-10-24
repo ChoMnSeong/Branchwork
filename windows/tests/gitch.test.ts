@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { fromPosix, linkTarget, parseAccounts, parseBackups, parsePreflight, parseStatus, plain, versionOf } from "@/entities/gitch";
+import { fromPosix, linkTarget, parseAccounts, parseBackups, parseGraphSummary, parsePreflight, parseStatus, plain, versionAtLeast, versionOf } from "@/entities/gitch";
+
+describe("구조 그래프(gitch graph)", () => {
+  it("버전은 숫자로 비교(3.10 > 3.2)", () => {
+    expect(versionAtLeast("3.2.0", "3.2.0")).toBe(true);
+    expect(versionAtLeast("3.10.0", "3.2.0")).toBe(true);
+    expect(versionAtLeast("3.1.9", "3.2.0")).toBe(false);
+    expect(versionAtLeast("4", "3.2.0")).toBe(true);
+  });
+
+  it("끝 줄의 노드 수(경로에 빈칸 · NODES= 가 있어도 뒤에서), 그릴 것이 없을 때 안내", () => {
+    expect(parseGraphSummary("  ~/AppData/Local/Temp/gitch-graph/a.html\nGRAPH_FILE=/c/x y/NODES=3 dir/a.html NODES=12 EDGES=30\n")).toEqual({ nodes: 12, hint: null });
+    expect(parseGraphSummary("⚠ 모듈 설정 파일을 찾지 못했습니다 (Package.swift · package.json …)\nGRAPH_FILE=/tmp/m.html NODES=0 EDGES=0")).toEqual({
+      nodes: 0,
+      hint: "모듈 설정 파일을 찾지 못했습니다 (Package.swift · package.json …)",
+    });
+    expect(parseGraphSummary("")).toEqual({ nodes: null, hint: null });
+  });
+});
 
 describe("gitch 출력 읽기", () => {
   it("status: 빈 글자는 null 로(잠기지 않은 저장소를 잠긴 것으로 보지 않게)", () => {

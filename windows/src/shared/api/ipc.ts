@@ -122,5 +122,7 @@ export const ipc = {
   openTerminal: (path: string) => invoke<void>("open_terminal", { path }),
   /** 새 콘솔 창에서 프로그램 하나(Windows) */
   openConsole: (program: string, args: string[], cwd: string) => invoke<void>("open_console", { program, args, cwd }),
+  /** 앱이 만든 html 페이지(구조 그래프)를 기본 브라우저로 */
+  openHtml: (path: string) => invoke<void>("open_html", { path }),
   appReady: () => invoke<void>("app_ready"),
 };
