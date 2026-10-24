@@ -734,6 +734,8 @@ test_graph_diff() {
   echo 'import { b } from "./b"' | gr_put src/a.ts
   echo 'export const b = 1' | gr_put src/b.ts
   echo 'export const c = 1' | gr_put src/c.ts
+  printf 'import { y } from "./y"\nexport const x = 1\n' | gr_put src/x.ts      # x ↔ y 순환 — 작업 트리에서 z 가 끼어 커진다
+  printf 'import { x } from "./x"\nexport const y = 1\n' | gr_put src/y.ts
   gr_commit base
   local base; base=$(git rev-parse --short HEAD)
   # 작업 트리: a → b 를 a → c 로, b ↔ c 순환, 새 파일 d (커밋 없이 추적만)
@@ -741,26 +743,30 @@ test_graph_diff() {
   printf 'import { c } from "./c"\nexport const b = 1\n' | gr_put src/b.ts
   printf 'import { b } from "./b"\nexport const c = 1\n' | gr_put src/c.ts
   echo 'import { a } from "./a"' | gr_put src/d.ts
+  printf 'import { z } from "./z"\nexport const y = 1\n' | gr_put src/y.ts
+  printf 'import { x } from "./x"\nexport const z = 1\n' | gr_put src/z.ts
   git add -A
   run gitch graph diff "$base" --json; assert_ok; assert_json "$OUT"
   assert_eq "$(gr_q '.diff.base + " " + .diff.head')" "$base worktree"
-  assert_eq "$(gr_q '[.stats.addedEdges, .stats.removedEdges, .stats.addedNodes, .stats.removedNodes, .stats.newCycles] | map(tostring) | join(" ")')" "4 1 1 0 1"
+  assert_eq "$(gr_q '[.stats.addedEdges, .stats.removedEdges, .stats.addedNodes, .stats.removedNodes, .stats.newCycles, .stats.changedCycles, .stats.goneCycles] | map(tostring) | join(" ")')" "6 2 2 0 1 1 0"
   assert_eq "$(gr_q '.cycles.new[0].nodes | join(",")')" "src/b.ts,src/c.ts" "새 순환"
-  assert_eq "$(gr_q '.edges[] | select(.status == "removed") | .source + ">" + .target')" "src/a.ts>src/b.ts"
-  assert_eq "$(gr_q '[.edges[] | select(.status == "added")] | length')" "4"
-  assert_eq "$(gr_q '.nodes[] | select(.status == "added") | .id')" "src/d.ts"
+  assert_eq "$(gr_q '.cycles.changed[0] | (.before | join(",")) + " > " + (.nodes | join(","))')" "src/x.ts,src/y.ts > src/x.ts,src/y.ts,src/z.ts" "커진 순환은 새 순환이 아니다"
+  assert_eq "$(gr_q '[.edges[] | select(.status == "removed") | .source + ">" + .target] | sort | join(" ")')" "src/a.ts>src/b.ts src/y.ts>src/x.ts"
+  assert_eq "$(gr_q '[.edges[] | select(.status == "added")] | length')" "6"
+  assert_eq "$(gr_q '[.nodes[] | select(.status == "added") | .id] | sort | join(",")')" "src/d.ts,src/z.ts"
   # 기준을 주지 않으면 기본 브랜치(여기서는 로컬 main)와 갈라진 곳
   run gitch graph diff --json; assert_ok
   assert_eq "$(gr_q '.diff.baseName + " " + .diff.base')" "main $base"
   # 사람용 요약 · html(바뀐 것을 색으로) · 폴더 구조
   run gitch graph diff "$base" --format text; assert_ok
-  assert_out "연결 +4 −1"; assert_out "새 순환 1개"; assert_out "+ src/d.ts → src/a.ts"; assert_out "− src/a.ts → src/b.ts"
+  assert_out "연결 +6 −2"; assert_out "새 순환 1개"; assert_out "커지거나 줄어든 순환 1개"; assert_out "~ 2 → 3개"; assert_out "+ src/z.ts"
+  assert_out "+ src/d.ts → src/a.ts"; assert_out "− src/a.ts → src/b.ts"
   run gitch graph diff "$base" --out "$T/out/d.html"; assert_ok
   grep -q '"status":"removed"' "$T/out/d.html" || fail "html 에 바뀐 표시가 없음"
   grep -q '"diff": {"base": "'"$base"'"' "$T/out/d.html" || fail "html 에 기준이 없음"
   run gitch graph diff "$base" tree --json; assert_ok
-  assert_eq "$(gr_q '.nodes[] | select(.id == "src/") | "\(.status) \(.filesDelta)"')" "changed 1" "폴더의 파일 수 변화"
-  run gitch graph diff "$base" tree --format text; assert_ok; assert_out "~ src/ 파일 +1"
+  assert_eq "$(gr_q '.nodes[] | select(.id == "src/") | "\(.status) \(.filesDelta)"')" "changed 2" "폴더의 파일 수 변화"
+  run gitch graph diff "$base" tree --format text; assert_ok; assert_out "~ src/ 파일 +2"
   run gitch graph diff changes; assert_fail; assert_out "changes 는 비교하지 않습니다"
   run gitch graph diff no-such-commit; assert_fail; assert_out "커밋도 폴더도 아닙니다"
   run gitch graph diff --help; assert_ok; assert_out "사용법: gitch graph diff"

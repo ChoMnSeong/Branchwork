@@ -192,12 +192,12 @@ JSON (노드 · 연결이 한 줄에 하나):
 ```bash
 gitch graph diff                 # 기본 브랜치(upstream > origin)와 갈라진 곳 → 지금 작업 트리 (files)
 gitch graph diff main modules    # 기준을 주면 그 커밋 · 브랜치와
-gitch graph diff --json          # AI · 스크립트: 바뀐 것만 (status: added · removed, cycles.new · gone)
+gitch graph diff --json          # AI · 스크립트: 바뀐 것만 (status: added · removed, cycles.new · changed · gone)
 gitch graph diff --format html   # 전체 그래프에 더한 것 · 뺀 것을 색으로
 ```
 
 - 기준 커밋의 추적 파일을 `git archive` 로 임시 폴더에 풀어 같은 방법으로 그래프를 만들고(저장소는 건드리지 않는다), 노드 · 연결 · 순환을 비교한다. 커밋하지 않은 바꿈도 들어간다(추적하는 파일만).
-- 터미널에서는 요약: 연결 +/−(그중 추정), 노드 +/−, 새로 생기거나 없어진 순환, 더하고 뺀 연결. `tree` 는 폴더마다 파일 수 · 크기 변화(`"status": "changed"`, `filesDelta` · `bytesDelta`).
+- 터미널에서는 요약: 연결 +/−(그중 추정), 노드 +/−, 새로 생긴 · 커지거나 줄어든(노드가 둘 넘게 겹침) · 없어진 순환, 더하고 뺀 연결. `tree` 는 폴더마다 파일 수 · 크기 변화(`"status": "changed"`, `filesDelta` · `bytesDelta`).
 - 양쪽을 같은 방법으로 읽으려고 Package.swift 는 swift 없이 직접 읽고, Xcode 인덱스 도우미는 쓰지 않는다. `changes` 는 비교하지 않는다.
 
 ### 규칙 검사 (`gitch graph check`)
