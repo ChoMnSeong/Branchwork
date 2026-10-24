@@ -4661,7 +4661,8 @@ graph_langs() {   # $1 "swift,ts" → 정규화한 목록(언어 이름은 awk �
 }
 
 graph_open() {   # $1 파일 — 기본 앱(브라우저 · 그림 보기)으로 연다
-  if [ "$(uname -s)" = Darwin ]; then open "$1" 2>/dev/null
+  if [ -n "$IS_WINDOWS" ]; then rundll32 url.dll,FileProtocolHandler "$(cygpath -w "$1" 2>/dev/null || printf '%s' "$1")" >/dev/null 2>&1
+  elif [ "$(uname -s)" = Darwin ]; then open "$1" 2>/dev/null
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1" >/dev/null 2>&1 &
   else return 1; fi
 }
@@ -4690,7 +4691,7 @@ graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 s
         "$(graph_awk_lib)$(graph_awk_scan)" ;;
     changes)
       git -c core.quotepath=off log --no-merges --no-renames --name-only --format='%x01%h%x09%cs' ${5:+"--since=$5"} -n "$6" -- ${scope:+"$scope"} 2>/dev/null | \
-        awk -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v lockre="$LOCKFILE_RE" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_changes)" ;;
+        GITSW_LOCKRE="$LOCKFILE_RE" awk -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_changes)" ;;
     tree)
       # 크기는 인덱스의 blob 크기(git cat-file 한 번) — 파일마다 stat 하지 않는다. 서브모듈(160000)은 뺀다
       git ls-files -s -z -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[1] != "160000") print a[2], $2 }' | \
@@ -4748,6 +4749,7 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
   case "$repo" in */.git) repo=$(basename "${repo%/.git}") ;; *) repo=$(basename "$top") ;; esac
 
   # 형식: --format > --out 의 확장자 > 사람이 보는 터미널이면 html(열기), 아니면 json(표준출력)
+  out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로(아니면 저장소 안에 C: 폴더가 생긴다)
   case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
   if [ -z "$fmt" ]; then
     case "$(lower "$out")" in
@@ -4758,7 +4760,7 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
   fmt=$(lower "$fmt")
   case "$fmt" in
     json|html|dot) ;;
-    svg|png) command -v dot >/dev/null 2>&1 || die "$fmt 그림은 graphviz 의 dot 으로 만듭니다 → brew install graphviz  (설치 없이 보려면 --format html)" ;;
+    svg|png) command -v dot >/dev/null 2>&1 || die "$fmt 그림은 graphviz 의 dot 으로 만듭니다 → $(install_hint graphviz Graphviz.Graphviz)  (설치 없이 보려면 --format html)" ;;
     *) die "--format 은 html, json, svg, png, dot 중 하나입니다: $fmt" ;;
   esac
   if [ -z "$out" ]; then
@@ -5998,7 +6000,7 @@ BEGIN {
 /^\001/ { flush(); split(substr($0, 2), a, "\t"); CSHA = a[1]; CDATE = a[2]; next }
 $0 != "" {
   if (!($0 in TR) || !inscope($0) || ($0 in SEEN) || !langok($0)) next
-  if ($0 ~ lockre) { LOCKS[$0] = 1; next }                 # lock 파일은 매니페스트와 늘 같이 바뀌어 신호가 아니다
+  if ($0 ~ ENVIRON["GITSW_LOCKRE"]) { LOCKS[$0] = 1; next }                 # lock 파일은 매니페스트와 늘 같이 바뀌어 신호가 아니다
   SEEN[$0] = 1; FL[++NFC] = $0
 }
 END { flush(); changes_out() }

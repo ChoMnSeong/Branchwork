@@ -219,6 +219,17 @@ pub fn reveal_path(path: String) -> Result<(), String> {
     tauri_plugin_opener::reveal_item_in_dir(PathBuf::from(crate::process::native(&path))).map_err(|e| e.to_string())
 }
 
+/// 앱이 만든 html 페이지(구조 그래프)를 기본 앱(보통 브라우저)으로 연다. html 파일만 받는다.
+#[tauri::command]
+pub fn open_html(app: AppHandle, path: String) -> Result<(), String> {
+    let p = PathBuf::from(crate::process::native(&path));
+    let html = p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("html"));
+    if !html || !p.is_file() {
+        return Err("Only an existing .html file can be opened".into());
+    }
+    app.opener().open_path(p.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
+}
+
 /// 바깥 터미널 앱으로 폴더 열기(Windows Terminal → PowerShell, macOS Terminal)
 #[tauri::command]
 pub fn open_terminal(path: String) -> Result<(), String> {

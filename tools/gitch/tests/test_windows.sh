@@ -71,3 +71,15 @@ test_windows_guard_blocks_windows_style_paths() {
   [ "$(ge "$(cygpath -w "$HOME/notes.txt")")" = none ] || fail "다른 파일은 그대로"
   [ "$(gd 'echo x > .gitconfig' "$(cygpath -w "$HOME")")" = deny ] || fail "작업 폴더가 C:\… 여도 상대 경로를 막아야 함"
 }
+
+test_windows_graph_out_accepts_windows_paths() {
+  [ -n "$IS_WIN" ] || return 0
+  mk_repo "$T/g"; cd "$T/g" || return 1
+  echo x > a.txt; git add a.txt; GITSW_SKIP=all git -c user.name=a -c user.email=a@example.com commit -q -m init
+  # 앱은 --out 을 C:/… 로 넘긴다 — 저장소 안이 아니라 그 자리에 써야 한다
+  run gitch graph tree --format html --out "$(cygpath -m "$T/out/t.html")" --no-open; assert_ok
+  [ -s "$T/out/t.html" ] || fail "C:/… 로 준 자리에 쓰지 않음"
+  run gitch graph tree --format html --out "$(cygpath -w "$T/out/w.html")" --no-open; assert_ok
+  [ -s "$T/out/w.html" ] || fail "C:\… 로 준 자리에 쓰지 않음"
+  [ -z "$(git status --porcelain)" ] || fail "저장소 안에 파일이 생김\n$(git status --porcelain)"
+}
