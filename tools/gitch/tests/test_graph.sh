@@ -677,6 +677,38 @@ test_graph_formats_and_output() {
   fi
 }
 
+test_graph_short_name_and_repo_lookup() {
+  mk_config
+  gr_repo "$HOME/Develop/alice/my-app"
+  printf 'import { b } from "./b";\n' | gr_put src/a.ts
+  printf 'export const b = 1;\n' | gr_put src/b.ts
+  gr_commit
+  # g 는 graph 의 짧은 이름
+  run gitch g --json; assert_ok; assert_json "$OUT"; assert_eq "$(gr_q .repo)" "my-app" "gitch g"
+  gr_edge src/a.ts src/b.ts
+  # 저장소 밖에서 이름으로(대소문자 무시) — 계정 폴더 바로 아래
+  cd "$T" || fail "cd $T"
+  run gitch g my-app --json; assert_ok; assert_eq "$(gr_q .repo)" "my-app" "이름으로"
+  run gitch g MY-APP --json; assert_ok; assert_eq "$(gr_q '.nodes | length')" "2" "대소문자 무시"
+  # 바로 아래에 없으면 한 단계 더 아래(묶음 폴더)
+  gr_repo "$HOME/Develop/corp/team/svc"; printf 'x = 1\n' | gr_put a.py; gr_commit; cd "$T" || fail "cd $T"
+  run gitch g svc --json; assert_ok; assert_eq "$(gr_q .repo)" "svc" "한 단계 더 아래"
+  # 이름이 겹치면 계정/이름으로 고른다
+  gr_repo "$HOME/Develop/alice/dup"; printf 'x = 1\n' | gr_put a.py; gr_commit
+  gr_repo "$HOME/Develop/bob/dup"; printf 'y = 1\n' | gr_put b.py; gr_commit; cd "$T" || fail "cd $T"
+  run gitch g dup --json; assert_fail; assert_out "여럿입니다"; assert_out "gitch g alice/dup"; assert_out "gitch g bob/dup"
+  run gitch g bob/dup --json; assert_ok; assert_eq "$(gr_q '[.nodes[].id] | join(",")')" "b.py" "계정/이름"
+  run gitch g nobody/dup --json; assert_fail; assert_out "폴더가 아닙니다: nobody/dup"
+  # 없는 이름, 저장소 밖에서 그냥 부르면 계정 폴더의 저장소를 알려 준다
+  run gitch g no-such-repo --json; assert_fail; assert_out "저장소 이름도 아닙니다: no-such-repo"; assert_out "my-app"
+  mkdir -p "$T/plain2" && cd "$T/plain2" || fail "cd $T/plain2"
+  run gitch g --json; assert_fail; assert_out "git 저장소 안의 폴더가 아닙니다"; assert_out "계정 폴더의 저장소: dup, my-app"
+  # diff · check 도 [폴더] 자리에 이름 (저장소 밖에서 준 기준은 그 저장소에서 찾는다)
+  run gitch g diff HEAD my-app --json; assert_ok; assert_json "$OUT"
+  run gitch g diff no-such-commit my-app --json; assert_fail; assert_out "커밋도 폴더도 아닙니다: no-such-commit"
+  run gitch g check my-app; assert_fail; assert_out "gitch graph check --init my-app"
+}
+
 test_graph_scope_and_worktree_name() {
   gr_repo "$T/scope/myrepo"
   echo 'import { b } from "../lib/b"' | gr_put app/a.ts
