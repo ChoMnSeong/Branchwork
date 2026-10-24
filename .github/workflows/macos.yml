@@ -60,7 +60,7 @@ jobs:
         run: |
           command -v shellcheck >/dev/null || brew install shellcheck
           shellcheck --version | sed -n 2p
-          shellcheck -S warning tools/gitch/gitch tools/gitch/tests/*.sh
+          shellcheck -S warning tools/gitch/gitch tools/gitch/install.sh tools/gitch/tests/*.sh
 
   # 릴리스에 파일을 올려야 해서 쓰기 권한은 태그 실행에만 준다.
   # 앱의 업데이트 확인은 초안을 보지 않으므로, 관리자가 노트를 쓰고 '게시'해야 사용자에게 간다.
