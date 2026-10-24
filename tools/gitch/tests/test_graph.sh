@@ -557,7 +557,8 @@ test_graph_formats_and_output() {
   # 확장자로 형식, --open 은 기본 앱으로
   run gitch graph --out "$T/out/g.json" --open; assert_ok
   assert_json "$(cat "$T/out/g.json")"
-  grep -q "open $T/out/g.json" "$T/opened" || fail "--open 이 파일을 열지 않음"
+  local opened="$T/out/g.json"; [ -n "$IS_WIN" ] && opened=$(cygpath -w "$opened")   # Windows 는 url.dll 에 C:\… 로 넘긴다
+  grep -qF "open $opened" "$T/opened" || fail "--open 이 파일을 열지 않음\n$(cat "$T/opened" 2>&1)"
   run gitch graph --format dot; assert_ok; assert_out "digraph gitch {"; assert_out '"src/a.ts" -> "src/y.ts"'
   run gitch graph --format dot --out -; assert_ok; assert_out "digraph"
   run gitch graph --format gif; assert_fail; assert_out "html, json, svg, png, dot"
@@ -570,7 +571,8 @@ test_graph_formats_and_output() {
     run gitch graph modules --format png --out "$T/out/g.png"; assert_ok
     [ "$(head -c 4 "$T/out/g.png" | od -An -c | tr -d ' ')" = '211PNG' ] || fail "png 가 아님"
   else
-    run gitch graph --format svg; assert_rc 1; assert_out "brew install graphviz"
+    run gitch graph --format svg; assert_rc 1
+    if [ -n "$IS_WIN" ]; then assert_out "winget install Graphviz.Graphviz"; else assert_out "brew install graphviz"; fi
   fi
 }
 
