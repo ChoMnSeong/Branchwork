@@ -14,9 +14,9 @@ Gitrochi 맥 앱(`Gitrochi.app/Contents/Resources/gitch`)과 Windows 앱(설치 
 ## 설치
 
 **Gitrochi 에서** — 설정 > CLI
-1. 계정이 없으면 **Terminal 에서 계정 추가** → `gitch add` 가 아이디·이메일·서버를 묻고 SSH 키를 만든다.
-2. **설치** → 무엇이 바뀌는지 보여 준 뒤 `gitch install` 을 실행한다(`~/bin/gitch` 가 앱 안의 gitch 를 가리키므로 앱을 업데이트하면 gitch 도 같이 바뀐다). 앱이 응용 프로그램 폴더(`/Applications` 또는 `~/Applications`)에 있어야 한다 — 디스크 이미지 · 다운로드 폴더 · 임시 위치(App Translocation)의 앱에 연결하면 디스크를 꺼내거나 앱을 옮길 때 끊기므로, 앱도 `gitch install` 도 거부하고 옮길 곳을 알려 준다. 계정이 아직 없으면 `gitch` 명령과 터미널 연동만 하고(`gitch g` · `gitch app` 처럼 계정이 필요 없는 명령은 바로 쓴다), 자동 규칙 · 검사 훅 · AI 연동은 계정을 만든 뒤 다시 설치할 때 깐다 — 계정 없이 깔면 모든 저장소의 커밋이 막히기 때문이다.
-3. 새 터미널을 연다. 저장소 화면의 커밋 칸 위에 이 저장소의 계정(잠금)과 커밋·push 전 점검(`gitch preflight`)이 보이고, 계정 이름을 눌러 이 저장소의 계정을 바꾼다(`gitch use`).
+1. 계정이 없으면 **Git 계정 추가** → 앱에서 아이디·이메일·서버·SSH 포트를 입력하고 저장한다. GitHub는 **브라우저 로그인**으로 자동 입력할 수 있고, 그다음 앱에서 SSH 키 준비·공개키 등록·연결 확인을 진행한다. 시작 화면이나 도움말의 **Git 계정 시작하기**에서 전체 안내를 다시 볼 수 있다. 계정 설정과 구조 그래프는 별도 다운로드나 터미널 명령 설치 없이 쓴다.
+2. **설치(선택)** → 터미널에서도 gitch를 쓰고 싶으면 무엇이 바뀌는지 확인한 뒤 `gitch install` 을 실행한다(`~/bin/gitch` 가 앱 안의 gitch 를 가리키므로 앱을 업데이트하면 gitch 도 같이 바뀐다). 앱이 응용 프로그램 폴더(`/Applications` 또는 `~/Applications`)에 있어야 한다 — 디스크 이미지 · 다운로드 폴더 · 임시 위치(App Translocation)의 앱에 연결하면 디스크를 꺼내거나 앱을 옮길 때 끊기므로, 앱도 `gitch install` 도 거부하고 옮길 곳을 알려 준다. 터미널에서 `gitch install` 을 직접 실행할 때 계정이 아직 없으면 명령과 터미널 연동만 하고(`gitch g` · `gitch app` 처럼 계정이 필요 없는 명령은 바로 쓴다), 자동 규칙 · 검사 훅 · AI 연동은 계정을 만든 뒤 다시 설치할 때 깐다 — 계정 없이 깔면 모든 저장소의 커밋이 막히기 때문이다.
+3. 터미널 명령을 설치했다면 새 터미널을 연다. 앱에서는 저장소 화면의 커밋 칸 위에 이 저장소의 계정(잠금)과 커밋·push 전 점검(`gitch preflight`)이 보이고, 계정 이름을 눌러 이 저장소의 계정을 바꾼다(`gitch use`).
 
 **CLI 만** — 앱 없이 터미널에서 (curl + macOS 기본 bash)
 
@@ -52,7 +52,7 @@ gitch doctor
 
 Git for Windows(Git Bash)만 있으면 된다. gitch 는 bash 스크립트라 Gitrochi 도 Git Bash 의 `bash.exe` 로 실행한다.
 
-- **Gitrochi 에서**: 설정 > CLI 는 맥과 같다. 계정 추가 · SSH 키 · doctor 는 새 콘솔 창(Git Bash)에서 열린다. 설치 프로그램으로 깐 Gitrochi(옆에 `uninstall.exe`)만 연결한다 — 포터블 zip · 빌드 폴더에 연결하면 옮기거나 지울 때 끊기므로 앱도 `gitch install` 도 거부한다.
+- **Gitrochi 에서**: 설정 > CLI 는 맥과 같다. 계정 추가 · GitHub 브라우저 로그인 · SSH 키 준비 · 연결 확인 · 설정 검사(`doctor`)를 앱 안에서 진행한다. 암호가 있는 키 등 직접 설정이 필요할 때만 **고급 터미널 설정**으로 새 콘솔 창(Git Bash)을 연다. 터미널 명령 연결은 설치 프로그램으로 깐 Gitrochi(옆에 `uninstall.exe`)만 지원한다 — 포터블 zip · 빌드 폴더에 연결하면 옮기거나 지울 때 끊기므로 앱도 `gitch install` 도 거부한다.
 - **CLI 만**: Git Bash 에서 위의 `curl … | bash` 그대로. 다음 안내의 `source ~/.zshrc` 대신 `source ~/.bashrc`.
 - `gitch install` 이 맥과 다르게 하는 것
   - `~/bin/gitch` · `~/bin/gitsw`: Git Bash 의 `ln -s` 는 링크 대신 복사본을 만들어서, 대상 경로를 적은 작은 연결 스크립트(`# gitch-link: <경로>` + `exec`)로 만든다. 앱을 업데이트하면 gitch 도 같이 바뀌는 것은 맥과 같다.
@@ -69,7 +69,8 @@ Git for Windows(Git Bash)만 있으면 된다. gitch 는 bash 스크립트라 Gi
 |---|---|
 | `install` · `list` · `doctor` | 설정 > CLI |
 | `app` | 앱 자체 — 터미널에서 이 gitch 가 든 Gitrochi(없으면 응용 프로그램 폴더 · Windows 설치 폴더의 앱)를 연다 |
-| `add` · `setup` | 설정 > CLI 에서 Terminal 로 연다(묻는 것이 있어서) |
+| `add` · `setup` | 설정 > CLI의 계정 추가 · SSH 설정에서 앱 안의 입력 화면과 단계별 안내로 진행한다. 암호가 있는 키 등 직접 설정은 고급 터미널 설정을 쓴다 |
+| `login github` | 설정 > 계정 또는 계정 추가 화면의 브라우저 로그인 — 기본 브라우저에서 승인하면 GitHub 계정을 연결한다 |
 | `status` · `preflight` | 커밋 칸 위 — 계정(잠금)과 점검 결과, 누르면 점검 항목 · fetch 하고 다시 점검 |
 | `use` · `unlock` | 커밋 칸 위 계정 이름 |
 | `up` · `sync` · `fix` · `rescue` · `ignore` | 커밋 칸 위 ⋯ 메뉴 |
