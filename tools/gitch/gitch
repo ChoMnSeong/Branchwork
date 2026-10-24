@@ -4455,18 +4455,45 @@ GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|
   --format   기본: 사람이 보는 터미널이면 html(만들고 열기), 아니면 json(표준출력). svg · png 는 graphviz 의 dot
   --out 파일 확장자로 형식을 고른다(- 는 표준출력). 없으면 html · svg · png 는 임시 폴더, json · dot 은 표준출력
   --json = --format json · --no-external 저장소 밖 패키지 · 모듈 빼기 · [폴더] 그 폴더 아래만
+  --lang 언어[,언어]  그 언어만: ts · js · web(ts·js·vue·svelte) · swift · python · go · rust · kotlin · java · jvm(kotlin·java)
+  html 은 네 관계를 한 페이지에 담는다(위 탭으로 바꿈) — 파일 · 폴더 단위, 언어, 점 · 상자(다이어그램) 그리기, 필터
   changes: --since 날짜 · --max-commits N(1000) · --max-files N(30, 더 큰 커밋은 뺌) · --min N(2)
   tree: --depth N(0 = 끝까지) · --files(파일도 노드로)'
 
 graph_rel_word() { case "$1" in files) echo "파일 import" ;; modules) echo "모듈 의존" ;; changes) echo "같이 바뀌는 파일" ;; *) echo "폴더 구조" ;; esac; }
 
-graph_empty_hint() {
+graph_empty_hint() {   # $1 관계 $2 고른 언어
+  [ -n "${2:-}" ] && { echo "고른 언어($2)로는 그릴 것이 없습니다 — --lang 을 빼거나 다른 언어를 고르세요."; return 0; }
   case "$1" in
     files) echo "그릴 파일이 없습니다 — TS/JS · Python · Go · Rust · Kotlin/Java · Swift 파일을 찾지 못했습니다." ;;
     modules) echo "모듈 설정이 없습니다 — Package.swift · Project.swift · package.json · Cargo.toml · go.mod · settings.gradle(.kts) 를 찾지 못했습니다." ;;
     changes) echo "같이 바뀐 파일이 없습니다 — 커밋이 적거나 조건(--since · --min · --max-files)이 좁습니다." ;;
     *) echo "추적하는 파일이 없습니다." ;;
   esac
+}
+
+graph_langs() {   # $1 "swift,ts" → 정규화한 목록(언어 이름은 awk 의 langof 와 같다), 모르는 이름이면 실패
+  local IFS=, w add out=""
+  for w in $1; do
+    case "$(lower "$w")" in
+      ts|tsx|typescript) add=ts ;;
+      js|jsx|javascript) add=js ;;
+      web) add=ts,js,vue,svelte ;;
+      vue) add=vue ;;
+      svelte) add=svelte ;;
+      swift) add=swift ;;
+      py|python) add=python ;;
+      go|golang) add=go ;;
+      rs|rust) add=rust ;;
+      kt|kotlin) add=kotlin ;;
+      java) add=java ;;
+      jvm) add=kotlin,java ;;
+      "") continue ;;
+      *) return 1 ;;
+    esac
+    out="$out${out:+,}$add"
+  done
+  printf '%s' "$out"
 }
 
 graph_open() {   # $1 파일 — 기본 앱(브라우저 · 그림 보기)으로 연다
@@ -4477,38 +4504,40 @@ graph_open() {   # $1 파일 — 기본 앱(브라우저 · 그림 보기)으로
 
 # 범위 안 Package.swift 마다 swift package describe 의 JSON → $1/spm.list ("폴더<TAB>JSON 파일")
 # 매니페스트를 컴파일해서 몇 초 걸리지만 변수 · 조건 · 기본 경로까지 정확하다. 실패하거나 swift 가 없으면 awk 가 Package.swift 를 직접 읽는다.
-graph_spm_describe() {   # $1 임시 폴더 $2 범위(접두사)
+graph_spm_describe() {   # $1 임시 폴더 $2 범위(접두사) $3 고른 언어 — 매니페스트마다 몇 초라 동시에 돌린다
   local d n=0
   [ "${GITSW_SWIFT_DESCRIBE:-1}" = 0 ] && return 0
+  [ -n "${3:-}" ] && ! in_list swift "${3//,/ }" && return 0
   command -v swift >/dev/null 2>&1 || return 0
   while IFS= read -r d; do
     n=$((n + 1))
-    swift package --package-path "${d:-.}" describe --type json > "$1/spm-$n.json" 2>/dev/null && printf '%s\t%s\n' "$d" "$1/spm-$n.json" >> "$1/spm.list"
+    { swift package --package-path "${d:-.}" describe --type json > "$1/spm-$n.json" 2>/dev/null && printf '%s\t%s\n' "$d" "$1/spm-$n.json" >> "$1/spm.list"; } &
   done < <(awk -v s="$2" '(s == "" || index($0, s) == 1) && ($0 == "Package.swift" || $0 ~ /\/Package\.swift$/) { sub(/\/?Package\.swift$/, ""); print }' "$1/files")
+  wait
 }
 
-graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 since $6 커밋 수 $7 큰 커밋 기준 $8 최소 횟수 $9 깊이 ${10} 파일 포함 ${11} 저장소 이름 → 레코드
-  local tmp=$1 rel=$2 scope=$3 repo=${11}
+graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 since $6 커밋 수 $7 큰 커밋 기준 $8 최소 횟수 $9 깊이 ${10} 파일 포함 ${11} 저장소 이름 ${12} 언어 → 레코드
+  local tmp=$1 rel=$2 scope=$3 repo=${11} langs=${12}
   case "$rel" in
     files|modules)
       : > "$tmp/spm.list"
-      [ "$rel" = modules ] && graph_spm_describe "$tmp" "$scope"
-      awk -v rel="$rel" -v list="$tmp/files" -v scope="$scope" -v noext="$4" -v spm="$tmp/spm.list" -v repo="$repo" \
+      [ "$rel" = modules ] && graph_spm_describe "$tmp" "$scope" "$langs"
+      awk -v rel="$rel" -v list="$tmp/files" -v scope="$scope" -v noext="$4" -v spm="$tmp/spm.list" -v repo="$repo" -v langs="$langs" \
         "$(graph_awk_lib)$(graph_awk_scan)" ;;
     changes)
       git -c core.quotepath=off log --no-merges --no-renames --name-only --format='%x01%h%x09%cs' ${5:+"--since=$5"} -n "$6" -- ${scope:+"$scope"} 2>/dev/null | \
-        awk -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v lockre="$LOCKFILE_RE" "$(graph_awk_lib)$(graph_awk_changes)" ;;
+        awk -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v lockre="$LOCKFILE_RE" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_changes)" ;;
     tree)
       # 크기는 인덱스의 blob 크기(git cat-file 한 번) — 파일마다 stat 하지 않는다. 서브모듈(160000)은 뺀다
       git ls-files -s -z -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[1] != "160000") print a[2], $2 }' | \
         git cat-file --batch-check='%(objectname) %(objectsize) %(rest)' | \
-        awk -v scope="$scope" -v maxd="$9" -v withfiles="${10}" -v repo="$repo" "$(graph_awk_lib)$(graph_awk_tree)" ;;
+        awk -v scope="$scope" -v maxd="$9" -v withfiles="${10}" -v repo="$repo" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_tree)" ;;
   esac
 }
 
 graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
-  local rel="" fmt="" out="" opn=auto dir="" since="" maxc=1000 maxf=30 min=2 depth=0 withfiles="" noext="" a
-  local top prefix repo tmp n_nodes=0 n_edges=0 n_heur=0 fancy=""
+  local rel="" fmt="" out="" opn=auto dir="" since="" maxc=1000 maxf=30 min=2 depth=0 withfiles="" noext="" langs="" a
+  local top prefix repo tmp n_nodes=0 n_edges=0 n_heur=0 fancy="" rels i
   local -a meta
   while [ $# -gt 0 ]; do
     a=$1
@@ -4532,6 +4561,8 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
       --depth) shift; depth=${1:-} ;;
       --files) withfiles=1 ;;
       --no-external) noext=1 ;;
+      --lang|-l) shift; langs=${1:-}; [ -n "$langs" ] || die "--lang 뒤에 언어가 필요합니다 (예: swift, ts,js)." ;;
+      --lang=*) langs=${a#*=} ;;
       -h|--help) say "$GRAPH_USAGE"; return 0 ;;
       -*) die "알 수 없는 옵션: $a"$'\n'"$GRAPH_USAGE" ;;
       *) [ -z "$dir" ] || die "폴더는 하나만 줄 수 있습니다: $dir, $a"$'\n'"$GRAPH_USAGE"; dir=$a ;;
@@ -4542,6 +4573,9 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
     { is_number "$a" && [ "$a" -gt 0 ]; } || die "--max-commits · --max-files · --min 은 1 이상의 숫자입니다."
   done
   is_number "$depth" || die "--depth 는 숫자입니다 (0 = 끝까지)."
+  if [ -n "$langs" ]; then
+    langs=$(graph_langs "$langs") && [ -n "$langs" ] || die "--lang 은 ts · js · web · vue · svelte · swift · python · go · rust · kotlin · java · jvm 중에서 고릅니다 (쉼표로 여럿)."
+  fi
   rel=${rel:-files}; dir=${dir:-.}
   [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
@@ -4578,14 +4612,25 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
   [ -n "$fancy" ] && printf '  %s' "${DIM}$(graph_rel_word "$rel") 모으는 중…${RESET}"
   # -z: 따옴표 · 역슬래시가 든 이름도 그대로 (레코드가 탭 구분이라 탭 · 줄바꿈이 든 이름은 awk 가 건너뛴다)
   git ls-files -z > "$tmp/files.z" && tr '\0' '\n' < "$tmp/files.z" > "$tmp/files" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
-  graph_collect "$tmp" "$rel" "$prefix" "$noext" "$since" "$maxc" "$maxf" "$min" "$depth" "$withfiles" "$repo" > "$tmp/raw" \
-    || die "그래프를 만들지 못했습니다."
-  LC_ALL=C sort -u "$tmp/raw" > "$tmp/rec"
+  rels=$rel
+  [ "$fmt" = html ] && for a in files modules changes tree; do [ "$a" = "$rel" ] || rels="$rels $a"; done
+  for a in $rels; do
+    graph_collect "$tmp" "$a" "$prefix" "$noext" "$since" "$maxc" "$maxf" "$min" "$depth" "$withfiles" "$repo" "$langs" > "$tmp/raw.$a" \
+      || die "그래프를 만들지 못했습니다 ($a)."
+    LC_ALL=C sort -u "$tmp/raw.$a" > "$tmp/rec.$a"
+  done
+  cp "$tmp/rec.$rel" "$tmp/rec"
   read -r n_nodes n_edges n_heur <<< "$(awk -F'\t' '$1 == 1 { n++ } $1 == 2 { e++; if ($6 == "h") h++ } END { print n + 0, e + 0, h + 0 }' "$tmp/rec")"
-  meta=(-v rel="$rel" -v repo="$repo" -v scope="${prefix%/}" -v commit="$(git rev-parse --short HEAD 2>/dev/null)" -v ver="$GITSW_VERSION" -v when="$(now_iso)")
+  meta=(-v rel="$rel" -v repo="$repo" -v scope="${prefix%/}" -v commit="$(git rev-parse --short HEAD 2>/dev/null)" -v ver="$GITSW_VERSION" -v when="$(now_iso)" -v langs="$langs")
   case "$fmt" in
     json) awk "${meta[@]}" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec" > "$tmp/out" ;;
-    html) awk "${meta[@]}" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec" | graph_html > "$tmp/out" ;;
+    html)   # {"initial": 처음 탭, "views": {관계: 그 관계의 json, …}}
+      { printf '{"initial":"%s","views":{' "$rel"; i=0
+        for a in $rels; do
+          [ $i -gt 0 ] && printf ','
+          printf '"%s":' "$a"; awk "${meta[@]}" -v rel="$a" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec.$a"; i=$((i + 1))
+        done
+        printf '}}\n'; } | graph_html > "$tmp/out" ;;
     dot) awk "${meta[@]}" "$(graph_awk_lib)$(graph_awk_dot)" "$tmp/rec" > "$tmp/out" ;;
     *)
       [ -n "$fancy" ] && [ "$n_nodes" -gt 1500 ] && printf '\r\033[K  %s' "${DIM}노드가 ${n_nodes}개라 dot 이 오래 걸릴 수 있습니다 (빠르게 보려면 --format html)…${RESET}"
@@ -4596,12 +4641,12 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
 
   if [ "$out" = - ]; then
     cat "$tmp/out"
-    [ "$n_nodes" = 0 ] && warn "$(graph_empty_hint "$rel")" >&2
+    [ "$n_nodes" = 0 ] && warn "$(graph_empty_hint "$rel" "$langs")" >&2
     return 0
   fi
   mkdir -p "$(dirname "$out")" 2>/dev/null
   cat "$tmp/out" > "$out" 2>/dev/null || die "쓰지 못했습니다: $out"
-  [ "$n_nodes" = 0 ] && warn "$(graph_empty_hint "$rel")"
+  [ "$n_nodes" = 0 ] && warn "$(graph_empty_hint "$rel" "$langs")"
   ok "구조 그래프 ($(graph_rel_word "$rel")): 노드 ${n_nodes}개 · 연결 ${n_edges}개$( [ "$n_heur" -gt 0 ] && printf ' (추정 %s개)' "$n_heur")"
   say "  $(tilde "$out")"
   if [ "$opn" = 1 ] || { [ "$opn" = auto ] && [ -n "$fancy" ] && [ "$fmt" != json ] && [ "$fmt" != dot ]; }; then
@@ -4650,6 +4695,17 @@ function sortkeys(arr, out,   k, n, i, j, t) {   # 배열 키를 정렬해 out[1
   return n
 }
 function clean(s) { gsub(/[\t\r\n]/, " ", s); return s }
+BEGIN { if (langs != "") { NLS = split(langs, LSA, ","); for (LSI = 1; LSI <= NLS; LSI++) LANGOK[LSA[LSI]] = 1 } }
+function langok(p) { return langs == "" || (langof(p) in LANGOK) }   # --lang 으로 고른 언어의 파일인지
+function ecook(eco) {   # modules 의 생태계가 고른 언어에 맞는지
+  if (langs == "") return 1
+  if (eco == "swift" || eco == "tuist") return ("swift" in LANGOK)
+  if (eco == "npm") return ("ts" in LANGOK) || ("js" in LANGOK) || ("vue" in LANGOK) || ("svelte" in LANGOK)
+  if (eco == "cargo") return ("rust" in LANGOK)
+  if (eco == "go") return ("go" in LANGOK)
+  if (eco == "gradle") return ("kotlin" in LANGOK) || ("java" in LANGOK)
+  return 0
+}
 function langof(p,   e) {   # 언어 이름(그래프의 묶음 · 색) — 지원하지 않는 확장자는 ""
   e = tolower(extof(p))
   if (e == "ts" || e == "tsx" || e == "mts" || e == "cts") return "ts"
@@ -4714,7 +4770,7 @@ BEGIN {
     EX[p] = 1; NALL++; ALL[NALL] = p
     d = dirof(p); b = baseof(p); lg = langof(p)
     if (!(d in DIRS)) mkdirs(d)
-    if (lg != "") { NSRC++; SRC[NSRC] = p; LANG[p] = lg }
+    if (lg != "" && langok(p)) { NSRC++; SRC[NSRC] = p; LANG[p] = lg }   # --lang 이면 그 언어 파일의 import 만 그린다
     if (b == "__init__.py") PYINIT[d] = 1
     if (lg == "go" && b !~ /_test\.go$/) GODIR[d] = GODIR[d] SUBSEP p
     if (b == "go.mod") GOMOD[++NGOMOD] = p
@@ -5376,7 +5432,12 @@ function swift_resolve(   i, p, n, a, j, w, m, b, k, best, bc, c) {
 
 # ---------- modules: 모듈 · 타깃 노드와 의존 ----------
 function modules_main() {
-  npm_modules(); cargo_modules(); go_modules(); gradle_modules(); spm_modules(); tuist_modules()
+  if (ecook("npm")) npm_modules()
+  if (ecook("cargo")) cargo_modules()
+  if (ecook("go")) go_modules()
+  if (ecook("gradle")) gradle_modules()
+  if (ecook("swift")) spm_modules()
+  if (ecook("tuist")) tuist_modules()
 }
 function mnode(id, label, eco, path, typ,   a) {
   a = "\"ecosystem\":" jstr(eco) ",\"path\":" jstr(path == "" ? "." : path)
@@ -5772,7 +5833,7 @@ BEGIN {
 }
 /^\001/ { flush(); split(substr($0, 2), a, "\t"); CSHA = a[1]; CDATE = a[2]; next }
 $0 != "" {
-  if (!($0 in TR) || !inscope($0) || ($0 in SEEN)) next
+  if (!($0 in TR) || !inscope($0) || ($0 in SEEN) || !langok($0)) next
   if ($0 ~ lockre) { LOCKS[$0] = 1; next }                 # lock 파일은 매니페스트와 늘 같이 바뀌어 신호가 아니다
   SEEN[$0] = 1; FL[++NFC] = $0
 }
@@ -5824,7 +5885,7 @@ BEGIN { root = scope; sub(/\/$/, "", root); RID = (root == "") ? "./" : root "/"
 {
   if (NF == 2 && $2 == "missing") next
   sz = $2 + 0; p = $0; sub(/^[^ ]+ [^ ]+ /, "", p)
-  if (p == "" || index(p, "\t") || (p in SEEN) || !inscope(p)) next
+  if (p == "" || index(p, "\t") || (p in SEEN) || !inscope(p) || !langok(p)) next
   SEEN[p] = 1; NFILES++; TOTAL += sz
   e = tolower(extof(p)); if (e == "") e = "none"
   rel = (root == "") ? p : substr(p, length(root) + 2)
@@ -5890,6 +5951,9 @@ END {
   print "  \"directed\": " (rel == "changes" ? "false" : "true") ","
   print "  \"repo\": " jstr(repo) ","
   print "  \"scope\": " jstr(scope) ","
+  s = ""
+  if (langs != "") { n = split(langs, LA, ","); for (i = 1; i <= n; i++) s = s (i > 1 ? "," : "") jstr(LA[i]) }
+  print "  \"lang\": " (langs == "" ? "null" : "[" s "]") ","
   print "  \"commit\": " (commit == "" ? "null" : jstr(commit)) ","
   print "  \"generated\": " jstr(when) ","
   s = "\"nodes\":" (NNODE + 0) ",\"edges\":" (NEDGE + 0) ",\"heuristicEdges\":" (NH + 0)
@@ -5947,7 +6011,7 @@ function edgeattrs(k,   w) {
 }
 END {
   print "digraph gitch {"
-  printf "  graph [rankdir=%s, fontname=\"Helvetica\", fontsize=12, labelloc=t, labeljust=l, label=%s, bgcolor=\"white\", pad=0.3, nodesep=0.2, ranksep=0.6%s];\n", (rel == "modules" ? "TB" : "LR"), dq(repo (scope != "" ? "/" scope : "") " · " relname(rel) " · 노드 " (n + 0) " · 연결 " (m + 0)), (rel == "changes" ? ", layout=neato, overlap=false, splines=true, sep=\"+8\"" : "")
+  printf "  graph [rankdir=%s, fontname=\"Helvetica\", fontsize=12, labelloc=t, labeljust=l, label=%s, bgcolor=\"white\", pad=0.3, nodesep=0.2, ranksep=0.6%s];\n", (rel == "modules" ? "TB" : "LR"), dq(repo (scope != "" ? "/" scope : "") " · " relname(rel) (langs != "" ? " · " langs : "") " · 노드 " (n + 0) " · 연결 " (m + 0)), (rel == "changes" ? ", layout=neato, overlap=false, splines=true, sep=\"+8\"" : "")
   print "  node [shape=box, style=\"rounded,filled\", fontname=\"Helvetica\", fontsize=10, penwidth=0.8, margin=\"0.12,0.04\", height=0.3];"
   print "  edge [color=\"#7d8799\", arrowsize=0.6, penwidth=0.8];"
   if (rel == "changes") print "  edge [dir=none];"
@@ -5967,10 +6031,11 @@ END {
 AWKEOF
 }
 
-# 표준입력 JSON → 오프라인 한 페이지(CDN 없음). 옵시디언 그래프 보기처럼: 어두운 캔버스, 마우스를 올리면 이웃만 밝게,
-# 확대하면 이름이 나타나고, 설정 창(필터 · 묶음 · 표시 · 힘)으로 고친다. 표로 보기도 있다(색만으로 구별하지 않게).
-# 노드 색은 검증한 범주 색 세 칸(파랑 · 주황 · 청록)만 언어 계열에 주고 나머지는 회색 — 그래프는 어느 두 노드든 붙어 있을 수 있어서
-# 세 칸을 넘으면 서로 구별이 안 된다. 강조는 보라. JSON 의 < 는 < 로 바꿔 넣는다 — 데이터 속 </script> 가 페이지를 끊지 않게
+# 표준입력 JSON({"initial", "views": {관계: json}}) → 오프라인 한 페이지(CDN 없음). 옵시디언 그래프 보기처럼 그리고,
+# 위 탭으로 네 관계(파일 · 모듈 · 같이 바뀜 · 폴더)를 바꾸며, 단위(파일 · 폴더) · 언어 · 그리기(점 · 상자 = tuist 같은 다이어그램)를 고른다.
+# 노드 색은 검증한 범주 색 세 칸(파랑 · 주황 · 청록)만 언어 계열에 주고 나머지는 회색 — 그래프는 어느 두 노드든 붙을 수 있어
+# 세 칸을 넘으면 서로 구별이 안 된다. 모듈은 종류(앱 파랑 · 라이브러리 노랑 · 테스트 청록)로도 칠한다. 강조는 보라.
+# JSON 의 < 는 < 로 바꿔 넣는다 — 데이터 속 </script> 가 페이지를 끊지 않게
 graph_html() {
   cat <<'HTMLEOF'
 <!doctype html>
@@ -5982,17 +6047,17 @@ graph_html() {
 <style>
 :root {
   color-scheme: dark;
-  --bg: #1e1e1e; --panel: rgba(37, 37, 38, .86); --panel-solid: #252526; --hover: rgba(255, 255, 255, .06); --border: rgba(255, 255, 255, .09);
+  --bg: #1e1e1e; --panel: rgba(37, 37, 38, .88); --panel-solid: #252526; --hover: rgba(255, 255, 255, .06); --border: rgba(255, 255, 255, .09);
   --text: #dcddde; --text-2: #b3b3b3; --muted: #8a8a8a; --halo: rgba(30, 30, 30, .9); --shadow: 0 10px 34px rgba(0, 0, 0, .45);
   --line: rgba(255, 255, 255, .13); --accent: #9085e9; --accent-soft: rgba(144, 133, 233, .2);
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --node-other: #a3a3a3; --node-ext: #6f6f6f;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --node-other: #a3a3a3; --node-ext: #6f6f6f;
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #ffffff; --panel: rgba(250, 250, 250, .9); --panel-solid: #fafafa; --hover: rgba(0, 0, 0, .05); --border: rgba(0, 0, 0, .1);
+  --bg: #ffffff; --panel: rgba(250, 250, 250, .92); --panel-solid: #fafafa; --hover: rgba(0, 0, 0, .05); --border: rgba(0, 0, 0, .1);
   --text: #222222; --text-2: #4d4d4d; --muted: #7a7a7a; --halo: rgba(255, 255, 255, .92); --shadow: 0 10px 34px rgba(20, 20, 40, .14);
   --line: rgba(0, 0, 0, .13); --accent: #6250d6; --accent-soft: rgba(98, 80, 214, .14);
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --node-other: #7d7d7d; --node-ext: #a6a6a6;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --node-other: #7d7d7d; --node-ext: #a6a6a6;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Apple SD Gothic Neo", "Segoe UI", "Noto Sans KR", sans-serif; }
@@ -6007,23 +6072,34 @@ canvas.over { cursor: pointer; }
 .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
 .icon-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* 왼쪽 위: 이름 · 수 · 찾기 */
-#top { top: 14px; left: 14px; width: min(340px, calc(100vw - 82px)); padding: 12px 12px 10px; }   /* 오른쪽 위 설정 단추 자리를 비운다 */
+/* 왼쪽 위: 이름 · 탭 · 수 · 찾기 · 보기 고르기 */
+#top { top: 14px; left: 14px; width: min(372px, calc(100vw - 82px)); padding: 12px 12px 10px; }
 #top .row1 { display: flex; align-items: center; gap: 8px; }
 #repo { font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.chip { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; }
-#top .icon-btn { margin-left: auto; width: 26px; height: 26px; }
-#stats { margin-top: 2px; color: var(--muted); font-size: 12px; }
+#top .row1 .icon-btn { margin-left: auto; width: 26px; height: 26px; }
+.tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin-top: 9px; padding: 3px; border-radius: 9px; background: var(--hover); }
+.tabs button { padding: 5px 0; border: 0; border-radius: 7px; background: transparent; color: var(--text-2); font-weight: 600; cursor: pointer; }
+.tabs button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+.tabs button:not(.on):hover { color: var(--text); }
+#stats { margin-top: 7px; color: var(--muted); font-size: 12px; }
 #notes { margin: 8px 0 2px; padding: 8px 10px; border-radius: 8px; background: var(--hover); color: var(--text-2); font-size: 12px; }
 #notes p { margin: 0 0 4px; } #notes p:last-child { margin: 0; }
-.search { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 0 10px; height: 34px; border-radius: 8px; background: var(--hover); border: 1px solid transparent; }
+.search { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 0 10px; height: 34px; border-radius: 8px; background: var(--hover); border: 1px solid transparent; }
 .search:focus-within { border-color: var(--accent); }
 .search svg { flex: none; width: 15px; height: 15px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; }
 .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; }
 .search input::placeholder { color: var(--muted); }
 #hits { flex: none; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.ctrls { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px 10px; margin-top: 10px; font-size: 12px; }
+.ctrls > span { color: var(--muted); }
+.ctrls .line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+select { min-width: 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--hover); cursor: pointer; }
+select option { background: var(--panel-solid); color: var(--text); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 2px; border-radius: 8px; background: var(--hover); }
+.seg button { padding: 3px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; white-space: nowrap; }
+.seg button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
 /* 왼쪽: 고른 노드 */
-#info { top: 168px; left: 14px; width: min(340px, calc(100vw - 28px)); max-height: calc(100vh - 182px); overflow: auto; padding: 14px; }
+#info { left: 14px; width: min(372px, calc(100vw - 28px)); overflow: auto; padding: 14px; }
 #info .head { display: flex; align-items: center; gap: 8px; }
 #info h2 { margin: 0; font-size: 15px; font-weight: 650; word-break: break-all; }
 #info .head .icon-btn { margin-left: auto; flex: none; width: 26px; height: 26px; }
@@ -6032,7 +6108,7 @@ canvas.over { cursor: pointer; }
 #info table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 12px; }
 #info th { padding: 2px 10px 2px 0; color: var(--muted); font-weight: 500; text-align: left; white-space: nowrap; vertical-align: top; }
 #info td { padding: 2px 0; color: var(--text-2); word-break: break-all; }
-#info h3 { display: flex; align-items: center; gap: 6px; margin: 12px 0 4px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+#info h3 { display: flex; align-items: center; gap: 6px; margin: 12px 0 4px; color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .04em; }
 #info h3 .arrow { color: var(--accent); }
 #info ul { margin: 0; padding: 0; list-style: none; }
 #info li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
@@ -6044,7 +6120,7 @@ canvas.over { cursor: pointer; }
 .dot.sq { border-radius: 2px; }
 /* 오른쪽 위: 설정 */
 #gear { top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 12px; }
-#panel { top: 62px; right: 14px; width: min(290px, calc(100vw - 28px)); max-height: calc(100vh - 140px); overflow: auto; padding: 6px 0; }
+#panel { top: 62px; right: 14px; width: min(300px, calc(100vw - 28px)); max-height: calc(100vh - 140px); overflow: auto; padding: 6px 0; }
 details { border-bottom: 1px solid var(--border); }
 details:last-child { border-bottom: 0; }
 summary { display: flex; align-items: center; gap: 6px; padding: 10px 14px; font-weight: 650; cursor: pointer; list-style: none; user-select: none; }
@@ -6056,29 +6132,28 @@ details[open] summary::before { transform: rotate(45deg); }
 .row.col { flex-direction: column; align-items: stretch; gap: 2px; padding: 4px 0; }
 .row.col .lab { display: flex; justify-content: space-between; }
 .row.col .lab b { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.row.sub { padding-left: 14px; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 .switch { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 32px; height: 18px; margin: 0; border-radius: 999px; background: var(--border); cursor: pointer; transition: background .15s; }
 .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .15s; }
 .switch:checked { background: var(--accent); }
 .switch:checked::after { transform: translateX(14px); }
-.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 2px; border-radius: 8px; background: var(--hover); }
-.seg button { padding: 4px 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; }
-.seg button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
 .btn { width: 100%; margin-top: 8px; padding: 7px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--hover); color: var(--text); cursor: pointer; }
 .btn:hover { border-color: var(--accent); }
+.hint { color: var(--muted); font-size: 11px; }
 .groups { display: grid; gap: 2px; }
 .groups button { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; text-align: left; }
 .groups button:hover { background: var(--hover); }
 .groups button.off { opacity: .38; }
 .groups button .n { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* 아래: 범례 · 단추 */
-#legend { bottom: 14px; left: 14px; max-width: calc(100vw - 260px); display: flex; flex-wrap: wrap; gap: 2px 4px; padding: 5px 6px; }
+#legend { bottom: 14px; left: 14px; max-width: calc(100vw - 290px); display: flex; flex-wrap: wrap; gap: 2px 4px; padding: 5px 6px; }
 #legend button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; cursor: pointer; }
 #legend button:hover { background: var(--hover); }
 #legend button.off { opacity: .38; }
 #tools { bottom: 14px; right: 14px; display: flex; gap: 2px; padding: 4px; }
 /* 표로 보기 */
-#table { top: 62px; right: 14px; bottom: 66px; width: min(520px, calc(100vw - 28px)); display: flex; flex-direction: column; }
+#table { top: 62px; right: 14px; bottom: 66px; width: min(540px, calc(100vw - 28px)); display: flex; flex-direction: column; }
 #table .head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; font-weight: 650; }
 #table .head span { color: var(--muted); font-weight: 400; font-size: 12px; }
 #table .head .icon-btn { margin-left: auto; width: 26px; height: 26px; }
@@ -6087,53 +6162,65 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 #table th { position: sticky; top: 0; padding: 6px 8px; background: var(--panel-solid); color: var(--muted); font-weight: 600; text-align: left; cursor: pointer; white-space: nowrap; }
 #table th.num, #table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 #table td { padding: 5px 8px; border-top: 1px solid var(--border); color: var(--text-2); }
-#table td.name { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+#table td.name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 #table td.name small, #info li small.dir { color: var(--muted); }
 #table tbody tr { cursor: pointer; }
 #table tbody tr:hover td { background: var(--hover); }
 #table .more { padding: 8px; color: var(--muted); font-size: 12px; }
 /* 마우스를 올린 노드 */
-#tip { position: fixed; z-index: 3; padding: 6px 10px; border-radius: 8px; background: var(--panel-solid); border: 1px solid var(--border); box-shadow: var(--shadow); pointer-events: none; max-width: 360px; }
+#tip { position: fixed; z-index: 3; padding: 6px 10px; border-radius: 8px; background: var(--panel-solid); border: 1px solid var(--border); box-shadow: var(--shadow); pointer-events: none; max-width: 380px; }
 #tip b { display: block; font-weight: 600; word-break: break-all; }
 #tip span { color: var(--muted); font-size: 12px; }
 #empty { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 15px; pointer-events: none; }
 @media (max-width: 700px) {
   #legend { max-width: calc(100vw - 28px); bottom: 66px; }
-  #info { top: auto; bottom: 120px; max-height: 45vh; }
+  #info { top: auto !important; bottom: 120px; max-height: 45vh !important; }
 }
 </style>
 </head>
 <body>
 <canvas id="c" tabindex="0" aria-label="구조 그래프 — 표로 보기는 오른쪽 아래 목록 단추"></canvas>
 <div class="hud" id="top">
-  <div class="row1"><span id="repo">gitch graph</span><span class="chip" id="rel"></span>
+  <div class="row1"><span id="repo">gitch graph</span>
     <button class="icon-btn" id="noteBtn" type="button" title="안내" aria-label="안내" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button></div>
+  <div class="tabs" id="tabs" role="tablist" aria-label="관계"></div>
   <div id="stats"></div>
   <div id="notes" hidden></div>
   <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="q" type="search" placeholder="찾기  /" autocomplete="off" spellcheck="false" aria-label="노드 찾기"><span id="hits"></span></label>
+  <div class="ctrls">
+    <span id="unitLab">단위</span><div class="line" id="unitLine"><div class="seg" id="unit"></div><select id="depth" aria-label="폴더 깊이" title="폴더를 몇 단계까지 나눌지"></select></div>
+    <span>언어</span><div class="line"><select id="lang" aria-label="언어"></select></div>
+    <span>그리기</span><div class="line"><div class="seg" id="style"></div></div>
+  </div>
 </div>
 <aside class="hud" id="info" aria-live="polite" hidden></aside>
 <button class="hud icon-btn" id="gear" type="button" title="그래프 설정" aria-label="그래프 설정" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
 <aside class="hud" id="panel" hidden>
   <details open><summary>필터</summary><div class="sec">
-    <label class="row" id="extRow">외부 패키지 · 모듈<input class="switch" type="checkbox" id="ext" checked></label>
-    <label class="row" id="heurRow">추정 연결(점선)<input class="switch" type="checkbox" id="heur" checked></label>
-    <label class="row">연결 없는 노드<input class="switch" type="checkbox" id="orph" checked></label>
+    <label class="row" id="extRow">외부 패키지 · 모듈<input class="switch" type="checkbox" id="ext"></label>
+    <label class="row" id="heurRow">추정 연결(점선)<input class="switch" type="checkbox" id="heur"></label>
+    <label class="row">테스트 파일 · 타깃<input class="switch" type="checkbox" id="tests"></label>
+    <label class="row">연결 없는 노드<input class="switch" type="checkbox" id="orph"></label>
+    <label class="row">찾은 것만 보이기<input class="switch" type="checkbox" id="onlyFound"></label>
+    <label class="row col"><span class="lab">연결이 이만큼 이상인 노드만<b id="minDegV"></b></span><input type="range" id="minDeg" min="0" max="20" step="1"></label>
+    <label class="row">고른 노드 주변만<input class="switch" type="checkbox" id="local"></label>
+    <label class="row col sub" id="localRow"><span class="lab">몇 단계까지<b id="localDepthV"></b></span><input type="range" id="localDepth" min="1" max="5" step="1"></label>
   </div></details>
   <details open><summary>묶음</summary><div class="sec"><div class="groups" id="groups"></div></div></details>
   <details open><summary>표시</summary><div class="sec">
     <div class="row col"><span class="lab">배치</span><div class="seg" id="layout"></div></div>
+    <div class="row col" id="colorRow"><span class="lab">색</span><div class="seg" id="colorBy"></div></div>
     <label class="row" id="arrowRow">화살표<input class="switch" type="checkbox" id="arrows"></label>
     <label class="row">이름 항상 보이기<input class="switch" type="checkbox" id="names"></label>
     <label class="row col"><span class="lab">이름이 보이는 확대<b id="fadeV"></b></span><input type="range" id="fade" min="0" max="3" step="0.05"></label>
-    <label class="row col"><span class="lab">노드 크기<b id="sizeV"></b></span><input type="range" id="size" min="0.4" max="2.5" step="0.05" value="1"></label>
-    <label class="row col"><span class="lab">연결 굵기<b id="widthV"></b></span><input type="range" id="width" min="0.3" max="4" step="0.1" value="1"></label>
+    <label class="row col"><span class="lab">노드 크기<b id="sizeV"></b></span><input type="range" id="size" min="0.4" max="2.5" step="0.05"></label>
+    <label class="row col"><span class="lab">연결 굵기<b id="widthV"></b></span><input type="range" id="width" min="0.3" max="4" step="0.1"></label>
   </div></details>
   <details open id="forces"><summary>힘</summary><div class="sec">
-    <label class="row col"><span class="lab">가운데로<b id="centerV"></b></span><input type="range" id="center" min="0" max="1" step="0.01" value="0.4"></label>
-    <label class="row col"><span class="lab">밀어내기<b id="repelV"></b></span><input type="range" id="repel" min="0" max="20" step="0.5" value="10"></label>
-    <label class="row col"><span class="lab">연결 힘<b id="linkV"></b></span><input type="range" id="link" min="0" max="1" step="0.01" value="0.7"></label>
-    <label class="row col"><span class="lab">연결 거리<b id="distV"></b></span><input type="range" id="dist" min="10" max="250" step="5" value="40"></label>
+    <label class="row col"><span class="lab">가운데로<b id="centerV"></b></span><input type="range" id="center" min="0" max="1" step="0.01"></label>
+    <label class="row col"><span class="lab">밀어내기<b id="repelV"></b></span><input type="range" id="repel" min="0" max="20" step="0.5"></label>
+    <label class="row col"><span class="lab">연결 힘<b id="linkV"></b></span><input type="range" id="link" min="0" max="1" step="0.01"></label>
+    <label class="row col"><span class="lab">연결 거리<b id="distV"></b></span><input type="range" id="dist" min="10" max="250" step="5"></label>
     <button class="btn" id="animate" type="button">다시 움직이기</button>
   </div></details>
 </aside>
@@ -6147,6 +6234,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   <button class="icon-btn" id="zout" type="button" title="멀리 (-)" aria-label="멀리"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
   <button class="icon-btn" id="fit" type="button" title="전체 보기 (F)" aria-label="전체 보기"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   <button class="icon-btn" id="list" type="button" title="표로 보기" aria-label="표로 보기"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.5M4.5 12h.5M4.5 18h.5"/></svg></button>
+  <button class="icon-btn" id="png" type="button" title="그림(PNG)으로 저장" aria-label="그림으로 저장"><svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14"/></svg></button>
   <button class="icon-btn" id="theme" type="button" title="밝게 · 어둡게" aria-label="밝게 또는 어둡게"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
 </div>
 <div id="tip" hidden></div>
@@ -6159,131 +6247,250 @@ HTMLEOF
 <script>
 (() => {
   "use strict";
-  const G = JSON.parse(document.getElementById("graph-data").textContent);
-  const REL = G.relation, DIRECTED = G.directed !== false;
+  const RAW = JSON.parse(document.getElementById("graph-data").textContent);
+  const VIEWS = RAW.views || { [RAW.relation || "files"]: RAW };
+  const ORDER = ["files", "modules", "changes", "tree"].filter((v) => VIEWS[v]);
+  let REL = RAW.initial && VIEWS[RAW.initial] ? RAW.initial : ORDER[0];
+  const META = VIEWS[REL];
   const $ = (id) => document.getElementById(id);
   const canvas = $("c"), ctx = canvas.getContext("2d"), root = document.documentElement;
+  const FONT = 'system-ui, -apple-system, "Apple SD Gothic Neo", "Segoe UI", sans-serif';
   const RELNAME = { files: "파일 import", modules: "모듈 의존", changes: "같이 바뀌는 파일", tree: "폴더 구조" };
+  const TABNAME = { files: "파일", modules: "모듈", changes: "같이 바뀜", tree: "폴더" };
   const KINDNAME = { file: "파일", folder: "폴더", package: "외부 패키지", module: "모듈" };
   const EDGENAME = { import: "import", reexport: "다시 내보내기", require: "require", "dynamic-import": "동적 import", "type-ref": "타입 이름(추정)", mod: "mod", use: "use", contains: "포함", depends: "의존", cochange: "같이 바뀜" };
-  const KEYNAME = { path: "경로", lang: "언어", lines: "줄", ecosystem: "생태계", name: "이름", local: "저장소 안", outside: "범위 밖", importPath: "import 경로", type: "종류", workspace: "작업 공간", changes: "바뀐 횟수", lastChanged: "마지막 변경", depth: "깊이", files: "파일", bytes: "크기", filesHere: "바로 아래 파일", dirs: "하위 폴더", exts: "확장자" };
+  const KEYNAME = { lang: "언어", lines: "줄", ecosystem: "생태계", name: "이름", local: "저장소 안", outside: "범위 밖", importPath: "import 경로", type: "종류", workspace: "작업 공간", changes: "바뀐 횟수", lastChanged: "마지막 변경", depth: "깊이", files: "파일", bytes: "크기", filesHere: "바로 아래 파일", dirs: "하위 폴더", exts: "확장자" };
   const LISTS = { files: ["가져오는 것", "가져다 쓰는 곳"], modules: ["의존하는 것", "이것에 의존하는 것"], changes: ["같이 바뀌는 파일", ""], tree: ["안에 든 것", "위 폴더"] };
-  const METRIC = { files: ["줄", (n) => n.d.lines || 0], modules: ["연결", (n) => n.deg], changes: ["바뀐 횟수", (n) => n.d.changes || 0], tree: ["파일", (n) => n.d.files || 0] };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const hsize = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : b >= 1024 ? Math.round(b / 1024) + " KB" : b + " B");
   const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-  // ----- 묶음과 색: 언어 계열 → 범주 색 세 칸(우선순위 고정), 넷째부터는 '그 밖의 언어'(회색) -----
+  // ----- 색: 언어 계열은 범주 색 세 칸(모든 관계에서 같은 계열은 같은 색), 모듈 종류는 앱 · 라이브러리 · 테스트 -----
   const FAMILY = { ts: "web", js: "web", vue: "web", svelte: "web", npm: "web", swift: "swift", tuist: "swift", python: "python", go: "go", rust: "rust", cargo: "rust", kotlin: "jvm", java: "jvm", gradle: "jvm" };
   const EXTFAM = { ts: "web", tsx: "web", js: "web", jsx: "web", mjs: "web", cjs: "web", mts: "web", cts: "web", vue: "web", svelte: "web", swift: "swift", py: "python", pyi: "python", go: "go", rs: "rust", kt: "jvm", kts: "jvm", java: "jvm" };
   const FAMNAME = { web: "TS/JS", swift: "Swift", python: "Python", go: "Go", rust: "Rust", jvm: "Kotlin/Java", lang: "그 밖의 언어", other: "그 밖의 파일", ext: "외부 패키지 · 모듈" };
+  const ROLENAME = { app: "앱 · 실행 파일", lib: "라이브러리 · 프레임워크", test: "테스트", ext: "외부 패키지" };
   const PRIORITY = ["web", "swift", "python", "go", "rust", "jvm"];
-  const famOf = (d) => {
-    if (d.kind === "package" || (REL === "files" && d.kind === "module")) return "ext";
-    if (REL === "tree" && d.kind === "folder") { for (const e of Object.keys(d.exts || {})) if (EXTFAM[e]) return EXTFAM[e]; return "other"; }
+  const APP_T = /^(app|appClip|executable|commandLineTool|watch2App|watch2Extension|appExtension|messagesExtension|stickerPackExtension|tvTopShelfExtension|extensionKitExtension|systemExtension|xpc)$/;
+  const TEST_T = /^(test|unitTests|uiTests)$/;
+  const TEST_PATH = /(^|\/)(tests?|__tests__|specs?|[A-Za-z]*Tests|androidTest|testFixtures)(\/|$)|[._-](test|spec)\.[A-Za-z]+$|Tests?\.(swift|kt|java)$|(^|\/)test_[^/]*\.py$/;
+  const famOf = (d, rel) => {
+    if (d.kind === "package" || (rel === "files" && d.kind === "module")) return "ext";
+    if (rel === "tree" && d.kind === "folder") { for (const e of Object.keys(d.exts || {})) if (EXTFAM[e]) return EXTFAM[e]; return "other"; }
     return FAMILY[d.group] || "other";
   };
-
-  // ----- 데이터 -----
-  const nodes = G.nodes.map((d, i) => ({ i, d, id: d.id, label: d.label || d.id, kind: d.kind, fam: famOf(d), x: 0, y: 0, vx: 0, vy: 0, fx: null, fy: null, out: [], inc: [], deg: 0, r: 4, fade: 1, vis: true, key: ((d.label || "") + "\n" + d.id).toLowerCase() }));
-  const nodeOf = new Map(nodes.map((n) => [n.id, n]));
-  const edges = [];
-  for (const d of G.edges) {
-    const s = nodeOf.get(d.source), t = nodeOf.get(d.target);
-    if (!s || !t || s === t) continue;
-    const e = { s, t, d, kind: d.kind, w: d.weight || 1, h: !!d.heuristic, vis: true, len: 40, str: 1, bias: 0.5 };
-    edges.push(e); s.out.push(e); t.inc.push(e);
-  }
-  for (const n of nodes) n.deg = n.out.length + n.inc.length;
-  const present = new Set(nodes.map((n) => n.fam));
-  const colored = PRIORITY.filter((f) => present.has(f)).slice(0, 3);
-  for (const n of nodes) if (PRIORITY.includes(n.fam) && !colored.includes(n.fam)) n.fam = "lang";
+  const roleOf = (d) => (d.kind === "package" ? "ext" : APP_T.test(d.type || "") ? "app" : TEST_T.test(d.type || "") || TEST_PATH.test(d.path || "") ? "test" : "lib");
+  // 색 세 칸은 노드가 가장 많은 계열 셋에(같으면 우선순위), 칸 순서는 우선순위대로 — 저장소가 달라도 TS/JS 는 파랑, Swift 는 주황이 되기 쉽게
+  const famCount = {};
+  for (const v of ORDER) for (const d of VIEWS[v].nodes) { const f = famOf(d, v); if (PRIORITY.includes(f)) famCount[f] = (famCount[f] || 0) + 1; }
+  const top3 = Object.keys(famCount).sort((a, b) => famCount[b] - famCount[a] || PRIORITY.indexOf(a) - PRIORITY.indexOf(b)).slice(0, 3);
+  const colored = PRIORITY.filter((f) => top3.includes(f));
   const SLOT = {};
   colored.forEach((f, i) => { SLOT[f] = "s" + (i + 1); });
-  const metric = (n) => (REL === "changes" ? n.d.changes || 0 : REL === "tree" ? n.d.files || 0 : n.deg);
-  let maxM = 1;
-  for (const n of nodes) maxM = Math.max(maxM, metric(n));
+  const ROLESLOT = { app: "s1", lib: "s4", test: "s3" };
 
-  // ----- 설정 (옵시디언 그래프 설정과 같은 갈래) -----
-  const P = { ext: true, heur: true, orph: true, arrows: false, names: false, fade: nodes.length <= 80 ? 0 : 1.1, size: 1, width: 1, center: 0.4, repel: 10, link: 0.7, dist: 40 };
+  // ----- 설정: 필터 · 표시 · 힘은 모든 탭 공통, 단위 · 그리기 · 배치 · 색은 탭마다 -----
+  const P = { lang: "all", ext: true, heur: true, tests: true, orph: true, onlyFound: false, minDeg: 0, local: false, localDepth: 1, arrows: false, names: false, size: 1, width: 1, center: 0.4, repel: 10, link: 0.7, dist: 40 };
   const hidden = new Set();
   const C = {};
-  const colorOf = (fam) => (SLOT[fam] ? C[SLOT[fam]] : fam === "ext" ? C.ext : C.other);
+  const VS = {};
+  let vs = null, m = null, view = { x: 0, y: 0, k: 1 };
+  const LAYOUTS = { files: [["force", "힘"], ["layers", "층"]], modules: [["layers", "층"], ["force", "힘"]], changes: [["force", "힘"], ["layers", "층"]], tree: [["radial", "방사형"], ["layers", "층"], ["force", "힘"]] };
+  function stateFor(rel) {
+    if (VS[rel]) return VS[rel];
+    const roles = VIEWS[rel].nodes.some((d) => d.kind === "module" && (APP_T.test(d.type || "") || TEST_T.test(d.type || "")));
+    return (VS[rel] = { rel, unit: "file", depth: 2, style: rel === "modules" ? "box" : "dot", layout: LAYOUTS[rel][0][0], colorBy: rel === "modules" && roles ? "role" : "family", models: {} });
+  }
+  const byRole = () => vs.colorBy === "role" && vs.rel === "modules";   // 종류(앱 · 라이브러리 · 테스트) 색은 모듈 탭에서만
+  const groupKey = (n) => (byRole() ? "r:" + n.role : "f:" + n.fam);
+  const colorOf = (n) => {
+    if (byRole()) return n.role === "ext" ? C.ext : C[ROLESLOT[n.role]] || C.other;
+    return SLOT[n.fam] ? C[SLOT[n.fam]] : n.fam === "ext" ? C.ext : C.other;
+  };
+  const colorOfKey = (k) => (k[0] === "r" ? (k === "r:ext" ? C.ext : C[ROLESLOT[k.slice(2)]] || C.other) : SLOT[k.slice(2)] ? C[SLOT[k.slice(2)]] : k === "f:ext" ? C.ext : C.other);
+  const keyName = (k) => (k[0] === "r" ? ROLENAME[k.slice(2)] : FAMNAME[k.slice(2)]) || k.slice(2);
   function readTheme() {
     const cs = getComputedStyle(root);
-    for (const k of ["bg", "text", "text-2", "muted", "line", "accent", "halo", "s1", "s2", "s3"]) C[k] = cs.getPropertyValue("--" + k).trim();
+    for (const k of ["bg", "text", "text-2", "muted", "line", "accent", "halo", "s1", "s2", "s3", "s4"]) C[k] = cs.getPropertyValue("--" + k).trim();
     C.other = cs.getPropertyValue("--node-other").trim(); C.ext = cs.getPropertyValue("--node-ext").trim();
-    renderGroups(); if (sel) renderInfo(); request();
+    if (m) { renderGroups(); if (sel) renderInfo(); }
+    request();
   }
   function setTheme(t, save) {
     root.dataset.theme = t;
     if (save) { try { localStorage.setItem("gitch-graph-theme", t); } catch (e) { /* 저장할 수 없는 환경(사생활 보호 창 등) */ } }
     readTheme();
   }
-  function sizeNodes() { for (const n of nodes) n.r = P.size * (3.2 + 8.5 * Math.sqrt(metric(n) / maxM)); }
 
-  // ----- 보이기: 묶음 · 외부 · 추정 연결 · 연결 없는 노드 -----
-  let visNodes = nodes, visEdges = edges;
-  function refreshVisible() {
-    for (const n of nodes) n.vis = !hidden.has(n.fam) && !(!P.ext && n.fam === "ext");
-    for (const e of edges) e.vis = e.s.vis && e.t.vis && !(!P.heur && e.h);
-    if (!P.orph) {
-      const linked = new Set();
-      for (const e of edges) if (e.vis) { linked.add(e.s); linked.add(e.t); }
-      for (const n of nodes) if (!linked.has(n)) n.vis = false;
+  // ----- 모델: 관계의 노드 · 연결, 폴더 단위는 파일을 폴더로 묶은 것 -----
+  function node(d, rel) {
+    let fam = famOf(d, rel);
+    if (PRIORITY.includes(fam) && !colored.includes(fam)) fam = "lang";
+    const test = d.kind !== "package" && (TEST_T.test(d.type || "") || TEST_PATH.test(d.path || d.id));
+    return { d, id: d.id, label: d.label || d.id, kind: d.kind, fam, role: roleOf(d), test, x: 0, y: 0, vx: 0, vy: 0, fx: null, fy: null, out: [], inc: [], deg: 0, r: 4, w: 60, h: 30, lw: 40, fade: 1, vis: true, key: ((d.label || "") + "\n" + d.id).toLowerCase() };
+  }
+  function link(s, t, d, kind, w, h) { const e = { s, t, d, kind, w, h, vis: true, len: 40, str: 1, bias: 0.5 }; s.out.push(e); t.inc.push(e); return e; }
+  function finish(md) {
+    md.nodes.forEach((n, i) => { n.i = i; n.deg = n.out.length + n.inc.length; });
+    md.nodeOf = new Map(md.nodes.map((n) => [n.id, n]));
+    md.view = { x: 0, y: 0, k: 1 }; md.userMoved = false; md.laid = false;
+    md.fade = md.nodes.length <= 80 ? 0 : 1.1;
+    return md;
+  }
+  function baseModel(rel) {
+    const G = VIEWS[rel], nodes = G.nodes.map((d) => node(d, rel)), of = new Map(nodes.map((n) => [n.id, n])), edges = [];
+    for (const d of G.edges) { const s = of.get(d.source), t = of.get(d.target); if (s && t && s !== t) edges.push(link(s, t, d, d.kind, d.weight || 1, !!d.heuristic)); }
+    return finish({ rel, G, nodes, edges, directed: G.directed !== false, agg: false });
+  }
+  function aggregate(base, depth) {   // 파일을 폴더(앞 depth 단계)로 묶고, 연결은 폴더 사이로 더한다
+    const groups = new Map(), map = new Map(), nodes = [], edges = [];
+    for (const n of base.nodes) {
+      if (n.kind !== "file" || !n.d.path) { const c = node(n.d, base.rel); c.fam = n.fam; map.set(n, c); nodes.push(c); continue; }
+      const segs = n.d.path.split("/"); segs.pop();
+      const parts = segs.slice(0, depth), key = parts.join("/");
+      let g = groups.get(key);
+      if (!g) {
+        g = node({ id: key ? key + "/" : "./", label: key || META.repo, kind: "folder", group: "folder", path: key || ".", files: 0, lines: 0 }, base.rel);   // 이름은 폴더 경로 전체 — 같은 이름(src 등)이 섞이지 않게
+        g.members = []; g.famCount = {}; g.tests = 0;
+        groups.set(key, g); nodes.push(g);
+      }
+      g.members.push(n); g.d.files++;
+      if (n.d.lines) g.d.lines += n.d.lines;
+      if (n.d.changes) g.d.changes = (g.d.changes || 0) + n.d.changes;
+      g.famCount[n.fam] = (g.famCount[n.fam] || 0) + 1;
+      if (n.test) g.tests++;
+      map.set(n, g);
     }
-    visNodes = nodes.filter((n) => n.vis);
-    visEdges = edges.filter((e) => e.vis);
+    for (const g of groups.values()) {
+      let best = "other", bc = -1;
+      for (const [f, c] of Object.entries(g.famCount)) if (c > bc || (c === bc && f < best)) { best = f; bc = c; }
+      g.fam = best; g.test = g.tests === g.members.length; g.role = g.test ? "test" : "lib";
+      if (!g.d.lines) delete g.d.lines;
+    }
+    const merged = new Map();
+    for (const e of base.edges) {
+      let s = map.get(e.s), t = map.get(e.t);
+      if (!s || !t || s === t) continue;
+      if (!base.directed && t.id < s.id) [s, t] = [t, s];
+      const k = s.id + "\u0000" + t.id;
+      let a = merged.get(k);
+      if (!a) { a = link(s, t, { kind: e.kind, files: 0 }, e.kind === "cochange" ? "cochange" : "import", 0, true); merged.set(k, a); edges.push(a); }
+      a.w += e.w; a.d.files++;
+      if (!e.h) a.h = false;
+    }
+    return finish({ rel: base.rel, G: base.G, nodes, edges, directed: base.directed, agg: true, depth });
+  }
+  function modelFor(st) {
+    const key = st.unit === "folder" && (st.rel === "files" || st.rel === "changes") ? "d" + st.depth : "f";
+    if (!st.models.f) st.models.f = baseModel(st.rel);
+    if (!st.models[key]) st.models[key] = aggregate(st.models.f, st.depth);
+    return st.models[key];
+  }
+  const metric = (n) => (n.members ? n.members.length : m.rel === "changes" ? n.d.changes || 0 : m.rel === "tree" ? n.d.files || 0 : n.deg);
+  function sizeNodes() {
+    let maxM = 1;
+    for (const n of m.nodes) maxM = Math.max(maxM, metric(n));
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = `600 13px ${FONT}`;
+    for (const n of m.nodes) { n.r = P.size * (3.2 + 8.5 * Math.sqrt(metric(n) / maxM)); n.w = Math.max(58, ctx.measureText(n.label).width + 26) * Math.sqrt(P.size); n.h = 30 * Math.sqrt(P.size); }
+    ctx.font = `12px ${FONT}`;
+    for (const n of m.nodes) n.lw = ctx.measureText(n.label).width;
+    ctx.restore();
+  }
+  const box = () => vs.style === "box";
+  const halfW = (n) => (box() ? n.w / 2 : n.r);
+  const halfH = (n) => (box() ? n.h / 2 : n.r);
+
+  // ----- 보이기: 언어 · 묶음 · 외부 · 테스트 · 추정 · 찾기 · 연결 수 · 고른 노드 주변 -----
+  let visNodes = [], visEdges = [];
+  function refreshVisible() {
+    for (const n of m.nodes) {
+      let v = !hidden.has(groupKey(n)) && !(!P.ext && n.fam === "ext") && !(!P.tests && n.test);
+      if (P.lang !== "all" && n.fam !== "ext" && n.fam !== P.lang) v = false;
+      if (P.onlyFound && matchSet && !matchSet.has(n)) v = false;
+      n.vis = v;
+    }
+    const pass = () => { for (const e of m.edges) e.vis = e.s.vis && e.t.vis && !(!P.heur && e.h); };
+    pass();
+    if (P.lang !== "all") {   // 고른 언어에 닿지 않는 외부 노드는 뺀다
+      const keep = new Set();
+      for (const e of m.edges) if (e.vis) { if (e.s.fam !== "ext") keep.add(e.t); if (e.t.fam !== "ext") keep.add(e.s); }
+      for (const n of m.nodes) if (n.vis && n.fam === "ext" && !keep.has(n)) n.vis = false;
+      pass();
+    }
+    const need = Math.max(P.orph ? 0 : 1, P.minDeg);
+    if (need > 0) {
+      const deg = new Map();
+      for (const e of m.edges) if (e.vis) { deg.set(e.s, (deg.get(e.s) || 0) + 1); deg.set(e.t, (deg.get(e.t) || 0) + 1); }
+      for (const n of m.nodes) if (n.vis && (deg.get(n) || 0) < need && n !== sel) n.vis = false;
+      pass();
+    }
+    if (P.local && sel && sel.vis) {   // 옵시디언의 로컬 그래프: 고른 노드에서 몇 단계 안쪽만
+      const seen = new Set([sel]);
+      let front = [sel];
+      for (let d = 0; d < P.localDepth; d++) {
+        const next = [];
+        for (const n of front) {
+          for (const e of n.out) if (e.vis && !seen.has(e.t)) { seen.add(e.t); next.push(e.t); }
+          for (const e of n.inc) if (e.vis && !seen.has(e.s)) { seen.add(e.s); next.push(e.s); }
+        }
+        front = next;
+      }
+      for (const n of m.nodes) if (!seen.has(n)) n.vis = false;
+      pass();
+    }
+    visNodes = m.nodes.filter((n) => n.vis);
+    visEdges = m.edges.filter((e) => e.vis);
+    $("empty").hidden = visNodes.length > 0;
   }
 
   // ----- 화면 · 보기 -----
-  const view = { x: 0, y: 0, k: 1 };
-  let W = 0, H = 0, dpr = 1, userMoved = false, sel = null, hover = null, query = "", matches = [], matchSet = null, matchIdx = -1;
+  let W = 0, H = 0, dpr = 1, sel = null, hover = null, query = "", matches = [], matchSet = null, matchIdx = -1;
   let pending = false, tween = null, morph = null, dimT = 0;
   const clampK = (k) => clamp(k, 0.02, 10);
   function request() { if (!pending) { pending = true; requestAnimationFrame(frame); } }
   function resize() { dpr = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; canvas.width = Math.max(1, Math.round(W * dpr)); canvas.height = Math.max(1, Math.round(H * dpr)); if (sel) placeInfo(); request(); }
   function bounds(list) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const n of list) { x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r); x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r); }
+    for (const n of list) { const hw = n.hw != null ? n.hw : halfW(n), hh = n.hh != null ? n.hh : halfH(n); x0 = Math.min(x0, n.x - hw); y0 = Math.min(y0, n.y - hh); x1 = Math.max(x1, n.x + hw); y1 = Math.max(y1, n.y + hh); }
     return [x0, y0, x1, y1];
   }
   function fitView(list) {
     list = list || visNodes;
     if (!list.length || !W) return null;
-    const [x0, y0, x1, y1] = bounds(list), padX = W > 900 ? 120 : 40, padY = 70;
-    const k = clampK(Math.min((W - padX * 2) / Math.max(x1 - x0, 1), (H - padY * 2) / Math.max(y1 - y0, 1), 2.2));
-    return { k, x: W / 2 - ((x0 + x1) / 2) * k, y: H / 2 - ((y0 + y1) / 2) * k };
+    const [x0, y0, x1, y1] = bounds(list), left = W > 900 ? 400 : 20, padY = 60;
+    const k = clampK(Math.min((W - left - 40) / Math.max(x1 - x0, 1), (H - padY * 2) / Math.max(y1 - y0, 1), 2));
+    return { k, x: left + (W - left - 40) / 2 - ((x0 + x1) / 2) * k, y: H / 2 - ((y0 + y1) / 2) * k };
   }
   function animateTo(target, ms) {
     if (!target) return;
-    const from = { x: view.x, y: view.y, k: view.k }, t0 = performance.now(), dur = ms || 420;
+    const from = { x: view.x, y: view.y, k: view.k }, t0 = performance.now(), dur = ms || 420, v = view;
     tween = (now) => {
       const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
-      view.x = from.x + (target.x - from.x) * e; view.y = from.y + (target.y - from.y) * e; view.k = from.k + (target.k - from.k) * e;
+      v.x = from.x + (target.x - from.x) * e; v.y = from.y + (target.y - from.y) * e; v.k = from.k + (target.k - from.k) * e;
       if (p >= 1) tween = null;
     };
     request();
   }
   function zoomAt(px, py, factor, ms) {   // 가리킨 점이 그대로 있게 확대 · 축소
-    const k0 = view.k, x0 = view.x, y0 = view.y, k1 = clampK(k0 * factor), t0 = performance.now(), dur = ms || 0;
-    userMoved = true;
-    if (!dur) { view.k = k1; view.x = px - (px - x0) * (k1 / k0); view.y = py - (py - y0) * (k1 / k0); tween = null; request(); return; }
+    const v = view, k0 = v.k, x0 = v.x, y0 = v.y, k1 = clampK(k0 * factor), t0 = performance.now(), dur = ms || 0;
+    m.userMoved = true;
+    if (!dur) { v.k = k1; v.x = px - (px - x0) * (k1 / k0); v.y = py - (py - y0) * (k1 / k0); tween = null; request(); return; }
     tween = (now) => {
       const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3), k = k0 + (k1 - k0) * e;
-      view.k = k; view.x = px - (px - x0) * (k / k0); view.y = py - (py - y0) * (k / k0);
+      v.k = k; v.x = px - (px - x0) * (k / k0); v.y = py - (py - y0) * (k / k0);
       if (p >= 1) tween = null;
     };
     request();
   }
-  function centerOn(n, k) { userMoved = true; k = clampK(k); animateTo({ k, x: W / 2 - n.x * k + (sel && W > 900 ? 120 : 0), y: H / 2 - n.y * k }); }
+  function centerOn(n, k) { m.userMoved = true; k = clampK(k); animateTo({ k, x: (W > 900 ? 400 + (W - 440) / 2 : W / 2) - n.x * k, y: H / 2 - n.y * k }); }
 
   // ----- 힘 배치 (Barnes–Hut) -----
   const THETA2 = 0.81, ALPHA_MIN = 0.003, DECAY = 0.0228;
-  let alpha = 0, running = false, layout = "force";
+  let alpha = 0, running = false;
   function seed() {   // 이름 순 해바라기 나선 — 같은 폴더가 가까이서 시작해 빨리 모인다
-    nodes.slice().sort(byId).forEach((n, i) => { const r = 7 * Math.sqrt(i + 0.5), a = i * 2.399963; n.x = r * Math.cos(a); n.y = r * Math.sin(a); n.vx = n.vy = 0; });
+    m.nodes.slice().sort(byId).forEach((n, i) => { const r = (box() ? 16 : 7) * Math.sqrt(i + 0.5), a = i * 2.399963; n.x = r * Math.cos(a); n.y = r * Math.sin(a); n.vx = n.vy = 0; });
   }
   function linkParams() {
     const deg = new Map();
@@ -6291,7 +6498,7 @@ HTMLEOF
     for (const e of visEdges) {
       const a = deg.get(e.s), b = deg.get(e.t);
       e.bias = a / (a + b); e.str = 1 / Math.min(a, b);
-      e.len = P.dist + e.s.r + e.t.r + (REL === "changes" ? 30 / (1 + Math.log(e.w)) : 0);
+      e.len = P.dist + halfW(e.s) + halfW(e.t) + (m.rel === "changes" ? 30 / (1 + Math.log(Math.max(e.w, 1))) : 0);
     }
   }
   function startForce(reset, heat) {
@@ -6313,16 +6520,16 @@ HTMLEOF
     }
   }
   function mass(q) {
-    let m = 0, x = 0, y = 0;
-    if (q.k) { for (const c of q.k) if (c) { mass(c); m += c.m; x += c.cx * c.m; y += c.cy * c.m; } }
-    else { if (q.n) { m = 1; x = q.n.x; y = q.n.y; } if (q.more) for (const o of q.more) { m++; x += o.x; y += o.y; } }
-    q.m = m; if (m) { q.cx = x / m; q.cy = y / m; }
+    let n0 = 0, x = 0, y = 0;
+    if (q.k) { for (const c of q.k) if (c) { mass(c); n0 += c.m; x += c.cx * c.m; y += c.cy * c.m; } }
+    else { if (q.n) { n0 = 1; x = q.n.x; y = q.n.y; } if (q.more) for (const o of q.more) { n0++; x += o.x; y += o.y; } }
+    q.m = n0; if (n0) { q.cx = x / n0; q.cy = y / n0; }
   }
-  function push(n, x, y, m, f0) {
+  function push(n, x, y, w, f0) {
     let dx = x - n.x, dy = y - n.y, l = dx * dx + dy * dy;
     if (l === 0) { dx = (Math.random() - 0.5) * 1e-3; dy = (Math.random() - 0.5) * 1e-3; l = dx * dx + dy * dy; }
     if (l < 1) l = Math.sqrt(l);
-    const f = (f0 * m) / l;
+    const f = (f0 * w) / l;
     n.vx += dx * f; n.vy += dy * f;
   }
   function charge(q, n, f0) {
@@ -6351,7 +6558,7 @@ HTMLEOF
       const q0 = quad(x0, y0, Math.max(x1 - x0, y1 - y0, 1) * 1.0001);
       for (const n of visNodes) insert(q0, n);
       mass(q0);
-      const f0 = -P.repel * 6 * alpha;
+      const f0 = -P.repel * (box() ? 22 : 6) * alpha;
       for (const n of visNodes) charge(q0, n, f0);
     }
     const g = P.center * 0.08 * alpha;
@@ -6363,7 +6570,7 @@ HTMLEOF
     alpha += (0 - alpha) * DECAY;
   }
 
-  // ----- 층(의존하는 쪽 → 의존받는 쪽, 왼쪽에서 오른쪽) · 방사형(tree) — 자리를 옮길 때는 미끄러지듯 -----
+  // ----- 층(위 → 아래: 의존하는 쪽이 위, tuist graph 처럼) · 방사형(tree) — 자리를 옮길 때는 미끄러지듯 -----
   function layersTargets() {
     const state = new Map(), back = new Set(), order = [];
     for (const r of visNodes) {
@@ -6386,7 +6593,7 @@ HTMLEOF
     for (const n of visNodes) (layers[rank.get(n)] || (layers[rank.get(n)] = [])).push(n);
     const pos = new Map();
     for (const L of layers) if (L) { L.sort((a, b) => (a.fam < b.fam ? -1 : a.fam > b.fam ? 1 : byId(a, b))); L.forEach((n, i) => pos.set(n, i)); }
-    for (let sweep = 0; sweep < 6; sweep++) {
+    for (let sweep = 0; sweep < 8; sweep++) {   // 이웃 평균 자리로 정렬해 엇갈림을 줄인다
       const down = sweep % 2 === 0;
       for (let k = 0; k < layers.length; k++) {
         const L = layers[down ? k : layers.length - 1 - k];
@@ -6396,13 +6603,16 @@ HTMLEOF
         L.sort((a, b) => bc.get(a) - bc.get(b)); L.forEach((n, i) => pos.set(n, i));
       }
     }
-    const T = new Map();
-    let x = 0;
+    const T = new Map(), isBox = box(), gapX = isBox ? 34 : 16, gapY = isBox ? 120 : 92, perRow = isBox ? 12 : 48;
+    let y = 0;
     for (const L of layers) {
       if (!L) continue;
-      const cols = Math.ceil(L.length / 80), per = Math.ceil(L.length / cols);
-      L.forEach((n, i) => { const c = Math.floor(i / per), r = i % per, cnt = Math.min(per, L.length - c * per); T.set(n, [x + c * 130, (r - (cnt - 1) / 2) * 46]); });   // 이름이 노드 아래에 들어갈 만큼
-      x += 280 + (cols - 1) * 130;
+      for (let at = 0; at < L.length; at += perRow) {   // 한 층이 길면 여러 줄로
+        const row = L.slice(at, at + perRow), widths = row.map((n) => (isBox ? n.w : Math.max(n.r * 2, n.lw) + 10));
+        let x = -(widths.reduce((a, b) => a + b, 0) + gapX * (row.length - 1)) / 2;
+        row.forEach((n, i) => { T.set(n, [x + widths[i] / 2, y]); x += widths[i] + gapX; });
+        y += at + perRow < L.length ? gapY * 0.55 : gapY;
+      }
     }
     return T;
   }
@@ -6426,7 +6636,7 @@ HTMLEOF
     let maxD = 1, total = 0;
     for (const n of order) maxD = Math.max(maxD, depth.get(n));
     for (const r of roots) total += leaves.get(r);
-    const ring = Math.max(120, (total * 18) / (2 * Math.PI * maxD));
+    const ring = Math.max(box() ? 190 : 120, (total * (box() ? 40 : 18)) / (2 * Math.PI * maxD));
     const place = (n, start, span) => {
       const d = depth.get(n), a = start + span / 2;
       T.set(n, [Math.cos(a) * d * ring, Math.sin(a) * d * ring]);
@@ -6446,17 +6656,22 @@ HTMLEOF
       for (const [n, [x1, y1]] of T) { const [x0, y0] = from.get(n) || [x1, y1]; n.x = x0 + (x1 - x0) * e; n.y = y0 + (y1 - y0) * e; n.vx = n.vy = 0; }
       if (p >= 1) morph = null;
     };
-    if (fit) {   // 끝날 자리를 기준으로 미리 맞춘다
-      const pts = [...T.values()].map(([x, y]) => ({ x, y, r: 6 }));
-      animateTo(fitView(pts), dur);
-    }
+    if (fit) animateTo(fitView([...T].map(([n, [x, y]]) => ({ x, y, hw: halfW(n), hh: halfH(n) }))), dur);
     request();
   }
   function applyLayout(reset) {
-    $("forces").style.opacity = layout === "force" ? "" : ".45";
-    if (layout === "force") { startForce(reset, reset ? 1 : 0.35); return; }
-    if (reset && !nodes.some((n) => n.x || n.y)) seed();
-    morphTo(layout === "layers" ? layersTargets() : radialTargets(), !userMoved || reset);
+    $("forces").style.opacity = vs.layout === "force" ? "" : ".45";
+    if (vs.layout === "force") { startForce(reset, reset ? 1 : 0.35); return; }
+    morphTo(vs.layout === "layers" ? layersTargets() : radialTargets(), !m.userMoved || reset);
+  }
+  function firstLayout() {   // 모델을 처음 보일 때: 힘은 나선에서 움직이고, 층 · 방사형은 바로 그 자리에
+    seed();
+    if (vs.layout === "force") { m.userMoved = false; startForce(false, 1); return; }
+    running = false; morph = null;
+    const T = vs.layout === "layers" ? layersTargets() : radialTargets();
+    for (const [n, [x, y]] of T) { n.x = x; n.y = y; }
+    const f = fitView(); if (f) Object.assign(view, f);
+    request();
   }
 
   // ----- 그리기 -----
@@ -6467,7 +6682,7 @@ HTMLEOF
       const t0 = performance.now();
       do tick(); while (alpha > ALPHA_MIN && performance.now() - t0 < 12);
       if (alpha <= ALPHA_MIN) running = false;
-      if (!userMoved) { const f = fitView(); if (f) Object.assign(view, f); }
+      if (!m.userMoved) { const f = fitView(); if (f) Object.assign(view, f); }
     }
     if (tween) tween(now);
     const busy = draw();
@@ -6481,40 +6696,69 @@ HTMLEOF
     for (const e of f.inc) if (e.vis) s.add(e.s);
     return s;
   }
-  function shape(n, r) {
+  function rr(x, y, w, h, r) { if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
+  function shape(n, grow) {
+    if (box()) { rr(n.x - n.w / 2 - grow, n.y - n.h / 2 - grow, n.w + grow * 2, n.h + grow * 2, 7 + grow); return; }
+    const r = n.r + grow;
     if (n.fam === "ext") { const q = r * 1.25; ctx.moveTo(n.x, n.y - q); ctx.lineTo(n.x + q, n.y); ctx.lineTo(n.x, n.y + q); ctx.lineTo(n.x - q, n.y); ctx.closePath(); }
-    else if (n.kind === "folder" || n.kind === "module") { const q = r * 0.92, c = q * 0.35; if (ctx.roundRect) ctx.roundRect(n.x - q, n.y - q, q * 2, q * 2, c); else ctx.rect(n.x - q, n.y - q, q * 2, q * 2); }
+    else if (n.kind === "folder" || n.kind === "module") { const q = r * 0.92; rr(n.x - q, n.y - q, q * 2, q * 2, q * 0.35); }
     else { ctx.moveTo(n.x + r, n.y); ctx.arc(n.x, n.y, r, 0, Math.PI * 2); }
   }
-  function arrow(e, k, size) {
-    const s = e.s, t = e.t, dx = t.x - s.x, dy = t.y - s.y, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
-    const ex = t.x - ux * (t.r + 2 / k), ey = t.y - uy * (t.r + 2 / k), a = size / k, b = (size * 0.45) / k;
-    ctx.moveTo(ex, ey); ctx.lineTo(ex - ux * a - uy * b, ey - uy * a + ux * b); ctx.lineTo(ex - ux * a + uy * b, ey - uy * a - ux * b); ctx.closePath();
+  function clip(n, dx, dy) {   // 중심에서 (dx, dy) 쪽으로 나가 노드 테두리에 닿는 점
+    const l = Math.hypot(dx, dy) || 1;
+    if (!box()) return [n.x + (dx / l) * (n.r + 1), n.y + (dy / l) * (n.r + 1)];
+    const sx = Math.abs(dx) > 1e-9 ? n.w / 2 / Math.abs(dx) : Infinity, sy = Math.abs(dy) > 1e-9 ? n.h / 2 / Math.abs(dy) : Infinity, s = Math.min(sx, sy);
+    return [n.x + dx * s, n.y + dy * s];
+  }
+  function geom(e) {   // 연결의 끝점과 곡선 — 상자 + 층이면 아래로 휘어 내려가는 곡선(tuist graph 처럼)
+    const s = e.s, t = e.t;
+    if (box() && vs.layout === "layers" && Math.abs(t.y - s.y) > 1) {
+      const down = t.y > s.y, y1 = s.y + (down ? s.h / 2 : -s.h / 2), y2 = t.y + (down ? -t.h / 2 : t.h / 2);
+      return { x1: s.x, y1, x2: t.x, y2, curve: true, ux: 0, uy: down ? 1 : -1 };
+    }
+    const [x1, y1] = clip(s, t.x - s.x, t.y - s.y), [x2, y2] = clip(t, s.x - t.x, s.y - t.y), l = Math.hypot(x2 - x1, y2 - y1) || 1;
+    return { x1, y1, x2, y2, curve: false, ux: (x2 - x1) / l, uy: (y2 - y1) / l };
+  }
+  function strokeEdge(g) {
+    ctx.moveTo(g.x1, g.y1);
+    if (g.curve) { const my = (g.y2 - g.y1) / 2; ctx.bezierCurveTo(g.x1, g.y1 + my, g.x2, g.y2 - my, g.x2, g.y2); }
+    else ctx.lineTo(g.x2, g.y2);
+  }
+  function arrowHead(g, size) {
+    const a = size, b = size * 0.45, x = g.x2, y = g.y2;
+    ctx.moveTo(x, y); ctx.lineTo(x - g.ux * a - g.uy * b, y - g.uy * a + g.ux * b); ctx.lineTo(x - g.ux * a + g.uy * b, y - g.uy * a - g.ux * b); ctx.closePath();
   }
   function draw() {
-    const k = view.k, F = focusSet(), f = hover || sel;
+    const k = view.k, F = focusSet(), f = hover || sel, isBox = box(), lit0 = !!(F || matchSet);
     let busy = false;
-    dimT += ((F || matchSet ? 1 : 0) - dimT) * 0.22;
-    if (Math.abs(dimT - (F || matchSet ? 1 : 0)) > 0.01) busy = true;
+    dimT += ((lit0 ? 1 : 0) - dimT) * 0.22;
+    if (Math.abs(dimT - (lit0 ? 1 : 0)) > 0.01) busy = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * view.x, dpr * view.y);
     const vx0 = -view.x / k, vy0 = -view.y / k, vx1 = vx0 + W / k, vy1 = vy0 + H / k;
-    const seen = (n, m) => n.x + n.r + m > vx0 && n.x - n.r - m < vx1 && n.y + n.r + m > vy0 && n.y - n.r - m < vy1;
+    const seen = (n, mg) => n.x + halfW(n) + mg > vx0 && n.x - halfW(n) - mg < vx1 && n.y + halfH(n) + mg > vy0 && n.y - halfH(n) - mg < vy1;
     const hot = (e) => f && (e.s === f || e.t === f);
-    // 연결: 보통은 한 번에, 고른 노드에 닿은 것은 보라
-    ctx.strokeStyle = C.line; ctx.fillStyle = C.line;
-    const base = clamp(1.6 / Math.sqrt(visEdges.length / 400 + 0.01), 0.22, 1) * (1 - dimT * 0.75);   // 연결이 많을수록 옅게 — 수만 개여도 회색 덩어리가 되지 않게
+    const showArrows = m.directed && (P.arrows || isBox);
+    // 연결: 보통은 한 번에(많을수록 옅게), 고른 노드에 닿은 것은 보라
+    const ink = isBox ? C.muted : C.line;   // 다이어그램(상자)은 tuist graph 처럼 또렷한 선
+    ctx.strokeStyle = ink; ctx.fillStyle = ink;
+    const base = (isBox ? 0.85 : clamp(1.6 / Math.sqrt(visEdges.length / 400 + 0.01), 0.22, 1)) * (1 - dimT * 0.75);
     for (const dashed of [false, true]) {
-      ctx.globalAlpha = base;
+      ctx.globalAlpha = Math.min(1, base);
       ctx.setLineDash(dashed ? [4 / k, 3 / k] : []);
-      if (REL === "changes") {
-        for (const e of visEdges) { if (e.h !== dashed || hot(e)) continue; ctx.lineWidth = (P.width * (0.8 + Math.log2(e.w) * 0.8)) / k; ctx.beginPath(); ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); ctx.stroke(); }
+      if (m.rel === "changes" || isBox) {
+        for (const e of visEdges) {
+          if (e.h !== dashed || hot(e)) continue;
+          ctx.lineWidth = (P.width * (m.rel === "changes" ? 0.8 + Math.log2(Math.max(e.w, 1)) * 0.8 : 1.2)) / k;
+          const g = geom(e); ctx.beginPath(); strokeEdge(g); ctx.stroke();
+          if (showArrows && (seen(e.t, 10) || seen(e.s, 10))) { ctx.beginPath(); arrowHead(g, 8 / k); ctx.fill(); }
+        }
       } else {
         ctx.lineWidth = P.width / k; ctx.beginPath();
         for (const e of visEdges) if (e.h === dashed && !hot(e)) { ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); }
         ctx.stroke();
-        if (DIRECTED && P.arrows && visEdges.length < 6000) { ctx.beginPath(); for (const e of visEdges) if (e.h === dashed && !hot(e) && seen(e.t, 10)) arrow(e, k, 6); ctx.fill(); }
+        if (showArrows && visEdges.length < 6000) { ctx.beginPath(); for (const e of visEdges) if (e.h === dashed && !hot(e) && seen(e.t, 10)) arrowHead(geom(e), 6 / k); ctx.fill(); }
       }
     }
     ctx.setLineDash([]);
@@ -6522,50 +6766,69 @@ HTMLEOF
       ctx.globalAlpha = 0.95; ctx.strokeStyle = C.accent; ctx.fillStyle = C.accent;
       for (const e of visEdges) {
         if (!hot(e)) continue;
-        ctx.lineWidth = (P.width * (REL === "changes" ? 1.2 + Math.log2(e.w) : 1.6)) / k;
+        ctx.lineWidth = (P.width * (m.rel === "changes" ? 1.2 + Math.log2(Math.max(e.w, 1)) : 1.7)) / k;
         ctx.setLineDash(e.h ? [5 / k, 3 / k] : []);
-        ctx.beginPath(); ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); ctx.stroke();
-        if (DIRECTED) { ctx.beginPath(); arrow(e, k, 8); ctx.fill(); }
+        const g = geom(e); ctx.beginPath(); strokeEdge(g); ctx.stroke();
+        if (m.directed) { ctx.beginPath(); arrowHead(g, 9 / k); ctx.fill(); }
       }
       ctx.setLineDash([]);
     }
     // 노드: 고르거나 찾은 것과 이웃만 밝게(나머지는 천천히 흐리게)
     for (const n of visNodes) {
-      const lit = !(F || matchSet) || (F && F.has(n)) || (!F && matchSet && matchSet.has(n));
+      const lit = !lit0 || (F && F.has(n)) || (!F && matchSet && matchSet.has(n));
       const want = lit ? 1 : 0.14;
       n.fade += (want - n.fade) * 0.22;
       if (Math.abs(n.fade - want) > 0.01) busy = true;
       if (!seen(n, 0)) continue;
-      ctx.globalAlpha = n.fade;
-      ctx.fillStyle = colorOf(n.fam);
-      ctx.beginPath(); shape(n, n.r); ctx.fill();
+      const col = colorOf(n);
+      if (isBox) {   // 상자: 옅게 칠하고 테두리는 그 색, 글자는 본문 색
+        ctx.globalAlpha = n.fade;
+        ctx.fillStyle = C.bg; ctx.beginPath(); shape(n, 0); ctx.fill();
+        ctx.globalAlpha = n.fade * 0.22; ctx.fillStyle = col; ctx.fill();
+        ctx.globalAlpha = n.fade; ctx.strokeStyle = col; ctx.lineWidth = 1.6 / k;
+        if (n.fam === "ext" || n.role === "ext") ctx.setLineDash([4 / k, 3 / k]);
+        ctx.stroke(); ctx.setLineDash([]);
+      } else {
+        ctx.globalAlpha = n.fade; ctx.fillStyle = col;
+        ctx.beginPath(); shape(n, 0); ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
     for (const n of [sel, hover]) {   // 고른 노드 · 올린 노드: 보라 테두리와 빛
       if (!n || !n.vis) continue;
       ctx.save(); ctx.shadowColor = C.accent; ctx.shadowBlur = 18;
       ctx.lineWidth = 2.4 / k; ctx.strokeStyle = C.accent;
-      ctx.beginPath(); shape(n, n.r + 2.5 / k); ctx.stroke(); ctx.restore();
+      ctx.beginPath(); shape(n, 2.5 / k); ctx.stroke(); ctx.restore();
     }
-    if (matchSet && !F) { ctx.lineWidth = 1.6 / k; ctx.strokeStyle = C.accent; ctx.beginPath(); for (const n of matches) if (n.vis && seen(n, 4)) shape(n, n.r + 2 / k); ctx.stroke(); }
-    // 이름: 노드 아래. 확대할수록(큰 노드부터) 나타나고, 강조된 것은 늘 보인다
-    const fs = 12;
-    ctx.font = `${fs / k}px system-ui, -apple-system, "Apple SD Gothic Neo", "Segoe UI", sans-serif`;
-    ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.lineJoin = "round";
-    let drawn = 0;
-    for (const n of visNodes) {
-      const lit = (F && F.has(n)) || (matchSet && matchSet.has(n)) || n === sel;
-      let a;
-      if (lit) a = 1;
-      else if (F || matchSet) a = 0;
-      else a = P.names || (REL === "tree" && n.d.depth <= 1) ? 1 : clamp((k * (0.55 + n.r / 9) - P.fade) / 0.45, 0, 1);
-      a *= lit ? 1 : n.fade;
-      if (a < 0.04 || !seen(n, 60 / k)) continue;
-      if (++drawn > 2500) break;
-      const y = n.y + n.r + 3 / k;
-      ctx.globalAlpha = a;
-      ctx.lineWidth = 3.5 / k; ctx.strokeStyle = C.halo; ctx.strokeText(n.label, n.x, y);
-      ctx.fillStyle = lit || !(F || matchSet) ? C.text : C.muted; ctx.fillText(n.label, n.x, y);
+    if (matchSet && !F) { ctx.lineWidth = 1.6 / k; ctx.strokeStyle = C.accent; ctx.beginPath(); for (const n of matches) if (n.vis && seen(n, 4)) shape(n, 2 / k); ctx.stroke(); }
+    // 이름: 상자는 안에(글자가 읽힐 만큼 크면), 점은 아래(확대할수록 큰 노드부터, 강조된 것은 늘)
+    ctx.textAlign = "center"; ctx.lineJoin = "round";
+    if (isBox) {
+      if (13 * k >= 4.5) {
+        ctx.font = `600 13px ${FONT}`; ctx.textBaseline = "middle";
+        for (const n of visNodes) {
+          if (!seen(n, 0)) continue;
+          ctx.globalAlpha = Math.max(n.fade, (F && F.has(n)) || n === sel ? 1 : 0);
+          ctx.fillStyle = C.text; ctx.fillText(n.label, n.x, n.y + 0.5, n.w - 10);
+        }
+      }
+    } else {
+      ctx.font = `${12 / k}px ${FONT}`; ctx.textBaseline = "top";
+      let drawn = 0;
+      for (const n of visNodes) {
+        const lit = (F && F.has(n)) || (matchSet && matchSet.has(n)) || n === sel;
+        let a;
+        if (lit) a = 1;
+        else if (lit0) a = 0;
+        else a = P.names || (m.rel === "tree" && n.d.depth <= 1) ? 1 : clamp((k * (0.55 + n.r / 9) - m.fade) / 0.45, 0, 1);
+        a *= lit ? 1 : n.fade;
+        if (a < 0.04 || !seen(n, 60 / k)) continue;
+        if (++drawn > 2500) break;
+        const y = n.y + n.r + 3 / k;
+        ctx.globalAlpha = a;
+        ctx.lineWidth = 3.5 / k; ctx.strokeStyle = C.halo; ctx.strokeText(n.label, n.x, y);
+        ctx.fillStyle = lit || !lit0 ? C.text : C.muted; ctx.fillText(n.label, n.x, y);
+      }
     }
     ctx.globalAlpha = 1;
     return busy;
@@ -6573,19 +6836,27 @@ HTMLEOF
 
   // ----- 고르기 · 정보 · 목록 -----
   function nodeAt(px, py) {
-    const x = (px - view.x) / view.k, y = (py - view.y) / view.k;
+    const x = (px - view.x) / view.k, y = (py - view.y) / view.k, pad = 6 / view.k;
     let best = null, bd = Infinity;
-    for (const n of visNodes) { const dx = n.x - x, dy = n.y - y, d = dx * dx + dy * dy, rr = n.r + 6 / view.k; if (d < rr * rr && d < bd) { bd = d; best = n; } }
+    for (const n of visNodes) {
+      const dx = n.x - x, dy = n.y - y, d = dx * dx + dy * dy;
+      const hit = box() ? Math.abs(dx) <= n.w / 2 + pad && Math.abs(dy) <= n.h / 2 + pad : d < (n.r + pad) * (n.r + pad);
+      if (hit && d < bd) { bd = d; best = n; }
+    }
     return best;
   }
-  const famLabel = (n) => FAMNAME[n.fam] || n.d.group || n.kind;
+  const famLabel = (n) => (byRole() ? ROLENAME[n.role] : FAMNAME[n.fam]) || n.d.group || n.kind;
   const dirOf = (n) => { const p = n.d.path || ""; const i = p.lastIndexOf("/"); return n.kind === "file" && i > 0 ? p.slice(0, i) : ""; };
   const dotClass = (n) => (n.fam === "ext" ? "dot ext" : n.kind === "folder" || n.kind === "module" ? "dot sq" : "dot");
+  const METRIC = () => (m.agg ? ["파일", (n) => (n.members ? n.members.length : 0)] : { files: ["줄", (n) => n.d.lines || 0], modules: ["연결", (n) => n.deg], changes: ["바뀐 횟수", (n) => n.d.changes || 0], tree: ["파일", (n) => n.d.files || 0] }[m.rel]);
   function select(n) {
+    const was = sel;
     sel = n && n.vis ? n : null;
+    if (P.local && was !== sel) { refreshVisible(); if (vs.layout === "force") startForce(false, 0.5); else applyLayout(false); }
     renderInfo(); request();
   }
   function edgeNote(e) {
+    if (m.agg) return `${e.d.files}개${e.kind === "cochange" ? " · " + e.w + "번" : ""}`;
     if (e.kind === "cochange") return `${e.w}번${e.d.degree != null ? " · " + e.d.degree + "%" : ""}`;
     let s = e.d.scope || EDGENAME[e.kind] || e.kind;
     if (e.w > 1 && e.kind !== "depends") s += ` ×${e.w}`;
@@ -6595,7 +6866,7 @@ HTMLEOF
     pairs = pairs.filter((p) => p[0].vis);
     if (!pairs.length || !title) return "";
     pairs.sort((a, b) => b[0].w - a[0].w || byId(a[1], b[1]));
-    const items = pairs.slice(0, 400).map(([e, o]) => `<li data-i="${o.i}" title="${esc(o.id + (e.d.via ? "\n" + e.d.via.join(", ") : ""))}"><span class="${dotClass(o)}" style="background:${colorOf(o.fam)}"></span><span class="name">${esc(o.label)}</span><small>${esc(edgeNote(e))}</small></li>`).join("");
+    const items = pairs.slice(0, 400).map(([e, o]) => `<li data-i="${o.i}" title="${esc(o.id + (e.d.via ? "\n" + e.d.via.join(", ") : ""))}"><span class="${dotClass(o)}" style="background:${colorOf(o)}"></span><span class="name">${esc(o.label)}</span><small>${esc(edgeNote(e))}</small></li>`).join("");
     return `<h3><span class="arrow">${arrowCh}</span>${esc(title)} · ${pairs.length}</h3><ul>${items}</ul>`;
   }
   function placeInfo() {
@@ -6609,23 +6880,30 @@ HTMLEOF
     if (!sel) { info.hidden = true; info.innerHTML = ""; return; }
     const n = sel, rows = [];
     for (const [k, v] of Object.entries(n.d)) {
-      if (k === "id" || k === "label" || k === "kind" || k === "group" || k === "path") continue;
+      if (k === "id" || k === "label" || k === "kind" || k === "group" || k === "path" || !(k in KEYNAME)) continue;
       const val = k === "bytes" ? hsize(v) : k === "exts" ? Object.entries(v).map(([a, b]) => `${a} ${b}`).join(" · ") : typeof v === "boolean" ? (v ? "예" : "아니오") : typeof v === "object" ? JSON.stringify(v) : v;
       rows.push(`<tr><th>${esc(KEYNAME[k] || k)}</th><td>${esc(val)}</td></tr>`);
     }
-    const [outT, inT] = LISTS[REL] || ["나가는 연결", "들어오는 연결"];
-    let html = `<div class="head"><span class="${dotClass(n)}" style="background:${colorOf(n.fam)}"></span><h2>${esc(n.label)}</h2><button class="icon-btn" type="button" title="닫기 (Esc)" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
-    html += `<div class="sub">${esc(KINDNAME[n.kind] || n.kind)} · ${esc(famLabel(n))} · 연결 ${n.deg}</div>`;
+    const [outT, inT] = LISTS[m.rel] || ["나가는 연결", "들어오는 연결"];
+    let html = `<div class="head"><span class="${dotClass(n)}" style="background:${colorOf(n)}"></span><h2>${esc(n.label)}</h2><button class="icon-btn" type="button" title="닫기 (Esc)" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+    html += `<div class="sub">${esc(KINDNAME[n.kind] || n.kind)} · ${esc(famLabel(n))} · 연결 ${n.deg}${n.test ? " · 테스트" : ""}</div>`;
     if (n.d.path || n.id !== n.label) html += `<div class="path">${esc(n.d.path || n.id)}</div>`;
     if (rows.length) html += `<table>${rows.join("")}</table>`;
-    if (!DIRECTED) html += list(outT, [...n.out.map((e) => [e, e.t]), ...n.inc.map((e) => [e, e.s])], "↔");
+    if (!m.directed) html += list(outT, [...n.out.map((e) => [e, e.t]), ...n.inc.map((e) => [e, e.s])], "↔");
     else html += list(outT, n.out.map((e) => [e, e.t]), "→") + list(inT, n.inc.map((e) => [e, e.s]), "←");
+    if (n.members) {   // 폴더로 묶었을 때: 안의 파일 — 누르면 파일 단위로 그 파일
+      const mem = n.members.slice().sort((a, b) => b.deg - a.deg || byId(a, b));
+      html += `<h3>안의 파일 · ${mem.length}</h3><ul>` + mem.slice(0, 300).map((o) => `<li data-m="${esc(o.id)}" title="${esc(o.id)}"><span class="${dotClass(o)}" style="background:${colorOf(o)}"></span><span class="name">${esc(o.label)}</span><small>연결 ${o.deg}</small></li>`).join("") + "</ul>";
+    }
     info.innerHTML = html; info.hidden = false; placeInfo();
     info.querySelector(".head .icon-btn").onclick = () => select(null);
-    for (const li of info.querySelectorAll("li[data-i]")) li.onclick = () => { const m = nodes[+li.dataset.i]; select(m); centerOn(m, Math.max(view.k, 1.2)); };
+    for (const li of info.querySelectorAll("li[data-i]")) li.onclick = () => { const o = m.nodes[+li.dataset.i]; select(o); centerOn(o, Math.max(view.k, 1.2)); };
+    for (const li of info.querySelectorAll("li[data-m]")) li.onclick = () => { setUnit("file"); const o = m.nodeOf.get(li.dataset.m); if (o && o.vis) { select(o); centerOn(o, Math.max(view.k, 1.4)); } };
   }
   function setQuery(s) {
     query = s.trim().toLowerCase();
+    matchSet = null;
+    if (P.onlyFound) { matchSet = query ? new Set(m.nodes.filter((n) => n.key.includes(query))) : null; refreshVisible(); if (vs.layout === "force") startForce(false, 0.3); }
     matches = query ? visNodes.filter((n) => n.key.includes(query)) : [];
     matchSet = query ? new Set(matches) : null; matchIdx = -1;
     $("hits").textContent = query ? `${matches.length}` : "";
@@ -6634,28 +6912,28 @@ HTMLEOF
   }
   let sortKey = "deg", sortDir = -1;
   function renderTable() {
-    const [mName, mFn] = METRIC[REL] || ["연결", (n) => n.deg];
-    const cols = [["label", "이름", ""], ["fam", "묶음", ""], ["in", DIRECTED ? "들어옴" : "", "num"], ["out", DIRECTED ? "나감" : "연결", "num"], ["m", mName, "num"]].filter((c) => c[1]);
+    const [mName, mFn] = METRIC();
+    const cols = [["label", "이름", ""], ["grp", "묶음", ""], ["in", m.directed ? "들어옴" : "", "num"], ["out", m.directed ? "나감" : "연결", "num"], ["m", mName, "num"]].filter((c) => c[1]);
     $("thead").innerHTML = cols.map(([key, name, cls]) => `<th class="${cls}" data-k="${key}">${esc(name)}${sortKey === key ? (sortDir < 0 ? " ↓" : " ↑") : ""}</th>`).join("");
-    const val = (n, key) => (key === "label" ? n.label.toLowerCase() : key === "fam" ? famLabel(n) : key === "in" ? n.inc.length : key === "out" ? (DIRECTED ? n.out.length : n.deg) : key === "m" ? mFn(n) : n.deg);
+    const val = (n, key) => (key === "label" ? n.label.toLowerCase() : key === "grp" ? famLabel(n) : key === "in" ? n.inc.length : key === "out" ? (m.directed ? n.out.length : n.deg) : key === "m" ? mFn(n) : n.deg);
     const rows = (matchSet ? matches : visNodes).slice().sort((a, b) => { const x = val(a, sortKey), y = val(b, sortKey); return (x < y ? -1 : x > y ? 1 : byId(a, b)) * sortDir; });
     const shown = rows.slice(0, 1500);
-    $("tbody").innerHTML = shown.map((n) => `<tr data-i="${n.i}"><td class="name" title="${esc(n.id)}">${esc(n.label)}${dirOf(n) ? ` <small>${esc(dirOf(n))}</small>` : ""}</td><td><span class="${dotClass(n)}" style="background:${colorOf(n.fam)};display:inline-block;margin-right:6px"></span>${esc(famLabel(n))}</td>${DIRECTED ? `<td class="num">${n.inc.length}</td>` : ""}<td class="num">${DIRECTED ? n.out.length : n.deg}</td><td class="num">${mFn(n)}</td></tr>`).join("");
+    $("tbody").innerHTML = shown.map((n) => `<tr data-i="${n.i}"><td class="name" title="${esc(n.id)}">${esc(n.label)}${dirOf(n) ? ` <small>${esc(dirOf(n))}</small>` : ""}</td><td><span class="${dotClass(n)}" style="background:${colorOf(n)};display:inline-block;margin-right:6px"></span>${esc(famLabel(n))}</td>${m.directed ? `<td class="num">${n.inc.length}</td>` : ""}<td class="num">${m.directed ? n.out.length : n.deg}</td><td class="num">${mFn(n)}</td></tr>`).join("");
     $("tableNote").textContent = `${rows.length}개`;
     $("tmore").hidden = rows.length <= shown.length;
     $("tmore").textContent = `앞의 ${shown.length}개만 보입니다 — 찾기로 좁히세요`;
-    for (const th of $("thead").querySelectorAll("th")) th.onclick = () => { const k2 = th.dataset.k; if (sortKey === k2) sortDir = -sortDir; else { sortKey = k2; sortDir = k2 === "label" || k2 === "fam" ? 1 : -1; } renderTable(); };
-    for (const tr of $("tbody").querySelectorAll("tr")) tr.onclick = () => { const m = nodes[+tr.dataset.i]; select(m); centerOn(m, Math.max(view.k, 1.2)); };
+    for (const th of $("thead").querySelectorAll("th")) th.onclick = () => { const k2 = th.dataset.k; if (sortKey === k2) sortDir = -sortDir; else { sortKey = k2; sortDir = k2 === "label" || k2 === "grp" ? 1 : -1; } renderTable(); };
+    for (const tr of $("tbody").querySelectorAll("tr")) tr.onclick = () => { const o = m.nodes[+tr.dataset.i]; select(o); centerOn(o, Math.max(view.k, 1.2)); };
   }
   function renderGroups() {
     const counts = new Map();
-    for (const n of nodes) counts.set(n.fam, (counts.get(n.fam) || 0) + 1);
-    const order = [...colored, "lang", "other", "ext"].filter((f) => counts.has(f));
-    const item = (f) => `<button type="button" data-f="${f}" class="${hidden.has(f) ? "off" : ""}" title="누르면 숨기기 · 보이기"><span class="${f === "ext" ? "dot ext" : "dot"}" style="background:${colorOf(f)}"></span>${esc(FAMNAME[f] || f)} <span class="n">${counts.get(f)}</span></button>`;
+    for (const n of m.nodes) counts.set(groupKey(n), (counts.get(groupKey(n)) || 0) + 1);
+    const order = (byRole() ? ["r:app", "r:lib", "r:test", "r:ext"] : [...colored.map((f) => "f:" + f), "f:lang", "f:other", "f:ext"]).filter((k) => counts.has(k));
+    const item = (k) => `<button type="button" data-k="${k}" class="${hidden.has(k) ? "off" : ""}" title="누르면 숨기기 · 보이기"><span class="${k.endsWith(":ext") ? "dot ext" : "dot"}" style="background:${colorOfKey(k)}"></span>${esc(keyName(k))} <span class="n">${counts.get(k)}</span></button>`;
     $("groups").innerHTML = order.map(item).join("");
     $("legend").innerHTML = order.length > 1 ? order.map(item).join("") : "";
     $("legend").hidden = order.length <= 1;
-    for (const b of document.querySelectorAll("#groups button, #legend button")) b.onclick = () => { const g = b.dataset.f; if (hidden.has(g)) hidden.delete(g); else hidden.add(g); filtersChanged(); renderGroups(); };
+    for (const b of document.querySelectorAll("#groups button, #legend button")) b.onclick = () => { const g = b.dataset.k; if (hidden.has(g)) hidden.delete(g); else hidden.add(g); filtersChanged(); renderGroups(); };
   }
   function filtersChanged() {
     refreshVisible();
@@ -6665,14 +6943,66 @@ HTMLEOF
     applyLayout(false);
   }
 
+  // ----- 탭 · 단위 · 언어 · 그리기 -----
+  function seg(el, items, cur, onPick) {
+    el.innerHTML = items.map(([v, t]) => `<button type="button" data-v="${v}" class="${v === cur ? "on" : ""}">${t}</button>`).join("");
+    for (const b of el.querySelectorAll("button")) b.onclick = () => onPick(b.dataset.v);
+  }
+  function renderControls() {
+    seg($("tabs"), ORDER.map((v) => [v, TABNAME[v]]), REL, (v) => { if (v !== REL) show(v); });
+    for (const b of $("tabs").querySelectorAll("button")) { b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(b.dataset.v === REL)); b.title = `${RELNAME[b.dataset.v]} · 노드 ${VIEWS[b.dataset.v].nodes.length}`; }
+    const unitOk = REL === "files" || REL === "changes";
+    $("unitLab").hidden = !unitOk; $("unitLine").hidden = !unitOk;
+    seg($("unit"), [["file", "파일"], ["folder", "폴더"]], vs.unit, setUnit);
+    $("depth").hidden = vs.unit !== "folder";
+    $("depth").value = String(vs.depth);
+    seg($("style"), [["dot", "점"], ["box", "상자"]], vs.style, (v) => { vs.style = v; renderControls(); sizeNodes(); m.userMoved = false; applyLayout(true); });
+    seg($("layout"), LAYOUTS[REL], vs.layout, (v) => { vs.layout = v; renderControls(); m.userMoved = false; applyLayout(true); });
+    const roles = REL === "modules";
+    $("colorRow").hidden = !roles;
+    seg($("colorBy"), [["family", "언어"], ["role", "종류"]], vs.colorBy, (v) => { vs.colorBy = v; hidden.clear(); renderControls(); filtersChanged(); });
+    $("arrowRow").hidden = !m.directed;
+    $("extRow").hidden = !m.nodes.some((n) => n.fam === "ext");
+    $("heurRow").hidden = !m.edges.some((e) => e.h);
+    $("localRow").hidden = !P.local;
+    const fade = $("fade"); fade.value = m.fade; $("fadeV").textContent = m.fade.toFixed(2) + "×";
+    renderGroups();
+    const G = m.G, st = G.stats || {};
+    $("stats").textContent = `${RELNAME[REL]}${m.agg ? ` · 폴더 ${m.depth}단계` : ""} · 노드 ${m.nodes.length} · 연결 ${m.edges.length}${st.heuristicEdges && !m.agg ? ` (추정 ${st.heuristicEdges})` : ""}${G.lang ? " · " + G.lang.join(",") : ""}`;
+    $("stats").title = `${G.commit ? G.commit + " · " : ""}gitch ${G.version} · ${G.generated || ""}`;
+    const notes = G.notes || [];
+    $("notes").innerHTML = notes.map((t) => `<p>${esc(t)}</p>`).join("");
+    $("noteBtn").hidden = !notes.length;
+    if (!notes.length) $("notes").hidden = true;
+  }
+  function setUnit(u) {
+    if (u === vs.unit) return;
+    vs.unit = u; switchModel();
+  }
+  function switchModel() {
+    sel = null; hover = null; morph = null; tween = null; running = false;
+    m = modelFor(vs); view = m.view;
+    sizeNodes(); refreshVisible(); renderControls(); renderInfo(); setQuery($("q").value);
+    if (!m.laid) { m.laid = true; firstLayout(); } else request();
+    if (!$("table").hidden) renderTable();
+  }
+  function show(rel) { REL = rel; vs = stateFor(rel); switchModel(); }
+  function buildLang() {
+    const fams = new Set();
+    for (const v of ORDER) for (const d of VIEWS[v].nodes) { let f = famOf(d, v); if (PRIORITY.includes(f) && !colored.includes(f)) f = "lang"; if (f !== "ext" && f !== "other") fams.add(f); }
+    const opts = [["all", "모든 언어"], ...[...colored, "lang"].filter((f) => fams.has(f)).map((f) => [f, FAMNAME[f]])];
+    $("lang").innerHTML = opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("");
+    $("lang").disabled = opts.length <= 2;
+  }
+
   // ----- 입력 -----
   const pointers = new Map();
   let down = null, pinch = null;
   const tip = $("tip");
   function showTip(n, px, py) {
     if (!n) { tip.hidden = true; return; }
-    const [mName, mFn] = METRIC[REL] || ["연결", (x) => x.deg];
-    tip.innerHTML = `<b>${esc(n.label)}</b><span>${esc(famLabel(n))} · ${esc(mName)} ${mFn(n)}${REL !== "modules" ? " · 연결 " + n.deg : ""}</span>`;
+    const [mName, mFn] = METRIC();
+    tip.innerHTML = `<b>${esc(n.label)}</b><span>${esc(famLabel(n))} · ${esc(mName)} ${mFn(n)}${m.rel !== "modules" ? " · 연결 " + n.deg : ""}</span>`;
     tip.hidden = false;
     const w = tip.offsetWidth, h = tip.offsetHeight;
     tip.style.left = Math.min(px + 16, W - w - 8) + "px"; tip.style.top = Math.min(py + 16, H - h - 8) + "px";
@@ -6703,17 +7033,17 @@ HTMLEOF
     if (pinch && pointers.size === 2) {
       const [a, b] = [...pointers.values()], k = clampK((pinch.k * Math.hypot(a.x - b.x, a.y - b.y)) / pinch.d);
       view.k = k; view.x = pinch.cx - (pinch.cx - pinch.vx) * (k / pinch.k); view.y = pinch.cy - (pinch.cy - pinch.vy) * (k / pinch.k);
-      userMoved = true; request(); return;
+      m.userMoved = true; request(); return;
     }
     if (!down) return;
     const dx = px - down.x, dy = py - down.y;
     if (!down.moved && dx * dx + dy * dy < 16) return;
-    down.moved = true; userMoved = true;
+    down.moved = true; m.userMoved = true;
     if (down.n) {
       const n = down.n;
       n.x = (px - view.x) / view.k; n.y = (py - view.y) / view.k;
       hover = n;
-      if (layout === "force") { n.fx = n.x; n.fy = n.y; alpha = Math.max(alpha, 0.2); running = true; }
+      if (vs.layout === "force") { n.fx = n.x; n.fy = n.y; alpha = Math.max(alpha, 0.2); running = true; }
     } else { view.x = down.vx + dx; view.y = down.vy + dy; }
     request();
   });
@@ -6733,7 +7063,11 @@ HTMLEOF
     const step = ev.deltaMode === 1 ? ev.deltaY * 18 : ev.deltaY;
     zoomAt(ev.clientX, ev.clientY, Math.exp(-step * (ev.ctrlKey ? 0.01 : 0.0016)), 0);
   }, { passive: false });
-  canvas.addEventListener("dblclick", (ev) => { const n = nodeAt(ev.clientX, ev.clientY); if (n) { select(n); centerOn(n, Math.max(view.k * 1.8, 1.5)); } else zoomAt(ev.clientX, ev.clientY, 1.8, 300); });
+  canvas.addEventListener("dblclick", (ev) => {
+    const n = nodeAt(ev.clientX, ev.clientY);
+    if (n && n.members) { setUnit("file"); return; }   // 폴더를 두 번 누르면 파일 단위로
+    if (n) { select(n); centerOn(n, Math.max(view.k * 1.8, 1.5)); } else zoomAt(ev.clientX, ev.clientY, 1.8, 300);
+  });
   const q = $("q");
   q.addEventListener("input", () => setQuery(q.value));
   q.addEventListener("keydown", (ev) => {
@@ -6745,70 +7079,72 @@ HTMLEOF
     $("hits").textContent = `${matchIdx + 1}/${matches.length}`;
   });
   document.addEventListener("keydown", (ev) => {
-    if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLSelectElement || ev.target instanceof HTMLButtonElement && ev.key === "Enter") return;
+    if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLSelectElement || (ev.target instanceof HTMLButtonElement && ev.key === "Enter")) return;
     if (ev.key === "/") { ev.preventDefault(); q.focus(); q.select(); }
     else if (ev.key === "Escape") { if (!$("table").hidden) toggleTable(false); else select(null); }
-    else if (ev.key === "f" || ev.key === "F") { userMoved = false; animateTo(fitView()); }
+    else if (ev.key === "f" || ev.key === "F") { m.userMoved = false; animateTo(fitView()); }
     else if (ev.key === "+" || ev.key === "=") zoomAt(W / 2, H / 2, 1.4, 260);
     else if (ev.key === "-") zoomAt(W / 2, H / 2, 1 / 1.4, 260);
+    else if (/^[1-4]$/.test(ev.key) && ORDER[+ev.key - 1]) show(ORDER[+ev.key - 1]);
   });
-  function togglePanel(open) { const p = $("panel"); p.hidden = !open; $("gear").classList.toggle("on", open); $("gear").setAttribute("aria-expanded", String(open)); if (open) toggleTable(false); }
+  function togglePanel(open) { $("panel").hidden = !open; $("gear").classList.toggle("on", open); $("gear").setAttribute("aria-expanded", String(open)); if (open) toggleTable(false); }
   function toggleTable(open) { $("table").hidden = !open; $("list").classList.toggle("on", open); if (open) { togglePanel(false); renderTable(); } }
   $("gear").onclick = () => togglePanel($("panel").hidden);
   $("list").onclick = () => toggleTable($("table").hidden);
   $("tableClose").onclick = () => toggleTable(false);
   $("zin").onclick = () => zoomAt(W / 2, H / 2, 1.4, 260);
   $("zout").onclick = () => zoomAt(W / 2, H / 2, 1 / 1.4, 260);
-  $("fit").onclick = () => { userMoved = false; animateTo(fitView()); };
+  $("fit").onclick = () => { m.userMoved = false; animateTo(fitView()); };
   $("theme").onclick = () => setTheme(root.dataset.theme === "dark" ? "light" : "dark", true);
+  $("png").onclick = () => {   // 지금 보이는 그래프만(설정 창 · 목록 없이) 그림으로
+    canvas.toBlob((b) => {
+      if (!b) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(b); a.download = `${META.repo}-${REL}${m.agg ? "-folders" : ""}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, "image/png");
+  };
   $("noteBtn").onclick = () => { $("notes").hidden = !$("notes").hidden; $("noteBtn").classList.toggle("on", !$("notes").hidden); placeInfo(); };
+  for (let d = 1; d <= 8; d++) $("depth").add(new Option(`${d}단계`, String(d)));
+  $("depth").onchange = () => { vs.depth = +$("depth").value; vs.unit = "folder"; switchModel(); };
+  $("lang").onchange = () => { P.lang = $("lang").value; m.userMoved = false; filtersChanged(); };   // 보이는 것이 크게 바뀌니 다시 맞춘다
   const bindSwitch = (id, key, after) => { const el = $(id); el.checked = P[key]; el.onchange = () => { P[key] = el.checked; after(); }; };
   bindSwitch("ext", "ext", filtersChanged);
   bindSwitch("heur", "heur", filtersChanged);
+  bindSwitch("tests", "tests", filtersChanged);
   bindSwitch("orph", "orph", filtersChanged);
+  bindSwitch("onlyFound", "onlyFound", () => { setQuery(q.value); filtersChanged(); });
+  bindSwitch("local", "local", () => { $("localRow").hidden = !P.local; m.userMoved = false; filtersChanged(); });
   bindSwitch("arrows", "arrows", request);
   bindSwitch("names", "names", request);
-  const fmt = { fade: (v) => v.toFixed(2) + "×", size: (v) => v.toFixed(2) + "×", width: (v) => v.toFixed(1) + "×", center: (v) => v.toFixed(2), repel: (v) => v.toFixed(1), link: (v) => v.toFixed(2), dist: (v) => String(v) };
+  const fmt = { fade: (v) => v.toFixed(2) + "×", size: (v) => v.toFixed(2) + "×", width: (v) => v.toFixed(1) + "×", center: (v) => v.toFixed(2), repel: (v) => v.toFixed(1), link: (v) => v.toFixed(2), dist: (v) => String(v), minDeg: (v) => (v ? v + "개" : "모두"), localDepth: (v) => v + "단계" };
   for (const key of Object.keys(fmt)) {
     const el = $(key), out = $(key + "V");
-    el.value = P[key]; out.textContent = fmt[key](P[key]);
+    if (key !== "fade") { el.value = P[key]; out.textContent = fmt[key](P[key]); }
     el.oninput = () => {
-      P[key] = +el.value; out.textContent = fmt[key](P[key]);
-      if (key === "size") { sizeNodes(); if (layout === "force") startForce(false, 0.3); }
-      else if (key === "center" || key === "repel" || key === "link" || key === "dist") { if (layout === "force") startForce(false, 0.5); }
+      const v = +el.value;
+      out.textContent = fmt[key](v);
+      if (key === "fade") { m.fade = v; request(); return; }
+      P[key] = v;
+      if (key === "size") { sizeNodes(); if (vs.layout === "force") startForce(false, 0.3); else applyLayout(false); }
+      else if (key === "minDeg" || key === "localDepth") filtersChanged();
+      else if (vs.layout === "force") startForce(false, 0.5);
       request();
     };
   }
-  $("animate").onclick = () => { layout = "force"; renderLayoutButtons(); userMoved = false; startForce(true, 1); };
-  const LAYOUTS = REL === "tree" ? [["radial", "방사형"], ["layers", "층"], ["force", "힘"]] : REL === "modules" ? [["layers", "층"], ["force", "힘"]] : [["force", "힘"], ["layers", "층"]];
-  function renderLayoutButtons() {
-    $("layout").innerHTML = LAYOUTS.map(([v, t]) => `<button type="button" data-v="${v}" class="${v === layout ? "on" : ""}">${t}</button>`).join("");
-    for (const b of $("layout").querySelectorAll("button")) b.onclick = () => { layout = b.dataset.v; renderLayoutButtons(); userMoved = false; applyLayout(true); };
-  }
+  $("animate").onclick = () => { vs.layout = "force"; renderControls(); m.userMoved = false; startForce(true, 1); };
 
   // ----- 시작 -----
-  const st = G.stats || {};
-  document.title = `${G.repo}${G.scope ? "/" + G.scope : ""} · ${RELNAME[REL] || REL} — gitch graph`;
-  $("repo").textContent = G.repo + (G.scope ? " / " + G.scope : "");
-  $("rel").textContent = RELNAME[REL] || REL;
-  $("stats").textContent = `노드 ${nodes.length} · 연결 ${edges.length}${st.heuristicEdges ? ` (추정 ${st.heuristicEdges})` : ""}${G.commit ? " · " + G.commit : ""} · gitch ${G.version}`;
-  $("stats").title = G.generated || "";
-  if ((G.notes || []).length) { $("notes").innerHTML = G.notes.map((t) => `<p>${esc(t)}</p>`).join(""); $("noteBtn").hidden = false; }
-  if (!nodes.some((n) => n.fam === "ext")) $("extRow").hidden = true;
-  if (!edges.some((e) => e.h)) $("heurRow").hidden = true;
-  if (!DIRECTED) $("arrowRow").hidden = true;
-  if (!nodes.length) $("empty").hidden = false;
+  document.title = `${META.repo}${META.scope ? "/" + META.scope : ""} — gitch graph`;
+  $("repo").textContent = META.repo + (META.scope ? " / " + META.scope : "");
   let saved = null;
   try { saved = localStorage.getItem("gitch-graph-theme"); } catch (e) { /* 저장소를 못 쓰면 기본(어둡게) */ }
-  layout = LAYOUTS[0][0];
-  sizeNodes();
-  refreshVisible();
   setTheme(saved === "light" ? "light" : "dark", false);
   window.addEventListener("resize", resize);
   resize();
-  renderLayoutButtons();
-  if (layout === "force") applyLayout(true);
-  else { seed(); const T = layout === "layers" ? layersTargets() : radialTargets(); for (const [n, [x, y]] of T) { n.x = x; n.y = y; } const f = fitView(); if (f) Object.assign(view, f); request(); }
+  buildLang();
+  show(REL);
 })();
 </script>
 </body>
@@ -6861,7 +7197,7 @@ PR / MR
   gitch wt [ls|new 브랜치|rm 폴더]          워크트리
   gitch report [--today|--days N]          gitch/AI 작업 기록
   gitch graph [files|modules|changes|tree] 구조 그래프: import / 모듈 의존 / 같이 바뀌는 파일 / 폴더
-    [--format html|json|svg|png] [--out 파일] [폴더]  터미널은 html 을 열고, 스크립트·AI 는 json (--help)
+    [--format html|json|svg|png] [--out 파일] [--lang 언어] [폴더]  터미널은 html, 스크립트·AI 는 json (--help)
 
 계정/설정
   gitch list [--check] [--json]            등록된 계정

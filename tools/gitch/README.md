@@ -113,6 +113,7 @@ gitch graph modules                          # 모듈/타깃 의존
 gitch graph changes --since "6 months ago"   # 같이 바뀌는 파일 · 핫스팟
 gitch graph tree --depth 2                   # 폴더 크기 · 파일 수
 gitch graph files src/feature                # 그 폴더 아래만 (폴더 밖 대상은 outside: true)
+gitch graph --lang swift                     # 그 언어만 (ts · js · web · swift · python · go · rust · kotlin · java · jvm, 쉼표로 여럿)
 gitch graph --json | jq -r '.edges[] | select(.target == "src/api/client.ts") | .source'   # 이 파일을 쓰는 곳
 gitch graph modules --out deps.png           # graphviz(dot) 로 그림
 ```
@@ -138,13 +139,13 @@ gitch graph modules --out deps.png           # graphviz(dot) 로 그림
 - 추정한 연결은 JSON 에 `"heuristic": true`, 그림에서는 점선이다. 같은 두 파일에 정확한 연결이 있으면 더하지 않는다. 주석 · 문자열 속 이름과 `private` 타입은 세지 않는다.
 - `modules`: Package.swift 는 `swift package describe --type json` 으로 읽고(매니페스트를 컴파일해서 몇 초), 안 되면 파일을 직접 읽는다(`GITSW_SWIFT_DESCRIBE=0` 이면 늘 직접). Tuist 는 Project.swift 의 Target 선언과 의존(`.target` · `.project` · `.external` · `.package` · `.sdk`)을, 도우미 함수로 만든 매니페스트(`Project.module(…)`)는 파일 안의 참조를 모은다. 그 밖에 모든 package.json(작업 공간 구성원은 `workspace`), Cargo 의 `path` · `workspace = true` 의존, Go 패키지 사이 import, Gradle 의 `include` · `project(":x")` · `projects.x`.
 - `changes`: `--since 날짜` · `--max-commits N`(기본 1000) · `--max-files N`(기본 30, 더 큰 커밋은 쌍이 너무 많아 뺀다) · `--min N`(기본 2). merge 커밋과 lock 파일은 뺀다.
-- `--no-external` 은 저장소 밖 패키지 · 모듈을 뺀다.
+- `--no-external` 은 저장소 밖 패키지 · 모듈을 뺀다. `--lang` 은 고른 언어의 파일(modules 는 그 언어의 생태계)만 남기고, JSON 의 `lang` 에 적는다.
 - 파일마다 프로세스를 띄우지 않고 awk 한 번에 읽는다. 파일 21,000개(150만 줄) 저장소의 `files` 가 Apple Silicon 맥에서 7초 안팎, `modules` · `changes` · `tree` 는 1초 안이다.
 
 | 형식 | |
 |---|---|
 | 기본 | 사람이 보는 터미널이면 `html` 을 만들어 열고, 아니면(스크립트 · AI) `json` 을 표준출력. `--format` 이나 `--out` 의 확장자(`.json` · `.html` · `.svg` · `.png` · `.dot`)로 바꾼다 |
-| `html` | 옵시디언 그래프 보기처럼 그린 오프라인 한 페이지(CDN 없음). 어두운 화면(밝게 바꿀 수 있고 기억함), 마우스를 올리면 그 노드와 이웃만 밝게, 확대할수록 큰 노드부터 이름이 나타남, 찾기(`/`), 누르면 가져오는 것 · 가져다 쓰는 곳 목록, 설정 창(필터: 외부 · 추정 연결 · 연결 없는 노드 / 묶음 / 표시: 배치 힘 · 층 · 방사형, 화살표 · 이름 · 크기 · 굵기 / 힘: 가운데로 · 밀어내기 · 연결 힘 · 거리), 표로 보기(정렬). 노드 색은 그래프에 있는 언어 계열(TS/JS → Swift → Python → Go → Rust → Kotlin/Java 순) 앞의 셋에만 주고 나머지는 회색 — 색 세 가지를 넘으면 서로 잘 구별되지 않는다 |
+| `html` | 옵시디언 그래프 보기처럼 그린 오프라인 한 페이지(CDN 없음). 네 관계를 모두 담아 위 탭(파일 · 모듈 · 같이 바뀜 · 폴더, 키 1~4)으로 바꾸고, 단위(파일 · 폴더 1~8단계로 묶기), 언어, 그리기(점 = 옵시디언, 상자 = tuist graph 같은 다이어그램 — 모듈 탭의 기본, 층은 위에서 아래로)를 고른다. 어두운 화면(밝게 바꾸면 기억), 마우스를 올리면 이웃만 밝게, 확대하면 이름, 찾기(`/`), 누르면 가져오는 것 · 가져다 쓰는 곳(폴더면 안의 파일) 목록, 설정 창(필터: 외부 · 추정 연결 · 테스트 · 연결 없는 노드 · 찾은 것만 · 연결 수 · 고른 노드 주변만(로컬 그래프) / 묶음 / 표시: 배치 · 색(모듈은 앱 · 라이브러리 · 테스트) · 화살표 · 이름 · 크기 · 굵기 / 힘), 표로 보기(정렬), 지금 화면을 PNG 로 저장. 노드 색은 노드가 많은 언어 계열 셋(TS/JS · Swift · Python · Go · Rust · Kotlin/Java)에만 주고 나머지는 회색 — 색 세 가지를 넘으면 서로 잘 구별되지 않는다 |
 | `svg` · `png` | graphviz 의 `dot` 으로 그린다(`brew install graphviz`, 없으면 그렇게 알린다). `--format dot` 은 DOT 원문 |
 | 저장 | `--out 파일`(`-` 는 표준출력). 없으면 html · svg · png 는 `$TMPDIR/gitch-graph/<저장소>-<관계>.<형식>`. 파일로 쓰면 끝에 `GRAPH_FILE=… NODES=… EDGES=…` |
 
@@ -158,6 +159,7 @@ JSON (노드 · 연결이 한 줄에 하나):
   "directed": true,
   "repo": "app",
   "scope": "",
+  "lang": null,
   "commit": "872fcdd",
   "generated": "2026-10-24T10:56:55+0900",
   "stats": {"nodes":6,"edges":4,"heuristicEdges":1,"languages":{"swift":2,"ts":2},"unresolved":0},

@@ -544,7 +544,11 @@ test_graph_formats_and_output() {
   assert_eq "$(grep -o '</script>' "$T/out/g.html" | wc -l | tr -d ' ')" "2" "데이터 속 </script> 가 그대로 들어감"
   grep -Eq '<(script|link)[^>]+(src|href)=' "$T/out/g.html" && fail "외부 파일(CDN)을 불러옴"
   grep -q 'http' "$T/out/g.html" && fail "인터넷 주소가 들어 있음"
-  awk '/<script id="graph-data"/ { on = 1; next } /<\/script>/ { on = 0 } on' "$T/out/g.html" | jq -e '.nodes | length == 3' >/dev/null || fail "html 속 데이터가 JSON 이 아님"
+  awk '/<script id="graph-data"/ { on = 1; next } /<\/script>/ { on = 0 } on' "$T/out/g.html" > "$T/out/data.json"
+  jq -e '.initial == "files" and (.views.files.nodes | length == 3) and (.views | keys == ["changes", "files", "modules", "tree"])' "$T/out/data.json" >/dev/null \
+    || fail "html 에 네 관계가 들어 있지 않음\n$(head -c 400 "$T/out/data.json")"
+  run gitch graph modules --out "$T/out/m.html"; assert_ok
+  grep -q '{"initial":"modules"' "$T/out/m.html" || fail "modules 로 열면 모듈 탭이 처음이어야"
   # 확장자로 형식, --open 은 기본 앱으로
   run gitch graph --out "$T/out/g.json" --open; assert_ok
   assert_json "$(cat "$T/out/g.json")"
@@ -581,4 +585,40 @@ test_graph_scope_and_worktree_name() {
   cd "$T/scope/wt" || fail cd
   gr_json tree
   assert_eq "$(gr_q '.repo')" "myrepo" "워크트리여도 본 저장소 이름"
+}
+
+test_graph_lang_filter() {
+  gr_repo "$T/lang"
+  echo 'import { b } from "./b"' | gr_put web/a.ts
+  echo 'export const b = 1' | gr_put web/b.ts
+  echo 'const x = require("./c")' | gr_put web/legacy.js
+  echo 'module.exports = 1' | gr_put web/c.js
+  printf 'struct Model {}\n' | gr_put ios/Model.swift
+  printf 'let m = Model()\n' | gr_put ios/View.swift
+  echo 'import os' | gr_put tools/run.py
+  printf '{\n  "name": "web"\n}\n' | gr_put web/package.json
+  printf '[package]\nname = "core"\n' | gr_put core/Cargo.toml
+  gr_commit
+  gr_json --lang swift
+  assert_eq "$(gr_q '.lang | join(",")')" "swift"
+  assert_eq "$(gr_q '[.nodes[] | select(.kind == "file") | .lang] | unique | join(",")')" "swift"
+  gr_edge ios/View.swift ios/Model.swift type-ref
+  gr_json --lang web
+  assert_eq "$(gr_q '.lang | join(",")')" "ts,js,vue,svelte"
+  gr_edge web/a.ts web/b.ts import
+  gr_edge web/legacy.js web/c.js require
+  gr_no_node ios/Model.swift
+  gr_json files --lang ts,py
+  gr_node web/a.ts
+  gr_node tools/run.py
+  gr_no_node web/legacy.js
+  gr_json tree --lang swift
+  gr_node ios/
+  gr_no_node web/
+  gr_attr ./ .files 2
+  gr_json modules --lang rust
+  gr_node cargo:core
+  gr_no_node npm:web
+  run gitch graph --lang cobol; assert_rc 1; assert_out "--lang 은"
+  assert_eq "$(gitch graph --json | jq -r '.lang')" "null" "고르지 않으면 lang 은 null"
 }
