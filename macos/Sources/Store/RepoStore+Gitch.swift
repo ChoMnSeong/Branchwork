@@ -160,9 +160,7 @@ extension RepoStore {
         defer { graphJob = nil }
         if let text = graphProgress { AccessibilityNotification.Announcement(text).post() }
         do {
-            var since: String?
-            if let base { since = try await splitPoint(with: base, in: url) }
-            let file = try await Gitch.graphDiff(relation, base: since, in: url)
+            let file = try await Gitch.graphDiff(relation, base: base, in: url)
             guard self.url == url else { return }
             await openGraphPage(file)
         } catch {
@@ -171,19 +169,8 @@ extension RepoStore {
         }
     }
 
-    /// 고른 참조와 이 브랜치가 갈라진 곳(merge-base) — gitch 는 받은 기준과 그대로 비교하므로, 기준 브랜치가 그 뒤로 앞서 나갔어도
-    /// 그 새 커밋이 뺀 것으로 보이지 않게. 참조가 이미 이 브랜치에 들어 있으면(태그 · 움직이지 않은 브랜치) 페이지에 이름이 보이게 이름 그대로
-    private func splitPoint(with ref: String, in url: URL) async throws -> String {
-        let r = try await Git.raw(["merge-base", "HEAD", ref], in: url)
-        let sha = r.output.trimmed
-        guard r.status == 0, !sha.isEmpty else {
-            throw Gitch.Failure(message: String(localized: "\(ref) has no commit in common with this branch."))
-        }
-        let tip = try? await Git.raw(["rev-parse", "--verify", "--quiet", "\(ref)^{commit}"], in: url)
-        return tip?.output.trimmed == sha ? ref : sha
-    }
-
-    /// 의존 규칙 검사(gitch graph check): 규칙 파일이 없으면 예시로 만들지 묻고, 있으면 결과 창을 띄우고 검사한다
+    /// 의존 규칙 검사(gitch graph check): 규칙 파일이 없으면 예시로 만들지 묻고, 있으면 결과 창을 띄우고 검사한다.
+    /// 검사가 돌고 있으면(창을 닫았다 바로 다시 연 때) 새로 돌리지 않고 그 결과를 기다린다
     func checkGraphRules() {
         guard let url else { return }
         guard FileManager.default.fileExists(atPath: Gitch.graphRulesFile(in: url).path) else {
@@ -194,6 +181,7 @@ extension RepoStore {
             }
             return
         }
+        if case .running? = graphCheck {} else { graphCheck = nil }   // 지난 결과가 잠깐 보이지 않게
         sheet = .graphCheck
         Task { await runGraphCheck() }
     }
@@ -203,12 +191,13 @@ extension RepoStore {
         guard let url else { return }
         if case .running? = graphCheck { return }
         graphCheck = .running
+        // 그동안 저장소가 바뀌면 결과를 버리되, 「검사하는 중」으로 남아 다시 검사를 막지 않게 비운다
         do {
             let result = try await Gitch.graphCheck(in: url)
-            guard self.url == url else { return }
+            guard self.url == url else { graphCheck = nil; return }
             graphCheck = .done(result, rules: Gitch.graphRuleCount(in: url))
         } catch {
-            guard self.url == url else { return }
+            guard self.url == url else { graphCheck = nil; return }
             graphCheck = .failed(describe(error))
         }
     }

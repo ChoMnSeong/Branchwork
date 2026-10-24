@@ -1,6 +1,5 @@
 /* Gitrochi — hu. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ és ez az ág nem rendelkezik közös committal.";
 "Check again" = "Újraellenőrzés";
 "Check dependency rules…" = "Függőségi szabályok ellenőrzése…";
 "Checking dependency rules…" = "Függőségi szabályok ellenőrzése…";
@@ -511,6 +510,7 @@
 "Load more commits" = "További commitok betöltése";
 "Loading" = "Betöltés";
 "Loading earlier history…" = "Korábbi előzmények betöltése…";
+"Local branches" = "Helyi ágak";
 "Local branches %lld" = "Helyi ágak %1$lld";
 "Local: %@" = "Helyi: %1$@";
 "Locate" = "Tallózás";
@@ -845,6 +845,7 @@
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "A Rendszer beállítás a macOS beállítását követi (világos, sötét vagy automatikus). A gráf és a terminál is ennek megfelelően változik.";
 "Tag here…" = "Címke ide…";
 "Tag: %@" = "Címke: %1$@";
+"Tags" = "Címkék";
 "Tags %lld" = "Címkék %1$lld";
 "Task" = "Feladat";
 "Task for the agent (optional)" = "Feladat az ügynöknek (nem kötelező)";

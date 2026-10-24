@@ -1010,7 +1010,6 @@
  "Compare with": "Comparar con",
  "Default branch (where this branch split off)": "Rama predeterminada (punto de separación)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi compara con el punto donde esta rama se separó de la rama o etiqueta que elijas, así que solo se muestran los cambios de esta rama. Se incluyen los cambios sin commit en archivos con seguimiento.",
- "{0} has no commit in common with this branch.": "{0} no tiene ningún commit en común con esta rama.",
  "Dependency rules": "Reglas de dependencias",
  "Checking dependency rules…": "Comprobando reglas de dependencias…",
  "Rules {0}": "{0} reglas",

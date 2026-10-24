@@ -1016,7 +1016,6 @@
  "Compare with": "Összevetés ezzel",
  "Default branch (where this branch split off)": "Alapértelmezett ág (leválási pont)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "A Gitrochi azzal a ponttal veti össze, ahol ez az ág levált a kiválasztott ágról vagy címkéről, így csak ennek az ágnak a változásai látszanak. A követett fájlok nem commitolt módosításai is benne vannak.",
- "{0} has no commit in common with this branch.": "{0} és ez az ág nem rendelkezik közös committal.",
  "Dependency rules": "Függőségi szabályok",
  "Checking dependency rules…": "Függőségi szabályok ellenőrzése…",
  "Rules {0}": "{0} szabály",

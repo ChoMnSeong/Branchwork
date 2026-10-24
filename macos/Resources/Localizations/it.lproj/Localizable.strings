@@ -1,6 +1,5 @@
 /* Gitrochi — it. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ non ha commit in comune con questo branch.";
 "Check again" = "Controlla di nuovo";
 "Check dependency rules…" = "Controlla le regole delle dipendenze…";
 "Checking dependency rules…" = "Controllo delle regole delle dipendenze…";
@@ -503,6 +502,7 @@
 "Load more commits" = "Carica altri commit";
 "Loading" = "Caricamento";
 "Loading earlier history…" = "Caricamento della cronologia precedente…";
+"Local branches" = "Branch locali";
 "Local branches %lld" = "Branch locali %1$lld";
 "Local: %@" = "Locale: %1$@";
 "Locate" = "Individua";
@@ -834,6 +834,7 @@
 "System" = "Sistema";
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "Sistema segue l'impostazione di macOS (chiaro, scuro o automatico). Grafico e terminale cambiano di conseguenza.";
 "Tag here…" = "Crea tag qui…";
+"Tags" = "Tag";
 "Tags %lld" = "Tag %1$lld";
 "Task" = "Attività";
 "Task for the agent (optional)" = "Attività per l'agente (facoltativa)";

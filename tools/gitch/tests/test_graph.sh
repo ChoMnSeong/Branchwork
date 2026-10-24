@@ -791,6 +791,15 @@ test_graph_diff() {
   # 기준을 주지 않으면 기본 브랜치(여기서는 로컬 main)와 갈라진 곳
   run gitch graph diff --json; assert_ok
   assert_eq "$(gr_q '.diff.baseName + " " + .diff.base')" "main $base"
+  # 기준... 은 그 기준과 갈라진 곳 — 기준 브랜치가 앞서 나가도 갈라진 곳과 비교하고, 이름은 기준 그대로(앱의 「다른 기준과 비교…」)
+  git update-ref refs/heads/ahead "$(git commit-tree "HEAD^{tree}" -p HEAD -m ahead)"
+  run gitch graph diff --base ahead... --json; assert_ok
+  assert_eq "$(gr_q '.diff.baseName + " " + .diff.base')" "ahead $base"
+  run gitch graph diff --base ahead --json; assert_ok
+  assert_eq "$(gr_q '.diff.base')" "$(git rev-parse --short ahead)" "... 없이는 기준 그대로"
+  run gitch graph diff --base no-such... --json; assert_fail; assert_out "커밋이 아닙니다: no-such"
+  git update-ref refs/heads/alone "$(git commit-tree "$(git mktree < /dev/null)" -m alone)"
+  run gitch graph diff --base alone... --json; assert_fail; assert_out "alone 와(과) 이 브랜치에는 공통 커밋이 없습니다"
   # 사람용 요약 · html(바뀐 것을 색으로) · 폴더 구조
   run gitch graph diff "$base" --format text; assert_ok
   assert_out "연결 +6 −2"; assert_out "새 순환 1개"; assert_out "커지거나 줄어든 순환 1개"; assert_out "~ 2 → 3개"; assert_out "+ src/z.ts"

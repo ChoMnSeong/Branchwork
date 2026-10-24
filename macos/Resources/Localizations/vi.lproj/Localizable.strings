@@ -1,6 +1,5 @@
 /* Gitrochi — vi. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ không có commit chung nào với nhánh này.";
 "Check again" = "Kiểm tra lại";
 "Check dependency rules…" = "Kiểm tra quy tắc phụ thuộc…";
 "Checking dependency rules…" = "Đang kiểm tra quy tắc phụ thuộc…";
@@ -498,6 +497,7 @@
 "Load more commits" = "Tải thêm commit";
 "Loading" = "Đang tải";
 "Loading earlier history…" = "Đang tải lịch sử cũ hơn…";
+"Local branches" = "Nhánh cục bộ";
 "Local branches %lld" = "Nhánh cục bộ %1$lld";
 "Local: %@" = "Cục bộ: %1$@";
 "Locate" = "Chỉ định";
@@ -822,6 +822,7 @@
 "System" = "Hệ thống";
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "Hệ thống: theo cài đặt macOS của bạn (sáng, tối hoặc tự động). Đồ thị và terminal cũng thay đổi theo.";
 "Tag here…" = "Tạo tag tại đây…";
+"Tags" = "Tag";
 "Tags %lld" = "Tag %1$lld";
 "Task" = "Nhiệm vụ";
 "Task for the agent (optional)" = "Nhiệm vụ cho agent (tùy chọn)";

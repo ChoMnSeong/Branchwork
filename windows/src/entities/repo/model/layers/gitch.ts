@@ -2,7 +2,7 @@ import { countGraphRules, gitch, type GitchAccount, type GitchBackup, type Gitch
 import { ipc } from "@/shared/api";
 import { joinPath } from "@/shared/config";
 import { t } from "@/shared/i18n";
-import { describe, gitRaw } from "@/shared/platform";
+import { describe } from "@/shared/platform";
 import { RepoTerminal } from "./terminal";
 
 /** gitch graph 로 만드는 페이지 — 한 번에 하나(그동안 구조 그래프 메뉴의 항목을 끈다) */
@@ -205,8 +205,7 @@ export abstract class RepoGitch extends RepoTerminal {
     this.graphJob = { kind: "diff", relation };
     this.emit();
     try {
-      const since = base ? await this.splitPoint(base, path) : null;
-      const file = await gitch.graphDiff(relation, since, path);
+      const file = await gitch.graphDiff(relation, base, path);
       if (this.path !== path) return;
       await ipc.openHtml(file);
     } catch (e) {
@@ -218,18 +217,9 @@ export abstract class RepoGitch extends RepoTerminal {
   }
 
   /**
-   * 고른 참조와 이 브랜치가 갈라진 곳(merge-base) — gitch 는 받은 기준과 그대로 비교하므로, 기준 브랜치가 그 뒤로 앞서 나갔어도
-   * 그 새 커밋이 뺀 것으로 보이지 않게. 참조가 이미 이 브랜치에 들어 있으면(태그 · 움직이지 않은 브랜치) 페이지에 이름이 보이게 이름 그대로
+   * 의존 규칙 검사(gitch graph check): 규칙 파일이 없으면 예시로 만들지 묻고, 있으면 결과 창을 띄우고 검사한다.
+   * 검사가 돌고 있으면(창을 닫았다 바로 다시 연 때) 새로 돌리지 않고 그 결과를 기다린다
    */
-  private async splitPoint(ref: string, path: string): Promise<string> {
-    const r = await gitRaw(["merge-base", "HEAD", ref], path);
-    const sha = r.stdout.trim();
-    if (r.status !== 0 || !sha) throw new Error(t("{0} has no commit in common with this branch.", ref));
-    const tip = await gitRaw(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], path).catch(() => null);
-    return tip?.stdout.trim() === sha ? ref : sha;
-  }
-
-  /** 의존 규칙 검사(gitch graph check): 규칙 파일이 없으면 예시로 만들지 묻고, 있으면 결과 창을 띄우고 검사한다 */
   async checkGraphRules() {
     const path = this.path;
     if (!path) return;
@@ -243,6 +233,7 @@ export abstract class RepoGitch extends RepoTerminal {
       });
       return;
     }
+    if (this.graphCheck?.kind !== "running") this.graphCheck = null; // 지난 결과가 잠깐 보이지 않게
     this.openSheet({ kind: "graphCheck" });
     await this.runGraphCheck();
   }
@@ -253,13 +244,14 @@ export abstract class RepoGitch extends RepoTerminal {
     if (!path || this.graphCheck?.kind === "running") return;
     this.graphCheck = { kind: "running" };
     this.emit();
+    // 그동안 저장소가 바뀌면 결과를 버리되, 「검사하는 중」으로 남아 다시 검사를 막지 않게 비운다
     try {
       const result = await gitch.graphRulesCheck(path);
       const rules = countGraphRules((await ipc.readText(joinPath(path, graphRulesFile))) ?? "");
-      if (this.path !== path) return;
+      if (this.path !== path) return void (this.graphCheck = null);
       this.graphCheck = { kind: "done", result, rules };
     } catch (e) {
-      if (this.path !== path) return;
+      if (this.path !== path) return void (this.graphCheck = null);
       this.graphCheck = { kind: "failed", message: describe(e) };
     }
     this.emit();

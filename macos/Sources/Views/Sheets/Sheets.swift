@@ -187,7 +187,8 @@ struct GraphDiffSheet: View {
     @ViewState private var base = ""
 
     var body: some View {
-        SheetFrame(title: String(localized: "Compare dependencies"), confirmTitle: String(localized: "Compare"), canConfirm: true,
+        // 다른 gitch graph 페이지를 만드는 중이면 openGraphDiff 가 아무것도 하지 않으므로 끈다
+        SheetFrame(title: String(localized: "Compare dependencies"), confirmTitle: String(localized: "Compare"), canConfirm: store.graphJob == nil,
                    onConfirm: {
                        let r = relation, b = base
                        Task { await store.openGraphDiff(r, base: b.isEmpty ? nil : b) }
@@ -196,19 +197,26 @@ struct GraphDiffSheet: View {
                 Picker("Structure graph", selection: $relation) {
                     ForEach(Gitch.GraphRelation.compared) { Text($0.title).tag($0) }
                 }
+                // Windows(<optgroup>)와 같게: 로컬 브랜치 · 원격 · 태그 묶음에 제목을 달고, 빈 묶음은 숨긴다
+                let local = store.localBranches.filter { !$0.isCurrent }
+                // origin/HEAD 는 기본 브랜치를 가리킬 뿐이라 뺀다
+                let remote = store.remoteBranches.filter { !$0.shortName.hasSuffix("HEAD") }
                 Picker("Compare with", selection: $base) {
                     Text("Default branch (where this branch split off)").tag("")
-                    Divider()
-                    ForEach(store.localBranches.filter { !$0.isCurrent }) { b in
-                        Label(b.name, systemImage: "arrow.triangle.branch").tag(b.name)
+                    if !local.isEmpty {
+                        Section("Local branches") {
+                            ForEach(local) { b in Text(b.name).tag(b.name) }
+                        }
                     }
-                    Divider()
-                    ForEach(store.remoteBranches) { b in
-                        Label(b.name, systemImage: "cloud").tag(b.name)
+                    if !remote.isEmpty {
+                        Section("Remotes") {
+                            ForEach(remote) { b in Text(b.name).tag(b.name) }
+                        }
                     }
-                    Divider()
-                    ForEach(store.tags) { t in
-                        Label(t.name, systemImage: "tag").tag(t.name)
+                    if !store.tags.isEmpty {
+                        Section("Tags") {
+                            ForEach(store.tags) { t in Text(t.name).tag(t.name) }
+                        }
                     }
                 }
             } footer: {

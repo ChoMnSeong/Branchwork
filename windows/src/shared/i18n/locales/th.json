@@ -1028,7 +1028,6 @@
  "Compare with": "เปรียบเทียบกับ",
  "Default branch (where this branch split off)": "แบรนช์เริ่มต้น (จุดที่แยกออกมา)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi เปรียบเทียบกับจุดที่แบรนช์นี้แยกออกมาจากแบรนช์หรือแท็กที่คุณเลือก จึงเห็นเฉพาะการเปลี่ยนแปลงของแบรนช์นี้ รวมถึงการเปลี่ยนแปลงที่ยังไม่ได้คอมมิตในไฟล์ที่ติดตามอยู่",
- "{0} has no commit in common with this branch.": "{0} ไม่มีคอมมิตร่วมกับแบรนช์นี้",
  "Dependency rules": "กฎการพึ่งพา",
  "Checking dependency rules…": "กำลังตรวจกฎการพึ่งพา…",
  "Rules {0}": "กฎ {0} ข้อ",

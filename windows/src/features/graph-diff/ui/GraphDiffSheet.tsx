@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { branchShort } from "@/entities/git";
 import { type GraphRelation, graphDiffRelations } from "@/entities/gitch";
 import type { RepoStore } from "@/entities/repo";
 import { t } from "@/shared/i18n";
@@ -10,12 +11,15 @@ export function GraphDiffSheet({ store, close }: { store: RepoStore; close: () =
   /** 빈 글자면 gitch 가 고른다(기본 브랜치와 갈라진 곳) */
   const [base, setBase] = useState("");
   const local = store.localBranches.filter((b) => !b.isCurrent);
+  // origin/HEAD 는 기본 브랜치를 가리킬 뿐이라 뺀다
+  const remote = store.remoteBranches.filter((b) => !branchShort(b).endsWith("HEAD"));
   return (
     <Frame
       title={t("Compare dependencies")}
       confirm={t("Compare")}
       width={560}
-      canConfirm
+      // 다른 gitch graph 페이지를 만드는 중이면 openGraphDiff 가 아무것도 하지 않으므로 끈다
+      canConfirm={!store.graphJob}
       close={close}
       onConfirm={() => void store.openGraphDiff(relation, base || null)}
     >
@@ -40,9 +44,9 @@ export function GraphDiffSheet({ store, close }: { store: RepoStore; close: () =
               ))}
             </optgroup>
           )}
-          {store.remoteBranches.length > 0 && (
+          {remote.length > 0 && (
             <optgroup label={t("Remotes")}>
-              {store.remoteBranches.map((b) => (
+              {remote.map((b) => (
                 <option key={b.name} value={b.name}>
                   {b.name}
                 </option>

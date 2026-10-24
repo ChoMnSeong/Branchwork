@@ -988,7 +988,6 @@
  "Compare with": "So sánh với",
  "Default branch (where this branch split off)": "Nhánh mặc định (điểm tách ra)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi so sánh với điểm mà nhánh này tách ra từ nhánh hoặc tag bạn chọn, nên chỉ hiện các thay đổi của nhánh này. Thay đổi chưa commit trong các tệp được theo dõi cũng được tính.",
- "{0} has no commit in common with this branch.": "{0} không có commit chung nào với nhánh này.",
  "Dependency rules": "Quy tắc phụ thuộc",
  "Checking dependency rules…": "Đang kiểm tra quy tắc phụ thuộc…",
  "Rules {0}": "{0} quy tắc",

@@ -1014,7 +1014,6 @@
  "Compare with": "Porovnat s",
  "Default branch (where this branch split off)": "Výchozí větev (místo oddělení)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi porovnává s místem, kde se tato větev oddělila od vybrané větve nebo tagu, takže uvidíte jen změny této větve. Zahrnuty jsou i necommitnuté změny sledovaných souborů.",
- "{0} has no commit in common with this branch.": "{0} nemá s touto větví žádný společný commit.",
  "Dependency rules": "Pravidla závislostí",
  "Checking dependency rules…": "Kontroluji pravidla závislostí…",
  "Rules {0}": "Pravidla: {0}",

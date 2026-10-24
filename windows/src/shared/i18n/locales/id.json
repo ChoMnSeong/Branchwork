@@ -984,7 +984,6 @@
  "Compare with": "Bandingkan dengan",
  "Default branch (where this branch split off)": "Branch default (titik percabangan)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi membandingkan dengan titik tempat branch ini bercabang dari branch atau tag yang dipilih, jadi hanya perubahan branch ini yang tampil. Perubahan yang belum di-commit pada file yang dilacak ikut disertakan.",
- "{0} has no commit in common with this branch.": "{0} tidak punya commit yang sama dengan branch ini.",
  "Dependency rules": "Aturan dependensi",
  "Checking dependency rules…": "Memeriksa aturan dependensi…",
  "Rules {0}": "{0} aturan",

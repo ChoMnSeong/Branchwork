@@ -1007,7 +1007,6 @@
  "Compare with": "Confronta con",
  "Default branch (where this branch split off)": "Branch predefinito (punto di separazione)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi confronta con il punto in cui questo branch si è separato dal branch o dal tag scelto, così vedi solo le modifiche di questo branch. Sono incluse le modifiche non sottoposte a commit ai file tracciati.",
- "{0} has no commit in common with this branch.": "{0} non ha commit in comune con questo branch.",
  "Dependency rules": "Regole delle dipendenze",
  "Checking dependency rules…": "Controllo delle regole delle dipendenze…",
  "Rules {0}": "{0} regole",

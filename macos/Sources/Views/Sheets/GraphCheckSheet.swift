@@ -45,7 +45,8 @@ struct GraphCheckSheet: View {
         }
         .frame(width: 620)
         .onExitCommand { dismiss() }
-        .onDisappear { store.graphCheck = nil }
+        // 검사가 돌고 있으면 두고 간다 — 바로 다시 열면 새로 돌리지 않고 그 결과를 기다린다(겹쳐 돌면 늦게 끝난 쪽이 덮는다)
+        .onDisappear { if case .running? = store.graphCheck {} else { store.graphCheck = nil } }
     }
 
     @ViewBuilder private var content: some View {

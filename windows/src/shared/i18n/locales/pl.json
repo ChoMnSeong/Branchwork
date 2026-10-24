@@ -1015,7 +1015,6 @@
  "Compare with": "Porównaj z",
  "Default branch (where this branch split off)": "Domyślna gałąź (miejsce rozgałęzienia)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi porównuje z miejscem, w którym ta gałąź oddzieliła się od wybranej gałęzi lub tagu, więc widać tylko zmiany z tej gałęzi. Niezatwierdzone zmiany w śledzonych plikach są uwzględnione.",
- "{0} has no commit in common with this branch.": "{0} nie ma wspólnego commita z tą gałęzią.",
  "Dependency rules": "Reguły zależności",
  "Checking dependency rules…": "Sprawdzanie reguł zależności…",
  "Rules {0}": "Reguły: {0}",

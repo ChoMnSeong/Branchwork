@@ -1032,7 +1032,6 @@
  "Compare with": "Сравнить с",
  "Default branch (where this branch split off)": "Ветка по умолчанию (точка ответвления)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi сравнивает с местом, где эта ветка отделилась от выбранной ветки или тега, поэтому видны только изменения этой ветки. Незакоммиченные изменения в отслеживаемых файлах учитываются.",
- "{0} has no commit in common with this branch.": "У {0} и этой ветки нет общего коммита.",
  "Dependency rules": "Правила зависимостей",
  "Checking dependency rules…": "Проверяются правила зависимостей…",
  "Rules {0}": "Правил: {0}",

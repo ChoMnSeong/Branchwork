@@ -1,6 +1,5 @@
 /* Gitrochi — tr. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ ile bu dalın ortak bir commit'i yok.";
 "Check again" = "Yeniden denetle";
 "Check dependency rules…" = "Bağımlılık kurallarını denetle…";
 "Checking dependency rules…" = "Bağımlılık kuralları denetleniyor…";
@@ -510,6 +509,7 @@
 "Load more commits" = "Daha fazla commit yükle";
 "Loading" = "Yükleniyor";
 "Loading earlier history…" = "Daha eski geçmiş yükleniyor…";
+"Local branches" = "Yerel dallar";
 "Local branches %lld" = "Yerel dallar %1$lld";
 "Local: %@" = "Yerel: %1$@";
 "Locate" = "Konum seç";
@@ -847,6 +847,7 @@
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "Sistem, macOS ayarınızı izler (açık, koyu veya otomatik). Grafik ve terminal de buna göre değişir.";
 "Tag here…" = "Buraya etiket koy…";
 "Tag: %@" = "Etiket: %1$@";
+"Tags" = "Etiketler";
 "Tags %lld" = "Etiketler %1$lld";
 "Task" = "Görev";
 "Task for the agent (optional)" = "Ajan için görev (isteğe bağlı)";
