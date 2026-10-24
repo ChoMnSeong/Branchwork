@@ -719,3 +719,102 @@ test_graph_lang_filter() {
   run gitch graph --lang cobol; assert_rc 1; assert_out "--lang 은"
   assert_eq "$(gitch graph --json | jq -r '.lang')" "null" "고르지 않으면 lang 은 null"
 }
+
+test_graph_diff() {
+  gr_repo "$T/diff"
+  echo 'import { b } from "./b"' | gr_put src/a.ts
+  echo 'export const b = 1' | gr_put src/b.ts
+  echo 'export const c = 1' | gr_put src/c.ts
+  gr_commit base
+  local base; base=$(git rev-parse --short HEAD)
+  # 작업 트리: a → b 를 a → c 로, b ↔ c 순환, 새 파일 d (커밋 없이 추적만)
+  echo 'import { c } from "./c"' | gr_put src/a.ts
+  printf 'import { c } from "./c"\nexport const b = 1\n' | gr_put src/b.ts
+  printf 'import { b } from "./b"\nexport const c = 1\n' | gr_put src/c.ts
+  echo 'import { a } from "./a"' | gr_put src/d.ts
+  git add -A
+  run gitch graph diff "$base" --json; assert_ok; assert_json "$OUT"
+  assert_eq "$(gr_q '.diff.base + " " + .diff.head')" "$base worktree"
+  assert_eq "$(gr_q '[.stats.addedEdges, .stats.removedEdges, .stats.addedNodes, .stats.removedNodes, .stats.newCycles] | map(tostring) | join(" ")')" "4 1 1 0 1"
+  assert_eq "$(gr_q '.cycles.new[0].nodes | join(",")')" "src/b.ts,src/c.ts" "새 순환"
+  assert_eq "$(gr_q '.edges[] | select(.status == "removed") | .source + ">" + .target')" "src/a.ts>src/b.ts"
+  assert_eq "$(gr_q '[.edges[] | select(.status == "added")] | length')" "4"
+  assert_eq "$(gr_q '.nodes[] | select(.status == "added") | .id')" "src/d.ts"
+  # 기준을 주지 않으면 기본 브랜치(여기서는 로컬 main)와 갈라진 곳
+  run gitch graph diff --json; assert_ok
+  assert_eq "$(gr_q '.diff.baseName + " " + .diff.base')" "main $base"
+  # 사람용 요약 · html(바뀐 것을 색으로) · 폴더 구조
+  run gitch graph diff "$base" --format text; assert_ok
+  assert_out "연결 +4 −1"; assert_out "새 순환 1개"; assert_out "+ src/d.ts → src/a.ts"; assert_out "− src/a.ts → src/b.ts"
+  run gitch graph diff "$base" --out "$T/out/d.html"; assert_ok
+  grep -q '"status":"removed"' "$T/out/d.html" || fail "html 에 바뀐 표시가 없음"
+  grep -q '"diff": {"base": "'"$base"'"' "$T/out/d.html" || fail "html 에 기준이 없음"
+  run gitch graph diff "$base" tree --json; assert_ok
+  assert_eq "$(gr_q '.nodes[] | select(.id == "src/") | "\(.status) \(.filesDelta)"')" "changed 1" "폴더의 파일 수 변화"
+  run gitch graph diff "$base" tree --format text; assert_ok; assert_out "~ src/ 파일 +1"
+  run gitch graph diff changes; assert_fail; assert_out "changes 는 비교하지 않습니다"
+  run gitch graph diff no-such-commit; assert_fail; assert_out "커밋도 폴더도 아닙니다"
+  run gitch graph diff --help; assert_ok; assert_out "사용법: gitch graph diff"
+}
+
+test_graph_check() {
+  gr_repo "$T/check"
+  echo 'import { db } from "../db/db"' | gr_put src/ui/view.ts
+  echo 'import { db } from "../../db/db"' | gr_put src/ui/debug/tool.ts
+  echo 'export const db = 1' | gr_put src/db/db.ts
+  printf 'import { y } from "./y"\nexport const x = 1\n' | gr_put src/core/x.ts
+  printf 'import { x } from "./x"\nexport const y = 1\n' | gr_put src/core/y.ts
+  gr_commit
+  run gitch graph check; assert_fail; assert_out "gitch graph check --init"
+  run gitch graph check --init; assert_ok
+  [ -f .gitch/graph.rules ] || fail "--init 이 규칙 파일을 만들지 않음"
+  run gitch graph check --init; assert_fail; assert_out "이미 있습니다"
+  run gitch graph check --format text; assert_ok; assert_out "위반 없음"     # 예시는 모두 주석
+  cat > .gitch/graph.rules <<'RULES'
+# 화면은 DB 를 바로 쓰지 않는다
+[files]
+forbid  src/ui -> src/db
+allow   src/ui/debug -> src/db    # 예외
+no-cycles src/**
+layers  src/ui > src/core > src/db
+RULES
+  run gitch graph check --format text; assert_rc 1
+  assert_out "src/ui/view.ts → src/db/db.ts"; assert_out "순환 src/core/x.ts · src/core/y.ts"; assert_out "위반 2개"
+  case "$OUT" in *tool.ts*) fail "allow 예외가 먹지 않음\n$OUT" ;; esac
+  run gitch graph check --json; assert_rc 1; assert_json "$OUT"
+  assert_eq "$(gr_q '.ok')" "false"
+  assert_eq "$(gr_q '[.violations[].kind] | sort | join(",")')" "forbid,no-cycles"
+  assert_eq "$(gr_q '.violations[] | select(.kind == "no-cycles") | .nodes | join(",")')" "src/core/x.ts,src/core/y.ts"
+  assert_eq "$(gr_q '.violations[] | select(.kind == "forbid") | "\(.line) \(.rule)"')" "3 forbid  src/ui -> src/db"
+  # --base: 기준에도 있던 위반은 「기존」, 새 위반만 실패
+  gr_commit rules
+  local base; base=$(git rev-parse --short HEAD)
+  echo 'import { x } from "../core/x"' | gr_put src/db/up.ts      # db → core: 층을 거스른다
+  git add -A
+  run gitch graph check --base "$base" --json; assert_rc 1
+  assert_eq "$(gr_q '[.violations[] | select(.existing)] | length')" "2" "기준에도 있던 위반"
+  assert_eq "$(gr_q '.violations[] | select(.existing | not) | "\(.kind) \(.source) \(.target)"')" "layers src/db/up.ts src/core/x.ts"
+  git rm -q --cached src/db/up.ts && rm src/db/up.ts
+  run gitch graph check --base "$base" --format text; assert_ok "기존 위반만 있으면 통과"; assert_out "기준에도 있던 위반 2개"
+  # html 에 규칙 결과, 그냥 gitch graph html 에도 (규칙 파일이 있으면)
+  run gitch graph check --out "$T/out/c.html"; assert_rc 1
+  grep -q '"rules":{"tool":"gitch graph check"' "$T/out/c.html" || fail "check html 에 규칙 결과가 없음"
+  run gitch graph files --out "$T/out/g.html"; assert_ok
+  grep -q '"rules":{"tool":"gitch graph check","file":".gitch/graph.rules"' "$T/out/g.html" || fail "graph html 에 규칙 결과가 없음"
+  # 틀린 규칙은 줄 번호와 함께 멈춘다
+  printf '[files]\nforbid src/a\nlayers only\nfrobid a -> b\n[nope]\n' > "$T/bad.rules"
+  run gitch graph check --rules "$T/bad.rules"; assert_fail
+  assert_out "2번 줄: forbid 에는"; assert_out "3번 줄: layers 에는"; assert_out "4번 줄: 모르는 규칙"; assert_out "5번 줄: 모르는 절 [nope]"
+}
+
+test_graph_check_modules() {
+  gr_repo "$T/checkmod"
+  echo 'let project = Project.framework(name: "AFeature", dependencies: [.project(target: "BFeature", path: "../B"), .project(target: "Domain", path: "../Domain")])' | gr_put Projects/A/Project.swift
+  echo 'let project = Project.framework(name: "BFeature", dependencies: [.project(target: "Domain", path: "../Domain")])' | gr_put Projects/B/Project.swift
+  echo 'let project = Project.framework(name: "Domain", dependencies: [.project(target: "AFeature", path: "../A")])' | gr_put Projects/Domain/Project.swift
+  mkdir -p .gitch
+  printf '[modules]\nforbid *Feature -> *Feature   # 기능끼리\nlayers *Feature > Domain\n' > .gitch/graph.rules
+  gr_commit
+  run gitch graph check --json; assert_rc 1; assert_json "$OUT"
+  assert_eq "$(gr_q '[.violations[] | "\(.kind) \(.source) \(.target)"] | sort | join(" | ")')" "forbid tuist:AFeature tuist:BFeature | layers tuist:Domain tuist:AFeature"
+}

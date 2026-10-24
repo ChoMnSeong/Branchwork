@@ -184,7 +184,51 @@ JSON (노드 · 연결이 한 줄에 하나):
 }
 ```
 
-연결 `kind`: `import` · `reexport` · `require` · `dynamic-import` · `mod` · `use` · `type-ref`(추정) · `contains` · `depends` · `cochange`. `via` 는 근거(import 한 글 · 쓴 타입 이름, 다섯 개까지), `weight` 는 횟수다.
+연결 `kind`: `import` · `reexport` · `require` · `dynamic-import` · `mod` · `use` · `type-ref`(추정) · `ref`(Xcode 인덱스) · `contains` · `depends` · `cochange`. `via` 는 근거(import 한 글 · 쓴 타입 이름, 다섯 개까지), `weight` 는 횟수다.
+
+### 비교 (`gitch graph diff`)
+
+```bash
+gitch graph diff                 # 기본 브랜치(upstream > origin)와 갈라진 곳 → 지금 작업 트리 (files)
+gitch graph diff main modules    # 기준을 주면 그 커밋 · 브랜치와
+gitch graph diff --json          # AI · 스크립트: 바뀐 것만 (status: added · removed, cycles.new · gone)
+gitch graph diff --format html   # 전체 그래프에 더한 것 · 뺀 것을 색으로
+```
+
+- 기준 커밋의 추적 파일을 `git archive` 로 임시 폴더에 풀어 같은 방법으로 그래프를 만들고(저장소는 건드리지 않는다), 노드 · 연결 · 순환을 비교한다. 커밋하지 않은 바꿈도 들어간다(추적하는 파일만).
+- 터미널에서는 요약: 연결 +/−(그중 추정), 노드 +/−, 새로 생기거나 없어진 순환, 더하고 뺀 연결. `tree` 는 폴더마다 파일 수 · 크기 변화(`"status": "changed"`, `filesDelta` · `bytesDelta`).
+- 양쪽을 같은 방법으로 읽으려고 Package.swift 는 swift 없이 직접 읽고, Xcode 인덱스 도우미는 쓰지 않는다. `changes` 는 비교하지 않는다.
+
+### 규칙 검사 (`gitch graph check`)
+
+```bash
+gitch graph check --init         # 예시가 든 .gitch/graph.rules 를 만든다
+gitch graph check                # 위반이 있으면 종료 코드 1 — CI 에 그대로 넣는다
+gitch graph check --base main    # main 에도 있던 위반은 「기존」으로 따로 적고 실패로 세지 않는다
+```
+
+```
+[modules]
+no-cycles
+forbid  *Feature -> *Feature            # 기능 모듈끼리 기대지 않는다 (같은 모듈 안은 괜찮다)
+layers  *App > *Feature > Domain* > Core*   # 왼쪽이 오른쪽에 기대는 것만 된다
+
+[files]
+no-cycles src/**
+forbid  src/ui -> src/db
+allow   src/ui/debug -> src/db          # 위반의 예외
+```
+
+| 규칙 | 뜻 |
+|---|---|
+| `forbid A -> B` | A 가 B 에 기대면 위반. A 와 B 가 같은 패턴이면 같은 곳(같은 모듈 · 같은 폴더)끼리는 괜찮다 |
+| `allow A -> B` | `forbid` · `layers` 위반의 예외 |
+| `layers A > B > …` | 노드는 처음 맞는 층에 속하고, 오른쪽 층이 왼쪽 층에 기대면 위반 |
+| `no-cycles [패턴]` | 순환 의존(패턴을 주면 그 안에서만) |
+
+- 패턴: `files` 는 경로 glob(`*` 한 마디, `**` 여러 폴더, 폴더 이름만 쓰면 그 아래 전부, 외부는 `pkg:npm/react`), `modules` 는 모듈 이름(`*Feature`) 또는 id(`tuist:App`).
+- 정확한 연결과 모듈 · 패키지로 확인한 추정(`checked`)은 위반, 이름만으로 한 추정은 경고(실패 아님)다. 틀린 규칙 줄은 줄 번호와 까닭을 알리고 멈춘다.
+- 규칙 파일이 있으면 `gitch graph` 의 html 분석 창에 「규칙 위반」이 같이 나온다. JSON: `{"ok", "violations": [{"relation", "severity", "line", "rule", "kind", "source", "target" | "nodes", "existing"}]}`.
 
 ## 검사 훅이 막는 것
 

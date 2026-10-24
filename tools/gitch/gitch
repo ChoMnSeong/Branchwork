@@ -3490,10 +3490,13 @@ gitch graph modules --json         # 모듈/타깃 의존: Package.swift · Proj
 gitch graph changes --json         # 자주 같이 커밋되는 파일 쌍(weight) + 바뀐 횟수(changes, 핫스팟)
 gitch graph tree --json --depth 2  # 폴더 크기 · 파일 수
 gitch graph files src/feature      # 그 폴더만 (폴더 밖 대상 노드는 outside: true)
+gitch graph diff --json            # 이 브랜치가 더하거나 뺀 연결(status: added · removed) · 새 순환(cycles.new)
+gitch graph check --json           # .gitch/graph.rules 위반(violations), 위반이면 종료 코드 1
 ```
 
 - 출력은 `nodes` · `edges` JSON 이다. 큰 저장소면 폴더를 주거나 `jq` 로 필요한 부분만 읽는다.
 - 사용자에게 그림으로 보여 줄 때는 `gitch graph --format html --out <파일>` (오프라인 한 페이지).
+- 큰 바꿈을 마치기 전에 `gitch graph diff --json` 으로 새 순환 · 뜻밖의 의존이 생겼는지, 규칙 파일이 있으면 `gitch graph check` 를 본다.
 
 ## 9. 사용자만 하는 것
 
@@ -3997,11 +4000,16 @@ guard_gitsw() {
     publish) g_decide ask "원격 저장소를 새로 만들고 push 합니다." ;;
     ai) case "${rest[0]:-}" in --print|--skill) ;; *) g_decide ask "AI 도구 설정(CLAUDE.md, settings.json 등)을 바꿉니다." ;; esac ;;
     ssh) g_decide ask "~/.ssh/config 를 정리합니다." ;;
-    graph)   # 읽기 명령(허용 목록)이지만 --out 으로 gitch 가 관리하는 파일을 덮어쓰지 못하게
+    graph)   # 읽기 명령(허용 목록)이지만 --out(과 check --init 의 --rules)으로 gitch 가 관리하는 파일을 쓰지 못하게
       for ((k = 0; k < ${#rest[@]}; k++)); do
         o=""
-        case "${rest[$k]}" in --out|-o) o=${rest[$((k + 1))]:-} ;; --out=*) o=${rest[$k]#--out=} ;; esac
-        [ -n "$o" ] && g_protected "$o" && g_decide deny "$(tilde "$(g_path "$o")") 는 gitch 가 관리하는 파일이라 gitch graph --out 으로 덮어쓸 수 없습니다."
+        case "${rest[$k]}" in
+          --out|-o) o=${rest[$((k + 1))]:-} ;;
+          --out=*) o=${rest[$k]#--out=} ;;
+          --rules|-r) case " ${rest[*]} " in *" --init "*) o=${rest[$((k + 1))]:-} ;; esac ;;
+          --rules=*) case " ${rest[*]} " in *" --init "*) o=${rest[$k]#--rules=} ;; esac ;;
+        esac
+        [ -n "$o" ] && g_protected "$o" && g_decide deny "$(tilde "$(g_path "$o")") 는 gitch 가 관리하는 파일이라 gitch graph 로 쓸 수 없습니다."
       done ;;
   esac
   return 0
@@ -4448,6 +4456,7 @@ self_update_standalone() {   # $1 이 파일 — 릴리스의 gitch 를 gitch.sh
 # 결과 레코드(0 통계·안내 / 1 노드 / 2 연결, 탭 구분)를 sort 로 순서를 고정한 뒤 json · dot 으로 바꾼다. html 은 json 을 품은 오프라인 한 페이지.
 
 GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|json|svg|png|dot] [--out 파일] [--open|--no-open] [폴더]
+       gitch graph diff [기준] …  ·  gitch graph check …   (각각 --help)
   files    파일 → 파일 import (TS/JS · Python · Go · Rust · Kotlin/Java, Swift 는 타입 이름으로 추정) — 기본
   modules  모듈/타깃 의존 (Package.swift · Tuist Project.swift · package.json · Cargo.toml · go.mod · Gradle)
   changes  자주 같이 커밋되는 파일 쌍과 바뀐 횟수(핫스팟)
@@ -4543,13 +4552,21 @@ graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 s
         awk -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v lockre="$LOCKFILE_RE" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_changes)" ;;
     tree)
       # 크기는 인덱스의 blob 크기(git cat-file 한 번) — 파일마다 stat 하지 않는다. 서브모듈(160000)은 뺀다
-      git ls-files -s -z -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[1] != "160000") print a[2], $2 }' | \
-        git cat-file --batch-check='%(objectname) %(objectsize) %(rest)' | \
+      if [ -n "${GRAPH_REV:-}" ]; then   # diff 의 기준 커밋: 크기까지 git ls-tree 한 번
+        git ls-tree -r -l -z "$GRAPH_REV" -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[2] == "blob") print a[3], a[4], $2 }'
+      else
+        git ls-files -s -z -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[1] != "160000") print a[2], $2 }' | \
+          git cat-file --batch-check='%(objectname) %(objectsize) %(rest)'
+      fi | \
         awk -v scope="$scope" -v maxd="$9" -v withfiles="${10}" -v repo="$repo" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_tree)" ;;
   esac
 }
 
-graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
+graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … · check …
+  case "${1:-}" in
+    diff) shift; graph_diff_cmd "$@"; return $? ;;
+    check) shift; graph_check_cmd "$@"; return $? ;;
+  esac
   local rel="" fmt="" out="" opn=auto dir="" since="" maxc=1000 maxf=30 min=2 depth=0 withfiles="" noext="" langs="" a
   local top prefix repo tmp n_nodes=0 n_edges=0 n_heur=0 fancy="" rels i
   local -a meta
@@ -4594,8 +4611,7 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
   [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
   prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
-  repo=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)   # 워크트리여도 본 저장소 이름
-  case "$repo" in */.git) repo=$(basename "${repo%/.git}") ;; *) repo=$(basename "$top") ;; esac
+  repo=$(graph_repo_name "$dir" "$top")
 
   # 형식: --format > --out 의 확장자 > 사람이 보는 터미널이면 html(열기), 아니면 json(표준출력)
   case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
@@ -4644,7 +4660,9 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
           [ $i -gt 0 ] && printf ','
           printf '"%s":' "$a"; awk "${meta[@]}" -v rel="$a" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec.$a"; i=$((i + 1))
         done
-        printf '}}\n'; } | graph_html > "$tmp/out" ;;
+        printf '}'
+        [ -f "$GRAPH_RULES_FILE" ] && { printf ',"rules":'; graph_rules_eval "$tmp" "$GRAPH_RULES_FILE"; }   # 분석 창의 「규칙 위반」
+        printf '}\n'; } | graph_html > "$tmp/out" ;;
     dot) awk "${meta[@]}" "$(graph_awk_lib)$(graph_awk_dot)" "$tmp/rec" > "$tmp/out" ;;
     *)
       [ -n "$fancy" ] && [ "$n_nodes" -gt 1500 ] && printf '\r\033[K  %s' "${DIM}노드가 ${n_nodes}개라 dot 이 오래 걸릴 수 있습니다 (빠르게 보려면 --format html)…${RESET}"
@@ -4667,6 +4685,324 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
     graph_open "$out" && dim "  열었습니다. (열지 않으려면 --no-open)"
   fi
   say "GRAPH_FILE=$out NODES=$n_nodes EDGES=$n_edges"
+}
+
+GRAPH_DIFF_USAGE='사용법: gitch graph diff [기준] [files|modules|tree] [--format text|json|html] [--out 파일] [폴더]
+  기준(커밋 · 브랜치)의 그래프와 지금 작업 트리의 그래프를 비교한다 — 더하거나 뺀 연결 · 파일, 새로 생기거나 없어진 순환
+  기준을 주지 않으면 기본 브랜치(upstream > origin)와 갈라진 곳(merge-base)
+  --format   기본: 사람이 보는 터미널이면 text(요약), 아니면 json(바뀐 것만). html 은 바뀐 것을 색으로 보여 주는 그래프
+  --lang · --no-external 은 gitch graph 와 같다. 양쪽을 같은 방법으로 읽으려고 Package.swift 는 swift 없이 직접 읽고 Xcode 인덱스 도우미는 쓰지 않는다'
+
+GRAPH_CHECK_USAGE='사용법: gitch graph check [--rules 파일] [--base 기준] [--format text|json|html] [--init] [폴더]
+  규칙 파일(기본: 저장소의 .gitch/graph.rules)대로 의존을 검사한다. 위반이 있으면 종료 코드 1 — CI 에 넣기 좋다
+  [files] 나 [modules] 아래에 한 줄에 하나 (# 뒤는 주석):
+    forbid  A -> B       A 가 B 에 기대면 위반 (A 와 B 가 같은 패턴이면 같은 곳끼리는 괜찮다)
+    allow   A -> B       위반의 예외
+    layers  A > B > C    왼쪽이 오른쪽에 기대는 것만 된다 (C 가 A 에 기대면 위반)
+    no-cycles [패턴]     순환 의존 금지 (패턴을 주면 그 안에서만)
+  패턴: files 는 경로(* 한 마디 · ** 여러 폴더 · 폴더 이름만 쓰면 그 아래 전부), modules 는 모듈 이름(*Feature)
+  --base 기준  그 커밋에도 있던 위반은 「기존」으로 따로 적고 실패로 세지 않는다 (오래된 저장소에 들일 때)
+  이름만으로 추정한 연결의 위반은 경고다. 모듈 · 패키지로 확인한 추정(checked)과 정확한 연결은 위반으로 센다
+  --init  예시가 든 규칙 파일을 만든다'
+
+GRAPH_RULES_FILE=.gitch/graph.rules
+
+graph_default_base() {   # 기본 브랜치와 갈라진 곳(merge-base): upstream(포크) > origin > 로컬 main · master, 없으면 HEAD → GRAPH_BASE · GRAPH_BASE_NAME
+  local r d
+  for r in upstream origin; do
+    git remote get-url "$r" >/dev/null 2>&1 || continue
+    d=$(default_branch "$r")
+    git show-ref -q --verify "refs/remotes/$r/$d" || continue
+    GRAPH_BASE=$(git merge-base HEAD "refs/remotes/$r/$d" 2>/dev/null) && [ -n "$GRAPH_BASE" ] && { GRAPH_BASE_NAME="$r/$d"; return 0; }
+  done
+  for d in main master; do
+    git show-ref -q --verify "refs/heads/$d" || continue
+    GRAPH_BASE=$(git merge-base HEAD "refs/heads/$d" 2>/dev/null) && [ -n "$GRAPH_BASE" ] && { GRAPH_BASE_NAME=$d; return 0; }
+  done
+  GRAPH_BASE=$(git rev-parse HEAD 2>/dev/null) && [ -n "$GRAPH_BASE" ] && GRAPH_BASE_NAME=HEAD
+}
+
+graph_base_extract() {   # $1 커밋 $2 폴더 → 그 커밋의 추적 파일을 $2/src 에 풀고 목록을 $2/files 에 (저장소는 건드리지 않는다)
+  mkdir -p "$2/src" || return 1
+  git archive --format=tar "$1" | tar -x -C "$2/src" 2>/dev/null || return 1
+  git ls-tree -r --name-only -z "$1" | tr '\0' '\n' > "$2/files"
+}
+
+graph_side() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 저장소 $6 언어 [$7 기준 커밋] → 정렬한 레코드 (diff · check 가 양쪽을 같은 방법으로)
+  local tmp=$1 rel=$2
+  if [ -z "${7:-}" ]; then
+    graph_collect "$tmp" "$rel" "$3" "$4" "" 1000 30 2 0 "" "$5" "$6"
+  elif [ "$rel" = tree ]; then
+    GRAPH_REV=$7 graph_collect "$tmp" tree "$3" "$4" "" 1000 30 2 0 "" "$5" "$6"
+  else
+    ( cd "$tmp/src" && graph_collect "$tmp" "$rel" "$3" "$4" "" 1000 30 2 0 "" "$5" "$6" )
+  fi | LC_ALL=C sort -u
+}
+
+graph_meta() {   # JSON 머리에 쓰는 awk 변수들 → GRAPH_META 배열
+  GRAPH_META=(-v rel="$1" -v repo="$2" -v scope="${3%/}" -v commit="$(git rev-parse --short HEAD 2>/dev/null)" -v ver="$GITSW_VERSION" -v when="$(now_iso)" -v langs="$4")
+}
+
+graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
+  local rel="" base="" fmt="" out="" opn=auto dir="" noext="" langs="" a
+  local top prefix repo tmp bsha bname fancy=""
+  while [ $# -gt 0 ]; do
+    a=$1
+    case "$a" in
+      files|file) rel=files ;;
+      modules|module) rel=modules ;;
+      tree) rel=tree ;;
+      changes|change) die "changes 는 비교하지 않습니다 — files · modules · tree 중에서 고릅니다." ;;
+      --base) shift; base=${1:-}; [ -n "$base" ] || die "--base 뒤에 커밋이나 브랜치가 필요합니다." ;;
+      --base=*) base=${a#*=} ;;
+      --format|-f) shift; fmt=${1:-} ;;
+      --format=*) fmt=${a#*=} ;;
+      --json) fmt=json ;;
+      --out|-o) shift; out=${1:-}; [ -n "$out" ] || die "--out 뒤에 파일 이름이 필요합니다 (- 는 표준출력)." ;;
+      --out=*) out=${a#*=} ;;
+      --open) opn=1 ;;
+      --no-open) opn=0 ;;
+      --no-external) noext=1 ;;
+      --lang|-l) shift; langs=${1:-}; [ -n "$langs" ] || die "--lang 뒤에 언어가 필요합니다 (예: swift, ts,js)." ;;
+      --lang=*) langs=${a#*=} ;;
+      -h|--help) say "$GRAPH_DIFF_USAGE"; return 0 ;;
+      -*) die "알 수 없는 옵션: $a"$'\n'"$GRAPH_DIFF_USAGE" ;;
+      *)
+        if [ -z "$base" ] && git rev-parse --verify --quiet "$a^{commit}" >/dev/null 2>&1; then base=$a
+        elif [ -z "$dir" ] && [ -d "$a" ]; then dir=$a
+        else die "커밋도 폴더도 아닙니다: $a"$'\n'"$GRAPH_DIFF_USAGE"; fi ;;
+    esac
+    shift
+  done
+  if [ -n "$langs" ]; then
+    langs=$(graph_langs "$langs") && [ -n "$langs" ] || die "--lang 은 ts · js · web · vue · svelte · swift · python · go · rust · kotlin · java · jvm 중에서 고릅니다 (쉼표로 여럿)."
+  fi
+  rel=${rel:-files}; dir=${dir:-.}
+  [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
+  top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
+  prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
+  repo=$(graph_repo_name "$dir" "$top")
+  case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
+  if [ -z "$fmt" ]; then
+    case "$(lower "$out")" in
+      *.json) fmt=json ;; *.html|*.htm) fmt=html ;; *.txt) fmt=text ;;
+      *) if fancy_out; then fmt=text; else fmt=json; fi ;;
+    esac
+  fi
+  fmt=$(lower "$fmt")
+  case "$fmt" in text|json|html) ;; *) die "--format 은 text, json, html 중 하나입니다: $fmt" ;; esac
+  [ -z "$out" ] && case "$fmt" in html) out="${TMPDIR:-/tmp}"; out="${out%/}/gitch-graph/$repo-$rel-diff.html" ;; *) out=- ;; esac
+
+  cd "$top" || die "저장소로 이동하지 못했습니다: $top"
+  if [ -z "$base" ]; then
+    graph_default_base || die "비교할 기준을 정하지 못했습니다 — 커밋이나 브랜치를 주세요 (예: gitch graph diff main)."
+    base=$GRAPH_BASE; bname=$GRAPH_BASE_NAME
+  else bname=$base; fi
+  bsha=$(git rev-parse --short "$base^{commit}" 2>/dev/null) || die "커밋이 아닙니다: $base"
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/gitch-graph.XXXXXX") || die "임시 폴더를 만들지 못했습니다."
+  GRAPH_TMP=$tmp
+  trap 'rm -rf "$GRAPH_TMP"' EXIT
+  fancy_out && [ "$fmt" != json ] && fancy=1
+  [ -n "$fancy" ] && printf '  %s' "${DIM}$(graph_rel_word "$rel") 비교하는 중 ($bname → 작업 트리)…${RESET}"
+  git ls-files -z > "$tmp/files.z" && tr '\0' '\n' < "$tmp/files.z" > "$tmp/files" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
+  mkdir -p "$tmp/b"
+  [ "$rel" = tree ] || graph_base_extract "$bsha" "$tmp/b" || die "기준 커밋의 파일을 풀지 못했습니다: $bsha"
+  # 양쪽을 같은 방법으로: swift package describe · Xcode 인덱스는 지금 쪽에만 있으니 끈다
+  GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' graph_side "$tmp" "$rel" "$prefix" "$noext" "$repo" "$langs" > "$tmp/rec.a" || die "그래프를 만들지 못했습니다 (작업 트리)."
+  GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' graph_side "$tmp/b" "$rel" "$prefix" "$noext" "$repo" "$langs" "$bsha" > "$tmp/rec.b" || die "그래프를 만들지 못했습니다 ($bsha)."
+  awk -v rel="$rel" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_merge)" "$tmp/rec.b" "$tmp/rec.a" | LC_ALL=C sort > "$tmp/rec"
+  [ -n "$fancy" ] && printf '\r\033[K'
+  graph_meta "$rel" "$repo" "$prefix" "$langs"
+  case "$fmt" in
+    text) awk -F'\t' -v rel="$rel" -v relword="$(graph_rel_word "$rel")" -v base="$bname" -v bsha="$bsha" \
+            -v bold="$BOLD" -v green="$GREEN" -v red="$RED" -v yellow="$YELLOW" -v dim="$DIM" -v reset="$RESET" \
+            "$(graph_awk_lib)$(graph_awk_difftext)" "$tmp/rec" > "$tmp/out" ;;
+    json) awk -F'\t' "$(graph_awk_lib)$(graph_awk_diffonly)" "$tmp/rec" | \
+            awk "${GRAPH_META[@]}" -v diffbase="$bsha" -v diffname="$bname" "$(graph_awk_lib)$(graph_awk_json)" > "$tmp/out" ;;
+    html) { printf '{"initial":"%s","views":{"%s":' "$rel" "$rel"
+            awk "${GRAPH_META[@]}" -v diffbase="$bsha" -v diffname="$bname" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec"
+            printf '}}\n'; } | graph_html > "$tmp/out" ;;
+  esac
+  graph_write "$tmp/out" "$out" "$fmt" "$opn" "$fancy" || return 1
+  [ "$out" = - ] || { ok "의존 비교 ($(graph_rel_word "$rel")): $bname($bsha) → 작업 트리"; say "  $(tilde "$out")"; say "GRAPH_FILE=$out"; }
+  return 0
+}
+
+graph_write() {   # $1 만든 파일 $2 쓸 곳(- 는 표준출력) $3 형식 $4 열기(1 · 0 · auto) $5 사람 터미널
+  if [ "$2" = - ]; then cat "$1"; return 0; fi
+  mkdir -p "$(dirname "$2")" 2>/dev/null
+  cat "$1" > "$2" 2>/dev/null || die "쓰지 못했습니다: $2"
+  if [ "$4" = 1 ] || { [ "$4" = auto ] && [ -n "$5" ] && [ "$3" = html ]; }; then graph_open "$2" && dim "  열었습니다. (열지 않으려면 --no-open)"; fi
+  return 0
+}
+
+graph_repo_name() {   # $1 폴더 $2 저장소 뿌리 — 워크트리여도 본 저장소 이름
+  local r
+  r=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  case "$r" in */.git) basename "${r%/.git}" ;; *) basename "$2" ;; esac
+}
+
+graph_rules_init() {   # $1 규칙 파일 — 예시가 든 파일을 만든다 (있으면 그대로)
+  [ -e "$1" ] && die "이미 있습니다: $1"
+  mkdir -p "$(dirname "$1")" || die "폴더를 만들지 못했습니다: $(dirname "$1")"
+  cat > "$1" <<'RULES'
+# gitch graph check 규칙 — 한 줄에 하나, # 뒤는 주석. 확인: gitch graph check
+# 패턴: files 는 경로(* 한 마디 · ** 여러 폴더 · 폴더 이름만 쓰면 그 아래 전부), modules 는 모듈 이름(*Feature)
+
+[modules]
+# no-cycles                              # 모듈끼리 순환 의존 금지
+# forbid  *Feature -> *Feature           # 기능 모듈끼리 서로 기대지 않는다 (같은 모듈 안은 괜찮다)
+# layers  *App > *Feature > Domain* > Core*   # 왼쪽이 오른쪽에 기대는 것만 된다
+
+[files]
+# no-cycles src/**                       # 그 폴더 안 파일끼리 순환 금지
+# forbid  src/ui -> src/db               # 화면 코드가 DB 코드를 바로 쓰지 않는다
+# allow   src/ui/debug -> src/db         # 위 규칙의 예외
+RULES
+  ok "규칙 파일을 만들었습니다: $1"
+  dim "  # 를 지우고 저장소에 맞게 고친 뒤: gitch graph check"
+}
+
+graph_check_cmd() {   # [--rules 파일] [--base 기준] [--format text|json|html] [--out 파일] [--init] [폴더]
+  local rules="" base="" fmt="" out="" opn=auto dir="" init="" a top prefix repo tmp rel rels bsha="" bname="" fancy="" n_rules shown
+  local n_err=0
+  while [ $# -gt 0 ]; do
+    a=$1
+    case "$a" in
+      --rules|-r) shift; rules=${1:-}; [ -n "$rules" ] || die "--rules 뒤에 규칙 파일이 필요합니다." ;;
+      --rules=*) rules=${a#*=} ;;
+      --base) shift; base=${1:-}; [ -n "$base" ] || die "--base 뒤에 커밋이나 브랜치가 필요합니다." ;;
+      --base=*) base=${a#*=} ;;
+      --format|-f) shift; fmt=${1:-} ;;
+      --format=*) fmt=${a#*=} ;;
+      --json) fmt=json ;;
+      --out|-o) shift; out=${1:-}; [ -n "$out" ] || die "--out 뒤에 파일 이름이 필요합니다 (- 는 표준출력)." ;;
+      --out=*) out=${a#*=} ;;
+      --open) opn=1 ;;
+      --no-open) opn=0 ;;
+      --init) init=1 ;;
+      -h|--help) say "$GRAPH_CHECK_USAGE"; return 0 ;;
+      -*) die "알 수 없는 옵션: $a"$'\n'"$GRAPH_CHECK_USAGE" ;;
+      *) [ -z "$dir" ] || die "폴더는 하나만 줄 수 있습니다: $dir, $a"; dir=$a ;;
+    esac
+    shift
+  done
+  dir=${dir:-.}
+  [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
+  top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
+  prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
+  repo=$(graph_repo_name "$dir" "$top")
+  case "$rules" in "") rules="$top/$GRAPH_RULES_FILE" ;; /*) ;; *) rules="$PWD/$rules" ;; esac
+  if [ -n "$init" ]; then graph_rules_init "$rules"; return 0; fi
+  [ -f "$rules" ] || die "규칙 파일이 없습니다: $(tilde "$rules")"$'\n'"  예시로 시작하기: gitch graph check --init"
+  case "$rules" in "$top"/*) shown=${rules#"$top"/} ;; *) shown=$(tilde "$rules") ;; esac   # 결과에 적는 이름 — 저장소 안이면 상대 경로
+  case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
+  if [ -z "$fmt" ]; then
+    case "$(lower "$out")" in
+      *.json) fmt=json ;; *.html|*.htm) fmt=html ;; *.txt) fmt=text ;;
+      *) if fancy_out; then fmt=text; else fmt=json; fi ;;
+    esac
+  fi
+  fmt=$(lower "$fmt")
+  case "$fmt" in text|json|html) ;; *) die "--format 은 text, json, html 중 하나입니다: $fmt" ;; esac
+  [ -z "$out" ] && case "$fmt" in html) out="${TMPDIR:-/tmp}"; out="${out%/}/gitch-graph/$repo-check.html" ;; *) out=- ;; esac
+
+  cd "$top" || die "저장소로 이동하지 못했습니다: $top"
+  # 규칙 글 검사 — 틀린 줄이 있으면 무엇이 틀렸는지 모두 알리고 멈춘다
+  rels=$(awk '{ sub(/#.*/, ""); gsub(/[ \t]/, "") } /^\[[a-z]+\]$/ { s = substr($0, 2, length($0) - 2); next } $0 != "" { u[s == "" ? "files" : s] = 1 } END { for (k in u) print k }' "$rules" | LC_ALL=C sort | tr '\n' ' ')
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/gitch-graph.XXXXXX") || die "임시 폴더를 만들지 못했습니다."
+  GRAPH_TMP=$tmp
+  trap 'rm -rf "$GRAPH_TMP"' EXIT
+  awk -v rules="$rules" -v rel="__syntax__" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_check)" /dev/null > "$tmp/syntax"
+  if grep -q '^X' "$tmp/syntax"; then
+    err "규칙 파일에 틀린 줄이 있습니다: $(tilde "$rules")"
+    awk -F'\t' '$1 == "X" { printf "  %s번 줄: %s\n", $2, $3 }' "$tmp/syntax" >&2
+    exit 1
+  fi
+  if [ -n "$base" ]; then
+    bsha=$(git rev-parse --short "$base^{commit}" 2>/dev/null) || die "커밋이 아닙니다: $base"; bname=$base
+  fi
+  fancy_out && [ "$fmt" != json ] && fancy=1
+  [ -n "$fancy" ] && printf '  %s' "${DIM}의존 규칙 검사하는 중…${RESET}"
+  git ls-files -z > "$tmp/files.z" && tr '\0' '\n' < "$tmp/files.z" > "$tmp/files" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
+  [ -n "$bsha" ] && { mkdir -p "$tmp/b"; graph_base_extract "$bsha" "$tmp/b" || die "기준 커밋의 파일을 풀지 못했습니다: $bsha"; }
+  : > "$tmp/v"
+  for rel in $rels; do
+    if [ -n "$bsha" ]; then   # 비교할 때는 양쪽을 같은 방법으로
+      GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' graph_side "$tmp" "$rel" "$prefix" "" "$repo" "" > "$tmp/rec.$rel" || die "그래프를 만들지 못했습니다 ($rel)."
+      GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' graph_side "$tmp/b" "$rel" "$prefix" "" "$repo" "" "$bsha" > "$tmp/brec.$rel" || die "그래프를 만들지 못했습니다 ($rel, $bsha)."
+      awk -v rules="$rules" -v rel="$rel" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_check)" "$tmp/brec.$rel" | awk -F'\t' -v r="$rel" '$1 == "V" { print r "\t" $4 "\t" $6 "\t" $7 }' > "$tmp/old.$rel"
+    else
+      graph_side "$tmp" "$rel" "$prefix" "" "$repo" "" > "$tmp/rec.$rel" || die "그래프를 만들지 못했습니다 ($rel)."
+      : > "$tmp/old.$rel"
+    fi
+    # 줄: 관계 세기 줄번호 규칙 종류 시작 끝 상태(new · existing) — 기준에도 있던 위반(같은 규칙 글 · 같은 끝점)은 existing
+    awk -v rules="$rules" -v rel="$rel" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_check)" "$tmp/rec.$rel" | \
+      awk -F'\t' -v r="$rel" -v old="$tmp/old.$rel" 'BEGIN { while ((getline l < old) > 0) O[l] = 1 }
+        $1 == "V" { print r "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7 "\t" (((r "\t" $4 "\t" $6 "\t" $7) in O) ? "existing" : "new") }' >> "$tmp/v"
+  done
+  [ -n "$fancy" ] && printf '\r\033[K'
+  n_rules=$(awk -F'\t' '$1 == "R" { n += $2 } END { print n + 0 }' "$tmp/syntax")
+  n_err=$(awk -F'\t' '$8 != "existing" && $2 == "error" { e++ } END { print e + 0 }' "$tmp/v")   # 기준에도 있던 위반 · 경고는 실패로 세지 않는다
+  case "$fmt" in
+    text) graph_check_text "$tmp/v" "$shown" "$n_rules" "$bname" "$bsha" > "$tmp/out" ;;
+    json) graph_check_json "$tmp/v" "$shown" "$bsha" "$n_err" > "$tmp/out" ;;
+    html)
+      { printf '{"initial":"%s","views":{' "${rels%% *}"; a=0
+        for rel in $rels; do
+          [ $a -gt 0 ] && printf ','
+          graph_meta "$rel" "$repo" "$prefix" ""
+          printf '"%s":' "$rel"; awk "${GRAPH_META[@]}" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec.$rel"; a=$((a + 1))
+        done
+        printf '},"rules":'; graph_check_json "$tmp/v" "$shown" "$bsha" "$n_err"; printf '}\n'; } | graph_html > "$tmp/out" ;;
+  esac
+  graph_write "$tmp/out" "$out" "$fmt" "$opn" "$fancy" || return 1
+  [ "$out" = - ] || { say "  $(tilde "$out")"; say "GRAPH_FILE=$out"; }
+  [ "$n_err" -eq 0 ]
+}
+
+graph_rules_eval() {   # $1 임시 폴더(rec.files · rec.modules) $2 규칙 파일 → 규칙 결과 JSON (html 분석 창의 「규칙 위반」)
+  local rel
+  : > "$1/v"
+  for rel in files modules; do
+    [ -f "$1/rec.$rel" ] || continue
+    awk -v rules="$2" -v rel="$rel" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_check)" "$1/rec.$rel" | \
+      awk -F'\t' -v r="$rel" '$1 == "V" { print r "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7 "\tnew" }' >> "$1/v"
+  done
+  graph_check_json "$1/v" "$2" "" "$(awk -F'\t' '$2 == "error" { n++ } END { print n + 0 }' "$1/v")"
+}
+
+graph_check_text() {   # $1 위반 줄들 $2 규칙 파일 $3 규칙 수 $4 기준 이름 $5 기준 커밋 → 사람이 읽는 결과
+  awk -F'\t' -v rules="$(tilde "$2")" -v nr="$3" -v base="$4" -v bsha="$5" -v green="$GREEN" -v red="$RED" -v yellow="$YELLOW" -v dim="$DIM" -v bold="$BOLD" -v reset="$RESET" '
+    function show(x) { gsub("\034", " · ", x); return x }
+    { line = sprintf("%s · %s번 줄 「%s」: %s", $1, $3, $4, ($5 == "no-cycles" ? "순환 " show($6) : $6 " → " $7)) }
+    $8 == "existing" { O[++no] = line; next }
+    $2 == "error" { E[++ne] = line; next }
+    { W[++nw] = line }
+    END {
+      printf "%s의존 규칙 검사%s (%s · 규칙 %d개%s)\n", bold, reset, rules, nr, (bsha != "" ? " · 기준 " base "(" bsha ")" : "")
+      for (i = 1; i <= ne; i++) printf "  %s✘ %s%s\n", red, E[i], reset
+      for (i = 1; i <= nw; i++) printf "  %s! %s (이름만으로 추정한 연결)%s\n", yellow, W[i], reset
+      if (no) { printf "  %s기준에도 있던 위반 %d개 — 실패로 세지 않음%s\n", dim, no, reset; for (i = 1; i <= no && i <= 20; i++) printf "  %s= %s%s\n", dim, O[i], reset }
+      if (ne) printf "%s✘ 위반 %d개%s%s\n", red, ne, (nw ? sprintf(" · 경고 %d개", nw) : ""), reset
+      else printf "%s✔ 위반 없음%s%s\n", green, (nw ? sprintf(" (경고 %d개)", nw) : ""), reset
+    }' "$1"
+}
+
+graph_check_json() {   # $1 위반 줄들 $2 규칙 파일 $3 기준 커밋 $4 위반 수 → {"file", "base", "ok", "violations": […]}
+  awk -F'\t' -v rules="$2" -v base="$3" -v nerr="$4" "$(graph_awk_lib)"'
+    function list(s,   n, a, i, r) { n = split(s, a, "\034"); r = ""; for (i = 1; i <= n; i++) r = r (i > 1 ? "," : "") jstr(a[i]); return r }
+    {
+      v = "{\"relation\":" jstr($1) ",\"severity\":" jstr($2) ",\"line\":" ($3 + 0) ",\"rule\":" jstr($4) ",\"kind\":" jstr($5)
+      if ($5 == "no-cycles") v = v ",\"nodes\":[" list($6) "]"
+      else v = v ",\"source\":" jstr($6) ",\"target\":" jstr($7)
+      V[++n] = v ",\"existing\":" ($8 == "existing" ? "true" : "false") "}"
+    }
+    END {
+      printf "{\"tool\":\"gitch graph check\",\"file\":%s,\"base\":%s,\"ok\":%s,\"violations\":[", jstr(rules), (base == "" ? "null" : jstr(base)), (nerr + 0 == 0 ? "true" : "false")
+      for (i = 1; i <= n; i++) printf "%s\n  %s", (i > 1 ? "," : ""), V[i]
+      printf "%s]}\n", (n ? "\n" : "")
+    }' "$1"
 }
 
 # awk 프로그램은 함수 안 heredoc 에 둔다 — 최상위 변수로 읽으면 gitch 를 부를 때마다(훅 포함) 수십 KB 를 한 글자씩 읽게 된다
@@ -4709,6 +5045,25 @@ function sortkeys(arr, out,   k, n, i, j, t) {   # 배열 키를 정렬해 out[1
   return n
 }
 function clean(s) { gsub(/[\t\r\n]/, " ", s); return s }
+function jarr(s,   n, a, i, r) { n = split(s, a, "\034"); r = ""; for (i = 1; i <= n; i++) r = r (i > 1 ? "," : "") jstr(a[i]); return r }   # "a\034b" → "a","b"
+function globre(g,   r, i, c, n, br) {   # Tuist glob → 정규식: ** 는 폴더 여럿, * 는 한 마디 안, {a,b} 는 둘 중 하나
+  r = ""; n = length(g); br = 0
+  for (i = 1; i <= n; i++) {
+    c = substr(g, i, 1)
+    if (c == "*") {
+      if (substr(g, i + 1, 2) == "*/") { r = r "(.*/)?"; i += 2 }
+      else if (substr(g, i + 1, 1) == "*") { r = r ".*"; i++ }
+      else r = r "[^/]*"
+    }
+    else if (c == "?") r = r "[^/]"
+    else if (c == "{") { r = r "("; br++ }
+    else if (c == "}" && br) { r = r ")"; br-- }
+    else if (c == "," && br) r = r "|"
+    else if (index(".+()^$|[]{}\\", c)) r = r "\\" c
+    else r = r c
+  }
+  return "^" r "$"
+}
 BEGIN { if (langs != "") { NLS = split(langs, LSA, ","); for (LSI = 1; LSI <= NLS; LSI++) LANGOK[LSA[LSI]] = 1 } }
 function langok(p) { return langs == "" || (langof(p) in LANGOK) }   # --lang 으로 고른 언어의 파일인지
 function ecook(eco) {   # modules 의 생태계가 고른 언어에 맞는지
@@ -5511,24 +5866,6 @@ function modsrc(name, g, d,   pre) {   # 모듈 name 의 소스 glob(매니페�
   MODRE[MODN] = (pre == g) ? "" : globre(g)
   if (!(name in MODDIR)) { MODDIR[name] = pre; sub(/\/$/, "", MODDIR[name]) }
 }
-function globre(g,   r, i, c, n, br) {   # Tuist glob → 정규식: ** 는 폴더 여럿, * 는 한 마디 안, {a,b} 는 둘 중 하나
-  r = ""; n = length(g); br = 0
-  for (i = 1; i <= n; i++) {
-    c = substr(g, i, 1)
-    if (c == "*") {
-      if (substr(g, i + 1, 2) == "*/") { r = r "(.*/)?"; i += 2 }
-      else if (substr(g, i + 1, 1) == "*") { r = r ".*"; i++ }
-      else r = r "[^/]*"
-    }
-    else if (c == "?") r = r "[^/]"
-    else if (c == "{") { r = r "("; br++ }
-    else if (c == "}" && br) { r = r ")"; br-- }
-    else if (c == "," && br) r = r "|"
-    else if (index(".+()^$|[]{}\\", c)) r = r "\\" c
-    else r = r c
-  }
-  return "^" r "$"
-}
 function swift_mods(p,   i, out) {   # 파일이 속한 모듈들 "\034A\034B" (여러 타깃이 같은 폴더를 쓰기도 한다)
   out = ""
   for (i = 1; i <= MODN; i++) {
@@ -6067,6 +6404,7 @@ graph_awk_json() {
 BEGIN { FS = "\t" }
 $1 == "0" { if ($2 == "note") NOTE[++NN] = $3; else ST[++NS] = jstr($2) ":" $3; next }
 $1 == "1" { NOD[++NNODE] = "{\"id\":" jstr($2) ",\"kind\":" jstr($3) ",\"label\":" jstr($4) ",\"group\":" jstr($5) ($6 != "" ? "," $6 : "") "}"; next }
+$1 == "3" { CY[$2] = CY[$2] (CY[$2] != "" ? "," : "") "{\"nodes\":[" jarr($4) "]" ($3 == "h" ? ",\"heuristic\":true" : "") "}"; next }
 $1 == "2" {
   EDG[++NEDGE] = "{\"source\":" jstr($2) ",\"target\":" jstr($3) ",\"kind\":" jstr($4) ",\"weight\":" ($5 + 0) ($6 == "h" ? ",\"heuristic\":true" : "") ($7 != "" ? "," $7 : "") "}"
   if ($6 == "h") NH++
@@ -6085,12 +6423,14 @@ END {
   print "  \"lang\": " (langs == "" ? "null" : "[" s "]") ","
   print "  \"commit\": " (commit == "" ? "null" : jstr(commit)) ","
   print "  \"generated\": " jstr(when) ","
+  if (diffbase != "") print "  \"diff\": {\"base\": " jstr(diffbase) ", \"baseName\": " jstr(diffname) ", \"head\": \"worktree\"},"
   s = "\"nodes\":" (NNODE + 0) ",\"edges\":" (NEDGE + 0) ",\"heuristicEdges\":" (NH + 0)
   for (i = 1; i <= NS; i++) s = s "," ST[i]
   print "  \"stats\": {" s "},"
   s = ""
   for (i = 1; i <= NN; i++) s = s (i > 1 ? ", " : "") jstr(NOTE[i])
   print "  \"notes\": [" s "],"
+  if (diffbase != "") print "  \"cycles\": {\"new\": [" CY["new"] "], \"gone\": [" CY["gone"] "]},"
   print "  \"nodes\": ["
   for (i = 1; i <= NNODE; i++) print "    " NOD[i] (i < NNODE ? "," : "")
   print "  ],"
@@ -6098,6 +6438,231 @@ END {
   for (i = 1; i <= NEDGE; i++) print "    " EDG[i] (i < NEDGE ? "," : "")
   print "  ]"
   print "}"
+}
+AWKEOF
+}
+
+# 순환 찾기(diff · check 공용): arc(그래프, 시작, 끝) 로 쌓고 scc(그래프) — 반복형 Tarjan, 큰 그래프에서도 재귀 깊이 없이
+graph_awk_scc() {
+  cat <<'AWKEOF'
+function arc(g, s, t) {
+  if (!((g, s) in SEEN)) { SEEN[g, s] = 1; NLS[g, ++NNL[g]] = s }
+  if (!((g, t) in SEEN)) { SEEN[g, t] = 1; NLS[g, ++NNL[g]] = t }
+  ARC[g, s, ++ARCN[g, s]] = t
+}
+function scc(g,   i, r, sp, n, t, cnt, ns, x, c) {
+  cnt = 0; ns = 0; NC[g] = 0
+  for (i = 1; i <= NNL[g]; i++) {
+    r = NLS[g, i]
+    if ((g, r) in IDX) continue
+    sp = 1; SN[1] = r; SJ[1] = 0
+    IDX[g, r] = LOW[g, r] = ++cnt; STK[++ns] = r; ONS[g, r] = 1
+    while (sp > 0) {
+      n = SN[sp]
+      if (SJ[sp] < ARCN[g, n]) {
+        t = ARC[g, n, ++SJ[sp]]
+        if (!((g, t) in IDX)) { IDX[g, t] = LOW[g, t] = ++cnt; STK[++ns] = t; ONS[g, t] = 1; SN[++sp] = t; SJ[sp] = 0 }
+        else if (ONS[g, t] && IDX[g, t] < LOW[g, n]) LOW[g, n] = IDX[g, t]
+      } else {
+        if (LOW[g, n] == IDX[g, n]) {
+          c = ++NC[g]; CS[g, c] = 0
+          do { x = STK[ns--]; ONS[g, x] = 0; COMP[g, x] = c; CM[g, c, ++CS[g, c]] = x } while (x != n)
+        }
+        if (--sp > 0 && LOW[g, n] < LOW[g, SN[sp]]) LOW[g, SN[sp]] = LOW[g, n]
+      }
+    }
+  }
+}
+function ckey(g, c,   i, n, M, j, t, out) {   # 순환의 노드를 정렬해 \034 로 이은 키
+  n = CS[g, c]
+  for (i = 1; i <= n; i++) M[i] = CM[g, c, i]
+  for (i = 2; i <= n; i++) { t = M[i]; for (j = i - 1; j >= 1 && M[j] > t; j--) M[j + 1] = M[j]; M[j + 1] = t }
+  out = M[1]; for (i = 2; i <= n; i++) out = out "\034" M[i]
+  return out
+}
+function cyctrust(g, c, gt,   i, x, cc) {   # 확실한 연결(정확 + 모듈로 확인한 추정)만으로도 한 순환인가
+  cc = ""
+  for (i = 1; i <= CS[g, c]; i++) {
+    x = CM[g, c, i]
+    if (!((gt, x) in COMP)) return 0
+    if (cc == "") cc = COMP[gt, x]; else if (COMP[gt, x] != cc) return 0
+  }
+  return CS[gt, cc] > 1
+}
+function trusted(h, attrs) { return h != "h" || index(attrs, "\"checked\":true") > 0 }
+AWKEOF
+}
+
+# diff: 기준(첫 파일) · 지금(둘째 파일)의 레코드 → 합친 레코드. 바뀐 노드 · 연결에 "status", 순환 비교는 3 레코드(새 · 없어짐)
+graph_awk_merge() {
+  cat <<'AWKEOF'
+BEGIN { FS = "\t" }
+FNR == 1 { side++ }
+$1 == "0" { if (side == 2) print; next }
+$1 == "1" { if (side == 1) BN[$2] = $0; else AN[$2] = $0; next }
+$1 == "2" {
+  k = $2 "\034" $3 "\034" $4
+  if (side == 1) BE[k] = $0; else AE[k] = $0
+  arc(side, $2, $3); if (trusted($6, $7)) arc(side + 2, $2, $3)
+  next
+}
+END {
+  for (k in AN) {
+    if (!(k in BN)) { print stat(AN[k], 6, "added"); NADD++; continue }
+    if (rel == "tree") {   # 폴더는 그대로여도 파일 수 · 크기가 바뀐다
+      df = num(AN[k], "files") - num(BN[k], "files"); db = num(AN[k], "bytes") - num(BN[k], "bytes")
+      if (df || db) { print stat(AN[k], 6, "changed", "\"filesDelta\":" df ",\"bytesDelta\":" db); NCHG++; continue }
+    }
+    print AN[k]
+  }
+  for (k in BN) if (!(k in AN)) { print stat(BN[k], 6, "removed"); NRM++ }
+  for (k in AE) if (k in BE) print AE[k]; else { print stat(AE[k], 7, "added"); EA++; if (fld(AE[k], 6) == "h") EAH++ }
+  for (k in BE) if (!(k in AE)) { print stat(BE[k], 7, "removed"); ER++; if (fld(BE[k], 6) == "h") ERH++ }
+  scc(1); scc(2); scc(3); scc(4)
+  for (c = 1; c <= NC[2]; c++) if (CS[2, c] > 1) AK[ckey(2, c)] = c
+  for (c = 1; c <= NC[1]; c++) if (CS[1, c] > 1) BK[ckey(1, c)] = c
+  for (key in AK) if (!(key in BK)) { print "3\tnew\t" (cyctrust(2, AK[key], 4) ? "" : "h") "\t" key; CN++ }
+  for (key in BK) if (!(key in AK)) { print "3\tgone\t" (cyctrust(1, BK[key], 3) ? "" : "h") "\t" key; CG++ }
+  if (rel == "tree") printf "0\tchangedNodes\t%d\n", NCHG
+  printf "0\taddedNodes\t%d\n0\tremovedNodes\t%d\n0\taddedEdges\t%d\n0\tremovedEdges\t%d\n0\taddedGuesses\t%d\n0\tremovedGuesses\t%d\n0\tnewCycles\t%d\n0\tgoneCycles\t%d\n", NADD, NRM, EA, ER, EAH, ERH, CN, CG
+}
+function fld(rec, f,   F) { split(rec, F, "\t"); return F[f] }
+function num(rec, key,   F, a) { split(rec, F, "\t"); if (!match(F[6], "\"" key "\":-?[0-9]+")) return 0; a = substr(F[6], RSTART, RLENGTH); sub(/^[^:]*:/, "", a); return a + 0 }
+function stat(rec, f, s, extra,   F, n, i, out) {   # 레코드의 f 번째 칸(속성)에 "status"(와 extra)를 더한다
+  n = split(rec, F, "\t")
+  for (i = n + 1; i <= f; i++) F[i] = ""
+  if (n < f) n = f
+  F[f] = (F[f] == "" ? "" : F[f] ",") "\"status\":\"" s "\"" (extra != "" ? "," extra : "")
+  out = F[1]; for (i = 2; i <= n; i++) out = out "\t" F[i]
+  return out
+}
+AWKEOF
+}
+
+# diff --format json: 바뀐 것만 — status 가 있는 노드 · 연결, 바뀐 연결의 끝점 노드, 통계 · 안내 · 순환
+graph_awk_diffonly() {
+  cat <<'AWKEOF'
+$1 == "0" || $1 == "3" { print; next }
+$1 == "1" { N[$2] = $0; if (index($6, "\"status\":")) KEEP[$2] = 1; next }
+$1 == "2" { if (index($7, "\"status\":")) { print; KEEP[$2] = 1; KEEP[$3] = 1 }; next }
+END { for (k in KEEP) if (k in N) print N[k] }
+AWKEOF
+}
+
+# diff 요약(사람용): 합친 레코드 → 몇 줄
+graph_awk_difftext() {
+  cat <<'AWKEOF'
+$1 == "0" { S[$2] = $3; next }
+$1 == "1" { L[$2] = $4; if (index($6, "\"status\":\"changed\"")) CHG[++NCH] = $2 "\t" jnum($6, "filesDelta") "\t" jnum($6, "bytesDelta"); next }
+$1 == "2" { if (index($7, "\"status\":\"added\"")) ADD[++NAE] = $0; else if (index($7, "\"status\":\"removed\"")) REM[++NRM] = $0; next }
+$1 == "3" { if ($2 == "new") CNEW[++NCN] = $0; else CGONE[++NCG] = $0; next }
+function nm(id) { return (rel == "modules" && (id in L)) ? L[id] : id }
+function jnum(a, key,   v) { if (!match(a, "\"" key "\":-?[0-9]+")) return 0; v = substr(a, RSTART, RLENGTH); sub(/^[^:]*:/, "", v); return v + 0 }
+function sz(b,   m) { m = b < 0 ? -b : b; return (b < 0 ? "−" : "+") (m >= 1048576 ? sprintf("%.1f MB", m / 1048576) : m >= 1024 ? sprintf("%d KB", m / 1024) : m " B") }
+function kname(k) { return k == "import" ? "import" : k == "type-ref" ? "타입 이름" : k == "ref" ? "참조" : k == "depends" ? "의존" : k == "contains" ? "포함" : k == "reexport" ? "다시 내보내기" : k == "dynamic-import" ? "동적 import" : k }
+function edge(rec, mark, col,   F) { split(rec, F, "\t"); printf "    %s%s %s → %s%s %s(%s%s)%s\n", col, mark, nm(F[2]), nm(F[3]), reset, dim, kname(F[4]), (F[6] != "h" ? "" : index(F[7], "\"checked\":true") ? " · 모듈 확인" : " · 추정"), reset }
+function cyc(rec, mark, col,   F, n, a, i, s) {
+  split(rec, F, "\t"); n = split(F[4], a, "\034"); s = ""
+  for (i = 1; i <= n && i <= 8; i++) s = s (i > 1 ? " · " : "") nm(a[i])
+  if (n > 8) s = s " 외 " (n - 8) "개"
+  printf "    %s%s %s%s %s(%d개%s)%s\n", col, mark, s, reset, dim, n, (F[3] == "h" ? ", 추정 연결 포함" : ""), reset
+}
+END {
+  printf "%s의존 비교 (%s)%s: %s(%s) → 지금 작업 트리\n", bold, relword, reset, base, bsha
+  printf "  연결 %s+%d%s %s−%d%s", green, S["addedEdges"], reset, red, S["removedEdges"], reset
+  if (S["addedGuesses"] + S["removedGuesses"]) printf " %s(그중 추정 +%d −%d)%s", dim, S["addedGuesses"], S["removedGuesses"], reset
+  printf " · %s +%d −%d\n", (rel == "modules" ? "모듈" : rel == "tree" ? "폴더 · 파일" : "노드"), S["addedNodes"], S["removedNodes"]
+  if (NCH) {
+    printf "  폴더 크기 변화 %d곳\n", NCH
+    for (i = 1; i <= NCH && i <= 40; i++) { split(CHG[i], C, "\t"); printf "    ~ %s %s파일 %s%d · 크기 %s%s\n", C[1], dim, (C[2] >= 0 ? "+" : ""), C[2], sz(C[3]), reset }
+  }
+  if (NCN) { printf "  %s새 순환 %d개%s\n", red, NCN, reset; for (i = 1; i <= NCN; i++) cyc(CNEW[i], "↻", red) }
+  if (NCG) { printf "  %s없어진 순환 %d개%s\n", green, NCG, reset; for (i = 1; i <= NCG; i++) cyc(CGONE[i], "✓", green) }
+  if (NAE) { printf "  더한 연결\n"; for (i = 1; i <= NAE && i <= 40; i++) edge(ADD[i], "+", green); if (NAE > 40) printf "    %s… %d개 더%s\n", dim, NAE - 40, reset }
+  if (NRM) { printf "  뺀 연결\n"; for (i = 1; i <= NRM && i <= 40; i++) edge(REM[i], "−", red); if (NRM > 40) printf "    %s… %d개 더%s\n", dim, NRM - 40, reset }
+  if (!NAE && !NRM && !NCN && !NCG && !NCH && !S["addedNodes"] && !S["removedNodes"]) printf "  %s바뀐 의존이 없습니다%s\n", dim, reset
+  else printf "  %s자세히: --format html (그래프) · --format json (AI · 스크립트)%s\n", dim, reset
+}
+AWKEOF
+}
+
+# check: 규칙 파일(rules)의 [rel] 절을 레코드에 맞춘다. 줄: R<TAB>규칙 수 · V<TAB>세기<TAB>줄<TAB>규칙 글<TAB>종류<TAB>시작(순환이면 노드들)<TAB>끝 · X<TAB>줄<TAB>틀린 까닭
+graph_awk_check() {
+  cat <<'AWKEOF'
+BEGIN {
+  FS = "\t"; sec = "files"
+  while ((getline line < rules) > 0) {
+    ln++
+    sub(/\r$/, "", line); sub(/(^|[ \t])#.*$/, "", line); line = trim(line)
+    if (line == "") continue
+    if (line ~ /^\[[^]]*\]$/) {
+      sec = trim(substr(line, 2, length(line) - 2))
+      if (sec != "files" && sec != "modules") print "X\t" ln "\t모르는 절 [" sec "] — [files] 나 [modules] 를 씁니다"
+      continue
+    }
+    kind = line; sub(/[ \t].*$/, "", kind); rest = trim(substr(line, length(kind) + 1))
+    if (kind == "forbid" || kind == "allow") {
+      if (!index(rest, "->")) { print "X\t" ln "\t" kind " 에는 「A -> B」가 필요합니다"; continue }
+      a = trim(substr(rest, 1, index(rest, "->") - 1)); b = trim(substr(rest, index(rest, "->") + 2))
+      if (a == "" || b == "") { print "X\t" ln "\t" kind " 의 양쪽 패턴이 비었습니다"; continue }
+    } else if (kind == "layers") {
+      n = split(rest, LP, ">")
+      if (n < 2) { print "X\t" ln "\tlayers 에는 「A > B」처럼 두 층 이상이 필요합니다"; continue }
+      for (i = 1; i <= n; i++) if (trim(LP[i]) == "") { print "X\t" ln "\tlayers 에 빈 층이 있습니다"; n = 0; break }
+      if (!n) continue
+    } else if (kind != "no-cycles") { print "X\t" ln "\t모르는 규칙 「" kind "」 — forbid · allow · layers · no-cycles"; continue }
+    nall++
+    if (sec != rel) continue
+    nr++; RK[nr] = kind; RL[nr] = ln; RT[nr] = line
+    if (kind == "forbid" || kind == "allow") { RA[nr] = a; RB[nr] = b }
+    else if (kind == "layers") { RN[nr] = n; for (i = 1; i <= n; i++) RLY[nr, i] = trim(LP[i]) }
+    else RA[nr] = rest
+  }
+  close(rules)
+  print "R\t" nall
+}
+$1 == "1" { NLB[$2] = $4; next }
+$1 == "2" { if ($4 == "contains") next; ne++; ES[ne] = $2; ET[ne] = $3; ETR[ne] = trusted($6, $7); next }
+END {
+  for (e = 1; e <= ne; e++) {
+    s = ES[e]; t = ET[e]; ok = 0
+    for (r = 1; r <= nr; r++) if (RK[r] == "allow" && pm(RA[r], s) != "" && pm(RB[r], t) != "") { ok = 1; break }
+    if (ok) continue
+    for (r = 1; r <= nr; r++) {
+      if (RK[r] == "forbid") {
+        if ((ia = pm(RA[r], s)) == "" || (ib = pm(RB[r], t)) == "") continue
+        if (RA[r] == RB[r] && ia == ib) continue        # 같은 패턴이면 같은 곳(같은 모듈 · 같은 폴더)끼리는 괜찮다
+        viol(r, e)
+      } else if (RK[r] == "layers") {
+        li = layer(r, s); lj = layer(r, t)
+        if (li && lj && li > lj) viol(r, e)
+      }
+    }
+  }
+  for (r = 1; r <= nr; r++) if (RK[r] == "no-cycles") cycles(r)
+}
+function viol(r, e) { print "V\t" (ETR[e] ? "error" : "warning") "\t" RL[r] "\t" RT[r] "\t" RK[r] "\t" ES[e] "\t" ET[e] }
+function layer(r, x,   i) { for (i = 1; i <= RN[r]; i++) if (pm(RLY[r, i], x) != "") return i; return 0 }
+function pm(pat, id,   k, re, lb, i, r) {   # 패턴이 맞으면 맞은 부분(같은 곳인지 볼 때), 아니면 ""
+  k = pat SUBSEP id
+  if (k in PMC) return PMC[k]
+  if (!(pat in PRE)) PRE[pat] = globre(pat ~ /\/$/ ? pat "**" : pat)
+  re = PRE[pat]; r = ""
+  if (rel == "modules") {
+    lb = (id in NLB) ? NLB[id] : id
+    if (lb ~ re) r = lb; else if (id ~ re) r = id
+  } else if (id ~ re) r = id
+  else for (i = 1; i <= length(id); i++) if (substr(id, i, 1) == "/" && substr(id, 1, i - 1) ~ re) { r = substr(id, 1, i - 1); break }   # 폴더가 맞으면 그 아래 전부
+  return (PMC[k] = r)
+}
+function cycles(r,   e, g, gt, c) {
+  g = 100 + 2 * r; gt = g + 1
+  for (e = 1; e <= ne; e++) {
+    if (RA[r] != "" && (pm(RA[r], ES[e]) == "" || pm(RA[r], ET[e]) == "")) continue
+    arc(g, ES[e], ET[e]); if (ETR[e]) arc(gt, ES[e], ET[e])
+  }
+  scc(g); scc(gt)
+  for (c = 1; c <= NC[g]; c++) if (CS[g, c] > 1) print "V\t" (cyctrust(g, c, gt) ? "error" : "warning") "\t" RL[r] "\t" RT[r] "\tno-cycles\t" ckey(g, c) "\t"
 }
 AWKEOF
 }
@@ -7782,6 +8347,8 @@ PR / MR
   gitch report [--today|--days N]          gitch/AI 작업 기록
   gitch graph [files|modules|changes|tree] 구조 그래프: import / 모듈 의존 / 같이 바뀌는 파일 / 폴더
     [--format html|json|svg|png] [--out 파일] [--lang 언어] [폴더]  터미널은 html, 스크립트·AI 는 json (--help)
+  gitch graph diff [기준]      이 브랜치에서 더하거나 뺀 의존 · 새 순환 (기본: 기본 브랜치와 갈라진 곳)
+  gitch graph check            .gitch/graph.rules 의 의존 규칙 검사, 위반이면 종료 코드 1 (--init 으로 예시)
 
 계정/설정
   gitch list [--check] [--json]            등록된 계정

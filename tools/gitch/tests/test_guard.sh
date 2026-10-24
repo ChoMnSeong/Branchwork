@@ -250,6 +250,10 @@ test_guard_graph_out_and_allowlist() {
   expect deny 'gitch graph --out ~/.ssh/config'
   expect deny 'gitch graph tree -o ~/.gitconfig'
   expect deny 'gitch graph --out=~/.config/gitsw/config'
+  expect deny 'gitch graph diff main --out ~/.ssh/config'
+  expect deny 'gitch graph check --init --rules ~/.gitconfig'
+  expect none 'gitch graph check --rules ~/.gitconfig'          # 읽기만 한다
+  expect none 'gitch graph check --init'
   install_quiet
   jq -e '.permissions.allow | index("Bash(gitch graph:*)")' "$HOME/.claude/settings.json" >/dev/null || fail "gitch graph 가 읽기 명령 허용 목록에 없음"
 }
