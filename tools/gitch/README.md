@@ -72,6 +72,7 @@ Git for Windows(Git Bash)만 있으면 된다. gitch 는 bash 스크립트라 Gi
 | `protect` | 사이드바 브랜치 우클릭 — 보호된 브랜치에는 방패 표시 |
 | `c` · `p` · `pl` · `b` · `wt` · `pr` · `ci` · `continue` · `abort` | 앱의 커밋 · push · pull · 브랜치 · 워크트리 · PR · CI 화면(앱도 시스템 git 을 써서 gitch 훅이 그대로 걸린다) |
 | `graph` | 저장소 메뉴 › 구조 그래프 — 맥: 툴바의 폴더 아이콘 · 메뉴 막대 Repository, Windows: 툴바의 폴더 아이콘 · ≡ 메뉴. 관계를 고르면 html 을 만들어 기본 브라우저로 연다(아래 「구조 그래프」) |
+| `graph diff` · `graph check` | 같은 저장소 메뉴의 「이 브랜치에서 바뀐 의존」 — 관계를 고르면 기본 브랜치와 갈라진 곳과 비교한 페이지를 연다(「다른 기준과 비교…」로 브랜치 · 태그를 고르면 그것과 갈라진 곳과). 「의존 규칙 검사…」 — 결과 창에 위반 · 경고 목록, 그래프로 보기 · 규칙 고치기, `.gitch/graph.rules` 가 없으면 `--init` 으로 만들지 묻는다. `check --base` · `--lang` · `--no-external` 은 터미널에서 |
 
 ## 예전 이름 gitsw
 

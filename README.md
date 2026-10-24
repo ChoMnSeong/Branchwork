@@ -169,7 +169,7 @@
 - **도구**(설정 > 도구): git · Claude Code · Codex · Gemini CLI · gh · 터미널 셸을 자동으로 찾고, 못 찾으면 **불러오기**로 직접 지정. Windows 는 WSL 안의 도구도
 - **gitch**(맥 · Windows, 설정 > CLI): 여러 Git 계정을 섞이지 않게 쓰는 셸 도구를 앱에 함께 넣었습니다(예전 이름 gitsw). 설치하면 저장소마다 계정을 잠그고, 폴더 · 조직 규칙으로 계정을 고르고, 잘못된 작성자 · 비밀값 · 강제 push 를 git 훅에서 막습니다(터미널 · AI 에이전트 · Gitrochi 모두). 커밋 칸 위에 이 저장소의 계정과 커밋 · push 전 점검이 보이고, 계정 이름을 눌러 계정을 바꿉니다. Windows 는 Git for Windows 의 Git Bash 로 돌고, PowerShell · cmd 에서도 `gitch` 로 부릅니다 — [tools/gitch](tools/gitch/README.md)
   - **CLI 만**(앱 없이): `curl -fsSL https://raw.githubusercontent.com/Gitrochi/Gitrochi/main/tools/gitch/install.sh | bash` — 릴리스의 gitch 를 SHA-256 으로 확인해 `~/.local/share/gitch/gitch` 에 둡니다. 계정 추가와 `gitch install` 은 설치기가 보여 주는 대로 직접 하고, 업데이트는 `gitch self-update`
-  - **구조 그래프**(저장소 메뉴): 파일 import · 모듈 의존 · 같이 바뀌는 파일 · 폴더 구조 중 하나를 고르면 `gitch graph` 가 그린 한 페이지를 기본 브라우저로 엽니다(계정 설정 없이도 됨)
+  - **구조 그래프**(저장소 메뉴): 파일 import · 모듈 의존 · 같이 바뀌는 파일 · 폴더 구조 중 하나를 고르면 `gitch graph` 가 그린 한 페이지를 기본 브라우저로 엽니다(계정 설정 없이도 됨). **이 브랜치에서 바뀐 의존**은 기본 브랜치(또는 고른 브랜치 · 태그)와 갈라진 곳과 비교해 더하고 뺀 의존 · 순환을, **의존 규칙 검사**는 `.gitch/graph.rules` 를 어긴 의존을 보여 줍니다
 - **탭**: 맥은 기본 창 탭(탭을 끌어 새 창으로), Windows 는 창 안의 탭. 다시 켜면 탭 복원
 - **화면 테마**: 시스템 · 라이트 · 다크
 - **자동 새로 고침**: 파일을 저장하면 상태만, 브랜치·커밋이 바뀌면 그래프까지(큰 저장소도 가볍게)
