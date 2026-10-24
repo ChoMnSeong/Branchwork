@@ -44,6 +44,52 @@ test_config_set_validates_and_rolls_back() {
   run gitch config set gitsw.aiPush allow; assert_rc 2 "--yes 없으면 확인 필요(2)"
 }
 
+tty_gitch() {   # 표준입력의 답을 터미널(pty)로 넣어 gitch 를 돌린다 — gitch add 처럼 사람에게만 묻는 명령.
+  # 맥의 script 는 파이프로 받은 입력 앞에 EOF(^D)를 먼저 보내 첫 질문이 빈 답을 받아서 python 의 pty 로 연다
+  python3 -I -c '
+import os, pty, sys
+answers = sys.stdin.buffer.read()
+pid, fd = pty.fork()
+if pid == 0:
+    os.execvp(sys.argv[1], sys.argv[1:])
+os.write(fd, answers)
+out = b""
+while True:
+    try:
+        b = os.read(fd, 4096)
+    except OSError:
+        break
+    if not b:
+        break
+    out += b
+sys.stdout.buffer.write(out)
+_, st = os.waitpid(pid, 0)
+sys.exit(os.WEXITSTATUS(st) if os.WIFEXITED(st) else 1)
+' gitch "$@"
+}
+
+test_add_new_account_writes_email_and_host_together() {
+  mac_only || return 0                                    # Windows 의 python 에는 pty 가 없다
+  command -v python3 >/dev/null 2>&1 || return 0
+  # 설정 파일이 없는 처음 쓰는 사람. 예전에는 이메일만 쓴 직후 검사가 「host 가 없다」로 되돌리고 멈춰 새 계정을 만들 수 없었다
+  echo dave > "$FAKE_SSH_USERS/github-dave"               # SSH 연결 확인이 바로 통과해 키 등록 단계는 건너뛴다
+  printf 'dave\ndave@example.com\n\n\n\n\n\n\n' > "$T/answers"   # 아이디 · 이메일 · 서버(github.com) · 빌려 쓰기(아니오) · 기본 폴더 · SSH 키 암호(아니오)
+  run tty_gitch add < "$T/answers"
+  assert_ok "gitch add"; assert_no_out "되돌렸습니다"; assert_out "dave 를 계정 목록에 추가했습니다"
+  assert_eq "$(git config -f "$HOME/.config/gitsw/config" --get account.dave.email)" "dave@example.com"
+  assert_eq "$(git config -f "$HOME/.config/gitsw/config" --get account.dave.host)" "github.com"
+  assert_eq "$(git config -f "$HOME/.config/gitsw/config" --get 'folder.~/Develop/dave.account')" "dave"
+  [ -d "$HOME/Develop/dave" ] || fail "기본 폴더를 만들지 않음"
+  run gitch config check; assert_ok; assert_out "계정 1개"
+  # 있는 설정에 하나 더(기본 폴더 없이)
+  mk_config
+  echo erin > "$FAKE_SSH_USERS/github-erin"
+  printf 'erin\nerin@example.com\n\n\n-\n\n\n\n' > "$T/answers"
+  run tty_gitch add < "$T/answers"
+  assert_ok "두 번째 gitch add"; assert_out "erin 를 계정 목록에 추가했습니다"
+  run gitch config check; assert_ok; assert_out "계정 4개"
+}
+
 test_via_binding_uses_login_alias() {
   mk_config
   git config -f "$HOME/.config/gitsw/config" account.dave.email dave@corp.example

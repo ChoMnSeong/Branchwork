@@ -8,7 +8,7 @@
 # ==========================================================
 
 # shellcheck disable=SC2088,SC2016  # 화면 표시용 ~ 와 $HOME 문자열은 일부러 펼치지 않음
-GITSW_VERSION="3.2.0"
+GITSW_VERSION="3.2.1"
 
 # ----- 경로 -----
 CFG="${GITSW_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/gitsw/config}"
@@ -3082,13 +3082,30 @@ reset_config_state() {
   CFG_ERRORS=()
 }
 
-cfg_change() {   # $1 set|add|unset|unset-all|remove-section $2 키 [$3 값] — 바꾼 뒤 검사, 틀리면 되돌림
-  local op="$1" key="$2" val="$3" bak rc=0
+cfg_begin() {   # 설정을 바꾸기 전: 파일이 없으면 만들고, 되돌릴 사본을 CFG_BAK 에
   mkdir -p "$(dirname "$CFG")" || die "설정 폴더를 만들 수 없습니다."
   [ -f "$CFG" ] || cfg_header > "$CFG"
   backup_file "$CFG"
-  bak=$(mktemp "${TMPDIR:-/tmp}/gitsw-cfg.XXXXXX") || die "임시 파일을 만들 수 없습니다."
-  cp -p "$CFG" "$bak"
+  CFG_BAK=$(mktemp "${TMPDIR:-/tmp}/gitsw-cfg.XXXXXX") || die "임시 파일을 만들 수 없습니다."
+  cp -p "$CFG" "$CFG_BAK"
+}
+
+cfg_end() {   # $1 git config 의 종료 코드 $2 무엇을 바꿨나 — 실패했거나 바꾼 뒤 검사가 틀리면 되돌림
+  if [ "$1" -ne 0 ]; then cp -p "$CFG_BAK" "$CFG"; rm -f "$CFG_BAK"; die "설정을 바꾸지 못했습니다: $2"; fi
+  if ! GITSW_CONFIG="$CFG" "$(self_path)" config check >/dev/null 2>&1; then
+    GITSW_CONFIG="$CFG" "$(self_path)" config check 2>&1 | sed 's/^/  /' >&2
+    cp -p "$CFG_BAK" "$CFG"; rm -f "$CFG_BAK"
+    die "설정이 올바르지 않아 되돌렸습니다."
+  fi
+  rm -f "$CFG_BAK"
+  reset_config_state
+  load_config
+  return 0
+}
+
+cfg_change() {   # $1 set|add|unset|unset-all|remove-section $2 키 [$3 값] — 바꾼 뒤 검사, 틀리면 되돌림
+  local op="$1" key="$2" val="$3" rc=0
+  cfg_begin
   case "$op" in
     set) git config -f "$CFG" "$key" "$val" || rc=$? ;;
     add) git config -f "$CFG" --add "$key" "$val" || rc=$? ;;
@@ -3096,18 +3113,18 @@ cfg_change() {   # $1 set|add|unset|unset-all|remove-section $2 키 [$3 값] —
            else git config -f "$CFG" --unset "$key" || rc=$?; fi ;;
     unset-all) git config -f "$CFG" --unset-all "$key" || rc=$? ;;
     remove-section) git config -f "$CFG" --remove-section "$key" || rc=$? ;;
-    *) rm -f "$bak"; die "알 수 없는 설정 명령: $op" ;;
+    *) rm -f "$CFG_BAK"; die "알 수 없는 설정 명령: $op" ;;
   esac
-  if [ $rc -ne 0 ]; then cp -p "$bak" "$CFG"; rm -f "$bak"; die "설정을 바꾸지 못했습니다: $op $key"; fi
-  if ! GITSW_CONFIG="$CFG" "$(self_path)" config check >/dev/null 2>&1; then
-    GITSW_CONFIG="$CFG" "$(self_path)" config check 2>&1 | sed 's/^/  /' >&2
-    cp -p "$bak" "$CFG"; rm -f "$bak"
-    die "설정이 올바르지 않아 되돌렸습니다."
-  fi
-  rm -f "$bak"
-  reset_config_state
-  load_config
-  return 0
+  cfg_end "$rc" "$op $key"
+}
+
+cfg_add_account() {   # $1 아이디 $2 이메일 $3 host 값 [$4 기본 폴더] — 계정은 email 과 host 가 함께 있어야 맞으니 모두 쓴 뒤 한 번 검사
+  local rc=0
+  cfg_begin
+  git config -f "$CFG" "account.$1.email" "$2" || rc=$?
+  [ $rc -eq 0 ] && { git config -f "$CFG" --add "account.$1.host" "$3" || rc=$?; }
+  [ $rc -eq 0 ] && [ -n "${4:-}" ] && { git config -f "$CFG" "folder.$4.account" "$1" || rc=$?; }
+  cfg_end "$rc" "account.$1"
 }
 
 after_config_change() {   # 계정/폴더/조직/push 정책이 바뀌면 규칙과 AI 안내를 다시 만듦
@@ -3210,12 +3227,8 @@ add_cmd() {
   read -r -p "기본 폴더 (Enter = ~/Develop/$id, - = 없음): " folder
   folder="${folder:-~/Develop/$id}"
   hv="$host"; [ "$port" != 22 ] && hv="$host:$port"; [ -n "$via" ] && hv="$hv via $via"
-  cfg_change set "account.$id.email" "$email"
-  cfg_change add "account.$id.host" "$hv"
-  if [ "$folder" != "-" ]; then
-    mkdir -p "$(expand_path "$folder")"
-    cfg_change set "folder.$folder.account" "$id"
-  fi
+  if [ "$folder" = "-" ]; then folder=""; else mkdir -p "$(expand_path "$folder")"; fi
+  cfg_add_account "$id" "$email" "$hv" "$folder"   # 하나씩 쓰면 이메일만 쓴 직후 검사가 「host 가 없다」로 되돌린다
   ok "$id 를 계정 목록에 추가했습니다. 이어서 SSH 키 등록과 규칙 갱신을 합니다."
   [ -z "$via" ] && setup_cmd "$id"
   install_auto_rules
