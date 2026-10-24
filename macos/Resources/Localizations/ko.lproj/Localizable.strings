@@ -1,6 +1,7 @@
 /* Gitrochi — ko. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
 /* 앱 안에서 시작하는 Git 계정 설정 */
+"Sign in as %@ to connect this Git identity." = "이 Git 계정을 연결하려면 %1$@ 계정으로 로그인하세요.";
 "Connecting the approved account…" = "승인한 계정을 연결하는 중…";
 "Set up connection for existing key…" = "기존 키의 SSH 연결 설정…";
 "Set up the SSH connection for this key?" = "이 키의 SSH 연결을 설정할까요?";

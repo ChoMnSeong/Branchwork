@@ -3,6 +3,7 @@ import AppKit
 
 /// The user starts GitHub's device flow; credentials stay in gh and the Keychain.
 struct GitHubBrowserLoginSheet: View {
+    var expectedLogin: String? = nil
     let onConnected: (Gitch.BrowserLogin, HostAccount) -> Void
     @Environment(\.dismiss) private var dismiss
     @ViewState private var login: Gitch.BrowserLogin?
@@ -46,6 +47,7 @@ struct GitHubBrowserLoginSheet: View {
                         let attempt = generation
                         task = Task { await connect(login, attempt: attempt) }
                     }.disabled(working)
+                    Button("Try signing in again") { begin() }.disabled(working)
                 } else if !working, login.state != .complete {
                     Button("Try signing in again") { begin() }
                 }
@@ -108,13 +110,16 @@ struct GitHubBrowserLoginSheet: View {
             guard let name = state.login, !name.isEmpty else {
                 throw Gitch.Failure(message: String(localized: "GitHub didn't return an account name. Sign in again."))
             }
-            let account = try await AccountStore.shared.importGitHubCLI(expectedLogin: name)
+            let account = try await GitHubLoginIdentity.connect(login: name, expected: expectedLogin) {
+                try await AccountStore.shared.importGitHubCLI(expectedLogin: $0)
+            }
             guard active(attempt) else { return }
             onConnected(state, account)
             dismiss()
         } catch is CancellationError {} catch {
             guard active(attempt) else { return }
-            self.error = String(localized: "Couldn't connect the approved GitHub account. Retry connecting before continuing.")
+            self.error = (error as? GitHubLoginIdentity.Mismatch)?.errorDescription
+                ?? String(localized: "Couldn't connect the approved GitHub account. Retry connecting before continuing.")
         }
     }
 

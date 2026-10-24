@@ -6,7 +6,7 @@ import { agents } from "@/entities/agent";
 import { ai } from "@/entities/ai";
 import { canPlay, CIAPI } from "@/entities/ci";
 import { type DropRequest, isWIP, statusIsEmpty } from "@/entities/git";
-import { gitch, graphRulesFile, type GitchBrowserLogin as BrowserLogin } from "@/entities/gitch";
+import { gitch, graphRulesFile, type GitchAccountSetup as AccountSetup, type GitchBrowserLogin as BrowserLogin } from "@/entities/gitch";
 import { accounts, ReviewAPI, reviewFileChange } from "@/entities/hosting";
 import { branchPayload } from "@/entities/repo";
 import { workspace } from "@/entities/workspace";
@@ -16,7 +16,7 @@ import { dirname, env, isWindows, joinPath, settings, toWslPath } from "@/shared
 import { t } from "@/shared/i18n";
 import { gitRaw, listDistros, tools } from "@/shared/platform";
 import { theme } from "@/shared/ui";
-import { GitchBrowserLogin } from "@/widgets/settings";
+import { GitchAccountSetup, GitchBrowserLogin } from "@/widgets/settings";
 import { applyAppLaunch } from "./lib/app-launch";
 
 /**
@@ -106,6 +106,42 @@ async function browserLoginLifecycle(boundary: "start" | "status" | "browser"): 
   }
 }
 
+async function browserLoginResumesExistingIdentity(): Promise<[boolean, string]> {
+  const original = { start: gitch.startBrowserLogin, status: gitch.browserLoginStatus, cancel: gitch.cancelBrowserLogin, connect: accounts.importGitHubCLI, inspect: gitch.inspectAccount, add: gitch.addAccount, open: ipc.openUrl };
+  const pending: BrowserLogin = { schemaVersion: 1, session: "github-selftest02", state: "pending", deviceCode: null, verificationURL: "https://github.com/login/device", login: null, email: null, message: "Self-test only" };
+  const inspected: AccountSetup = { schemaVersion: 1, created: false, account: { id: "OctoCat", email: "existing@example.invalid", host: "github.com", port: 22, folder: null, via: null }, ssh: { alias: "github-OctoCat", keyExists: false, publicKey: null, registrationURL: "https://github.com/settings/ssh/new", authenticated: null, keyProtection: "missing", message: "Self-test only" } };
+  const calls = { inspect: [] as string[], connect: [] as (string | undefined)[], add: 0, saved: 0, open: 0 };
+  const host = document.createElement("div");
+  host.hidden = true;
+  document.body.append(host);
+  const root = createRoot(host);
+  const button = (label: string) => Array.from(host.querySelectorAll<HTMLButtonElement>("button")).find((b) => b.textContent?.trim() === t(label));
+  try {
+    gitch.startBrowserLogin = async () => pending;
+    gitch.browserLoginStatus = async () => ({ ...pending, state: "complete", login: "OCTOCAT", email: "browser@example.invalid" });
+    gitch.cancelBrowserLogin = async () => ({ ...pending, state: "cancelled" });
+    accounts.importGitHubCLI = async (login) => { calls.connect.push(login); return { id: "selftest-only", provider: "github", server: "https://github.com", username: "OCTOCAT", name: null, avatarURL: null }; };
+    gitch.inspectAccount = async (id) => { calls.inspect.push(id); return inspected; };
+    gitch.addAccount = async () => { calls.add++; return inspected; };
+    ipc.openUrl = async () => { calls.open++; };
+    const identities = [
+      { id: "OCTOCAT", email: "other@example.invalid", hosts: "notgithub.com", rules: null, sshKey: false },
+      { id: "OctoCat", email: "existing@example.invalid", hosts: "GitHub.COM(로그인 OctoCat), gitlab.example.com", rules: null, sshKey: false },
+    ];
+    root.render(createElement(GitchAccountSetup, { account: null, accounts: identities, onSaved: () => { calls.saved++; }, onClose: () => {} }));
+    if (!await until(() => !!button("Sign in to GitHub in browser"), 2000)) return [false, "Hidden account setup did not mount"];
+    button("Sign in to GitHub in browser")!.click();
+    const resumed = await until(() => calls.inspect.length === 1 && host.textContent?.includes("existing@example.invalid") === true && !button("Save account and continue"), 3000);
+    return [resumed && calls.inspect[0] === "OctoCat" && calls.connect.length === 1 && calls.connect[0] === "OCTOCAT" && calls.add === 0 && calls.saved === 0 && calls.open === 0, JSON.stringify({ resumed, ...calls })];
+  } finally {
+    root.unmount();
+    await sleep(25);
+    gitch.startBrowserLogin = original.start; gitch.browserLoginStatus = original.status; gitch.cancelBrowserLogin = original.cancel;
+    accounts.importGitHubCLI = original.connect; gitch.inspectAccount = original.inspect; gitch.addAccount = original.add; ipc.openUrl = original.open;
+    host.remove();
+  }
+}
+
 export async function runSelfTest(): Promise<boolean> {
   const repo = env.selftest;
   if (!repo) return false;
@@ -158,6 +194,7 @@ export async function runSelfTest(): Promise<boolean> {
   await step("브라우저 로그인 시작 응답 전 화면 이탈 → 늦은 세션 취소", () => browserLoginLifecycle("start"));
   await step("브라우저 로그인 취소 → 늦은 완료 응답 연결 차단", () => browserLoginLifecycle("status"));
   await step("브라우저 열기 중 화면 이탈 → 후속 poll과 연결 중단", () => browserLoginLifecycle("browser"));
+  await step("GitHub 로그인 대소문자 차이 → 같은 서버의 기존 계정 설정 재개", browserLoginResumesExistingIdentity);
 
   const file = joinPath(repo, "selftest-새파일.txt");
   await step("파일 감시 → 새 파일 표시", async () => {
