@@ -1416,7 +1416,7 @@ dependencies = [
 
 [[package]]
 name = "gitrochi"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "dirs 5.0.1",
  "keyring",
