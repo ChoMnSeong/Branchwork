@@ -274,21 +274,30 @@ test_graph_files_swift_index_helper() {
   printf 'public struct A {}\n' | gr_put Sources/M/A.swift
   printf 'let b = A()\nlet c = C()\n' | gr_put Sources/M/B.swift
   printf 'struct C {}\n' | gr_put Sources/M/C.swift
+  printf 'let d = C()\n' | gr_put Sources/M/D.swift          # 빌드 뒤에 만든 파일 — 인덱스에 없다
   gr_commit
-  # 도우미가 준 쌍만 정확한 연결(ref) — Swift 끼리 이름으로 추정하지 않는다
+  # 도우미가 준 쌍은 정확한 연결(ref), 인덱스에 든 파일은 이름으로 추정하지 않는다. 오래된 인덱스 경고는 notes 로
   cat > "$T/idx-ok" <<'EOF'
 #!/bin/bash
-[ "$1" = --repo ] && [ -d "$2" ] || exit 9
+[ "$1" = --repo ] && [ -d "$2" ] && [ "$3" = --covered ] || exit 9
+printf 'Sources/M/A.swift\nSources/M/B.swift\nSources/M/C.swift\n' > "$4"
 printf 'Sources/M/B.swift\tSources/M/A.swift\tA\n'
 printf 'Sources/M/B.swift\tSources/M/B.swift\tself\n'
 printf 'Sources/M/nope.swift\tSources/M/A.swift\tA\n'
+echo "gitch-swift-index: 경고: 인덱스가 Swift 파일 1개보다 오래됐습니다" >&2
 EOF
   chmod +x "$T/idx-ok"
   GITCH_SWIFT_INDEX="$T/idx-ok" gr_json
   gr_edge Sources/M/B.swift Sources/M/A.swift ref
   gr_no_edge Sources/M/B.swift Sources/M/C.swift
-  assert_eq "$(gr_q '[.edges[] | select(.heuristic)] | length')" "0" "도우미가 있으면 Swift 끼리 추정하지 않는다"
-  case "$(gr_q '.notes | join(" ")')" in *"Xcode 인덱스(gitch-swift-index)로 읽은 정확한 참조입니다 (연결 1개)"*) ;; *) fail "인덱스 안내가 없음: $(gr_q '.notes | join(" / ")')" ;; esac
+  gr_edge Sources/M/D.swift Sources/M/C.swift type-ref                 # 인덱스에 없는 파일은 이름으로
+  assert_eq "$(gr_q '[.edges[] | select(.heuristic)] | length')" "1" "인덱스에 든 파일은 추정하지 않는다"
+  case "$(gr_q '.notes | join(" ")')" in *"Xcode 인덱스(gitch-swift-index)로 읽은 정확한 참조입니다 (연결 1개, 인덱스에 없는 파일 1개는 타입 이름으로 추정)"*) ;; *) fail "인덱스 안내가 없음: $(gr_q '.notes | join(" / ")')" ;; esac
+  case "$(gr_q '.notes | join(" ")')" in *"인덱스가 Swift 파일 1개보다 오래됐습니다"*) ;; *) fail "오래된 인덱스 경고가 notes 에 없음" ;; esac
+  # --covered 를 쓰지 않은 도우미면 모든 파일이 든 것으로 본다
+  printf '#!/bin/bash\nprintf "Sources/M/B.swift\\tSources/M/A.swift\\tA\\n"\n' > "$T/idx-all"; chmod +x "$T/idx-all"
+  GITCH_SWIFT_INDEX="$T/idx-all" gr_json
+  assert_eq "$(gr_q '[.edges[] | select(.heuristic)] | length')" "0" "목록이 없으면 모두 인덱스로"
   # 인덱스가 없으면(종료 3) 이름 추정
   printf '#!/bin/bash\nexit 3\n' > "$T/idx-none"; chmod +x "$T/idx-none"
   GITCH_SWIFT_INDEX="$T/idx-none" gr_json

@@ -4527,7 +4527,8 @@ graph_spm_describe() {   # $1 임시 폴더 $2 범위(접두사) $3 고른 언�
 }
 
 # Swift 파일끼리의 정확한 참조는 Xcode 인덱스에 있다 — 그것을 읽는 도우미(앱이 gitch 옆에 둔다)의 경로, 없으면 빈 값
-# 약속: gitch-swift-index --repo <저장소> → 표준출력 "원본<TAB>대상<TAB>심볼,…"(저장소 기준 경로), 종료 0 성공 · 3 인덱스 없음
+# 약속: gitch-swift-index --repo <저장소> --covered <파일> → 표준출력 "원본<TAB>대상<TAB>심볼,…"(저장소 기준 경로), --covered 에는 인덱스에 든 추적 .swift 경로,
+# 종료 0 성공(표준오류 첫 줄은 오래된 인덱스 같은 경고) · 3 인덱스 없음 · 그 밖은 실패
 graph_swift_index() {
   if [ -n "${GITCH_SWIFT_INDEX+x}" ]; then [ -n "$GITCH_SWIFT_INDEX" ] && [ -x "$GITCH_SWIFT_INDEX" ] && printf '%s' "$GITCH_SWIFT_INDEX"; return 0; fi   # 빈 값이면 끔
   if [ -x "$(dirname "$(self_path)")/gitch-swift-index" ]; then printf '%s' "$(dirname "$(self_path)")/gitch-swift-index"; return 0; fi
@@ -4541,11 +4542,12 @@ graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 s
       : > "$tmp/spm.list"; : > "$tmp/swiftidx"
       [ "$rel" = modules ] && graph_spm_describe "$tmp" "$scope" "$langs"
       if [ "$rel" = files ] && { [ -z "$langs" ] || in_list swift "${langs//,/ }"; } && grep -q '\.swift$' "$tmp/files" && sx=$(graph_swift_index) && [ -n "$sx" ]; then
-        "$sx" --repo "$PWD" > "$tmp/swiftidx" 2> "$tmp/swiftidx.err"; sxrc=$?
+        rm -f "$tmp/swiftidx.covered"
+        "$sx" --repo "$PWD" --covered "$tmp/swiftidx.covered" > "$tmp/swiftidx" 2> "$tmp/swiftidx.err"; sxrc=$?
         sxerr=$(head -n 1 "$tmp/swiftidx.err" 2>/dev/null)
       fi
       awk -v rel="$rel" -v list="$tmp/files" -v scope="$scope" -v noext="$4" -v spm="$tmp/spm.list" -v repo="$repo" -v langs="$langs" \
-        -v swiftidx="$tmp/swiftidx" -v swiftrc="$sxrc" -v swifterr="$sxerr" \
+        -v swiftidx="$tmp/swiftidx" -v swiftcov="$tmp/swiftidx.covered" -v swiftrc="$sxrc" -v swifterr="$sxerr" \
         "$(graph_awk_lib)$(graph_awk_scan)" ;;
     changes)
       git -c core.quotepath=off log --no-merges --no-renames --name-only --format='%x01%h%x09%cs' ${5:+"--since=$5"} -n "$6" -- ${scope:+"$scope"} 2>/dev/null | \
@@ -5172,6 +5174,7 @@ function files_main(   i, p, lg, ins, k, n, K) {
   ts_configs(); go_mods(); rs_crates(); py_index()
   for (i = 1; i <= NPKGJ; i++) { pj_read(PKGJ[i]); if (PJN[PKGJ[i]] != "") NPMDIR[PJN[PKGJ[i]]] = dirof(PKGJ[i]) }
   if (NSPM || NTUIST) swift_modmap()
+  if (swiftrc == "0") swift_covered()
   for (i = 1; i <= NSRC; i++) {
     p = SRC[i]; lg = LANG[p]; ins = inscope(p)
     if (ins) { FREF[p] = 1; LCNT[lg]++ }
@@ -5184,14 +5187,16 @@ function files_main(   i, p, lg, ins, k, n, K) {
     else if (lg == "rust") scan_rs(p)
     else scan_ts(p)
   }
-  if (swiftrc == "0") swift_index(); else swift_resolve()
+  if (swiftrc == "0") swift_index()
+  swift_resolve()                                                    # 인덱스에 없는 파일(빌드하지 않은 타깃 · 새 파일)은 이름으로
   jvm_resolve(); go_contains()
   for (p in FREF) filenode(p)
   n = sortkeys(LCNT, K); k = ""
   for (i = 1; i <= n; i++) k = k (i > 1 ? "," : "") jstr(K[i]) ":" LCNT[K[i]]
   printf "0\tlanguages\t{%s}\n", k
   printf "0\tunresolved\t%d\n", UNRES
-  if (swiftrc == "0") printf "0\tnote\tSwift: Xcode 인덱스(gitch-swift-index)로 읽은 정확한 참조입니다 (연결 %d개).\n", SWIDXN
+  if (swiftrc == "0") printf "0\tnote\tSwift: Xcode 인덱스(gitch-swift-index)로 읽은 정확한 참조입니다 (연결 %d개%s).\n", SWIDXN, (SWUNCOV ? sprintf(", 인덱스에 없는 파일 %d개는 타입 이름으로 추정", SWUNCOV) : "")
+  if (swiftrc == "0" && swifterr != "") printf "0\tnote\tSwift: %s\n", clean(swifterr)
   else if (swiftrc == "3") print "0\tnote\tSwift: Xcode 인덱스가 없어(Xcode 로 한 번 빌드하면 생긴다) 타입 이름으로 추정했습니다."
   else if (swiftrc != "") printf "0\tnote\tSwift: gitch-swift-index 가 실패해(%s) 타입 이름으로 추정했습니다.\n", (swifterr != "" ? clean(swifterr) : "종료 코드 " swiftrc)
   if (HEUR["swift"]) print "0\tnote\tSwift: 파일끼리 import 하지 않아서, 다른 파일에 선언된 최상위 타입(class · struct · enum · protocol · actor · typealias) 이름을 쓰면 연결로 추정했습니다 (heuristic: true, 그림에서는 점선)."
@@ -5784,7 +5789,7 @@ function scan_swift(p, ins,   line, inc, ml, s) {
       continue
     }
     if (line ~ /^[A-Za-z@]/) swift_decl(p, line)
-    if (ins && swiftrc != "0") refs(p, line)                     # 인덱스로 읽으면 이름 추정은 하지 않는다
+    if (ins && !swift_indexed(p)) refs(p, line)                  # 인덱스로 읽은 파일은 이름 추정을 하지 않는다
   }
   close(p)
 }
@@ -5803,7 +5808,8 @@ function swift_decl(p, line,   s, priv, pub) {
 function swift_resolve(   i, p, n, a, j, w, m, b, k, best, bc, br, c, r) {
   for (i = 1; i <= NSRC; i++) {
     p = SRC[i]
-    if (LANG[p] != "swift" || !inscope(p)) continue
+    if (LANG[p] != "swift" || !inscope(p) || swift_indexed(p)) continue
+    if (swiftrc == "0") SWUNCOV++
     n = split(REF[p], a, "\034")
     for (j = 2; j <= n; j++) {
       w = a[j]
@@ -5820,6 +5826,12 @@ function swift_resolve(   i, p, n, a, j, w, m, b, k, best, bc, br, c, r) {
   }
 }
 
+function swift_covered(   line, r) {   # 도우미가 --covered 에 적은, 인덱스에 든 파일 — 목록을 쓰지 않았으면 모두 든 것으로
+  while ((r = (getline line < swiftcov)) > 0) if (line != "") SWCOV[line] = 1
+  if (r < 0) SWALL = 1
+  close(swiftcov)
+}
+function swift_indexed(p) { return swiftrc == "0" && (SWALL || (p in SWCOV)) }
 function swift_index(   line, a, n, i, s, t, v, k) {   # Xcode 인덱스 도우미의 "원본<TAB>대상<TAB>심볼,…" → 정확한 연결(ref)
   while ((getline line < swiftidx) > 0) {
     n = split(line, a, "\t"); s = a[1]; t = a[2]
