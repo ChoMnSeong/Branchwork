@@ -134,9 +134,10 @@ gitch graph modules --out deps.png           # graphviz(dot) 로 그림
 | Go | `import` | `go.mod` 의 모듈 안이면 패키지 폴더, 밖이면 모듈(`require` 기준) |
 | Rust | `mod` · `use crate::/self::/super::` · 다른 crate | `a.rs` · `a/mod.rs`, 같은 저장소 crate 는 그 crate 의 파일 |
 | Kotlin/Java | `package` + `import` | 그 이름을 선언한 파일. 같은 패키지 타입은 import 없이 쓰므로 이름으로 추정 |
-| Swift | 파일끼리 import 가 없다 | 다른 파일에 선언된 최상위 타입(class · struct · enum · protocol · actor · typealias) 이름을 쓰면 추정, `import 모듈` 은 모듈 노드 |
+| Swift | 파일끼리 import 가 없다 | 다른 파일에 선언된 최상위 타입(class · struct · enum · protocol · actor · typealias) 이름을 쓰면 추정, `import 모듈` 은 모듈 노드. Tuist(`Project.swift` 의 `sources` · 도우미 매니페스트는 `Sources/**` · `Tests/**`) · SwiftPM 으로 파일의 모듈(`modules`)을 정해, 같은 모듈이거나 import 한 모듈의 공개(public · open · package) 타입만 잇는다(`@testable import` 면 internal 도) |
 
-- 추정한 연결은 JSON 에 `"heuristic": true`, 그림에서는 점선이다. 같은 두 파일에 정확한 연결이 있으면 더하지 않는다. 주석 · 문자열 속 이름과 `private` 타입은 세지 않는다.
+- 추정한 연결은 JSON 에 `"heuristic": true`, 그림에서는 점선이다. 같은 두 파일에 정확한 연결이 있으면 더하지 않는다. 주석 · 문자열 속 이름과 `private` 타입은 세지 않는다. 모듈(Swift) · 패키지(Kotlin/Java)로 확인한 추정은 `"checked": true` 다.
+- Swift 의 정확한 참조는 Xcode 인덱스에 있다. 앱이 gitch 옆에 두는 도우미 `gitch-swift-index`(또는 `GITCH_SWIFT_INDEX` 에 적은 실행 파일, 빈 값이면 끔, 그다음 `PATH`)가 있으면 `gitch-swift-index --repo <저장소>` 의 `원본<TAB>대상<TAB>심볼,…` 줄을 정확한 연결(`"kind": "ref"`)로 쓰고 Swift 끼리는 추정하지 않는다. 도우미가 3 으로 끝나면(인덱스 없음 — Xcode 로 한 번 빌드) 추정으로 돌아가고 notes 에 적는다.
 - `modules`: Package.swift 는 `swift package describe --type json` 으로 읽고(매니페스트를 컴파일해서 몇 초), 안 되면 파일을 직접 읽는다(`GITSW_SWIFT_DESCRIBE=0` 이면 늘 직접). Tuist 는 Project.swift 의 Target 선언과 의존(`.target` · `.project` · `.external` · `.package` · `.sdk`)을, 도우미 함수로 만든 매니페스트(`Project.module(…)`)는 파일 안의 참조를 모은다. 그 밖에 모든 package.json(작업 공간 구성원은 `workspace`), Cargo 의 `path` · `workspace = true` 의존, Go 패키지 사이 import, Gradle 의 `include` · `project(":x")` · `projects.x`.
 - `changes`: `--since 날짜` · `--max-commits N`(기본 1000) · `--max-files N`(기본 30, 더 큰 커밋은 쌍이 너무 많아 뺀다) · `--min N`(기본 2). merge 커밋과 lock 파일은 뺀다.
 - `--no-external` 은 저장소 밖 패키지 · 모듈을 뺀다. `--lang` 은 고른 언어의 파일(modules 는 그 언어의 생태계)만 남기고, JSON 의 `lang` 에 적는다.

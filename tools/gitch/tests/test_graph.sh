@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # gitch graph — 구조 그래프 (files · modules · changes · tree / json · html · dot · svg · png)
+export GITCH_SWIFT_INDEX=""   # 이 기계에 Xcode 인덱스 도우미가 있어도 시험은 이름 추정으로(도우미 시험만 따로 켠다)
 
 gr_repo() {   # $1 폴더 — 빈 저장소를 만들고 들어간다 (커밋 작성자는 임시 값)
   mkdir -p "$1" && cd "$1" || fail "cd $1"
@@ -266,6 +267,97 @@ EOF
   gr_attr module:Core .local Sources/Core
   [ "$(gr_q '.stats.heuristicEdges')" -ge 2 ] || fail "heuristicEdges 가 2 이상이어야"
   case "$(gr_q '.notes | join(" ")')" in *Swift*) ;; *) fail "Swift 추정 안내가 없음" ;; esac
+}
+
+test_graph_files_swift_index_helper() {
+  gr_repo "$T/swiftidx"
+  printf 'public struct A {}\n' | gr_put Sources/M/A.swift
+  printf 'let b = A()\nlet c = C()\n' | gr_put Sources/M/B.swift
+  printf 'struct C {}\n' | gr_put Sources/M/C.swift
+  gr_commit
+  # 도우미가 준 쌍만 정확한 연결(ref) — Swift 끼리 이름으로 추정하지 않는다
+  cat > "$T/idx-ok" <<'EOF'
+#!/bin/bash
+[ "$1" = --repo ] && [ -d "$2" ] || exit 9
+printf 'Sources/M/B.swift\tSources/M/A.swift\tA\n'
+printf 'Sources/M/B.swift\tSources/M/B.swift\tself\n'
+printf 'Sources/M/nope.swift\tSources/M/A.swift\tA\n'
+EOF
+  chmod +x "$T/idx-ok"
+  GITCH_SWIFT_INDEX="$T/idx-ok" gr_json
+  gr_edge Sources/M/B.swift Sources/M/A.swift ref
+  gr_no_edge Sources/M/B.swift Sources/M/C.swift
+  assert_eq "$(gr_q '[.edges[] | select(.heuristic)] | length')" "0" "도우미가 있으면 Swift 끼리 추정하지 않는다"
+  case "$(gr_q '.notes | join(" ")')" in *"Xcode 인덱스(gitch-swift-index)로 읽은 정확한 참조입니다 (연결 1개)"*) ;; *) fail "인덱스 안내가 없음: $(gr_q '.notes | join(" / ")')" ;; esac
+  # 인덱스가 없으면(종료 3) 이름 추정
+  printf '#!/bin/bash\nexit 3\n' > "$T/idx-none"; chmod +x "$T/idx-none"
+  GITCH_SWIFT_INDEX="$T/idx-none" gr_json
+  gr_edge Sources/M/B.swift Sources/M/C.swift type-ref
+  case "$(gr_q '.notes | join(" ")')" in *"Xcode 인덱스가 없어"*) ;; *) fail "인덱스 없음 안내가 없음" ;; esac
+  # 실패하면 이유를 적고 이름 추정
+  printf '#!/bin/bash\necho "store is locked" >&2\nexit 1\n' > "$T/idx-bad"; chmod +x "$T/idx-bad"
+  GITCH_SWIFT_INDEX="$T/idx-bad" gr_json
+  gr_edge Sources/M/B.swift Sources/M/A.swift type-ref
+  case "$(gr_q '.notes | join(" ")')" in *"실패해(store is locked)"*) ;; *) fail "도우미 실패 안내가 없음" ;; esac
+  # 빈 값이면 끈다
+  GITCH_SWIFT_INDEX='' gr_json
+  case "$(gr_q '.notes | join(" ")')" in *gitch-swift-index*|*"Xcode 인덱스"*) fail "빈 값인데 도우미를 불렀음" ;; esac
+}
+
+test_graph_files_swift_modules() {
+  gr_repo "$T/swiftmod"
+  # Tuist: 도우미 매니페스트(Sources/** · Tests/**)와 sources 를 적은 타깃, SwiftPM 패키지
+  echo 'let project = Project.framework(name: "Core", dependencies: [])' | gr_put Projects/Core/Project.swift
+  echo 'let project = Project.framework(name: "Kit")' | gr_put Projects/Kit/Project.swift
+  gr_put Projects/App/Project.swift <<'EOF'
+let project = Project(name: "App", targets: [
+    .target(name: "App", destinations: .iOS, product: .app, bundleId: "x.app",
+            sources: ["Sources/**", "../Shared/**"], dependencies: [.project(target: "Core", path: "../Core")]),
+    .target(name: "Widget", destinations: .iOS, product: .appExtension, bundleId: "x.app.widget",
+            sources: .glob("../Widget/**", excluding: ["../Widget/Gen/**"]))
+])
+EOF
+  gr_put Packages/Net/Package.swift <<'EOF'
+let package = Package(name: "Net", targets: [
+    .target(name: "Net"),
+    .target(name: "NetUI", dependencies: ["Net"]),
+])
+EOF
+  printf 'public final class Store {}\nstruct Hidden {}\n' | gr_put Projects/Core/Sources/Store.swift
+  printf 'public final class Store {}\npublic struct Tool {}\n' | gr_put Projects/Kit/Sources/Store.swift
+  printf 'struct Local {}\n' | gr_put Projects/App/Sources/Local.swift
+  printf 'struct Banner {}\n' | gr_put Projects/Shared/Banner.swift
+  gr_put Projects/App/Sources/AppView.swift <<'EOF'
+import Core
+
+let a = Store()      // Core 를 import — Kit 의 같은 이름은 아니다
+let b = Hidden()     // Core 의 internal 타입 — 보이지 않는다
+let c = Tool()       // Kit 은 import 하지 않았다
+let d = Local()      // 같은 모듈
+let e = Banner()     // ../Shared/** 도 App 모듈
+let f = Client()     // Net 은 import 하지 않았다
+EOF
+  printf '@testable import Core\n\nlet h = Hidden()\n' | gr_put Projects/Core/Tests/StoreTests.swift
+  printf 'let w = Banner()\n' | gr_put Projects/Widget/WidgetView.swift
+  printf 'public class Client {}\n' | gr_put Packages/Net/Sources/Net/Client.swift
+  printf 'import Net\n\nlet c = Client()\n' | gr_put Packages/Net/Sources/NetUI/View.swift
+  gr_commit
+  gr_json
+  gr_edge Projects/App/Sources/AppView.swift Projects/Core/Sources/Store.swift type-ref
+  gr_no_edge Projects/App/Sources/AppView.swift Projects/Kit/Sources/Store.swift
+  gr_edge Projects/App/Sources/AppView.swift Projects/App/Sources/Local.swift type-ref
+  gr_edge Projects/App/Sources/AppView.swift Projects/Shared/Banner.swift type-ref
+  gr_no_edge Projects/App/Sources/AppView.swift Packages/Net/Sources/Net/Client.swift
+  assert_eq "$(gr_q '.edges[] | select(.source == "Projects/App/Sources/AppView.swift" and .target == "Projects/Core/Sources/Store.swift") | .via | join(",")')" "Store" "internal 타입(Hidden)은 다른 모듈에서 보이지 않음"
+  gr_edge Projects/Core/Tests/StoreTests.swift Projects/Core/Sources/Store.swift type-ref   # @testable 이면 internal 도
+  gr_no_edge Projects/Widget/WidgetView.swift Projects/Shared/Banner.swift                # Widget 은 Shared 를 소스로 갖지 않는다
+  gr_edge Packages/Net/Sources/NetUI/View.swift Packages/Net/Sources/Net/Client.swift type-ref
+  assert_eq "$(gr_q '[.edges[] | select(.kind == "type-ref") | .checked] | unique | map(tostring) | join(",")')" "true" "모듈로 확인한 추정에는 checked"
+  gr_attr Projects/Shared/Banner.swift '.modules | join(",")' "App"
+  gr_attr Projects/Core/Tests/StoreTests.swift '.modules | join(",")' "CoreTests"
+  gr_attr Packages/Net/Sources/NetUI/View.swift '.modules | join(",")' "NetUI"
+  gr_attr module:Core .local Projects/Core/Sources
+  case "$(gr_q '.notes | join(" ")')" in *"모듈 8개, 그래서 뺀 이름 4개"*) ;; *) fail "모듈 경계 안내가 없음: $(gr_q '.notes | join(" / ")')" ;; esac
 }
 
 gr_spm_fixture() {   # Package.swift + 타깃 폴더(실제 swift package describe 도 되게)
