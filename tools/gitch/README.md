@@ -12,9 +12,9 @@ Gitrochi 맥 앱에 함께 들어 있다(`Gitrochi.app/Contents/Resources/gitch`
 
 ## 설치
 
-**Gitrochi 에서** — 설정 > 도구 > gitch
+**Gitrochi 에서** — 설정 > CLI
 1. 계정이 없으면 **Terminal 에서 계정 추가** → `gitch add` 가 아이디·이메일·서버를 묻고 SSH 키를 만든다.
-2. **설치** → 무엇이 바뀌는지 보여 준 뒤 `gitch install` 을 실행한다(`~/bin/gitch` 가 앱 안의 gitch 를 가리키므로 앱을 업데이트하면 gitch 도 같이 바뀐다).
+2. **설치** → 무엇이 바뀌는지 보여 준 뒤 `gitch install` 을 실행한다(`~/bin/gitch` 가 앱 안의 gitch 를 가리키므로 앱을 업데이트하면 gitch 도 같이 바뀐다). 앱이 응용 프로그램 폴더(`/Applications` 또는 `~/Applications`)에 있어야 한다 — 디스크 이미지 · 다운로드 폴더 · 임시 위치(App Translocation)의 앱에 연결하면 디스크를 꺼내거나 앱을 옮길 때 끊기므로, 앱도 `gitch install` 도 거부하고 옮길 곳을 알려 준다.
 3. 새 터미널을 연다. 저장소 화면의 커밋 칸 위에 이 저장소의 계정(잠금)과 커밋·push 전 점검(`gitch preflight`)이 보이고, 계정 이름을 눌러 이 저장소의 계정을 바꾼다(`gitch use`).
 
 **CLI 만** — 앱 없이 터미널에서 (curl + macOS 기본 bash)
@@ -40,6 +40,8 @@ source ~/.zshrc
 gitch doctor
 ```
 
+터미널에서 `gitch install` 을 하면 맨 위에 로고(앱 아이콘의 두 눈)가 창 크기에 맞춰 크게·중간·작게(아주 좁으면 이름만) 나오고, 단계(명령 · 터미널 · 자동 규칙 · 검사 훅 · AI 도구)별로 설치한다. 로고는 사람이 보는 터미널에서만 나온다(`GITSW_BANNER=never` 로 끄고 `always` 로 켠다).
+
 새 컴퓨터: `gitch import <내보낸 설정>` → `gitch install` → `gitch setup` (SSH 키 생성·등록).
 
 ## Gitrochi 앱에서
@@ -48,8 +50,8 @@ gitch doctor
 
 | gitch | 앱 |
 |---|---|
-| `install` · `list` · `doctor` | 설정 > 도구 > gitch |
-| `add` · `setup` | 설정 > 도구 > gitch 에서 Terminal 로 연다(묻는 것이 있어서) |
+| `install` · `list` · `doctor` | 설정 > CLI |
+| `add` · `setup` | 설정 > CLI 에서 Terminal 로 연다(묻는 것이 있어서) |
 | `status` · `preflight` | 커밋 칸 위 — 계정(잠금)과 점검 결과, 누르면 점검 항목 · fetch 하고 다시 점검 |
 | `use` · `unlock` | 커밋 칸 위 계정 이름 |
 | `up` · `sync` · `fix` · `rescue` · `ignore` | 커밋 칸 위 ⋯ 메뉴 |
@@ -117,6 +119,7 @@ gitch report --today       # 오늘 누가(사람/claude/codex) 어디에 무엇
 - `gitch.ignore` 로 저장소를 검사에서 뺄 수 있다: `gitch ignore` / `gitch ignore --off`.
 - `user.useConfigOnly=true` 를 켜서, 규칙 밖 저장소에서 `me@컴퓨터이름` 같은 엉뚱한 작성자로 커밋되지 않게 한다.
 - 설정 파일이 깨지면 커밋을 막지 않고 경고만 한다 (`gitch doctor` 로 확인).
+- gitch 를 찾지 못하면(앱을 지웠거나 옮김) 커밋 · push 는 막지 않고 `[gitch] ~/bin/gitch 를 찾을 수 없어 검사를 건너뜁니다` 한 줄로 알린다. 훅 연결 스크립트는 gitch 가 바뀌면 다음 훅 실행 때 스스로 새로 쓴다.
 - `--no-verify` 는 git 자체 기능이라 훅으로 막을 수 없다. AI 는 Claude 훅이 막는다.
 
 ## AI 연동
@@ -183,7 +186,7 @@ git config 형식이다. `gitch config set|add|unset <키> <값>` 으로 바꾸�
 | `~/.config/gitsw/config` | 설정 |
 | `~/.local/state/gitsw/actions.jsonl` | 작업 기록 (`gitch report`) |
 | `~/.local/state/gitsw/backups/` | gitch 가 고치기 전 파일 백업 (내용이 바뀐 것만, 날짜 폴더 최근 30개. 다른 이름의 폴더는 지우지 않음) |
-| `~/.local/share/gitsw/hook` | git 훅 연결 스크립트 (gitch 가 없으면 아무것도 안 함) |
+| `~/.local/share/gitsw/hook` | git 훅 연결 스크립트 (gitch 가 없으면 막지 않고 커밋 · push 때 한 줄로 알림) |
 | `refs/gitsw/backup/*` (저장소 안) | `gitch rescue` 백업 (최근 30개, push 안 됨) |
 | `~/.local/share/gitch/gitch` | 앱 없이 받은 gitch (`install.sh`, `gitch self-update`) |
 

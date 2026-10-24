@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// 실행 파일 위치: 자동으로 못 찾으면 직접 불러온다. 맨 아래에 gitch(셸 명령) 설치.
+/// 실행 파일 위치: 자동으로 못 찾으면 직접 불러온다.
 struct ToolsSettings: View {
     private let tools = ToolStore.shared
     @ViewState private var error: String?
@@ -48,7 +48,6 @@ struct ToolsSettings: View {
                     Text(id.detail).font(.caption).foregroundStyle(.secondary)
                 }
             }
-            GitchSection()
             if let error {
                 Text(error).foregroundStyle(.red).font(.callout)
             }

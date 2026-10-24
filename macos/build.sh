@@ -70,7 +70,7 @@ cp "$ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
 # 화면 번역(한국어 글자가 키, <언어>.lproj/Localizable.strings)
 cp -R "$ROOT/Resources/Localizations/"*.lproj "$CONTENTS/Resources/"
-# gitch: 여러 Git 계정을 섞이지 않게 쓰는 셸 도구(설정 > 도구에서 ~/bin/gitch 로 설치)
+# gitch: 여러 Git 계정을 섞이지 않게 쓰는 셸 도구(설정 > CLI 에서 ~/bin/gitch 로 설치)
 cp "$REPO/tools/gitch/gitch" "$CONTENTS/Resources/gitch"
 chmod 755 "$CONTENTS/Resources/gitch"
 cp "$REPO/LICENSE" "$CONTENTS/Resources/LICENSE.txt"

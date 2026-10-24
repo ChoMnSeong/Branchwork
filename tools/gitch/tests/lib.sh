@@ -167,6 +167,7 @@ seed_commit() {   # $1 저장소 — 커밋 하나 (훅 없이, 현재 작성자
 }
 
 run() { OUT=$("$@" 2>&1); RC=$?; }
+count_dirs() { local n=0 d; for d in "$@"; do [ -d "$d" ] && n=$((n+1)); done; echo "$n"; }   # 인자 중 폴더 수 (glob 이 안 맞으면 0)
 
 fail() { printf 'FAIL: %b\n' "$*"; exit 1; }
 assert_eq() { [ "$1" = "$2" ] || fail "${3:-값이 다름}: 기대 [$2] 실제 [$1]"; }
