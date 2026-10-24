@@ -5170,7 +5170,7 @@ function count(s, t,   n, i) { n = 0; while ((i = index(s, t)) > 0) { n++; s = s
 function unquote(s) { s = trim(s); sub(/^["']/, "", s); sub(/["'][ \t]*$/, "", s); return s }
 
 # ---------- files: 파일 노드와 연결 ----------
-function files_main(   i, p, lg, ins, k, n, K) {
+function files_main(   i, p, lg, ins, k, n, K, e) {
   ts_configs(); go_mods(); rs_crates(); py_index()
   for (i = 1; i <= NPKGJ; i++) { pj_read(PKGJ[i]); if (PJN[PKGJ[i]] != "") NPMDIR[PJN[PKGJ[i]]] = dirof(PKGJ[i]) }
   if (NSPM || NTUIST) swift_modmap()
@@ -5196,7 +5196,7 @@ function files_main(   i, p, lg, ins, k, n, K) {
   printf "0\tlanguages\t{%s}\n", k
   printf "0\tunresolved\t%d\n", UNRES
   if (swiftrc == "0") printf "0\tnote\tSwift: Xcode 인덱스(gitch-swift-index)로 읽은 정확한 참조입니다 (연결 %d개%s).\n", SWIDXN, (SWUNCOV ? sprintf(", 인덱스에 없는 파일 %d개는 타입 이름으로 추정", SWUNCOV) : "")
-  if (swiftrc == "0" && swifterr != "") printf "0\tnote\tSwift: %s\n", clean(swifterr)
+  if (swiftrc == "0" && swifterr != "") { e = clean(swifterr); sub(/^gitch-swift-index:[ \t]*/, "", e); printf "0\tnote\tSwift: %s\n", e }   # 오래된 인덱스 경고 등
   else if (swiftrc == "3") print "0\tnote\tSwift: Xcode 인덱스가 없어(Xcode 로 한 번 빌드하면 생긴다) 타입 이름으로 추정했습니다."
   else if (swiftrc != "") printf "0\tnote\tSwift: gitch-swift-index 가 실패해(%s) 타입 이름으로 추정했습니다.\n", (swifterr != "" ? clean(swifterr) : "종료 코드 " swiftrc)
   if (HEUR["swift"]) print "0\tnote\tSwift: 파일끼리 import 하지 않아서, 다른 파일에 선언된 최상위 타입(class · struct · enum · protocol · actor · typealias) 이름을 쓰면 연결로 추정했습니다 (heuristic: true, 그림에서는 점선)."
