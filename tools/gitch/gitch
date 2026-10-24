@@ -7497,7 +7497,7 @@ HTMLEOF
     if (!target) return;
     const from = { x: view.x, y: view.y, k: view.k }, t0 = performance.now(), dur = ms || 420, v = view;
     tween = (now) => {
-      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      const p = clamp((now - t0) / dur, 0, 1), e = 1 - Math.pow(1 - p, 3);
       v.x = from.x + (target.x - from.x) * e; v.y = from.y + (target.y - from.y) * e; v.k = from.k + (target.k - from.k) * e;
       if (p >= 1) tween = null;
     };
@@ -7508,7 +7508,7 @@ HTMLEOF
     m.userMoved = true;
     if (!dur) { v.k = k1; v.x = px - (px - x0) * (k1 / k0); v.y = py - (py - y0) * (k1 / k0); tween = null; request(); return; }
     tween = (now) => {
-      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3), k = k0 + (k1 - k0) * e;
+      const p = clamp((now - t0) / dur, 0, 1), e = 1 - Math.pow(1 - p, 3), k = k0 + (k1 - k0) * e;
       v.k = k; v.x = px - (px - x0) * (k / k0); v.y = py - (py - y0) * (k / k0);
       if (p >= 1) tween = null;
     };
@@ -7614,15 +7614,40 @@ HTMLEOF
     }
     return found;
   }
-  function unstack(list) {   // 겹침이 다 풀릴 때까지: 밀어내기를 거듭하고, 그래도 남으면(빽빽한 상자 덩어리) 가운데서 4% 씩 넓힌다
+  function unstack(list) {   // 겹침을 푼다: 밀어내기를 거듭하고, 남으면 가운데서 4% 씩 넓히고(0.3초까지), 그래도 남은 빽빽한 덩어리는 sweep 으로
+    const t0 = performance.now();
     for (let round = 0; round < 16 && list.length > 1; round++) {
       let left = 0;
-      for (let i = 0; i < 40 && (left = collide(list, 1)); i++);
+      for (let i = 0; i < 40 && (left = collide(list, 1)); i++) if (performance.now() - t0 > 300) break;
       if (!left) return;
+      if (performance.now() - t0 > 300) break;
       let cx = 0, cy = 0;
       for (const n of list) { cx += n.x; cy += n.y; }
       cx /= list.length; cy /= list.length;
       for (const n of list) if (n.fx === null) { n.x = cx + (n.x - cx) * 1.04; n.y = cy + (n.y - cy) * 1.04; }
+    }
+    sweep(list);
+  }
+  function sweep(list) {   // 위에서부터 차례로 놓으며, 이미 놓인 것과 겹치면 그 바로 아래로 내린다 — 아래로만 움직이니 반드시 끝나고 겹침은 0
+    const isBox = box(), pad = 2, grid = new Map(), key = (gx, gy) => gx * 100003 + gy;
+    let cell = 8;
+    for (const n of list) cell = Math.max(cell, (isBox ? n.w : n.r * 2) + pad * 2);
+    const below = (n, o) => {   // n 이 o 와 겹치면 겹치지 않게 내려갈 y, 아니면 null
+      const dx = n.x - o.x;
+      if (isBox) { const hx = (n.w + o.w) / 2 + pad, hy = (n.h + o.h) / 2 + pad; return Math.abs(dx) < hx && Math.abs(n.y - o.y) < hy ? o.y + hy : null; }
+      const R = n.r + o.r + pad;
+      return Math.hypot(dx, n.y - o.y) < R ? o.y + Math.sqrt(R * R - dx * dx) : null;
+    };
+    for (const n of list.slice().sort((a, b) => a.y - b.y || a.i - b.i)) {
+      for (let guard = 0; n.fx === null && guard < 5000; guard++) {
+        const gx = Math.floor(n.x / cell), gy = Math.floor(n.y / cell);
+        let to = null;
+        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const b = grid.get(key(gx + i, gy + j)); if (b) for (const o of b) { const y = below(n, o); if (y !== null && (to === null || y > to)) to = y; } }
+        if (to === null) break;
+        n.y = to + 0.01; n.vy = 0;
+      }
+      const k = key(Math.floor(n.x / cell), Math.floor(n.y / cell)), b = grid.get(k);
+      if (b) b.push(n); else grid.set(k, [n]);
     }
   }
   function tick() {
@@ -7763,7 +7788,7 @@ HTMLEOF
     const from = new Map(visNodes.map((n) => [n, [n.x, n.y]])), t0 = performance.now(), dur = 520;
     for (const n of visNodes) if (!T.has(n)) T.set(n, [n.x, n.y]);
     morph = (now) => {
-      const p = Math.min(1, (now - t0) / dur), e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      const p = clamp((now - t0) / dur, 0, 1), e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
       for (const [n, [x1, y1]] of T) { const [x0, y0] = from.get(n) || [x1, y1]; n.x = x0 + (x1 - x0) * e; n.y = y0 + (y1 - y0) * e; n.vx = n.vy = 0; }
       if (p >= 1) morph = null;
     };
@@ -8006,6 +8031,7 @@ HTMLEOF
     return pk.hot.list;
   }
   function drawPack() {
+    if (!visNodes.length) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); return false; }   // 보일 것이 없으면 빈 화면 안내만
     const pk = m.pk, k = view.k, F = focusSet(), litN = F || matchSet, lit0 = !!litN;
     let busy = packReps();
     dimT += ((lit0 || hoverH ? 1 : 0) - dimT) * 0.22;
@@ -8563,7 +8589,7 @@ HTMLEOF
   function setQuery(s) {
     query = s.trim().toLowerCase();
     matchSet = null;
-    if (P.onlyFound) { matchSet = query ? new Set(m.nodes.filter((n) => n.key.includes(query))) : null; refreshVisible(); if (vs.layout === "force") startForce(false, 0.3); }
+    if (P.onlyFound) { matchSet = query ? new Set(m.nodes.filter((n) => n.key.includes(query))) : null; refreshVisible(); if (vs.layout === "force") startForce(false, 0.3); else applyLayout(false); }
     matches = query ? visNodes.filter((n) => n.key.includes(query)) : [];
     matchSet = query ? new Set(matches) : null; matchIdx = -1;
     $("hits").textContent = query ? `${matches.length}` : "";
