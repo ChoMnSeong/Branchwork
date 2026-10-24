@@ -1,7 +1,19 @@
-import { gitch, type GitchAccount, type GitchBackup, type GitchPreflight, type GitchStatus, type GraphRelation, graphRelations } from "@/entities/gitch";
+import { countGraphRules, gitch, type GitchAccount, type GitchBackup, type GitchPreflight, type GitchStatus, type GraphCheck, type GraphRelation, graphRelations, graphRulesFile } from "@/entities/gitch";
 import { ipc } from "@/shared/api";
+import { joinPath } from "@/shared/config";
 import { t } from "@/shared/i18n";
+import { describe, gitRaw } from "@/shared/platform";
 import { RepoTerminal } from "./terminal";
+
+/** gitch graph 로 만드는 페이지 — 한 번에 하나(그동안 구조 그래프 메뉴의 항목을 끈다) */
+export type GraphJob = { kind: "draw"; relation: GraphRelation } | { kind: "diff"; relation: GraphRelation } | { kind: "checkPage" };
+
+/** 의존 규칙 검사 창이 보여 줄 것 */
+export type GraphCheckState =
+  | { kind: "running" }
+  /** rules: 규칙 줄 수(0 이면 --init 이 만든 예시 그대로 — 모두 주석) */
+  | { kind: "done"; result: GraphCheck; rules: number }
+  | { kind: "failed"; message: string };
 
 /** gitch(여러 Git 계정 도구): 이 저장소의 계정(잠금)·커밋/push 전 점검·저장소 단위 gitch 명령 (맥 버전 RepoStore+Gitch) */
 export abstract class RepoGitch extends RepoTerminal {
@@ -145,14 +157,22 @@ export abstract class RepoGitch extends RepoTerminal {
     return this.runGitch(toBranch ? ["rescue", pick, "--branch", toBranch] : ["rescue", pick, "--restore", "--yes"]);
   }
 
-  /** 그리는 중인 구조 그래프(그동안 메뉴 항목을 끈다 — 읽기만 하는 일이라 busy 와 달리 다른 작업은 막지 않는다) */
-  drawingGraph: GraphRelation | null = null;
+  /** gitch graph 로 만들고 있는 페이지(구조 그래프 · 바뀐 의존 · 규칙 위반). 읽기만 하는 일이라 busy 와 달리 다른 작업은 막지 않는다 */
+  graphJob: GraphJob | null = null;
+  /** 의존 규칙 검사 창에 보일 결과(gitch graph check) */
+  graphCheck: GraphCheckState | null = null;
+
+  /** gitch graph 가 페이지를 만드는 동안 툴바에 보일 글(관계 이름까지 넣으면 툴바 버튼이 밀려나서 짧게) */
+  get graphProgress(): string | null {
+    if (!this.graphJob) return null;
+    return this.graphJob.kind === "diff" ? t("Comparing dependencies…") : t("Drawing the structure graph…");
+  }
 
   /** 구조 그래프(gitch graph)를 html 로 만들어 기본 브라우저로 연다. 실패하면 gitch 가 낸 문구를 보여 준다. */
   async openStructureGraph(relation: GraphRelation) {
     const path = this.path;
-    if (!path || this.drawingGraph) return;
-    this.drawingGraph = relation;
+    if (!path || this.graphJob) return;
+    this.graphJob = { kind: "draw", relation };
     this.emit();
     try {
       const page = await gitch.graph(relation, path);
@@ -170,7 +190,112 @@ export abstract class RepoGitch extends RepoTerminal {
     } catch (e) {
       if (this.path === path) this.fail(e);
     } finally {
-      this.drawingGraph = null;
+      this.graphJob = null;
+      this.emit();
+    }
+  }
+
+  /**
+   * 이 브랜치에서 바뀐 의존(gitch graph diff)을 html 로 만들어 기본 브라우저로 연다.
+   * base 가 null 이면 gitch 의 기본값(기본 브랜치와 갈라진 곳), 있으면 그 브랜치 · 태그와 이 브랜치가 갈라진 곳과 비교한다.
+   */
+  async openGraphDiff(relation: GraphRelation, base: string | null = null) {
+    const path = this.path;
+    if (!path || this.graphJob) return;
+    this.graphJob = { kind: "diff", relation };
+    this.emit();
+    try {
+      const since = base ? await this.splitPoint(base, path) : null;
+      const file = await gitch.graphDiff(relation, since, path);
+      if (this.path !== path) return;
+      await ipc.openHtml(file);
+    } catch (e) {
+      if (this.path === path) this.fail(e);
+    } finally {
+      this.graphJob = null;
+      this.emit();
+    }
+  }
+
+  /**
+   * 고른 참조와 이 브랜치가 갈라진 곳(merge-base) — gitch 는 받은 기준과 그대로 비교하므로, 기준 브랜치가 그 뒤로 앞서 나갔어도
+   * 그 새 커밋이 뺀 것으로 보이지 않게. 참조가 이미 이 브랜치에 들어 있으면(태그 · 움직이지 않은 브랜치) 페이지에 이름이 보이게 이름 그대로
+   */
+  private async splitPoint(ref: string, path: string): Promise<string> {
+    const r = await gitRaw(["merge-base", "HEAD", ref], path);
+    const sha = r.stdout.trim();
+    if (r.status !== 0 || !sha) throw new Error(t("{0} has no commit in common with this branch.", ref));
+    const tip = await gitRaw(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], path).catch(() => null);
+    return tip?.stdout.trim() === sha ? ref : sha;
+  }
+
+  /** 의존 규칙 검사(gitch graph check): 규칙 파일이 없으면 예시로 만들지 묻고, 있으면 결과 창을 띄우고 검사한다 */
+  async checkGraphRules() {
+    const path = this.path;
+    if (!path) return;
+    if (!(await ipc.exists(joinPath(path, graphRulesFile)))) {
+      this.ask({
+        title: t("No dependency rules yet"),
+        message: t("gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?"),
+        actionTitle: t("Create rules file"),
+        destructive: false,
+        action: () => this.createGraphRules(),
+      });
+      return;
+    }
+    this.openSheet({ kind: "graphCheck" });
+    await this.runGraphCheck();
+  }
+
+  /** 규칙 검사를 (다시) 돌려 결과 창에 넣는다. 위반이 있어 gitch 가 1 로 끝나도 결과다. */
+  async runGraphCheck() {
+    const path = this.path;
+    if (!path || this.graphCheck?.kind === "running") return;
+    this.graphCheck = { kind: "running" };
+    this.emit();
+    try {
+      const result = await gitch.graphRulesCheck(path);
+      const rules = countGraphRules((await ipc.readText(joinPath(path, graphRulesFile))) ?? "");
+      if (this.path !== path) return;
+      this.graphCheck = { kind: "done", result, rules };
+    } catch (e) {
+      if (this.path !== path) return;
+      this.graphCheck = { kind: "failed", message: describe(e) };
+    }
+    this.emit();
+  }
+
+  /** gitch graph check --init 으로 예시가 든 규칙 파일을 만들고 메모장으로 연다(예시는 모두 주석이라 고친 뒤에 검사한다) */
+  async createGraphRules() {
+    const path = this.path;
+    if (!path) return;
+    try {
+      await gitch.graphRulesInit(path);
+      await this.openGraphRules();
+    } catch (e) {
+      this.fail(e);
+    }
+  }
+
+  async openGraphRules() {
+    const path = this.path;
+    if (path) await ipc.openRules(joinPath(path, graphRulesFile)).catch((e) => this.fail(e));
+  }
+
+  /** 규칙 위반을 그린 페이지(gitch graph check --format html)를 기본 브라우저로 연다. 결과 창에서 부르므로 실패하면 그 문구를 돌려준다 */
+  async openGraphCheckPage(): Promise<string | null> {
+    const path = this.path;
+    if (!path || this.graphJob) return null;
+    this.graphJob = { kind: "checkPage" };
+    this.emit();
+    try {
+      const file = await gitch.graphCheckPage(path);
+      if (this.path === path) await ipc.openHtml(file);
+      return null;
+    } catch (e) {
+      return describe(e);
+    } finally {
+      this.graphJob = null;
       this.emit();
     }
   }

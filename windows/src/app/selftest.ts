@@ -4,9 +4,11 @@ import { agents } from "@/entities/agent";
 import { ai } from "@/entities/ai";
 import { canPlay, CIAPI } from "@/entities/ci";
 import { type DropRequest, isWIP, statusIsEmpty } from "@/entities/git";
+import { gitch, graphRulesFile } from "@/entities/gitch";
 import { ReviewAPI, reviewFileChange } from "@/entities/hosting";
 import { branchPayload } from "@/entities/repo";
 import { workspace } from "@/entities/workspace";
+import { structureGraphMenus } from "@/features/git-menus";
 import { ipc } from "@/shared/api";
 import { dirname, env, isWindows, joinPath, settings, toWslPath } from "@/shared/config";
 import { gitRaw, listDistros, tools } from "@/shared/platform";
@@ -602,6 +604,27 @@ export async function runSelfTest(): Promise<boolean> {
     ([...document.querySelectorAll(".menu-item")].find((m) => m.textContent?.includes("다른 탭 모두 닫기")) as HTMLElement | undefined)?.click();
     const closed = await until(() => workspace.tabs.length === 1 && workspace.tabs[0] === s && !!s.path, 3000);
     return [shown && closed && before >= 3, `before=${before} after=${workspace.tabs.length} menu=${labels}`];
+  });
+
+  // 저장소 메뉴의 바뀐 의존 · 의존 규칙 검사(gitch graph diff · check): 메뉴가 켜지고 페이지 · 검사 결과가 나오는지(브라우저는 열지 않는다)
+  await step("바뀐 의존 · 의존 규칙 검사(gitch graph)", async () => {
+    const reason = await gitch.checkGraph();
+    if (reason) return [true, `앱에 든 gitch 를 쓸 수 없음 — 건너뜀 (${reason})`];
+    const menus = structureGraphMenus(s).filter((m) => m !== "divider");
+    const menuOk = menus.length === 3 && menus.every((m) => !m.disabled);
+    const page = await gitch.graphDiff("tree", "v0.1", repo);
+    const pageOk = await ipc.exists(page);
+    const dir = joinPath(repo, ".gitch");
+    await ipc.writeText(joinPath(repo, graphRulesFile), "[files]\nno-cycles\n");
+    try {
+      await s.runGraphCheck();
+      const c = s.graphCheck;
+      const ok = menuOk && pageOk && c?.kind === "done" && c.rules === 1 && c.result.ok;
+      return [ok, `menus=${menus.map((m) => `${m.label}${m.disabled ? "(off)" : ""}`)} diff=${page} (${pageOk}) check=${JSON.stringify(c)}`];
+    } finally {
+      s.graphCheck = null;
+      await ipc.remove(dir);
+    }
   });
 
   // 테마: 다크·라이트로 바꾸면 화면 색과 창 제목 표시줄 테마가 따라오는지, 시스템으로 되돌리기

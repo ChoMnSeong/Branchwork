@@ -1,5 +1,5 @@
 import { Menu, Plus, Settings, X } from "lucide-react";
-import { structureGraphMenu } from "@/features/git-menus";
+import { structureGraphMenus } from "@/features/git-menus";
 import type { RepoStore } from "@/entities/repo";
 import { workspace } from "@/entities/workspace";
 import { ipc } from "@/shared/api";
@@ -39,7 +39,7 @@ export function TabBar({ openSettings }: { openSettings: () => void }) {
               { label: t("Refresh"), shortcut: "F5", disabled: !s?.path, onClick: () => void s?.reload() },
               { label: t("Search commits"), shortcut: "Ctrl+F", disabled: !s?.path, onClick: () => s?.requestSearchFocus() },
               { label: t("Show/hide terminal"), shortcut: "Ctrl+`", disabled: !s?.path, onClick: () => s?.toggleTerminal() },
-              structureGraphMenu(s ?? null),
+              ...structureGraphMenus(s ?? null),
               "divider",
               { label: t("Settings…"), shortcut: "Ctrl+,", onClick: openSettings },
               { label: updater.state === "available" ? t("Install update {0}…", updater.info?.version) : t("Check for updates…"), onClick: () => void updater.check(true) },

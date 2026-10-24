@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromPosix, linkTarget, parseAccounts, parseBackups, parseGraphSummary, parsePreflight, parseStatus, plain, versionAtLeast, versionOf } from "@/entities/gitch";
+import { countGraphRules, fromPosix, graphDiffRelations, linkTarget, parseAccounts, parseBackups, parseGraphCheck, parseGraphSummary, parsePreflight, parseStatus, plain, versionAtLeast, versionOf } from "@/entities/gitch";
 
 describe("구조 그래프(gitch graph)", () => {
   it("버전은 숫자로 비교(3.10 > 3.2)", () => {
@@ -16,6 +16,38 @@ describe("구조 그래프(gitch graph)", () => {
       hint: "모듈 설정 파일을 찾지 못했습니다 (Package.swift · package.json …)",
     });
     expect(parseGraphSummary("")).toEqual({ nodes: null, hint: null });
+  });
+});
+
+describe("바뀐 의존 · 의존 규칙 검사(gitch graph diff · check)", () => {
+  it("diff 는 같이 바뀌는 파일을 비교하지 않는다", () => {
+    expect(graphDiffRelations().map((r) => r.id)).toEqual(["files", "modules", "tree"]);
+  });
+
+  it("check JSON: 위반 · 경고, 순환은 노드 목록으로", () => {
+    const out = [
+      '{"tool":"gitch graph check","file":".gitch/graph.rules","base":null,"ok":false,"violations":[',
+      '  {"relation":"files","severity":"error","line":3,"rule":"forbid  src/ui -> src/db","kind":"forbid","source":"src/ui/view.ts","target":"src/db/table.ts","existing":false},',
+      '  {"relation":"files","severity":"warning","line":2,"rule":"no-cycles src/**","kind":"no-cycles","nodes":["src/a.swift","src/b.swift"],"existing":false}',
+      "]}",
+    ].join("\n");
+    expect(parseGraphCheck(out)).toEqual({
+      file: ".gitch/graph.rules",
+      ok: false,
+      violations: [
+        { relation: "files", severity: "error", line: 3, rule: "forbid  src/ui -> src/db", kind: "forbid", source: "src/ui/view.ts", target: "src/db/table.ts", nodes: null },
+        { relation: "files", severity: "warning", line: 2, rule: "no-cycles src/**", kind: "no-cycles", source: null, target: null, nodes: ["src/a.swift", "src/b.swift"] },
+      ],
+    });
+    expect(parseGraphCheck('{"tool":"gitch graph check","file":".gitch/graph.rules","base":null,"ok":true,"violations":[]}')).toEqual({ file: ".gitch/graph.rules", ok: true, violations: [] });
+    // 규칙 파일이 틀리면 gitch 는 JSON 없이 표준오류에만 쓴다
+    expect(parseGraphCheck("")).toBeNull();
+    expect(parseGraphCheck("{}")).toBeNull();
+  });
+
+  it("규칙 줄 수: 주석 · 빈 줄 · [절] 머리는 세지 않는다(--init 예시는 0)", () => {
+    expect(countGraphRules("# gitch graph check 규칙\n\n[modules]\n# no-cycles\n\n[files]\n# forbid  src/ui -> src/db   # 예\n")).toBe(0);
+    expect(countGraphRules("[files]\r\nno-cycles src/**\r\nforbid  src/ui -> src/db   # 화면은 DB 를 모른다\r\n\r\n[modules]\nlayers  *App > *Feature\n")).toBe(3);
   });
 });
 

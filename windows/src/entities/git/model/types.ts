@@ -400,7 +400,11 @@ export type SheetKind =
   /** 커밋 정리(인터랙티브 리베이스) */
   | { kind: "interactiveRebase" }
   /** gitch 자동 백업(되돌리기 · 새 브랜치로 꺼내기) */
-  | { kind: "gitchBackups" };
+  | { kind: "gitchBackups" }
+  /** 이 브랜치에서 바뀐 의존(gitch graph diff)의 기준 고르기 */
+  | { kind: "graphDiff" }
+  /** 의존 규칙 검사 결과(gitch graph check) */
+  | { kind: "graphCheck" };
 
 export interface ConfirmRequest {
   title: string;

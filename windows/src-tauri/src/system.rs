@@ -230,6 +230,21 @@ pub fn open_html(app: AppHandle, path: String) -> Result<(), String> {
     app.opener().open_path(p.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
 }
 
+/// 의존 규칙 파일(.gitch/graph.rules)을 메모장(macOS 는 기본 글 편집기)으로 연다 — .rules 에 묶인 앱이 없어도 열리게. 그 파일만 받는다.
+#[tauri::command]
+pub fn open_rules(path: String) -> Result<(), String> {
+    let p = PathBuf::from(crate::process::native(&path));
+    let rules = p.file_name().is_some_and(|n| n == "graph.rules") && p.parent().and_then(Path::file_name).is_some_and(|n| n == ".gitch");
+    if !rules || !p.is_file() {
+        return Err("Only an existing .gitch/graph.rules file can be opened".into());
+    }
+    let mut cmd = Command::new(if cfg!(windows) { "notepad.exe" } else { "open" });
+    if !cfg!(windows) {
+        cmd.arg("-t");
+    }
+    cmd.arg(&p).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 /// 바깥 터미널 앱으로 폴더 열기(Windows Terminal → PowerShell, macOS Terminal)
 #[tauri::command]
 pub fn open_terminal(path: String) -> Result<(), String> {
