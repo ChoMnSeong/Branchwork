@@ -83,6 +83,27 @@ guesses=$(count '"heuristic":true' "$TMP/graph.json")
 if [[ $rc == 0 && $refs == "$(wc -l < "$HERE/expected.tsv" | tr -d ' ')" && $guesses == 0 ]] && grep -q 'gitch-swift-index' "$TMP/graph.json"
 then ok "gitch graph files: 정확한 연결(kind ref) ${refs}개, 짐작 0"; else bad "gitch graph files (종료 코드 $rc, ref $refs, 짐작 $guesses)" "$(cat "$TMP/err")"; fi
 
+# 빌드 뒤 새로 만든 추적 파일은 인덱스에 없다 — gitch 는 --covered 목록 밖의 파일만 이름으로 짐작한다
+printf 'struct Later {\n    let report: Report\n}\n' > "$repo/Sources/App/Later.swift"
+git -C "$repo" add Sources/App/Later.swift
+rc=0
+(cd "$repo" && HOME="$TMP/home" GITCH_SWIFT_INDEX="$HELPER" "$gitch" graph files --format json) > "$TMP/graph.json" 2> "$TMP/err" || rc=$?
+refs=$(count '"kind":"ref"' "$TMP/graph.json")
+guesses=$(count '"heuristic":true' "$TMP/graph.json")
+if [[ $rc == 0 && $refs == "$(wc -l < "$HERE/expected.tsv" | tr -d ' ')" && $guesses == 1 ]] &&
+    grep -q '"source":"Sources/App/Later.swift","target":"Sources/App/Report.swift"' "$TMP/graph.json"
+then ok "인덱스에 없는 추적 파일만 짐작(Later.swift → Report.swift)"; else bad "인덱스에 없는 파일 (종료 코드 $rc, ref $refs, 짐작 $guesses)" "$(cat "$TMP/err")"; fi
+git -C "$repo" rm -q --cached Sources/App/Later.swift
+rm "$repo/Sources/App/Later.swift"
+
+# 성공해도 표준오류 첫 줄(오래된 인덱스 경고)은 gitch 가 notes 에 적는다
+touch -t 203001010000 "$repo/Sources/App/Report.swift"
+rc=0
+(cd "$repo" && HOME="$TMP/home" GITCH_SWIFT_INDEX="$HELPER" "$gitch" graph files --format json) > "$TMP/graph.json" 2> "$TMP/err" || rc=$?
+if [[ $rc == 0 ]] && grep -q '오래됐습니다(예: Sources/App/Report.swift)' "$TMP/graph.json"; then ok "오래된 인덱스 경고가 gitch graph 의 notes 에"
+else bad "notes 의 경고 (종료 코드 $rc)" "$(cat "$TMP/err")"; fi
+touch -t 200001010000 "$repo/Sources/App/Report.swift"
+
 # Xcode: DerivedData/<이름-해시>/info.plist 의 WorkspacePath 가 이 저장소 안인 것만
 mv "$repo/.build" "$TMP/spm-build"
 store="$TMP/spm-build/$(cd "$TMP/spm-build" && find . -path '*/debug/index/store' -type d | sed -n '1s|^\./||p')"
