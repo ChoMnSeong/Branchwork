@@ -71,6 +71,18 @@ if [[ $rc == 0 ]] && out=$(same_pairs) && grep -q '경고:.*1개.*Sources/App/Re
 else bad "오래된 인덱스 경고 (종료 코드 $rc)" "$(cat "$TMP/err")"; fi
 touch -t 200001010000 "$repo/Sources/App/Report.swift"
 
+# gitch graph files 가 이 쌍을 정확한 연결(kind ref)로 쓰고 Swift 끼리 짐작하지 않는지 — 이 저장소의 gitch 로, 임시 HOME 에서
+gitch="$(cd "$TOOL/../gitch" && pwd)/gitch"
+mkdir -p "$TMP/home"
+rc=0
+(cd "$repo" && HOME="$TMP/home" GITCH_SWIFT_INDEX="$HELPER" "$gitch" graph files --format json) > "$TMP/graph.json" 2> "$TMP/err" || rc=$?
+# 하나도 없으면 grep 이 1 로 끝난다(set -e · pipefail)
+count() { { grep -o "$1" "$2" || true; } | wc -l | tr -d ' '; }
+refs=$(count '"kind":"ref"' "$TMP/graph.json")
+guesses=$(count '"heuristic":true' "$TMP/graph.json")
+if [[ $rc == 0 && $refs == "$(wc -l < "$HERE/expected.tsv" | tr -d ' ')" && $guesses == 0 ]] && grep -q 'gitch-swift-index' "$TMP/graph.json"
+then ok "gitch graph files: 정확한 연결(kind ref) ${refs}개, 짐작 0"; else bad "gitch graph files (종료 코드 $rc, ref $refs, 짐작 $guesses)" "$(cat "$TMP/err")"; fi
+
 # Xcode: DerivedData/<이름-해시>/info.plist 의 WorkspacePath 가 이 저장소 안인 것만
 mv "$repo/.build" "$TMP/spm-build"
 store="$TMP/spm-build/$(cd "$TMP/spm-build" && find . -path '*/debug/index/store' -type d | sed -n '1s|^\./||p')"
