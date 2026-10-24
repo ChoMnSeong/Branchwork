@@ -980,7 +980,6 @@
  "Compare with": "Vergelijken met",
  "Default branch (where this branch split off)": "Standaardbranch (splitsingspunt)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi vergelijkt met het punt waar deze branch afsplitste van de gekozen branch of tag, zodat alleen de wijzigingen van deze branch te zien zijn. Niet-gecommitte wijzigingen in gevolgde bestanden tellen mee.",
- "{0} has no commit in common with this branch.": "{0} heeft geen gemeenschappelijke commit met deze branch.",
  "Dependency rules": "Afhankelijkheidsregels",
  "Checking dependency rules…": "Afhankelijkheidsregels worden gecontroleerd…",
  "Rules {0}": "{0} regels",

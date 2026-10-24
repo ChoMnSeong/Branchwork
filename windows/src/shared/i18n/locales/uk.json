@@ -1032,7 +1032,6 @@
  "Compare with": "Порівняти з",
  "Default branch (where this branch split off)": "Гілка за замовчуванням (точка відгалуження)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi порівнює з місцем, де ця гілка відокремилася від вибраної гілки або тегу, тож видно лише зміни цієї гілки. Незакомічені зміни у відстежуваних файлах враховуються.",
- "{0} has no commit in common with this branch.": "{0} і ця гілка не мають спільного коміту.",
  "Dependency rules": "Правила залежностей",
  "Checking dependency rules…": "Перевіряються правила залежностей…",
  "Rules {0}": "Правил: {0}",

@@ -1021,7 +1021,6 @@
  "Compare with": "Karşılaştırılacak",
  "Default branch (where this branch split off)": "Varsayılan dal (ayrılma noktası)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi, bu dalın seçtiğiniz dal veya etiketten ayrıldığı noktayla karşılaştırır; böylece yalnızca bu dalın değişiklikleri görünür. İzlenen dosyalardaki commit edilmemiş değişiklikler de dahildir.",
- "{0} has no commit in common with this branch.": "{0} ile bu dalın ortak bir commit'i yok.",
  "Dependency rules": "Bağımlılık kuralları",
  "Checking dependency rules…": "Bağımlılık kuralları denetleniyor…",
  "Rules {0}": "{0} kural",

@@ -1005,7 +1005,6 @@
  "Compare with": "Vergleichen mit",
  "Default branch (where this branch split off)": "Standard-Branch (Abzweigpunkt)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "Gitrochi vergleicht mit der Stelle, an der dieser Branch vom gewählten Branch oder Tag abgezweigt ist, sodass nur die Änderungen dieses Branches erscheinen. Nicht committete Änderungen an versionierten Dateien sind enthalten.",
- "{0} has no commit in common with this branch.": "{0} hat keinen gemeinsamen Commit mit diesem Branch.",
  "Dependency rules": "Abhängigkeitsregeln",
  "Checking dependency rules…": "Abhängigkeitsregeln werden geprüft…",
  "Rules {0}": "{0} Regeln",

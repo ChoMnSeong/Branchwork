@@ -1027,7 +1027,6 @@
  "Compare with": "비교 기준",
  "Default branch (where this branch split off)": "기본 브랜치 (갈라진 곳)",
  "Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included.": "고른 브랜치 · 태그와 이 브랜치가 갈라진 곳과 비교해서 이 브랜치에서 바뀐 것만 보입니다. 커밋하지 않은 바꿈(추적하는 파일)도 들어갑니다.",
- "{0} has no commit in common with this branch.": "{0} 와(과) 이 브랜치에는 공통 커밋이 없습니다.",
  "Dependency rules": "의존 규칙",
  "Checking dependency rules…": "의존 규칙 검사하는 중…",
  "Rules {0}": "규칙 {0}개",
