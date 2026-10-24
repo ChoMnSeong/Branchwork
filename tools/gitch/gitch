@@ -4363,15 +4363,16 @@ install_location_ok() {   # $1 연결할 gitch — 디스크를 꺼내거나 앱
 }
 
 install_cmd() {
-  local self n=0 d fancy=""
+  local self n=0 d fancy="" noacc="" total=5
   self=$(self_path)
   install_location_ok "$self" || exit 1
   git_version_ok || die "git 2.36 이상이 필요합니다. 지금: git ${GIT_VER:-?} ($(install_hint git Git.Git))"
-  load_config || die "설정 파일이 없습니다: $(tilde "$CFG") → 먼저 gitch migrate (v1 에서 옮기기) 또는 gitch add"
-  need_config
+  # 계정이 아직 없으면 명령 · 터미널만 — gitch g 처럼 계정이 필요 없는 명령은 바로 쓰고, 자동 규칙 · 검사 훅은 계정을 만든 뒤에
+  # (계정 없이 useConfigOnly · 훅을 깔면 모든 저장소의 커밋이 막힌다)
+  if load_config; then need_config; else noacc=1; total=2; fi
   fancy_out && { fancy=1; banner; }
   chmod +x "$self"
-  step 1 "명령" 5
+  step 1 "명령" "$total"
   mkdir -p "$HOME/bin"
   [ "$(resolve_link "$BIN_LINK" 2>/dev/null)" != "$self" ] && make_link "$self" "$BIN_LINK"
   # 예전 이름 ~/bin/gitsw 도 같은 파일로(링크가 아닌 파일이면 사용자 것이라 그대로 둔다)
@@ -4383,7 +4384,7 @@ install_cmd() {
   is_link "$HOME/bin/gitswitch" && rm -f "$HOME/bin/gitswitch"
   say "  ${GREEN}✔${RESET} gitch 명령 연결: ~/bin/gitch → $(tilde "$self") (예전 이름 ~/bin/gitsw 도)"
   [ -n "$IS_WINDOWS" ] && install_windows_shims
-  step 2 "터미널" 5
+  step 2 "터미널" "$total"
   backup_file "$SHELL_RC"
   if [ -n "$IS_WINDOWS" ]; then
     update_marked_block "$SHELL_RC" "# >>> gitsw >>>" "# <<< gitsw <<<" "$BASH_BLOCK"
@@ -4391,6 +4392,17 @@ install_cmd() {
   else
     update_marked_block "$SHELL_RC" "# >>> gitsw >>>" "# <<< gitsw <<<" "$ZSH_BLOCK" "" "alias gitsw='noglob gitsw'"
     say "  ${GREEN}✔${RESET} 터미널 연동: 따옴표 없는 주소 + 오른쪽에 현재 계정 표시"
+  fi
+  if [ -n "$noacc" ]; then
+    echo ""
+    [ -n "$fancy" ] && rule
+    if [ -n "$IS_WINDOWS" ]; then ok "gitch 명령을 연결했습니다. 지금 Git Bash 에 적용: ${BOLD}source ~/.bashrc${RESET} (PowerShell · cmd 는 새 창에서)"
+    else ok "gitch 명령을 연결했습니다. 지금 터미널에 적용: ${BOLD}source ~/.zshrc${RESET}"; fi
+    say "  계정이 아직 없어 자동 규칙 · 검사 훅 · AI 연동은 건너뛰었습니다 — ${BOLD}gitch add${RESET} 로 계정을 만든 뒤 ${BOLD}gitch install${RESET} 을 한 번 더 하세요."
+    say "  ${DIM}계정 없이도 되는 것: gitch g (구조 그래프) · gitch app (앱 열기) · gitch help${RESET}"
+    [ -n "$BACKUP_SESSION" ] && dim "  (바꾸기 전 파일 백업: $(tilde "$BACKUP_SESSION"))"
+    log_action install "version=$GITSW_VERSION" "accounts=0"
+    return 0
   fi
   # 순서 고정: [user] → 자동 규칙 → 훅 (몇 번을 설치해도 ~/.gitconfig 내용이 같도록)
   backup_global
