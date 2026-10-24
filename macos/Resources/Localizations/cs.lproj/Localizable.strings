@@ -1,6 +1,5 @@
 /* Gitrochi — cs. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ nemá s touto větví žádný společný commit.";
 "Check again" = "Zkontrolovat znovu";
 "Check dependency rules…" = "Zkontrolovat pravidla závislostí…";
 "Checking dependency rules…" = "Kontroluji pravidla závislostí…";
@@ -507,6 +506,7 @@
 "Load more commits" = "Načíst další commity";
 "Loading" = "Načítání";
 "Loading earlier history…" = "Načítání starší historie…";
+"Local branches" = "Lokální větve";
 "Local branches %lld" = "Lokální větve %1$lld";
 "Local: %@" = "Lokální: %1$@";
 "Locate" = "Vybrat";
@@ -839,6 +839,7 @@
 "System" = "Systém";
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "Možnost Systém se řídí nastavením macOS (světlý, tmavý nebo automatický vzhled). Graf a terminál se mění s ním.";
 "Tag here…" = "Vytvořit tag zde…";
+"Tags" = "Tagy";
 "Tags %lld" = "Tagy %1$lld";
 "Task" = "Úkol";
 "Task for the agent (optional)" = "Úkol pro agenta (volitelné)";

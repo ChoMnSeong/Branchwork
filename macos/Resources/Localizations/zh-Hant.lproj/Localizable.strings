@@ -1,6 +1,5 @@
 /* Gitrochi — zh-Hant. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ 與此分支沒有共同的提交。";
 "Check again" = "重新檢查";
 "Check dependency rules…" = "檢查相依性規則…";
 "Checking dependency rules…" = "正在檢查相依性規則…";
@@ -521,6 +520,7 @@
 "Load more commits" = "載入更多提交";
 "Loading" = "正在載入";
 "Loading earlier history…" = "正在載入較早的歷程記錄…";
+"Local branches" = "本機分支";
 "Local branches %lld" = "本機分支 %1$lld";
 "Local: %@" = "本機：%1$@";
 "Locate" = "手動指定";
@@ -862,6 +862,7 @@
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "「系統」會依照你的 macOS 設定（淺色、深色或自動）。圖表與終端機也會一併變更。";
 "Tag here…" = "在此加上標籤…";
 "Tag: %@" = "標籤：%1$@";
+"Tags" = "標籤";
 "Tags %lld" = "標籤 %1$lld";
 "Task" = "任務";
 "Task for the agent (optional)" = "交給代理程式的任務（選填）";

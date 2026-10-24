@@ -1,6 +1,5 @@
 /* Gitrochi — id. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ tidak punya commit yang sama dengan branch ini.";
 "Check again" = "Periksa lagi";
 "Check dependency rules…" = "Periksa aturan dependensi…";
 "Checking dependency rules…" = "Memeriksa aturan dependensi…";
@@ -494,6 +493,7 @@
 "Load more commits" = "Muat lebih banyak commit";
 "Loading" = "Memuat";
 "Loading earlier history…" = "Memuat riwayat sebelumnya…";
+"Local branches" = "Branch lokal";
 "Local branches %lld" = "Branch lokal %1$lld";
 "Local: %@" = "Lokal: %1$@";
 "Locate" = "Pilih lokasi";
@@ -815,6 +815,7 @@
 "System" = "Sistem";
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "Sistem mengikuti pengaturan macOS Anda (terang, gelap, atau otomatis). Grafik dan terminal ikut berubah.";
 "Tag here…" = "Tag di sini…";
+"Tags" = "Tag";
 "Tags %lld" = "Tag %1$lld";
 "Task" = "Tugas";
 "Task for the agent (optional)" = "Tugas untuk agen (opsional)";

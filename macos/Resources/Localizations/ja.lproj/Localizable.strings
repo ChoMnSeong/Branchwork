@@ -1,6 +1,5 @@
 /* Gitrochi — ja. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ とこのブランチには共通のコミットがありません。";
 "Check again" = "再チェック";
 "Check dependency rules…" = "依存関係のルールをチェック…";
 "Checking dependency rules…" = "依存関係のルールをチェック中…";
@@ -521,6 +520,7 @@
 "Load more commits" = "コミットをさらに読み込む";
 "Loading" = "読み込み中";
 "Loading earlier history…" = "以前の履歴を読み込んでいます…";
+"Local branches" = "ローカルブランチ";
 "Local branches %lld" = "ローカルブランチ %1$lld";
 "Local: %@" = "ローカル: %1$@";
 "Locate" = "場所を指定";
@@ -861,6 +861,7 @@
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "「システム」は macOS の設定 (ライト・ダーク・自動) に従います。グラフとターミナルも連動して切り替わります。";
 "Tag here…" = "ここにタグ…";
 "Tag: %@" = "タグ: %1$@";
+"Tags" = "タグ";
 "Tags %lld" = "タグ %1$lld";
 "Task" = "タスク";
 "Task for the agent (optional)" = "エージェントへのタスク (任意)";

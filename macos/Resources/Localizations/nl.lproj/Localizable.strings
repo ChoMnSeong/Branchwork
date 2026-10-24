@@ -1,6 +1,5 @@
 /* Gitrochi — nl. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ heeft geen gemeenschappelijke commit met deze branch.";
 "Check again" = "Opnieuw controleren";
 "Check dependency rules…" = "Afhankelijkheidsregels controleren…";
 "Checking dependency rules…" = "Afhankelijkheidsregels worden gecontroleerd…";
@@ -494,6 +493,7 @@
 "Load more commits" = "Meer commits laden";
 "Loading" = "Laden";
 "Loading earlier history…" = "Eerdere geschiedenis wordt geladen…";
+"Local branches" = "Lokale branches";
 "Local branches %lld" = "Lokale branches %1$lld";
 "Local: %@" = "Lokaal: %1$@";
 "Locate" = "Aanwijzen";

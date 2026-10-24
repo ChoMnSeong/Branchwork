@@ -296,12 +296,13 @@ enum Gitch {
         return GraphPage(file: file, nodes: nodes, hint: hint)
     }
 
-    /// `gitch graph diff [--base 기준] <관계> --format html --out <임시 파일> --no-open` — 기준과 지금 작업 트리(커밋하지 않은 바꿈 포함)의
+    /// `gitch graph diff [--base 기준...] <관계> --format html --out <임시 파일> --no-open` — 기준과 이 브랜치가 갈라진 곳과 지금 작업 트리(커밋하지 않은 바꿈 포함)의
     /// 의존을 비교해 더한 것은 초록, 뺀 것은 빨간 점선으로 그린 페이지. 기준이 nil 이면 gitch 가 고른다(기본 브랜치와 갈라진 곳).
+    /// 기준... 은 gitch 가 갈라진 곳(merge-base)을 찾고 페이지에는 기준 이름을 적는다 — 기준 브랜치가 그 뒤로 앞서 나가도 그 커밋이 뺀 것으로 보이지 않게.
     /// 기준 커밋을 임시 폴더에 풀어 같은 방법으로 한 번 더 읽으므로 큰 저장소는 몇 초 걸린다.
     static func graphDiff(_ relation: GraphRelation, base: String?, in repo: URL) async throws -> URL {
         let file = graphFile("\(relation.rawValue)-diff", in: repo)
-        let since = base.map { ["--base", $0] } ?? []
+        let since = base.map { ["--base", "\($0)..."] } ?? []
         try await runGraph(["diff"] + since + [relation.rawValue, "--format", "html", "--out", file.path, "--no-open"], in: repo)
         return file
     }

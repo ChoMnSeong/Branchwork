@@ -1,6 +1,5 @@
 /* Gitrochi — pt-BR. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ não tem nenhum commit em comum com este branch.";
 "Check again" = "Verificar de novo";
 "Check dependency rules…" = "Verificar regras de dependências…";
 "Checking dependency rules…" = "Verificando regras de dependências…";
@@ -504,6 +503,7 @@
 "Load more commits" = "Carregar mais commits";
 "Loading" = "Carregando";
 "Loading earlier history…" = "Carregando histórico anterior…";
+"Local branches" = "Branches locais";
 "Local branches %lld" = "Branches locais %1$lld";
 "Locate" = "Localizar";
 "Locate…" = "Localizar…";

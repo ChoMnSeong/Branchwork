@@ -1,6 +1,5 @@
 /* Gitrochi — ru. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "У %1$@ и этой ветки нет общего коммита.";
 "Check again" = "Проверить снова";
 "Check dependency rules…" = "Проверить правила зависимостей…";
 "Checking dependency rules…" = "Проверяются правила зависимостей…";
@@ -520,6 +519,7 @@
 "Load more commits" = "Загрузить ещё коммиты";
 "Loading" = "Загрузка";
 "Loading earlier history…" = "Загрузка более ранней истории…";
+"Local branches" = "Локальные ветки";
 "Local branches %lld" = "Локальные ветки %1$lld";
 "Local: %@" = "Локальная: %1$@";
 "Locate" = "Указать";
@@ -860,6 +860,7 @@
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "«Системная» следует настройке macOS (светлое, тёмное или автоматическое оформление). Граф и терминал меняются вместе с ней.";
 "Tag here…" = "Создать тег здесь…";
 "Tag: %@" = "Тег: %1$@";
+"Tags" = "Теги";
 "Tags %lld" = "Теги %1$lld";
 "Task" = "Задача";
 "Task for the agent (optional)" = "Задача для агента (необязательно)";

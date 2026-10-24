@@ -1,6 +1,5 @@
 /* Gitrochi — ko. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
-"%@ has no commit in common with this branch." = "%1$@ 와(과) 이 브랜치에는 공통 커밋이 없습니다.";
 "Check again" = "다시 검사";
 "Check dependency rules…" = "의존 규칙 검사…";
 "Checking dependency rules…" = "의존 규칙 검사하는 중…";
@@ -517,6 +516,7 @@
 "Load more commits" = "커밋 더 불러오기";
 "Loading" = "읽는 중";
 "Loading earlier history…" = "이전 기록 불러오는 중…";
+"Local branches" = "로컬 브랜치";
 "Local branches %lld" = "로컬 브랜치 %1$lld";
 "Local: %@" = "로컬: %1$@";
 "Locate" = "불러오기";
@@ -851,6 +851,7 @@
 "System follows your macOS setting (light, dark or auto). The graph and terminal change with it." = "시스템은 macOS 설정(라이트·다크·자동)을 따릅니다. 그래프·터미널까지 함께 바뀝니다.";
 "Tag here…" = "여기에 태그…";
 "Tag: %@" = "태그: %1$@";
+"Tags" = "태그";
 "Tags %lld" = "태그 %1$lld";
 "Task" = "맡길 작업";
 "Task for the agent (optional)" = "에이전트에게 맡길 작업 (선택)";
