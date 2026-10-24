@@ -364,6 +364,29 @@ printf '</body></html>' >> "$out"
         watcher.run_builder = build
         return module, watcher
 
+    def test_loopback_startup_and_http_never_require_reverse_dns(self):
+        # macOS CI can spend over 30 seconds resolving even 127.0.0.1.
+        # A loopback-only server must bind and answer without that resolver.
+        with mock.patch("socket.getfqdn", side_effect=AssertionError("unexpected reverse DNS")) as resolve:
+            _, watcher = self.atomic_watcher()
+            ready_file = self.parent / "watch ready.json"
+            worker = threading.Thread(target=watcher.run, args=(str(ready_file),), daemon=True)
+            worker.start()
+            try:
+                info = watcher.description()
+                self.ready(info)
+                self.assertEqual(json.loads(ready_file.read_text(encoding="utf-8"))["url"], info["url"])
+                with urlopen(info["url"], timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertIn(b"new graph", response.read())
+                self.assertEqual(watcher.server.server_name, "127.0.0.1")
+                self.assertEqual(watcher.server.server_port, watcher.server.server_address[1])
+                resolve.assert_not_called()
+            finally:
+                watcher.stop.set()
+                worker.join(timeout=3)
+            self.assertFalse(worker.is_alive(), "loopback watcher did not stop")
+
     def test_served_html_and_generation_snapshot_are_atomic(self):
         _, watcher = self.atomic_watcher()
         entered, release, written = threading.Event(), threading.Event(), threading.Event()

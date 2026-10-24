@@ -17,6 +17,7 @@ from pathlib import Path
 import secrets
 import shutil
 import signal
+from socketserver import TCPServer
 import stat
 import subprocess
 import sys
@@ -27,6 +28,16 @@ from urllib.parse import urlsplit
 
 
 MAX_HTML_BYTES = 64 * 1024 * 1024
+
+
+class LoopbackHTTPServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer performs reverse DNS for server_name. Framework Python on
+        # recent macOS runners can block there for tens of seconds, although this
+        # server only needs its pinned numeric loopback address.
+        TCPServer.server_bind(self)
+        self.server_name = "127.0.0.1"
+        self.server_port = self.server_address[1]
 
 
 def graph_arguments(arguments):
@@ -125,7 +136,7 @@ class GraphWatch:
         self.server = None
         for port in list(range(preferred, min(preferred + 32, 65536))) + [0]:
             try:
-                self.server = ThreadingHTTPServer(("127.0.0.1", port), self.make_handler())
+                self.server = LoopbackHTTPServer(("127.0.0.1", port), self.make_handler())
                 break
             except OSError:
                 continue

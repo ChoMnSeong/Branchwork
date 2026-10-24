@@ -113,6 +113,25 @@ test_cli_contract_index_watch_and_saved_view() {
   CONTRACT_WATCH_PID=""
 }
 
+test_cli_contract_watch_reports_helper_startup_error() {
+  contract_repo
+  local bundle="$T/failing watcher"
+  mkdir -p "$bundle"
+  cp "$GITSW_SRC" "$bundle/gitch"
+  cat > "$bundle/gitch-graph-watch" <<'PY'
+#!/usr/bin/env python3
+import json
+import sys
+print(json.dumps({"schemaVersion": 1, "error": "watch-unavailable", "message": "fixture watcher startup failed"}))
+sys.exit(3)
+PY
+  OUT=$(bash "$bundle/gitch" g watch --out "$T/failure.html" --detach --json --no-open 2> "$T/watch-error"); RC=$?
+  assert_eq "$RC" 1 'watch helper failure must preserve public CLI exit code'
+  assert_eq "$OUT" '' 'watch helper failure must keep stdout empty'
+  grep -F 'fixture watcher startup failed' "$T/watch-error" >/dev/null || fail 'watch startup diagnostic was swallowed'
+  tail -1 "$T/watch-error" | jq -e '.schemaVersion == 1 and .error.code == "GITCH_ERROR" and .error.exitCode == 1' >/dev/null || fail 'watch startup machine error contract'
+}
+
 test_cli_completion_candidates_are_dynamic_and_preserve_words() {
   contract_repo
   git branch feature/completion

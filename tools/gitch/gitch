@@ -5855,7 +5855,7 @@ graph_affected_mark() {
 }
 
 graph_watch_cmd() {
-  local rel=files dir="" out="" detach="" json="" opn=auto interval=2 a top helper reply url pid prefix value runtime bashpath
+  local rel=files dir="" out="" detach="" json="" opn=auto interval=2 a top helper reply url pid prefix value runtime bashpath watch_rc=0 watch_error
   local -a opts=() extra=() render=()
   while [ $# -gt 0 ]; do
     a=$1
@@ -5900,7 +5900,11 @@ graph_watch_cmd() {
     bashpath=$(cygpath -m "$BASH" 2>/dev/null || printf '%s' "$BASH")
     case "$(lower "$bashpath")" in *.exe) ;; *) bashpath="$bashpath.exe" ;; esac
   fi
-  reply=$("$runtime" "$helper" --repo "$top" --cli "$(self_path)" --out "$out" --relation "$rel" --interval "$interval" --bash "$bashpath" --serve --detach ${extra[@]+"${extra[@]}"}) || return 1
+  reply=$("$runtime" "$helper" --repo "$top" --cli "$(self_path)" --out "$out" --relation "$rel" --interval "$interval" --bash "$bashpath" --serve --detach ${extra[@]+"${extra[@]}"}) || watch_rc=$?
+  if [ "$watch_rc" -ne 0 ]; then
+    watch_error=$(printf '%s' "$reply" | "$runtime" -c 'import json,sys; value=json.load(sys.stdin); print(str(value.get("message", ""))[:2000])' 2>/dev/null) || watch_error=""
+    die "자동 갱신 서버를 시작하지 못했습니다: ${watch_error:-도우미 종료 코드 $watch_rc}"
+  fi
   url=$(printf '%s\n' "$reply" | sed -n 's/.*"url"[ ]*:[ ]*"\([^"]*\)".*/\1/p')
   pid=$(printf '%s\n' "$reply" | sed -n 's/.*"pid"[ ]*:[ ]*\([0-9][0-9]*\).*/\1/p')
   [ -n "$url" ] && is_number "$pid" || die "자동 갱신 서버 응답을 읽지 못했습니다."
