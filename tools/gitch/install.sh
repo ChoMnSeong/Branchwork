@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-#  gitch 설치 — Gitrochi 앱 없이 CLI 만 (macOS 기본 bash 3.2 + curl)
+#  gitch 설치 — Gitrochi 앱 없이 CLI 만 (macOS 기본 bash 3.2 · Windows 의 Git Bash + curl)
 #    curl -fsSL https://raw.githubusercontent.com/Gitrochi/Gitrochi/main/tools/gitch/install.sh | bash
 #  릴리스의 gitch 를 gitch.sha256 과 맞춰 본 뒤 ~/.local/share/gitch/gitch 에 둔다(같은 폴더의 임시 파일 → mv).
 #  gitch install 은 하지 않는다 — ~/.zshrc, ~/.gitconfig, ~/.claude, ~/.codex 를 바꾸므로 할 일만 보여 준다.
@@ -13,6 +13,7 @@ DEST_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gitch"
 DEST="$DEST_DIR/gitch"
 CFG="${GITSW_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/gitsw/config}"
 TMP=""
+case "${OSTYPE:-}" in msys*|cygwin*) RC="~/.bashrc" ;; *) RC="~/.zshrc" ;; esac
 
 # 릴리스 목록(GitHub API)에서 초안·시험판이 아니고 gitch 가 든 첫(가장 새) 릴리스 → "태그 주소"
 # Windows 만 고친 릴리스가 최신일 수 있어서 releases/latest 를 쓰지 않는다. gitch 의 self-update 와 같은 내용.
@@ -24,10 +25,14 @@ RELEASE_AWK='
 say() { printf '%s\n' "$*"; }
 die() { printf '%s\n' "$*" >&2; exit 1; }
 tilde() { case "$1" in "$HOME"/*) printf '%s' "~/${1#"$HOME"/}" ;; *) printf '%s' "$1" ;; esac; }
-resolve_link() {   # 심볼릭 링크를 끝까지 따라간 실제 경로
+link_target() {   # 심볼릭 링크, 또는 Windows 에서 gitch install 이 만드는 연결 스크립트('# gitch-link: <경로>')가 가리키는 곳
+  if [ -L "$1" ]; then readlink "$1"; return 0; fi
+  [ -f "$1" ] && [ "$(head -1 "$1" 2>/dev/null)" = "#!/bin/sh" ] || return 1
+  sed -n '2s/^# gitch-link: //p' "$1" | grep .
+}
+resolve_link() {   # 심볼릭 링크(연결 스크립트도)를 끝까지 따라간 실제 경로
   local p="$1" t
-  while [ -L "$p" ]; do
-    t=$(readlink "$p")
+  while t=$(link_target "$p"); do
     case "$t" in /*) p="$t" ;; *) p="$(dirname "$p")/$t" ;; esac
   done
   printf '%s' "$(cd "$(dirname "$p")" 2>/dev/null && pwd -P)/$(basename "$p")"
@@ -75,10 +80,11 @@ main() {
     say "~/bin/gitch 가 이 파일을 가리켜 바로 쓰입니다. AI 규칙·스킬·검사 훅도 새 버전으로 쓰려면: gitch install"
   else
     d=$(tilde "$DEST")
-    say "다음은 터미널에서 직접 하세요. gitch install 은 ~/.zshrc, ~/.gitconfig, ~/.claude, ~/.codex 를 바꿉니다(바꾸기 전 파일은 백업)."
+    say "다음은 터미널에서 직접 하세요. gitch install 은 $RC, ~/.gitconfig, ~/.claude, ~/.codex 를 바꿉니다(바꾸기 전 파일은 백업)."
     [ -f "$CFG" ] || say "  $d add        # 계정 추가: 아이디·이메일·서버를 묻고 SSH 키를 만든다"
     say "  $d install    # ~/bin/gitch 연결, 자동 규칙, 검사 훅, AI 연동, 터미널 연동"
-    say "  source ~/.zshrc"
+    say "  source $RC"
+
   fi
   say "업데이트: gitch self-update"
 }

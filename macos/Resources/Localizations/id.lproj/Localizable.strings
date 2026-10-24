@@ -360,6 +360,8 @@
 "Downloading…" = "Mengunduh…";
 "Draft" = "Draf";
 "Drawing the graph with %lld commits…" = "Menggambar grafik dengan %1$lld commit…";
+"Drawing the structure graph…" = "Menggambar grafik struktur…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "Menggambar impor, modul, file yang berubah bersama, atau folder repositori ini dengan gitch graph, lalu membukanya di browser.";
 "Dropping stash…" = "Menghapus stash…";
 "Easy for beginners to understand" = "Mudah dipahami pemula";
 "Edit manually" = "Edit manual";
@@ -388,7 +390,9 @@
 "Fetching…" = "Melakukan fetch…";
 "File history" = "Riwayat file";
 "File history — commits that changed this file" = "Riwayat file — commit yang mengubah file ini";
+"File imports" = "Impor file";
 "File path" = "Jalur file";
+"Files that change together" = "File yang berubah bersama";
 "Filter graph" = "Filter grafik";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "Filter grafik — tampilkan hanya branch saat ini, tampilkan lagi branch tersembunyi (sembunyikan dengan klik kanan di bilah samping)";
 "Find commits that added or removed this code" = "Cari commit yang menambahkan atau menghapus kode ini";
@@ -398,6 +402,7 @@
 "Focus on the impact on the work" = "Fokus pada dampak terhadap pekerjaan";
 "Focus on what changed and why" = "Fokus pada apa yang berubah dan alasannya";
 "Folder name" = "Nama folder";
+"Folder tree" = "Pohon folder";
 "Follow system language" = "Ikuti bahasa sistem";
 "Followed when explaining commits and changes." = "Diikuti saat menjelaskan commit dan perubahan.";
 "Followed when writing commit messages or splitting changes into commits." = "Diikuti saat menulis pesan commit atau memecah perubahan menjadi beberapa commit.";
@@ -491,6 +496,7 @@
 "Modified" = "Diubah";
 "Modified files" = "File yang diubah";
 "Modified files appear here." = "File yang diubah akan muncul di sini.";
+"Module dependencies" = "Dependensi modul";
 "Move Gitrochi to the Applications folder?" = "Pindahkan Gitrochi ke folder Aplikasi?";
 "Move to Applications" = "Pindahkan ke Aplikasi";
 "Moves %@ '%@' back to %@." = "Memindahkan %1$@ '%2$@' kembali ke %3$@.";
@@ -551,6 +557,7 @@
 "Not found — locate it in the Tools tab" = "Tidak ditemukan — pilih lokasinya di tab Alat";
 "Not installed" = "Belum diinstal";
 "Not managed by gitch" = "Tidak dikelola gitch";
+"Nothing to draw" = "Tidak ada yang bisa digambar";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Tidak ada yang bisa diurungkan. Operasi seperti commit, merge, rebase, checkout, dan penghapusan branch dapat diurungkan di sini.";
 "Off" = "Mati";
 "On" = "Aktif";
@@ -568,11 +575,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Hanya spasi yang berubah (matikan Abaikan spasi untuk melihatnya).";
 "Open" = "Buka";
 "Open a new terminal window to start using gitch." = "Buka jendela terminal baru untuk mulai memakai gitch.";
+"Open anyway" = "Tetap buka";
 "Open in Gitrochi" = "Buka di Gitrochi";
 "Open in Terminal" = "Buka di Terminal";
 "Open in browser" = "Buka di browser";
 "Open in the terminal below" = "Buka di terminal di bawah";
-"Open or clone another repository, recent repositories, close tabs" = "Buka atau klon repositori lain, repositori terbaru, tutup tab";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "Buka atau klon repositori lain, repositori terbaru, grafik struktur, tutup tab";
 "Open releases page" = "Buka halaman rilis";
 "Open repository…" = "Buka repositori…";
 "Open that one instead? The disk image will be ejected." = "Buka yang itu saja? Image disk akan dikeluarkan.";
@@ -769,6 +777,8 @@
 "Stashes %lld" = "Stash %1$lld";
 "Stashing…" = "Melakukan stash…";
 "Stash… (save changes for later)" = "Stash… (simpan perubahan untuk nanti)";
+"Structure graph" = "Grafik struktur";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "Grafik struktur memerlukan gitch %1$@ atau yang lebih baru, tetapi gitch di dalam Gitrochi adalah %2$@.";
 "Subject line only, no body" = "Hanya baris subjek, tanpa isi";
 "Subject within 50 characters" = "Subjek maksimal 50 karakter";
 "Succeeded" = "Berhasil";
@@ -928,6 +938,11 @@
 "gitch checks before commit and push" = "Pemeriksaan gitch sebelum commit dan push";
 "gitch commands for this repository" = "Perintah gitch untuk repositori ini";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch tidak tahu akun mana yang dipakai repositori ini. Kunci dengan gitch use <akun>.";
+"gitch found nothing to draw for %@." = "gitch tidak menemukan apa pun untuk digambar pada %1$@.";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: file yang sering di-commit bersama, dan seberapa sering tiap file berubah.";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: file mana yang mengimpor file mana, untuk TypeScript, JavaScript, Python, Go, Rust, Kotlin, dan Java. File Swift dihubungkan lewat nama tipe yang dipakainya (garis putus-putus).";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: target dan paket dari Package.swift, Tuist, package.json, Cargo, Go, dan Gradle. Membaca Package.swift butuh beberapa detik.";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: folder beserta ukuran dan jumlah file-nya.";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch memisahkan beberapa akun Git: mengunci setiap repositori ke satu akun, memilih akun berdasarkan aturan folder atau organisasi, dan memblokir penulis yang salah, rahasia, serta force push lewat hook Git, di terminal, untuk agen AI, dan di Gitrochi.";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch menyimpan cadangan sebelum pull, up, sync, fix, undo, dan amend, dan menyimpan 30 yang terbaru.";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch menetapkan penulis commit ke %1$@, mengarahkan origin (dan upstream) ke alias SSH %2$@, lalu mengunci repositori ke akun itu.";

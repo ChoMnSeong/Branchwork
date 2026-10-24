@@ -364,6 +364,8 @@
 "Downloading…" = "Đang tải xuống…";
 "Draft" = "Bản nháp";
 "Drawing the graph with %lld commits…" = "Đang vẽ đồ thị với %1$lld commit…";
+"Drawing the structure graph…" = "Đang vẽ đồ thị cấu trúc…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "Vẽ import, mô-đun, các tệp thay đổi cùng nhau hoặc thư mục của kho lưu trữ này bằng gitch graph rồi mở trong trình duyệt.";
 "Dropping stash…" = "Đang drop stash…";
 "Easy for beginners to understand" = "Dễ hiểu với người mới";
 "Edit manually" = "Sửa thủ công";
@@ -393,7 +395,9 @@
 "Fetching…" = "Đang fetch…";
 "File history" = "Lịch sử tệp";
 "File history — commits that changed this file" = "Lịch sử tệp — các commit đã thay đổi tệp này";
+"File imports" = "Import giữa các tệp";
 "File path" = "Đường dẫn tệp";
+"Files that change together" = "Các tệp thay đổi cùng nhau";
 "Filter graph" = "Lọc đồ thị";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "Lọc đồ thị — chỉ hiện nhánh hiện tại, hiện lại các nhánh đã ẩn (ẩn nhánh bằng cách nhấp chuột phải ở thanh bên)";
 "Find commits that added or removed this code" = "Tìm các commit đã thêm hoặc xóa đoạn mã này";
@@ -403,6 +407,7 @@
 "Focus on the impact on the work" = "Tập trung vào ảnh hưởng tới công việc";
 "Focus on what changed and why" = "Tập trung vào thay đổi gì và tại sao";
 "Folder name" = "Tên thư mục";
+"Folder tree" = "Cây thư mục";
 "Follow system language" = "Theo ngôn ngữ hệ thống";
 "Followed when explaining commits and changes." = "Áp dụng khi giải thích commit và thay đổi.";
 "Followed when writing commit messages or splitting changes into commits." = "Áp dụng khi viết thông điệp commit hoặc chia thay đổi thành các commit.";
@@ -497,6 +502,7 @@
 "Modified" = "Đã sửa đổi";
 "Modified files" = "Tệp đã sửa đổi";
 "Modified files appear here." = "Các tệp đã sửa đổi sẽ hiện ở đây.";
+"Module dependencies" = "Phụ thuộc giữa các mô-đun";
 "Move Gitrochi to the Applications folder?" = "Chuyển Gitrochi vào thư mục Ứng dụng?";
 "Move to Applications" = "Chuyển vào Ứng dụng";
 "Moves %@ '%@' back to %@." = "Đưa %1$@ '%2$@' về %3$@.";
@@ -557,6 +563,7 @@
 "Not found — locate it in the Tools tab" = "Không tìm thấy — hãy chỉ định trong tab Công cụ";
 "Not installed" = "Chưa cài";
 "Not managed by gitch" = "Không do gitch quản lý";
+"Nothing to draw" = "Không có gì để vẽ";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "Không có gì để hoàn tác. Các thao tác như commit, merge, rebase, checkout và xóa nhánh có thể được hoàn tác tại đây.";
 "Off" = "Tắt";
 "On" = "Bật";
@@ -574,11 +581,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "Chỉ thay đổi khoảng trắng (tắt Bỏ qua khoảng trắng để xem).";
 "Open" = "Mở";
 "Open a new terminal window to start using gitch." = "Mở cửa sổ terminal mới để bắt đầu dùng gitch.";
+"Open anyway" = "Vẫn mở";
 "Open in Gitrochi" = "Mở trong Gitrochi";
 "Open in Terminal" = "Mở trong Terminal";
 "Open in browser" = "Mở trong trình duyệt";
 "Open in the terminal below" = "Mở trong terminal bên dưới";
-"Open or clone another repository, recent repositories, close tabs" = "Mở hoặc clone kho lưu trữ khác, kho lưu trữ gần đây, đóng tab";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "Mở hoặc clone kho lưu trữ khác, kho lưu trữ gần đây, đồ thị cấu trúc, đóng tab";
 "Open releases page" = "Mở trang phát hành";
 "Open repository…" = "Mở kho lưu trữ…";
 "Open that one instead? The disk image will be ejected." = "Mở bản đó thay vì bản này? Ảnh đĩa sẽ được đẩy ra.";
@@ -776,6 +784,8 @@
 "Stashes %lld" = "Stash %1$lld";
 "Stashing…" = "Đang stash…";
 "Stash… (save changes for later)" = "Stash… (cất thay đổi để dùng sau)";
+"Structure graph" = "Đồ thị cấu trúc";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "Đồ thị cấu trúc cần gitch %1$@ trở lên, nhưng gitch trong Gitrochi là %2$@.";
 "Subject line only, no body" = "Chỉ dòng tiêu đề, không có phần thân";
 "Subject within 50 characters" = "Tiêu đề không quá 50 ký tự";
 "Succeeded" = "Thành công";
@@ -933,6 +943,11 @@
 "gitch checks before commit and push" = "Kiểm tra của gitch trước khi commit và push";
 "gitch commands for this repository" = "Lệnh gitch cho kho này";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch không biết kho này dùng tài khoản nào. Khóa nó bằng gitch use <tài khoản>.";
+"gitch found nothing to draw for %@." = "gitch không tìm thấy gì để vẽ cho %1$@.";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: các tệp thường được commit cùng nhau và số lần thay đổi của từng tệp.";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: tệp nào import tệp nào, cho TypeScript, JavaScript, Python, Go, Rust, Kotlin và Java. Tệp Swift được nối theo tên kiểu mà chúng dùng (đường nét đứt).";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: target và gói từ Package.swift, Tuist, package.json, Cargo, Go và Gradle. Việc đọc Package.swift mất vài giây.";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: các thư mục cùng kích thước và số tệp.";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch giữ nhiều tài khoản Git tách biệt: khóa mỗi kho với một tài khoản, chọn tài khoản theo quy tắc thư mục hoặc tổ chức, và dùng hook của Git để chặn sai tác giả, dữ liệu bí mật và force push, trong terminal, cho tác tử AI và trong Gitrochi.";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch lưu một bản sao lưu trước pull, up, sync, fix, undo và amend, và giữ 30 bản gần nhất.";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch đặt tác giả commit là %1$@, trỏ origin (và upstream) tới bí danh SSH của %2$@, rồi khóa kho với tài khoản đó.";

@@ -13,6 +13,7 @@ export let env: EnvInfo = {
   selftestOpen: null,
   appData: "",
   localAppData: "",
+  resourceDir: "",
 };
 
 export async function initEnv() {

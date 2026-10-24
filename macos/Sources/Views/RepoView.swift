@@ -48,15 +48,18 @@ struct RepoView: View {
                 Button("Open repository…") { store.presentOpenPanel() }
                 Button("Clone repository…") { store.sheet = .clone }
                 Divider()
+                StructureGraphMenu(store: store)
+                Divider()
                 Button("Close tab") { NSApp.keyWindow?.performClose(nil) }
             } label: {
                 ToolLabel(title: String(localized: "Repository"), icon: "folder")
             }
-            .hoverTip(String(localized: "Repository"), String(localized: "Open or clone another repository, recent repositories, close tabs"))
+            .hoverTip(String(localized: "Repository"), String(localized: "Open or clone another repository, recent repositories, structure graph, close tabs"))
         }
 
-        // 작업 중 표시는 버튼 묶음과 떼어 자기 칸에 둔다(같은 묶음이면 글자가 테두리에 붙음)
-        if let busy = store.busy {
+        // 작업 중 표시는 버튼 묶음과 떼어 자기 칸에 둔다(같은 묶음이면 글자가 테두리에 붙음).
+        // 구조 그래프는 다른 작업을 막지 않아 busy 와 따로 두고, 둘 다면 busy 를 보인다.
+        if let busy = store.busy ?? store.graphProgress {
             ToolbarItem(placement: .primaryAction) {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)

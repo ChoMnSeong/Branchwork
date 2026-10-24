@@ -19,7 +19,10 @@ ACTION_LOG="$STATE_DIR/actions.jsonl"
 BACKUP_DIR="$STATE_DIR/backups"
 SSH_DIR="$HOME/.ssh"
 SSH_CONFIG="$SSH_DIR/config"
-ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
+# Windows(Git for Windows 의 Git Bash · MSYS2 · Cygwin): ln -s 가 링크 대신 복사본을 만들어 ~/bin/gitch 는 연결 스크립트로,
+# 터미널 연동은 Git Bash 의 ~/.bashrc 로, 클립보드·브라우저는 clip · url.dll 로 한다 (uname 대신 OSTYPE — 훅마다 프로세스를 띄우지 않게)
+case "${GITSW_OS:-${OSTYPE:-}}" in msys*|cygwin*|win*) IS_WINDOWS=1 ;; *) IS_WINDOWS="" ;; esac
+if [ -n "$IS_WINDOWS" ]; then SHELL_RC="$HOME/.bashrc"; else SHELL_RC="${ZDOTDIR:-$HOME}/.zshrc"; fi
 BIN_LINK="$HOME/bin/gitch"
 SHIM_LINK="$HOME/bin/gitsw"   # 예전 이름 — gitsw 로 부르는 AI 규칙·스크립트가 계속 되게 같은 파일을 가리킨다
 SSH_BIN="${GITSW_SSH:-ssh}"
@@ -69,6 +72,10 @@ warn() { printf '%s\n' "${YELLOW}⚠ $*${RESET}"; }
 dim()  { printf '%s\n' "${DIM}$*${RESET}"; }
 err()  { printf '%s\n' "${RED}$*${RESET}" >&2; }
 die()  { err "$@"; exit 1; }
+browse() {   # 기본 브라우저로 주소 열기 (맥 open, Windows url.dll)
+  if [ -n "$IS_WINDOWS" ]; then rundll32 url.dll,FileProtocolHandler "$1" >/dev/null 2>&1; else open "$1" 2>/dev/null; fi
+}
+to_clipboard() { if [ -n "$IS_WINDOWS" ]; then clip; else pbcopy; fi; }   # 표준 입력 → 클립보드
 
 # 로고: 앱 아이콘의 두 눈(점자 한 칸 = 2×4 점). 큰 것은 그대로, 중간·작은 것은 점을 줄여 두 눈을 나란히 놓았다.
 LOGO_L=(
@@ -176,20 +183,41 @@ real_dir() { (cd "$1" 2>/dev/null && pwd -P); }
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 is_number() { case "$1" in ''|*[!0-9]*) return 1 ;; esac; return 0; }
 ident_email() { local x="${1#*<}"; printf '%s' "${x%%>*}"; }
-file_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
+# GNU stat 의 -f 는 파일 시스템 정보를 내고도 실패하므로(출력이 섞인다) -c 를 먼저 — BSD(맥) stat 은 -c 를 모른다
+file_mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
 now_iso() { date '+%Y-%m-%dT%H:%M:%S%z'; }
 
-resolve_link() {   # 심볼릭 링크를 끝까지 따라간 실제 경로
-  local p="$1" t
-  while [ -L "$p" ]; do
-    t=$(readlink "$p")
-    case "$t" in /*) p="$t" ;; *) p="$(dirname "$p")/$t" ;; esac
+# Windows 의 ~/bin/gitch · ~/bin/gitsw: 심볼릭 링크 대신 이 표시 줄과 exec 한 줄로 된 연결 스크립트
+LINK_MARK="# gitch-link: "
+link_target() {   # $1 이 심볼릭 링크나 연결 스크립트면 가리키는 경로 → LT (아니면 거짓)
+  LT=""
+  if [ -L "$1" ]; then LT=$(readlink "$1"); return 0; fi
+  [ -n "$IS_WINDOWS" ] && [ -f "$1" ] || return 1
+  local l1="" l2=""
+  { IFS= read -r l1; IFS= read -r l2; } < "$1" 2>/dev/null
+  [ "$l1" = "#!/bin/sh" ] && case "$l2" in "$LINK_MARK"?*) LT="${l2#"$LINK_MARK"}"; return 0 ;; esac
+  return 1
+}
+is_link() { link_target "$1"; }
+make_link() {   # $1 대상 $2 링크 — 맥·리눅스는 ln -s, Windows 는 연결 스크립트(임시 파일 → mv)
+  if [ -z "$IS_WINDOWS" ]; then ln -sfn "$1" "$2"; return; fi
+  local t
+  t=$(mktemp "$2.XXXXXX") || return 1
+  if printf '#!/bin/sh\n%s%s\nexec "%s" "$@"\n' "$LINK_MARK" "$1" "$1" > "$t" && chmod +x "$t" && mv -f "$t" "$2"; then return 0; fi
+  rm -f "$t"; return 1
+}
+
+resolve_link() {   # 심볼릭 링크(Windows 는 연결 스크립트도)를 끝까지 따라간 실제 경로
+  local p="$1" n=0
+  while [ $n -lt 20 ] && link_target "$p"; do
+    case "$LT" in /*) p="$LT" ;; *) p="$(dirname "$p")/$LT" ;; esac
+    n=$((n+1))
   done
   printf '%s' "$(cd "$(dirname "$p")" 2>/dev/null && pwd -P)/$(basename "$p")"
 }
 self_path() { resolve_link "${BASH_SOURCE[0]}"; }
 gitsw_cmd_path() {   # 훅/설정에 적을 gitch 경로 (~/bin/gitch 가 이 파일을 가리키면 그 경로)
-  if [ -L "$BIN_LINK" ] && [ "$(resolve_link "$BIN_LINK")" = "$(self_path)" ]; then printf '%s' "$BIN_LINK"
+  if is_link "$BIN_LINK" && [ "$(resolve_link "$BIN_LINK")" = "$(self_path)" ]; then printf '%s' "$BIN_LINK"
   else self_path; fi
 }
 
@@ -756,7 +784,7 @@ apply_sign() {   # 저장소 서명 설정 (SA_ID 기준)
 repo_hooks_dir() {   # 저장소의 실제 훅 폴더 (워크트리여도 공용 폴더)
   local hd
   hd=$(git -C "$1" rev-parse --git-path hooks 2>/dev/null) || return 1
-  case "$hd" in /*) ;; *) hd="$(real_dir "$1")/$hd" ;; esac
+  case "$hd" in /*|[A-Za-z]:/*) ;; *) hd="$(real_dir "$1")/$hd" ;; esac   # Windows 의 git 은 C:/… 로 준다
   printf '%s' "$hd"
 }
 
@@ -1055,7 +1083,7 @@ fork_cmd() {   # [계정] <원본> [폴더]
   elif can_prompt; then
     say "  ${YELLOW}브라우저가 $login 계정으로 로그인됐는지 확인하고 'Create fork' 를 누르세요.${RESET}"
     read -r -p "  준비되면 Enter (페이지가 열립니다)..."
-    open "https://github.com/$path/fork" 2>/dev/null
+    browse "https://github.com/$path/fork"
     read -r -p "  포크를 만들었으면 Enter..."
   else
     die "포크를 자동으로 만들 수 없습니다 (gh 에 $login 로그인 필요: 사용자가 'gh auth login'). 또는 사용자에게 https://github.com/$path/fork 에서 $login 계정으로 포크를 만들어 달라고 요청하세요."
@@ -1191,7 +1219,7 @@ remove_managed_rules() {   # $1 계정 목록(공백 구분) — 그 계정들�
 }
 
 install_auto_rules() {
-  git_version_ok || die "git 2.36 이상이 필요합니다. 지금: git $GIT_VER (brew install git)"
+  git_version_ok || die "git 2.36 이상이 필요합니다. 지금: git $GIT_VER ($(install_hint git Git.Git))"
   need_config
   backup_global
   local i id h al f base pat p desc o oacc ohost opath
@@ -1301,6 +1329,12 @@ write_dispatcher() {   # 임시 파일에 쓰고 바꿔 넣는다 — 다른 git
   rm -f "$t"; return 1
 }
 
+hook_command() {   # $1 이벤트 → 전역 훅 명령. Windows 는 C:/… 로 적는다 — MSYS 가 git 에 넘길 때 /c/… 를 바꿔 저장해 다시 비교하면 달라 보이므로
+  local d="$HOOK_DISPATCHER"
+  [ -n "$IS_WINDOWS" ] && d=$(cygpath -m "$d" 2>/dev/null || printf '%s' "$d")
+  printf '"%s" %s' "$d" "$1"
+}
+
 install_global_hooks() {   # git 설정 기반 훅 등록 (모든 저장소/워크트리/husky 저장소에 적용)
   local ev
   write_dispatcher || return 1
@@ -1308,7 +1342,7 @@ install_global_hooks() {   # git 설정 기반 훅 등록 (모든 저장소/워�
   config_hooks_supported || return 1
   for ev in $HOOK_EVENTS; do
     git config --global "hook.gitsw-$ev.event" "$ev"
-    git config --global "hook.gitsw-$ev.command" "\"$HOOK_DISPATCHER\" $ev"
+    git config --global "hook.gitsw-$ev.command" "$(hook_command "$ev")"
   done
   return 0
 }
@@ -1318,7 +1352,7 @@ global_hooks_ok() {
   [ -x "$HOOK_DISPATCHER" ] && grep -q "$(gitsw_cmd_path)" "$HOOK_DISPATCHER" 2>/dev/null || return 1
   config_hooks_supported || return 1
   for ev in $HOOK_EVENTS; do
-    [ "$(git config --global --get "hook.gitsw-$ev.command")" = "\"$HOOK_DISPATCHER\" $ev" ] || return 1
+    [ "$(git config --global --get "hook.gitsw-$ev.command")" = "$(hook_command "$ev")" ] || return 1
   done
   return 0
 }
@@ -2323,7 +2357,7 @@ continue_cmd() {
   if [ -n "$RS_OP" ]; then say "다음 단계에서 또 멈췄습니다. gitch ck 로 확인하세요."; else ok "완료했습니다."; fi
 }
 
-open_url() { if can_prompt && command -v open >/dev/null 2>&1; then open "$1" 2>/dev/null; fi; return 0; }
+open_url() { if can_prompt; then browse "$1"; fi; return 0; }
 
 web_url() {   # origin → 웹 주소
   local raw
@@ -2811,7 +2845,7 @@ doctor_cmd() {   # [--json] [--no-net]
   for a in "$@"; do case "$a" in --json) json=1 ;; --no-net|--offline) nonet=1 ;; *) die "사용법: gitch doctor [--json] [--no-net]" ;; esac; done
   DR_ITEMS=(); DR_PROBLEMS=0
   # [기본]
-  if git_version_ok; then dr 기본 OK "git $GIT_VER ($(command -v git))"; else dr 기본 FAIL "git ${GIT_VER:-?} — 2.36 이상 필요 → brew install git"; fi
+  if git_version_ok; then dr 기본 OK "git $GIT_VER ($(command -v git))"; else dr 기본 FAIL "git ${GIT_VER:-?} — 2.36 이상 필요 → $(install_hint git Git.Git)"; fi
   if config_hooks_supported; then dr 기본 OK "이 git 은 전역 검사 훅(hook.<이름>.command)을 지원"
   else dr 기본 INFO "이 git 은 전역 훅을 지원하지 않아 저장소별 보조 훅으로 검사합니다"; fi
   if [ -x /usr/bin/git ] && [ "$(command -v git)" != /usr/bin/git ]; then
@@ -2819,12 +2853,15 @@ doctor_cmd() {   # [--json] [--no-net]
   fi
   if [ "$(resolve_link "$BIN_LINK" 2>/dev/null)" = "$(self_path)" ]; then dr 기본 OK "gitch 명령 → $(tilde "$(self_path)") (v$GITSW_VERSION)"
   else dr 기본 WARN "~/bin/gitch 가 이 파일을 가리키지 않습니다 → $(tilde "$(self_path)") install"; fi
-  if [ -L "$SHIM_LINK" ] && [ "$(resolve_link "$SHIM_LINK")" != "$(self_path)" ]; then
+  if is_link "$SHIM_LINK" && [ "$(resolve_link "$SHIM_LINK")" != "$(self_path)" ]; then
     dr 기본 WARN "~/bin/gitsw(예전 이름)가 다른 파일을 가리킵니다: $(tilde "$(resolve_link "$SHIM_LINK")") → $(tilde "$(self_path)") install"
   fi
-  if grep -q '# >>> gitsw >>>' "$ZSHRC" 2>/dev/null; then dr 기본 OK "터미널 연동(~/.zshrc)"; else dr 기본 WARN "터미널 연동 없음 → gitch install"; fi
-  command -v jq >/dev/null 2>&1 && dr 기본 OK "jq 있음" || dr 기본 WARN "jq 없음 — Claude 훅/PR 상태 요약에 필요 → brew install jq"
-  command -v gh >/dev/null 2>&1 && dr 기본 OK "gh 있음 ($(gh --version 2>/dev/null | head -1 | awk '{print $3}'))" || dr 기본 WARN "gh 없음 — GitHub PR 자동화에 필요 → brew install gh"
+  if grep -q '# >>> gitsw >>>' "$SHELL_RC" 2>/dev/null; then dr 기본 OK "터미널 연동($(tilde "$SHELL_RC"))"; else dr 기본 WARN "터미널 연동 없음 → gitch install"; fi
+  if [ -n "$IS_WINDOWS" ]; then
+    if [ -f "$BIN_LINK.cmd" ]; then dr 기본 OK "PowerShell · cmd 에서 부르는 명령(~/bin/gitch.cmd)"; else dr 기본 WARN "~/bin/gitch.cmd 없음 — PowerShell · cmd 에서 gitch 를 못 부릅니다 → gitch install"; fi
+  fi
+  command -v jq >/dev/null 2>&1 && dr 기본 OK "jq 있음" || dr 기본 WARN "jq 없음 — Claude 훅/PR 상태 요약에 필요 → $(install_hint jq jqlang.jq)"
+  command -v gh >/dev/null 2>&1 && dr 기본 OK "gh 있음 ($(gh --version 2>/dev/null | head -1 | awk '{print $3}'))" || dr 기본 WARN "gh 없음 — GitHub PR 자동화에 필요 → $(install_hint gh GitHub.cli)"
 
   # [설정]
   if ! load_config; then
@@ -3229,7 +3266,12 @@ setup_cmd() {   # [계정]
     if [ -f "$key" ]; then say "  SSH 키가 이미 있습니다: $(tilde "$key")"
     else
       y=n
-      can_prompt && read -r -p "  SSH 키에 암호를 걸까요? (macOS 키체인에 저장되어 매번 묻지 않음) (y/N) " y
+      if [ -n "$IS_WINDOWS" ]; then
+        can_prompt && read -r -p "  SSH 키에 암호를 걸까요? (ssh-agent 가 켜져 있어야 매번 묻지 않음) (y/N) " y
+      else
+        can_prompt && read -r -p "  SSH 키에 암호를 걸까요? (macOS 키체인에 저장되어 매번 묻지 않음) (y/N) " y
+      fi
+
       case "$y" in
         y|Y) ssh-keygen -t ed25519 -C "$(acc_email "$id")" -f "$key" -q && { ssh-add --apple-use-keychain "$key" 2>/dev/null || ssh-add "$key" 2>/dev/null; } ;;
         *) ssh-keygen -t ed25519 -C "$(acc_email "$id")" -f "$key" -N "" -q ;;
@@ -3248,18 +3290,18 @@ Host $al
     IdentityFile $key
     IdentitiesOnly yes
     AddKeysToAgent yes
-    UseKeychain yes
+$([ -n "$IS_WINDOWS" ] || echo "    UseKeychain yes")
 EOF2
       say "  ~/.ssh/config 에 $al 추가"
     fi
     if test_ssh "$al" "$id" >/dev/null 2>&1; then ok "이미 등록되어 있습니다."; i=$((i+1)); continue; fi
     if ! can_prompt; then err "  키 등록은 사용자가 직접 터미널에서 'gitch setup' 을 실행해야 합니다."; i=$((i+1)); continue; fi
-    pbcopy < "$key.pub"
+    to_clipboard < "$key.pub"
     say "  ${YELLOW}공개키를 클립보드에 복사했습니다.${RESET}"
     say "  ${YELLOW}브라우저가 ${BOLD}$h${RESET}${YELLOW} 에 ${BOLD}$id${RESET}${YELLOW} 로 로그인됐는지 확인하고, Key 칸에 붙여넣기(⌘V) → 추가${RESET}"
     [ "$h" != github.com ] && say "  (페이지가 안 열리면: 오른쪽 위 프로필 → Preferences → SSH Keys)"
     read -r -p "  준비되면 Enter (페이지가 열립니다)..."
-    open "$(ssh_keys_page "$h")"
+    browse "$(ssh_keys_page "$h")"
     read -r -p "  등록을 마쳤으면 Enter..."
     test_ssh "$al" "$id"
     i=$((i+1))
@@ -3288,9 +3330,9 @@ sign_cmd() {   # on | off | (상태)
           if can_prompt; then
             read -r -p "  지금 등록할까요? (y/N) " y
             case "$y" in y|Y)
-              pbcopy < "$SSH_DIR/id_ed25519_$id.pub"
+              to_clipboard < "$SSH_DIR/id_ed25519_$id.pub"
               say "  ${YELLOW}공개키 복사 완료. $id 로 로그인된 브라우저에서 Key type 을 'Signing Key' 로 바꾸고 붙여넣기 → Add${RESET}"
-              open "https://github.com/settings/ssh/new"
+              browse "https://github.com/settings/ssh/new"
               read -r -p "  등록을 마쳤으면 Enter..." ;;
             esac
           fi
@@ -3547,7 +3589,7 @@ JQ_CLAUDE_REMOVE='
 
 write_claude_settings() {
   [ -d "$CLAUDE_DIR" ] || return 0
-  command -v jq >/dev/null 2>&1 || { warn "jq 가 없어 Claude Code 검사 훅을 설치하지 못했습니다 (brew install jq)"; return 1; }
+  command -v jq >/dev/null 2>&1 || { warn "jq 가 없어 Claude Code 검사 훅을 설치하지 못했습니다 ($(install_hint jq jqlang.jq))"; return 1; }
   local f="$CLAUDE_DIR/settings.json" tmp cmd
   cmd="\"$(gitsw_cmd_path)\" guard --claude"
   if [ -f "$f" ]; then
@@ -3675,16 +3717,19 @@ g_decide() {   # $1 ask|deny $2 이유 — 더 강한 결정만 반영
   esac
   return 0
 }
-g_path() { local p; p=$(expand_path "$1"); case "$p" in /*) ;; *) p="$G_CWD/$p" ;; esac; printf '%s' "$p"; }
+g_path() { local p; p=$(posix_path "$(expand_path "$1")"); case "$p" in /*) ;; *) p="$G_CWD/$p" ;; esac; printf '%s' "$p"; }
+# Windows 의 Claude Code 는 경로를 C:\Users\… 로 보낸다 → Git Bash 경로(/c/Users/…)로 바꿔야 ~/.ssh 등과 비교된다
+posix_path() { if [ -n "$IS_WINDOWS" ]; then case "$1" in [A-Za-z]:[\\/]*|[A-Za-z]:) cygpath -u "$1" 2>/dev/null && return ;; esac; fi; printf '%s' "$1"; }
 g_has() { local i=$1 w; shift; for w in "${GW[@]:$i}"; do [ "$w" = "$1" ] && return 0; done; return 1; }
 g_has_prefix() { local i=$1 w; shift; for w in "${GW[@]:$i}"; do case "$w" in "$1"*) return 0 ;; esac; done; return 1; }
 g_in_list() { local x="$1" w; shift; for w in "$@"; do [ "$w" = "$x" ] && return 0; done; return 1; }
 
-g_protected() {   # gitch 가 관리하는 파일인지
-  local p; p=$(g_path "$1")
+g_protected() {   # gitch 가 관리하는 파일인지 (Windows 는 대소문자를 가리지 않는 파일 시스템이라 소문자로 비교)
+  local p h="$HOME" c="$CFG" dd="$DATA_DIR"; p=$(g_path "$1")
+  if [ -n "$IS_WINDOWS" ]; then p=$(lower "$p"); h=$(lower "$h"); c=$(lower "$c"); dd=$(lower "$dd"); fi
   case "$p" in
-    "$HOME/.ssh"|"$HOME/.ssh/"*|"$HOME/.gitconfig"|"$HOME/.gitconfig-"*|"$HOME/.config/git/config") return 0 ;;
-    "$CFG"|"$(dirname "$CFG")"|"$(dirname "$CFG")/"*|"$DATA_DIR"|"$DATA_DIR/"*) return 0 ;;
+    "$h/.ssh"|"$h/.ssh/"*|"$h/.gitconfig"|"$h/.gitconfig-"*|"$h/.config/git/config") return 0 ;;
+    "$c"|"$(dirname "$c")"|"$(dirname "$c")/"*|"$dd"|"$dd/"*) return 0 ;;
     */.git/config|*/.git/hooks|*/.git/hooks/*) return 0 ;;
   esac
   return 1
@@ -4116,7 +4161,7 @@ guard_cmd() {   # gitch guard --claude  (Claude Code PreToolUse 훅)
   case "$input" in *git*|*GIT*|*.ssh*|*ssh-*|*hooks*) ;; *) return 0 ;; esac
   { IFS= read -r -d '' tool; IFS= read -r -d '' cwd; IFS= read -r -d '' arg; } < <(printf '%s' "$input" | \
     jq -j '(.tool_name // ""), "\u0000", (.cwd // ""), "\u0000", (.tool_input.command // .tool_input.file_path // .tool_input.notebook_path // ""), "\u0000"' 2>/dev/null)
-  G_DEC=""; G_REASON=""; G_CWD=${cwd:-$PWD}
+  G_DEC=""; G_REASON=""; G_CWD=$(posix_path "${cwd:-$PWD}")
   case "$tool" in
     Bash) guard_bash "$arg" ;;
     Edit|Write|MultiEdit|NotebookEdit) guard_file_edit "$arg" ;;
@@ -4145,6 +4190,115 @@ setopt PROMPT_SUBST
 # <<< gitsw <<<
 EOF
 
+# Windows 의 Git Bash(~/.bashrc): PATH + 프롬프트의 마지막 줄 앞에 이 저장소의 계정 (Git Bash 기본 프롬프트는 '\n$ ' 로 끝난다)
+# shellcheck disable=SC2028  # \n · \$ 는 PS1 이 해석한다
+read -r -d '' BASH_BLOCK <<'EOF'
+# >>> gitsw >>>  ('gitch install' 이 관리합니다)
+case ":$PATH:" in *":$HOME/bin:"*) ;; *) export PATH="$HOME/bin:$PATH" ;; esac
+_gitsw_prompt() {
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return
+  local a; a=$(git config --get gitswitch.account)
+  if [ -n "$a" ]; then printf '\033[32m[%s]\033[0m' "$a"; else printf '\033[33m[계정?]\033[0m'; fi
+}
+case "$PS1" in
+  *_gitsw_prompt*) ;;
+  *'\n$ ') PS1="${PS1%'\n$ '} \$(_gitsw_prompt)"'\n$ ' ;;
+  *) PS1="\$(_gitsw_prompt) $PS1" ;;
+esac
+# <<< gitsw <<<
+EOF
+
+install_hint() {   # $1 brew 이름 $2 winget 아이디 → 설치 명령 안내
+  if [ -n "$IS_WINDOWS" ]; then printf 'winget install %s' "$2"; else printf 'brew install %s' "$1"; fi
+}
+
+# ----- Windows: PowerShell · cmd · Codex 에서도 gitch 를 부르게 -----
+PS_BIN="${GITSW_POWERSHELL:-powershell.exe}"
+WIN_PATH_MARK="$STATE_DIR/windows-path"   # 사용자 PATH 에 ~/bin 을 gitch 가 넣었다는 표시 (uninstall 이 그때만 뺀다)
+
+win_bash() {   # Git Bash 를 여는 bash.exe (Git for Windows 의 bin\bash.exe 는 PATH 를 갖춰 준다), Windows 경로
+  local root
+  root=$(cygpath -w / 2>/dev/null) || return 1
+  root=${root%\\}
+  if [ -f "$root\\bin\\bash.exe" ]; then printf '%s' "$root\\bin\\bash.exe"
+  else cygpath -w /usr/bin/bash.exe 2>/dev/null; fi
+}
+
+write_cmd_shim() {   # $1 ~/bin/gitch 같은 셸 명령 → 옆에 .cmd (PowerShell · cmd 는 PATHEXT 로 이것을 부른다)
+  local bash t
+  bash=$(win_bash) || return 1
+  t=$(mktemp "$1.cmd.XXXXXX") || return 1
+  if printf '@echo off\r\nrem gitch-link (gitch install 이 관리합니다)\r\n"%s" "%s" %%*\r\n' "$bash" "$(cygpath -m "$1")" > "$t" && mv -f "$t" "$1.cmd"; then return 0; fi
+  rm -f "$t"; return 1
+}
+
+win_user_path() {   # add|remove|has — 사용자 PATH(레지스트리, %VAR% 는 펼치지 않고 그대로)에 %USERPROFILE%\bin → added|same|removed|yes|no
+  local dir enc
+  dir=$(cygpath -w "$HOME/bin" 2>/dev/null) || return 1
+  # 따옴표가 명령줄을 거치며 바뀌지 않게 -EncodedCommand(UTF-16LE base64)로 넘긴다
+  enc=$(printf '%s' "$WIN_PATH_PS" | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n') || return 1
+  GITSW_PATH_DIR="$dir" GITSW_PATH_OP="$1" "$PS_BIN" -NoProfile -NonInteractive -EncodedCommand "$enc" 2>/dev/null | tr -d '\r'
+}
+# shellcheck disable=SC2016  # PowerShell 스크립트 — $ 는 PowerShell 이 읽는다
+WIN_PATH_PS='
+    $d = $env:GITSW_PATH_DIR.TrimEnd("\"); $op = $env:GITSW_PATH_OP
+    $k = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey("Environment")
+    $p = [string]$k.GetValue("Path", "", "DoNotExpandEnvironmentNames")
+    $parts = @($p -split ";" | Where-Object { $_ -ne "" })
+    $same = { [Environment]::ExpandEnvironmentVariables($args[0]).TrimEnd("\") -ieq $d }
+    $has = @($parts | Where-Object { & $same $_ }).Count -gt 0
+    if ($op -eq "has") { if ($has) { "yes" } else { "no" }; exit 0 }
+    if ($op -eq "add") { if ($has) { "same"; exit 0 }; $parts = @($d) + $parts }
+    elseif ($has) { $parts = @($parts | Where-Object { -not (& $same $_) }) } else { exit 0 }
+    $k.SetValue("Path", ($parts -join ";"), "ExpandString")
+    # 열려 있는 탐색기 · 새 터미널이 바뀐 PATH 를 받게 알린다 (임시 변수를 지우면 WM_SETTINGCHANGE 를 보낸다)
+    [Environment]::SetEnvironmentVariable("GITSW_PATH_REFRESH", $null, "User")
+    if ($op -eq "add") { "added" } else { "removed" }
+'
+
+install_windows_shims() {   # gitch install 1단계(Windows): .cmd + 사용자 PATH
+  local n r
+  for n in "$BIN_LINK" "$SHIM_LINK"; do
+    if [ -e "$n.cmd" ] && ! grep -q 'gitch-link' "$n.cmd" 2>/dev/null; then
+      say "  ${YELLOW}⚠ $(tilde "$n").cmd 가 gitch 가 만든 파일이 아니라 그대로 뒀습니다${RESET}"; continue
+    fi
+    is_link "$n" && write_cmd_shim "$n"
+  done
+  r=$(win_user_path add)
+  case "$r" in
+    added) mkdir -p "$STATE_DIR" && : > "$WIN_PATH_MARK"
+           say "  ${GREEN}✔${RESET} 사용자 PATH 에 $(cygpath -w "$HOME/bin") 추가 — PowerShell · cmd 는 새 창에서 gitch" ;;
+    same) say "  ${GREEN}✔${RESET} PowerShell · cmd 에서도 gitch (~/bin/gitch.cmd, 사용자 PATH 에 ~/bin 이 있음)" ;;
+    *) say "  ${YELLOW}⚠ 사용자 PATH 에 $(cygpath -w "$HOME/bin" 2>/dev/null) 를 넣지 못했습니다 — PowerShell · cmd 에서 쓰려면 직접 추가하세요${RESET}" ;;
+  esac
+}
+
+remove_windows_shims() {   # gitch uninstall(Windows): gitch 가 넣은 사용자 PATH 만 뺀다 (~/bin/gitch.cmd 는 ~/bin/gitch 처럼 남긴다)
+  [ -f "$WIN_PATH_MARK" ] || return 0
+  win_user_path remove >/dev/null
+  rm -f "$WIN_PATH_MARK"
+}
+
+windows_install_ok() {   # $1 연결할 gitch — 설치 프로그램으로 깐 Gitrochi(옆에 uninstall.exe) 밖의 앱 폴더면 이유와 할 일을 알리고 거짓
+  local p="$1" dir why=""
+  dir=$(dirname "$p")
+  if [ -f "$dir/Gitrochi.exe" ]; then
+    [ -f "$dir/uninstall.exe" ] || why="설치하지 않은(포터블 · 빌드) Gitrochi"
+  else
+    case "$(lower "$p")" in */appdata/local/temp/*|*/windows/temp/*|/tmp/*) why="임시 폴더" ;; esac
+  fi
+  [ -z "$why" ] && return 0
+  err "gitch 를 연결하지 않았습니다: ${why}에서 실행 중이라, 폴더를 옮기거나 지우면 ~/bin/gitch 와 검사 훅이 끊깁니다."
+  err "  지금: $(tilde "$p")"
+  if [ -f "$dir/Gitrochi.exe" ]; then
+    err "  설치 파일(Gitrochi_<버전>_x64-setup.exe)로 설치한 Gitrochi 를 연 뒤 설정 > CLI 에서 설치하거나, 터미널(Git Bash)에서:"
+    err "    ~/AppData/Local/Gitrochi/gitch install"
+  else
+    err "  gitch 파일을 오래 둘 곳(예: ~/.local/share/gitch/)에 복사한 뒤 그 복사본으로 install 하세요."
+  fi
+  return 1
+}
+
 on_disk_image() {   # $1 이 붙여 둔 디스크 이미지(.dmg) 안이면 참 — 맥만 (hdiutil info 의 마운트 위치와 비교)
   local mp
   command -v hdiutil >/dev/null 2>&1 || return 1
@@ -4156,6 +4310,7 @@ on_disk_image() {   # $1 이 붙여 둔 디스크 이미지(.dmg) 안이면 참 
 
 install_location_ok() {   # $1 연결할 gitch — 디스크를 꺼내거나 앱을 옮기면 끊길 곳이면 이유와 할 일을 알리고 거짓
   local p="$1" app="" why=""
+  if [ -n "$IS_WINDOWS" ]; then windows_install_ok "$p"; return; fi
   case "$p" in *.app/Contents/*) app="${p%%.app/Contents/*}.app" ;; esac
   case "$p" in
     */AppTranslocation/*) why="임시 위치(App Translocation)" ;;
@@ -4181,26 +4336,32 @@ install_cmd() {
   local self n=0 d fancy=""
   self=$(self_path)
   install_location_ok "$self" || exit 1
-  git_version_ok || die "git 2.36 이상이 필요합니다. 지금: git ${GIT_VER:-?} (brew install git)"
+  git_version_ok || die "git 2.36 이상이 필요합니다. 지금: git ${GIT_VER:-?} ($(install_hint git Git.Git))"
   load_config || die "설정 파일이 없습니다: $(tilde "$CFG") → 먼저 gitch migrate (v1 에서 옮기기) 또는 gitch add"
   need_config
   fancy_out && { fancy=1; banner; }
   chmod +x "$self"
   step 1 "명령" 5
   mkdir -p "$HOME/bin"
-  [ "$(resolve_link "$BIN_LINK" 2>/dev/null)" != "$self" ] && ln -sfn "$self" "$BIN_LINK"
+  [ "$(resolve_link "$BIN_LINK" 2>/dev/null)" != "$self" ] && make_link "$self" "$BIN_LINK"
   # 예전 이름 ~/bin/gitsw 도 같은 파일로(링크가 아닌 파일이면 사용자 것이라 그대로 둔다)
-  if [ -L "$SHIM_LINK" ] || [ ! -e "$SHIM_LINK" ]; then
-    [ "$(resolve_link "$SHIM_LINK" 2>/dev/null)" != "$self" ] && ln -sfn "$self" "$SHIM_LINK"
+  if is_link "$SHIM_LINK" || [ ! -e "$SHIM_LINK" ]; then
+    [ "$(resolve_link "$SHIM_LINK" 2>/dev/null)" != "$self" ] && make_link "$self" "$SHIM_LINK"
   else
     say "  ${YELLOW}⚠ ~/bin/gitsw 가 링크가 아닌 파일이라 그대로 뒀습니다 (gitsw 로 부르면 그 파일이 돕니다)${RESET}"
   fi
-  [ -L "$HOME/bin/gitswitch" ] && rm -f "$HOME/bin/gitswitch"
+  is_link "$HOME/bin/gitswitch" && rm -f "$HOME/bin/gitswitch"
   say "  ${GREEN}✔${RESET} gitch 명령 연결: ~/bin/gitch → $(tilde "$self") (예전 이름 ~/bin/gitsw 도)"
+  [ -n "$IS_WINDOWS" ] && install_windows_shims
   step 2 "터미널" 5
-  backup_file "$ZSHRC"
-  update_marked_block "$ZSHRC" "# >>> gitsw >>>" "# <<< gitsw <<<" "$ZSH_BLOCK" "" "alias gitsw='noglob gitsw'"
-  say "  ${GREEN}✔${RESET} 터미널 연동: 따옴표 없는 주소 + 오른쪽에 현재 계정 표시"
+  backup_file "$SHELL_RC"
+  if [ -n "$IS_WINDOWS" ]; then
+    update_marked_block "$SHELL_RC" "# >>> gitsw >>>" "# <<< gitsw <<<" "$BASH_BLOCK"
+    say "  ${GREEN}✔${RESET} 터미널 연동(Git Bash ~/.bashrc): 프롬프트에 현재 계정 표시"
+  else
+    update_marked_block "$SHELL_RC" "# >>> gitsw >>>" "# <<< gitsw <<<" "$ZSH_BLOCK" "" "alias gitsw='noglob gitsw'"
+    say "  ${GREEN}✔${RESET} 터미널 연동: 따옴표 없는 주소 + 오른쪽에 현재 계정 표시"
+  fi
   # 순서 고정: [user] → 자동 규칙 → 훅 (몇 번을 설치해도 ~/.gitconfig 내용이 같도록)
   backup_global
   apply_safety_settings
@@ -4224,7 +4385,8 @@ install_cmd() {
   write_claude_settings
   echo ""
   [ -n "$fancy" ] && rule
-  ok "설치 완료! 지금 터미널에 적용: ${BOLD}source ~/.zshrc${RESET}"
+  if [ -n "$IS_WINDOWS" ]; then ok "설치 완료! 지금 Git Bash 에 적용: ${BOLD}source ~/.bashrc${RESET} (PowerShell · cmd 는 새 창에서)"
+  else ok "설치 완료! 지금 터미널에 적용: ${BOLD}source ~/.zshrc${RESET}"; fi
   say "  ${DIM}계정 ${#ACC_IDS[@]}개 · 잠긴 저장소 ${n}개 · gitch v$GITSW_VERSION${RESET}"
   say "  ${DIM}다음: gitch doctor (점검) · gitch help (명령 보기)${RESET}"
   [ -n "$BACKUP_SESSION" ] && dim "  (바꾸기 전 파일 백업: $(tilde "$BACKUP_SESSION"))"
@@ -4240,7 +4402,8 @@ uninstall_cmd() {
   for ev in $HOOK_EVENTS; do git config --global --remove-section "hook.gitsw-$ev" 2>/dev/null; done
   rm -f "$HOOK_DISPATCHER"
   [ ${#ACC_IDS[@]} -gt 0 ] && remove_managed_rules "${ACC_IDS[*]}"
-  if grep -q '# >>> gitsw >>>' "$ZSHRC" 2>/dev/null; then backup_file "$ZSHRC"; remove_marked_block "$ZSHRC" "# >>> gitsw >>>" "# <<< gitsw <<<"; fi
+  if grep -q '# >>> gitsw >>>' "$SHELL_RC" 2>/dev/null; then backup_file "$SHELL_RC"; remove_marked_block "$SHELL_RC" "# >>> gitsw >>>" "# <<< gitsw <<<"; fi
+  [ -n "$IS_WINDOWS" ] && remove_windows_shims
   ai_remove
   if grep -q '^# >>> gitsw strict >>>' "$SSH_CONFIG" 2>/dev/null; then
     backup_file "$SSH_CONFIG"; remove_marked_block "$SSH_CONFIG" "# >>> gitsw strict >>>" "# <<< gitsw strict <<<"
@@ -4411,7 +4574,7 @@ self_update_cmd() {   # 따로 받은 gitch 만 바꾼다 — 앱에 든 것은 
   self=$(self_path); dir=$(dirname "$self")
   case "$self" in
     *.app/Contents/*) ;;
-    *) git -C "$dir" ls-files --error-unmatch -- "$(basename "$self")" >/dev/null 2>&1 || { self_update_standalone "$self"; return $?; } ;;
+    *) [ -f "$dir/Gitrochi.exe" ] || git -C "$dir" ls-files --error-unmatch -- "$(basename "$self")" >/dev/null 2>&1 || { self_update_standalone "$self"; return $?; } ;;
   esac
   say "gitch 는 Gitrochi 앱과 함께 업데이트됩니다(앱의 자동 업데이트). 저장소(tools/gitch)에서 쓰고 있다면 그 저장소를 직접 받으세요."
   say "지금: $(tilde "$self") (v$GITSW_VERSION)"
@@ -4507,7 +4670,8 @@ graph_langs() {   # $1 "swift,ts" → 정규화한 목록(언어 이름은 awk �
 }
 
 graph_open() {   # $1 파일 — 기본 앱(브라우저 · 그림 보기)으로 연다
-  if [ "$(uname -s)" = Darwin ]; then open "$1" 2>/dev/null
+  if [ -n "$IS_WINDOWS" ]; then rundll32 url.dll,FileProtocolHandler "$(cygpath -w "$1" 2>/dev/null || printf '%s' "$1")" >/dev/null 2>&1
+  elif [ "$(uname -s)" = Darwin ]; then open "$1" 2>/dev/null
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1" >/dev/null 2>&1 &
   else return 1; fi
 }
@@ -4551,7 +4715,7 @@ graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 s
         "$(graph_awk_lib)$(graph_awk_scan)" ;;
     changes)
       git -c core.quotepath=off log --no-merges --no-renames --name-only --format='%x01%h%x09%cs' ${5:+"--since=$5"} -n "$6" -- ${scope:+"$scope"} 2>/dev/null | \
-        awk -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v lockre="$LOCKFILE_RE" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_changes)" ;;
+        GITSW_LOCKRE="$LOCKFILE_RE" awk -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_changes)" ;;
     tree)
       # 크기는 인덱스의 blob 크기(git cat-file 한 번) — 파일마다 stat 하지 않는다. 서브모듈(160000)은 뺀다
       if [ -n "${GRAPH_REV:-}" ]; then   # diff 의 기준 커밋: 크기까지 git ls-tree 한 번
@@ -4616,6 +4780,7 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … 
   repo=$(graph_repo_name "$dir" "$top")
 
   # 형식: --format > --out 의 확장자 > 사람이 보는 터미널이면 html(열기), 아니면 json(표준출력)
+  out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로(아니면 저장소 안에 C: 폴더가 생긴다)
   case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
   if [ -z "$fmt" ]; then
     case "$(lower "$out")" in
@@ -4626,7 +4791,7 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … 
   fmt=$(lower "$fmt")
   case "$fmt" in
     json|html|dot) ;;
-    svg|png) command -v dot >/dev/null 2>&1 || die "$fmt 그림은 graphviz 의 dot 으로 만듭니다 → brew install graphviz  (설치 없이 보려면 --format html)" ;;
+    svg|png) command -v dot >/dev/null 2>&1 || die "$fmt 그림은 graphviz 의 dot 으로 만듭니다 → $(install_hint graphviz Graphviz.Graphviz)  (설치 없이 보려면 --format html)" ;;
     *) die "--format 은 html, json, svg, png, dot 중 하나입니다: $fmt" ;;
   esac
   if [ -z "$out" ]; then
@@ -6312,7 +6477,7 @@ BEGIN {
 /^\001/ { flush(); split(substr($0, 2), a, "\t"); CSHA = a[1]; CDATE = a[2]; next }
 $0 != "" {
   if (!($0 in TR) || !inscope($0) || ($0 in SEEN) || !langok($0)) next
-  if ($0 ~ lockre) { LOCKS[$0] = 1; next }                 # lock 파일은 매니페스트와 늘 같이 바뀌어 신호가 아니다
+  if ($0 ~ ENVIRON["GITSW_LOCKRE"]) { LOCKS[$0] = 1; next }                 # lock 파일은 매니페스트와 늘 같이 바뀌어 신호가 아니다
   SEEN[$0] = 1; FL[++NFC] = $0
 }
 END { flush(); changes_out() }

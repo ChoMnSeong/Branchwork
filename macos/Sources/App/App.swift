@@ -200,6 +200,8 @@ struct AppCommands: Commands {
                 .keyboardShortcut("k", modifiers: [.command, .option])
                 .disabled(store?.url == nil)
             Divider()
+            StructureGraphMenu(store: store)
+            Divider()
             Button(store?.showTerminal == true ? "Hide terminal" : "Show terminal") { store?.toggleTerminal() }
                 .keyboardShortcut("`", modifiers: .control)
                 .disabled(store?.url == nil)

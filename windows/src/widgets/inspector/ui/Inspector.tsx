@@ -10,6 +10,7 @@ import { t } from "@/shared/i18n";
 import { laneColor, longDate, shortDate, useObserve } from "@/shared/lib";
 import { Avatar, Button, Card, ChangeBar, Checkbox, Empty, IconButton, LineStatText, type MenuItem, Spinner, tip } from "@/shared/ui";
 import { ChangeList, FileViewToggle } from "./FileList";
+import { GitchBar } from "./GitchBar";
 import "./inspector.css";
 
 /** 오른쪽 열: 작업 영역 또는 커밋 상세 */
@@ -192,6 +193,7 @@ function CommitComposer({ store }: { store: RepoStore }) {
           )}
         </Button>
       </div>
+      <GitchBar store={store} />
       <div className="composer-box">
         <div className="row" style={{ paddingRight: 8 }}>
           <input value={store.summary} placeholder={t("Summary (required)")} onChange={(e) => store.setSummary(e.target.value)} onKeyDown={onKey} style={{ fontWeight: 500 }} spellCheck={false} />

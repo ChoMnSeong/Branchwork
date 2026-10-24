@@ -39,6 +39,8 @@ export interface EnvInfo {
   selftestOpen: string | null;
   appData: string;
   localAppData: string;
+  /** 앱과 함께 설치되는 파일(gitch)이 있는 폴더 */
+  resourceDir: string;
 }
 
 export type PtyEvent = { kind: "data"; data: string } | { kind: "exit"; code: number | null };
@@ -118,5 +120,9 @@ export const ipc = {
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   reveal: (path: string) => invoke<void>("reveal_path", { path }),
   openTerminal: (path: string) => invoke<void>("open_terminal", { path }),
+  /** 새 콘솔 창에서 프로그램 하나(Windows) */
+  openConsole: (program: string, args: string[], cwd: string) => invoke<void>("open_console", { program, args, cwd }),
+  /** 앱이 만든 html 페이지(구조 그래프)를 기본 브라우저로 */
+  openHtml: (path: string) => invoke<void>("open_html", { path }),
   appReady: () => invoke<void>("app_ready"),
 };

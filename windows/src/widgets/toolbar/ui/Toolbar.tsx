@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronDown, FolderOpen, GitBranch, GitPullRequestArrow, PackageOpen, RefreshCcw, SquarePen, SquareTerminal, Undo2 } from "lucide-react";
+import { structureGraphMenu } from "@/features/git-menus";
 import { agentKind, agents } from "@/entities/agent";
 import { providerInfo, statusIsEmpty } from "@/entities/git";
 import type { RepoStore } from "@/entities/repo";
@@ -33,7 +34,7 @@ export function Toolbar({ store }: { store: RepoStore }) {
       <div className="tool-group">
         <button
           className="tool"
-          data-tip={tip(t("Repository"), t("Open or clone another repository, recent repositories, close tabs"))}
+          data-tip={tip(t("Repository"), t("Open or clone another repository, recent repositories, structure graph, close tabs"))}
           onClick={(e) =>
             showMenuBelow(e.currentTarget, [
               ...recents()
@@ -43,6 +44,8 @@ export function Toolbar({ store }: { store: RepoStore }) {
               "divider",
               { label: t("Open repository…"), shortcut: "Ctrl+O", onClick: () => void store.pickAndOpen() },
               { label: t("Clone repository…"), shortcut: "Ctrl+Shift+O", onClick: () => sheet({ kind: "clone" }) },
+              "divider",
+              structureGraphMenu(store),
               "divider",
               { label: t("Close tab"), shortcut: "Ctrl+W", onClick: () => workspace.closeTab(store.id) },
             ])
@@ -60,6 +63,11 @@ export function Toolbar({ store }: { store: RepoStore }) {
       {store.busy && (
         <span className="busy">
           <Spinner size={13} /> {store.busy}
+        </span>
+      )}
+      {!store.busy && store.drawingGraph && (
+        <span className="busy">
+          <Spinner size={13} /> {t("Drawing the structure graph…")}
         </span>
       )}
 

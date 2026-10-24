@@ -38,6 +38,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
   abstract focusTerminal(s: TerminalSession): void;
   abstract closeAllTerminals(): void;
   abstract run(label: string, args: string[], o?: { network?: boolean; input?: string }): Promise<boolean>;
+  abstract refreshGitch(fetch?: boolean): Promise<void>;
 
   readonly id = crypto.randomUUID();
   /** 지금 보이는 탭인지 — 뒤에 있는 탭은 파일이 바뀌어도 바로 다시 읽지 않고 돌아왔을 때 읽는다 */
@@ -179,6 +180,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
   protected lastLog: { out: string; wip: boolean; head: string | null } | null = null;
   protected lastRefs: string | null = null;
   protected lastIndexRefresh = 0;
+  protected gitchKey: string | null = null;
   /** 공용 .git(연결된 워크트리면 gitDir 과 다르다) */
   protected commonDir: string | null = null;
   protected detailGen = 0;
@@ -374,6 +376,7 @@ export abstract class RepoCore extends Observable implements AgentHost {
   }
 
   protected resetState() {
+    this.gitchKey = null;
     this.entries = [];
     this.maxLanes = 1;
     this.commitIndex = new Map();
@@ -553,6 +556,12 @@ export abstract class RepoCore extends Observable implements AgentHost {
       }
       if (refsChanged || this.headBranch == null) this.refsByCommit = this.buildRefMap(head);
       this.repoState = await this.detectState();
+      // 브랜치·ref 가 바뀌면 gitch 의 계정·점검을 다시(파일만 고친 것으로는 다시 보지 않는다)
+      const gitchKey = (this.headBranch ?? "") + "\n" + rf.stdout;
+      if (gitchKey !== this.gitchKey) {
+        this.gitchKey = gitchKey;
+        void this.refreshGitch();
+      }
       await this.prefillMergeMessage();
       this.fixSelection();
       if (this.searchMatchSet.size) this.searchMatches = this.entries.filter((e) => this.searchMatchSet.has(e.commit.id)).map((e) => e.commit.id);

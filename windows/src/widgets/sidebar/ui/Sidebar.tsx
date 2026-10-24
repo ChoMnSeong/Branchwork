@@ -1,4 +1,4 @@
-import { Archive, ChevronDown, CircleCheck, Cloud, CloudAlert, EyeOff, Folder, FolderOpen, GitBranch, Pin, Tag as TagIcon } from "lucide-react";
+import { Archive, ChevronDown, CircleCheck, Cloud, CloudAlert, EyeOff, Folder, FolderOpen, GitBranch, Pin, ShieldCheck, Tag as TagIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { localBranchMenu, remoteBranchMenu } from "@/features/git-menus";
 import { agents, isActiveStatus } from "@/entities/agent";
@@ -243,6 +243,11 @@ function BranchRow({ store, branch: b, label }: { store: RepoStore; branch: Bran
       {store.isPinned(b) && (
         <span className="muted" data-tip={t("Branches pinned to the top")} style={{ display: "inline-flex" }}>
           <Pin size={11} />
+        </span>
+      )}
+      {!b.isRemote && store.gitchProtected.has(b.name) && (
+        <span className="muted" data-tip={t("Protected by gitch: no direct pushes, merge through a pull request")} style={{ display: "inline-flex" }}>
+          <ShieldCheck size={12} />
         </span>
       )}
       {store.isHidden(b) && (

@@ -8,9 +8,11 @@ test_install_links_gitch_and_gitsw_shim() {
   [ "$(resolve_path "$HOME/bin/gitch")" = "$self" ] || fail "~/bin/gitch 가 이 파일을 가리키지 않음"
   [ "$(resolve_path "$HOME/bin/gitsw")" = "$self" ] || fail "~/bin/gitsw(예전 이름)가 이 파일을 가리키지 않음"
   run gitsw version; assert_ok; assert_out "gitch 3."
-  grep -qx "alias gitch='noglob gitch'" "$HOME/.zshrc" || fail "gitch alias 없음"
-  grep -qx "alias gitsw='noglob gitsw'" "$HOME/.zshrc" || fail "gitsw alias 없음"
-  [ "$(grep -c '# >>> gitsw >>>' "$HOME/.zshrc")" -eq 1 ] || fail "zshrc 블록 중복"
+  if mac_only; then
+    grep -qx "alias gitch='noglob gitch'" "$RC_FILE" || fail "gitch alias 없음"
+    grep -qx "alias gitsw='noglob gitsw'" "$RC_FILE" || fail "gitsw alias 없음"
+  fi
+  [ "$(grep -c '# >>> gitsw >>>' "$RC_FILE")" -eq 1 ] || fail "zshrc 블록 중복"
   [ "$(git config --global --get hook.gitsw-pre-commit.event)" = pre-commit ] || fail "전역 훅이 설치되지 않음"
   run gitsw status --json; assert_ok; assert_json "$OUT"
 }
@@ -19,13 +21,13 @@ test_install_keeps_user_gitsw_file() {
   mk_config
   printf '#!/bin/sh\necho mine\n' > "$HOME/bin/gitsw"; chmod +x "$HOME/bin/gitsw"
   run gitch install; assert_ok; assert_out "링크가 아닌 파일이라 그대로"
-  [ ! -L "$HOME/bin/gitsw" ] && grep -q 'echo mine' "$HOME/bin/gitsw" || fail "사용자 파일을 덮어씀"
+  ! is_linkish "$HOME/bin/gitsw" && grep -q 'echo mine' "$HOME/bin/gitsw" || fail "사용자 파일을 덮어씀"
 }
 
 test_install_repoints_shim_from_another_copy() {
   mk_config
   printf '#!/bin/bash\necho old-copy\n' > "$T/old-gitsw"; chmod +x "$T/old-gitsw"
-  ln -s "$T/old-gitsw" "$HOME/bin/gitsw"
+  mklink_ "$T/old-gitsw" "$HOME/bin/gitsw"
   run gitch doctor --no-net; assert_out "~/bin/gitsw(예전 이름)가 다른 파일을 가리킵니다"
   install_quiet
   run gitsw version; assert_ok; assert_out "gitch 3."

@@ -376,6 +376,8 @@
 "Downloading…" = "กำลังดาวน์โหลด…";
 "Draft" = "ฉบับร่าง";
 "Drawing the graph with %lld commits…" = "กำลังวาดกราฟจาก %1$lld คอมมิต…";
+"Drawing the structure graph…" = "กำลังวาดกราฟโครงสร้าง…";
+"Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser." = "วาด import, โมดูล, ไฟล์ที่เปลี่ยนพร้อมกัน หรือโฟลเดอร์ของรีโพสิทอรีนี้ด้วย gitch graph แล้วเปิดในเบราว์เซอร์";
 "Drop" = "ตัดออก";
 "Dropping stash…" = "กำลังลบสแตช…";
 "Drop…" = "ลบทิ้ง (Drop)…";
@@ -408,7 +410,9 @@
 "Fetching…" = "กำลังเฟตช์…";
 "File history" = "ประวัติไฟล์";
 "File history — commits that changed this file" = "ประวัติไฟล์ — คอมมิตที่เปลี่ยนแปลงไฟล์นี้";
+"File imports" = "การ import ไฟล์";
 "File path" = "พาธไฟล์";
+"Files that change together" = "ไฟล์ที่เปลี่ยนพร้อมกัน";
 "Filter graph" = "กรองกราฟ";
 "Filter graph — show only the current branch, show hidden branches again (hide them by right-clicking in the sidebar)" = "กรองกราฟ — แสดงเฉพาะแบรนช์ปัจจุบัน, แสดงแบรนช์ที่ซ่อนอีกครั้ง (ซ่อนได้โดยคลิกขวาในแถบด้านข้าง)";
 "Find commits that added or removed this code" = "ค้นหาคอมมิตที่เพิ่มหรือลบโค้ดนี้";
@@ -418,6 +422,7 @@
 "Focus on the impact on the work" = "เน้นผลกระทบต่องาน";
 "Focus on what changed and why" = "เน้นว่าเปลี่ยนอะไรและเพราะอะไร";
 "Folder name" = "ชื่อโฟลเดอร์";
+"Folder tree" = "โครงสร้างโฟลเดอร์";
 "Follow system language" = "ตามภาษาของระบบ";
 "Followed when explaining commits and changes." = "ใช้เมื่ออธิบายคอมมิตและการเปลี่ยนแปลง";
 "Followed when writing commit messages or splitting changes into commits." = "ใช้เมื่อเขียนข้อความคอมมิตหรือแบ่งการเปลี่ยนแปลงเป็นหลายคอมมิต";
@@ -515,6 +520,7 @@
 "Modified" = "แก้ไข";
 "Modified files" = "ไฟล์ที่แก้ไข";
 "Modified files appear here." = "ไฟล์ที่แก้ไขจะแสดงที่นี่";
+"Module dependencies" = "การพึ่งพาของโมดูล";
 "Move Gitrochi to the Applications folder?" = "ย้าย Gitrochi ไปยังโฟลเดอร์แอปพลิเคชันหรือไม่";
 "Move to Applications" = "ย้ายไปยังแอปพลิเคชัน";
 "Moves %@ '%@' back to %@." = "ย้าย %1$@ '%2$@' กลับไปที่ %3$@";
@@ -575,6 +581,7 @@
 "Not found — locate it in the Tools tab" = "ไม่พบ — ระบุตำแหน่งในแท็บเครื่องมือ";
 "Not installed" = "ยังไม่ได้ติดตั้ง";
 "Not managed by gitch" = "gitch ไม่ได้จัดการ";
+"Nothing to draw" = "ไม่มีอะไรให้วาด";
 "Nothing to undo. Operations like commit, merge, rebase, checkout and branch deletion can be undone here." = "ไม่มีอะไรให้เลิกทำ การดำเนินการอย่างคอมมิต เมิร์จ รีเบส เช็กเอาต์ และการลบแบรนช์สามารถเลิกทำได้ที่นี่";
 "OK" = "ตกลง";
 "Off" = "ปิด";
@@ -593,11 +600,12 @@
 "Only whitespace changed (turn off Ignore whitespace to see it)." = "เปลี่ยนเฉพาะช่องว่าง (ปิด 'ละเว้นช่องว่าง' เพื่อดู)";
 "Open" = "เปิด";
 "Open a new terminal window to start using gitch." = "เปิดหน้าต่างเทอร์มินัลใหม่เพื่อเริ่มใช้ gitch";
+"Open anyway" = "เปิดอยู่ดี";
 "Open in Gitrochi" = "เปิดใน Gitrochi";
 "Open in Terminal" = "เปิดในเทอร์มินัล";
 "Open in browser" = "เปิดในเบราว์เซอร์";
 "Open in the terminal below" = "เปิดในเทอร์มินัลด้านล่าง";
-"Open or clone another repository, recent repositories, close tabs" = "เปิดหรือโคลนรีโพสิทอรีอื่น, รีโพสิทอรีล่าสุด, ปิดแท็บ";
+"Open or clone another repository, recent repositories, structure graph, close tabs" = "เปิดหรือโคลนรีโพสิทอรีอื่น, รีโพสิทอรีล่าสุด, กราฟโครงสร้าง, ปิดแท็บ";
 "Open releases page" = "เปิดหน้ารีลีส";
 "Open repository…" = "เปิดรีโพสิทอรี…";
 "Open that one instead? The disk image will be ejected." = "เปิดตัวนั้นแทนหรือไม่ ดิสก์อิมเมจจะถูกดีดออก";
@@ -809,6 +817,8 @@
 "Stashing…" = "กำลังสแตช…";
 "Stash…" = "สแตช…";
 "Stash… (save changes for later)" = "สแตช… (เก็บการเปลี่ยนแปลงไว้ใช้ภายหลัง)";
+"Structure graph" = "กราฟโครงสร้าง";
+"Structure graph needs gitch %@ or later, but the gitch inside Gitrochi is %@." = "กราฟโครงสร้างต้องใช้ gitch %1$@ ขึ้นไป แต่ gitch ใน Gitrochi เป็นเวอร์ชัน %2$@";
 "Subject line only, no body" = "บรรทัดหัวเรื่องเท่านั้น ไม่มีเนื้อหา";
 "Subject within 50 characters" = "หัวเรื่องไม่เกิน 50 ตัวอักษร";
 "Succeeded" = "สำเร็จ";
@@ -972,6 +982,11 @@
 "gitch checks before commit and push" = "การตรวจของ gitch ก่อนคอมมิตและ push";
 "gitch commands for this repository" = "คำสั่ง gitch สำหรับรีโพซิทอรีนี้";
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch ไม่รู้ว่ารีโพซิทอรีนี้ใช้บัญชีใด ล็อกด้วย gitch use <บัญชี>";
+"gitch found nothing to draw for %@." = "%1$@: gitch ไม่พบสิ่งที่จะวาด";
+"gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: ไฟล์ที่มักคอมมิตพร้อมกัน และแต่ละไฟล์เปลี่ยนบ่อยแค่ไหน";
+"gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: ไฟล์ไหน import ไฟล์ไหน สำหรับ TypeScript, JavaScript, Python, Go, Rust, Kotlin และ Java ส่วนไฟล์ Swift จะเชื่อมจากชื่อไทป์ที่ใช้ (เส้นประ)";
+"gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: target และแพ็กเกจจาก Package.swift, Tuist, package.json, Cargo, Go และ Gradle การอ่าน Package.swift ใช้เวลาสองสามวินาที";
+"gitch graph tree: folders with their size and number of files." = "gitch graph tree: โฟลเดอร์พร้อมขนาดและจำนวนไฟล์";
 "gitch keeps several Git accounts apart: it locks each repository to an account, picks the account by folder or organization, and blocks wrong authors, secrets and force pushes in git hooks, in the terminal, for AI agents and in Gitrochi." = "gitch แยกบัญชี Git หลายบัญชีไม่ให้ปนกัน: ล็อกแต่ละรีโพซิทอรีไว้กับบัญชีเดียว เลือกบัญชีตามกฎโฟลเดอร์หรือองค์กร และใช้ฮุกของ Git กันผู้เขียนผิดคน ข้อมูลลับ และ force push ทั้งในเทอร์มินัล สำหรับเอเจนต์ AI และใน Gitrochi";
 "gitch saves a backup before pull, up, sync, fix, undo and amend, and keeps the 30 most recent." = "gitch จะสำรองข้อมูลก่อน pull, up, sync, fix, undo และ amend และเก็บ 30 รายการล่าสุด";
 "gitch sets the commit author to %@ and points origin (and upstream) at %@'s SSH alias, then locks the repository to it." = "gitch จะตั้งผู้เขียนคอมมิตเป็น %1$@ ชี้ origin (และ upstream) ไปที่นามแฝง SSH ของ %2$@ แล้วล็อกรีโพซิทอรีไว้กับบัญชีนั้น";
