@@ -179,6 +179,41 @@ test_ssh_prune_removes_only_orphans() {
   ls "$HOME/.local/state/gitsw/backups"/*/.ssh_config >/dev/null 2>&1 || fail "백업 없음"
 }
 
+test_setup_updates_existing_ssh_host() {
+  mk_config
+  printf '    User git\n    IdentitiesOnly yes\n' >> "$HOME/.ssh/config"
+  run gitch config set account.carol.host gitlab.example.com:2200 --yes; assert_ok
+  run gitch setup carol; assert_ok
+  assert_out "~/.ssh/config 의 gitlab-carol 을 고침"
+  awk '/^Host /{h=$2} h=="gitlab-carol"' "$HOME/.ssh/config" > "$T/carol"
+  grep -q '^    Port 2200$' "$T/carol" || fail "포트가 바뀌지 않음:\n$(cat "$T/carol")"
+  [ "$(grep -c -i '^[[:space:]]*Port' "$T/carol")" -eq 1 ] || fail "Port 줄이 여러 개"
+  grep -q '^    IdentitiesOnly yes$' "$T/carol" || fail "기존 설정이 지워짐"
+  grep -q 'Port' <(awk '/^Host /{h=$2} h=="github-alice"' "$HOME/.ssh/config") && fail "다른 Host 가 바뀜"
+  ls "$HOME/.local/state/gitsw/backups"/*/.ssh_config >/dev/null 2>&1 || fail "백업 없음"
+  run gitch setup carol; assert_ok
+  case "$OUT" in *"을 고침"*) fail "같은 설정인데 다시 고침" ;; esac
+  return 0
+}
+
+test_setup_keeps_other_and_custom_ssh_hosts() {
+  mk_config
+  # 고칠 블록 뒤에 들여쓰기·소문자로 쓴 다른 블록이 와도 그 블록은 그대로여야 한다
+  printf '  Host work\n    HostName 10.0.0.5\n    Port 2222\nhost other\n    hostname o.example\n    port 2022\n' >> "$HOME/.ssh/config"
+  # 사용자가 일부러 서버를 바꿔 둔 블록(22번이 막힌 곳에서 443 으로 우회)은 건드리지 않는다
+  awk '/^Host github-alice$/ { print; print "    HostName ssh.github.com"; print "    Port 443"; skip = 1; next }
+       /^Host / { skip = 0 } skip && /HostName/ { next } { print }' "$HOME/.ssh/config" > "$T/c" && cat "$T/c" > "$HOME/.ssh/config"
+  run gitch config set account.carol.host gitlab.example.com:2200 --yes; assert_ok
+  run gitch setup; assert_ok
+  grep -q '^    HostName 10.0.0.5$' "$HOME/.ssh/config" || fail "다른 블록의 HostName 이 지워짐:\n$(cat "$HOME/.ssh/config")"
+  grep -q '^    Port 2222$' "$HOME/.ssh/config" || fail "다른 블록의 Port 가 지워짐:\n$(cat "$HOME/.ssh/config")"
+  grep -q '^    port 2022$' "$HOME/.ssh/config" || fail "소문자 블록의 port 가 지워짐"
+  grep -q '^    HostName ssh.github.com$' "$HOME/.ssh/config" || fail "사용자가 바꾼 HostName 을 덮어씀"
+  grep -q '^    Port 443$' "$HOME/.ssh/config" || fail "사용자가 바꾼 Port 를 덮어씀"
+  grep -q '^    Port 2200$' "$HOME/.ssh/config" || fail "carol 포트가 바뀌지 않음"
+  return 0
+}
+
 test_ssh_strict_option() {
   mk_config; install_quiet
   run gitch config set gitsw.sshStrict true --yes; assert_ok

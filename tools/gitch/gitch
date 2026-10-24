@@ -2829,6 +2829,30 @@ dr() {   # $1 섹션 $2 OK|WARN|FAIL|INFO $3 메시지
   case "$2" in WARN|FAIL) DR_PROBLEMS=$((DR_PROBLEMS+1)) ;; esac
 }
 
+ssh_host_sync() {   # $1 별칭 $2 서버 $3 포트 — 이미 있는 Host 블록의 Port 가 계정 설정과 다르면 고친다 (고쳤으면 0)
+  local al="$1" h="$2" port="$3" cur tmp
+  # 블록 경계는 Host/Match 줄 (ssh 처럼 대소문자·들여쓰기 무시). Port 줄이 없으면 ssh 기본값 22 로 본다
+  cur=$(awk -v host="$al" '
+    { k = tolower($1) }
+    k == "host" || k == "match" { inb = (k == "host" && $2 == host && NF == 2); next }
+    inb { if (k == "hostname" && hn == "") hn = $2; else if (k == "port" && p == "") p = $2 }
+    END { print hn " " (p == "" ? 22 : p) }' "$SSH_CONFIG")
+  # HostName 이 계정 서버와 다르면 사용자가 일부러 바꾼 것(예: ssh.github.com:443 우회)이라 두고 넘어간다
+  [ "${cur% *}" = "$h" ] || return 1
+  [ "${cur##* }" = "$port" ] && return 1
+  backup_file "$SSH_CONFIG"
+  tmp=$(mktemp "${TMPDIR:-/tmp}/gitsw.XXXXXX") || die "임시 파일을 만들 수 없습니다."
+  # 블록의 Port 줄을 지우고 첫 HostName 줄 바로 뒤에 새 Port 를 둔다 (ssh 는 처음 나온 값만 쓰므로)
+  awk -v host="$al" -v port="$port" '
+    { k = tolower($1) }
+    k == "host" || k == "match" { inb = (k == "host" && $2 == host && NF == 2); print; next }
+    inb && k == "port" { next }
+    inb && k == "hostname" && !done { print; print "    Port " port; done = 1; next }
+    { print }' "$SSH_CONFIG" > "$tmp" && cat "$tmp" > "$SSH_CONFIG"
+  rm -f "$tmp"
+  return 0
+}
+
 ssh_orphans() {   # gitch 가 만든 모양의 SSH Host 중 지금 설정에 없는 별칭
   [ -f "$SSH_CONFIG" ] || return 0
   local own h
@@ -3291,7 +3315,9 @@ setup_cmd() {   # [계정]
       esac
       say "  SSH 키 생성: $(tilde "$key")"
     fi
-    if grep -q "^Host $al\$" "$SSH_CONFIG"; then say "  ~/.ssh/config 에 이미 등록됨 ($al)"
+    if grep -q "^Host $al\$" "$SSH_CONFIG"; then
+      if ssh_host_sync "$al" "$h" "${B_PORT[$i]}"; then say "  ~/.ssh/config 의 $al 을 고침 (Port ${B_PORT[$i]})"
+      else say "  ~/.ssh/config 에 이미 등록됨 ($al)"; fi
     else
       backup_file "$SSH_CONFIG"
       cat >> "$SSH_CONFIG" <<EOF2
