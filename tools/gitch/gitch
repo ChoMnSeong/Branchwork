@@ -4710,8 +4710,8 @@ graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 s
         "$sx" --repo "$PWD" --covered "$tmp/swiftidx.covered" > "$tmp/swiftidx" 2> "$tmp/swiftidx.err"; sxrc=$?
         sxerr=$(head -n 1 "$tmp/swiftidx.err" 2>/dev/null)
       fi
-      awk -v rel="$rel" -v list="$tmp/files" -v scope="$scope" -v noext="$4" -v spm="$tmp/spm.list" -v repo="$repo" -v langs="$langs" \
-        -v swiftidx="$tmp/swiftidx" -v swiftcov="$tmp/swiftidx.covered" -v swiftrc="$sxrc" -v swifterr="$sxerr" \
+      GITSW_SWIFTERR="$sxerr" awk -v rel="$rel" -v list="$tmp/files" -v scope="$scope" -v noext="$4" -v spm="$tmp/spm.list" -v repo="$repo" -v langs="$langs" \
+        -v swiftidx="$tmp/swiftidx" -v swiftcov="$tmp/swiftidx.covered" -v swiftrc="$sxrc" \
         "$(graph_awk_lib)$(graph_awk_scan)" ;;
     changes)
       git -c core.quotepath=off log --no-merges --no-renames --name-only --format='%x01%h%x09%cs' ${5:+"--since=$5"} -n "$6" -- ${scope:+"$scope"} 2>/dev/null | \
@@ -4949,6 +4949,7 @@ graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
   prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
   repo=$(graph_repo_name "$dir" "$top")
+  out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로
   case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
   if [ -z "$fmt" ]; then
     case "$(lower "$out")" in
@@ -5059,6 +5060,7 @@ graph_check_cmd() {   # [--rules 파일] [--base 기준] [--format text|json|htm
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
   prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
   repo=$(graph_repo_name "$dir" "$top")
+  rules=$(posix_path "$rules"); out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로
   case "$rules" in "") rules="$top/$GRAPH_RULES_FILE" ;; /*) ;; *) rules="$PWD/$rules" ;; esac
   if [ -n "$init" ]; then graph_rules_init "$rules"; return 0; fi
   [ -f "$rules" ] || die "규칙 파일이 없습니다: $(tilde "$rules")"$'\n'"  예시로 시작하기: gitch graph check --init"
@@ -5299,6 +5301,7 @@ AWKEOF
 graph_awk_scan() {
   cat <<'AWKEOF'
 BEGIN {
+  swifterr = ENVIRON["GITSW_SWIFTERR"]
   NTSX = split(".ts .tsx .d.ts .js .jsx .mjs .cjs .mts .cts .json .vue .svelte", TSX, " ")
   split(".ts .tsx .mts .cts", TSJ, " ")
   UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -6804,7 +6807,7 @@ BEGIN {
     } else if (kind != "no-cycles") { print "X\t" ln "\t모르는 규칙 「" kind "」 — forbid · allow · layers · no-cycles"; continue }
     nall++
     if (sec != rel) continue
-    nr++; RK[nr] = kind; RL[nr] = ln; RT[nr] = line
+    nr++; RK[nr] = kind; RL[nr] = ln; RTX[nr] = line
     if (kind == "forbid" || kind == "allow") { RA[nr] = a; RB[nr] = b }
     else if (kind == "layers") { RN[nr] = n; for (i = 1; i <= n; i++) RLY[nr, i] = trim(LP[i]) }
     else RA[nr] = rest
@@ -6832,7 +6835,7 @@ END {
   }
   for (r = 1; r <= nr; r++) if (RK[r] == "no-cycles") cycles(r)
 }
-function viol(r, e) { print "V\t" (ETR[e] ? "error" : "warning") "\t" RL[r] "\t" RT[r] "\t" RK[r] "\t" ES[e] "\t" ET[e] }
+function viol(r, e) { print "V\t" (ETR[e] ? "error" : "warning") "\t" RL[r] "\t" RTX[r] "\t" RK[r] "\t" ES[e] "\t" ET[e] }
 function layer(r, x,   i) { for (i = 1; i <= RN[r]; i++) if (pm(RLY[r, i], x) != "") return i; return 0 }
 function pm(pat, id,   k, re, lb, i, r) {   # 패턴이 맞으면 맞은 부분(같은 곳인지 볼 때), 아니면 ""
   k = pat SUBSEP id
@@ -6853,7 +6856,7 @@ function cycles(r,   e, g, gt, c) {
     arc(g, ES[e], ET[e]); if (ETR[e]) arc(gt, ES[e], ET[e])
   }
   scc(g); scc(gt)
-  for (c = 1; c <= NC[g]; c++) if (CS[g, c] > 1) print "V\t" (cyctrust(g, c, gt) ? "error" : "warning") "\t" RL[r] "\t" RT[r] "\tno-cycles\t" ckey(g, c) "\t"
+  for (c = 1; c <= NC[g]; c++) if (CS[g, c] > 1) print "V\t" (cyctrust(g, c, gt) ? "error" : "warning") "\t" RL[r] "\t" RTX[r] "\tno-cycles\t" ckey(g, c) "\t"
 }
 AWKEOF
 }
