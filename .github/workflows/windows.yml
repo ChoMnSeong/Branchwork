@@ -8,7 +8,7 @@ on:
   push:
     tags: ["v*"]
   pull_request:
-    paths: ["windows/**", "docs/make-demo-repo.sh", ".github/workflows/windows.yml"]
+    paths: ["windows/**", "tools/gitch/**", "docs/make-demo-repo.sh", ".github/workflows/windows.yml"]
   workflow_dispatch:
 
 # 같은 PR 에 새로 푸시하면 돌던 실행은 취소한다(겹쳐 돌며 줄 서지 않게)
@@ -303,6 +303,32 @@ jobs:
             ${{ env.ST_ROOT }}/selftest-result.json
             ${{ env.ST_ROOT }}/selftest.png
           if-no-files-found: ignore
+
+  # gitch(설치본에 함께 들어가는 셸 도구): Git Bash 로 전체 테스트(임시 HOME · 가짜 ssh/gh/curl/원격 · 가짜 PowerShell 로 사용자 PATH).
+  # Windows 는 프로세스를 띄우는 데 오래 걸려 20분 안팎이라 빌드 작업과 따로 돈다. 태그는 PR 에서 이미 확인했으므로 건너뛴다.
+  gitch:
+    name: gitch 테스트 (Git Bash)
+    if: github.ref_type != 'tag'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 테스트
+        shell: bash
+        run: |
+          command -v jq >/dev/null || choco install jq -y --no-progress
+          bash tools/gitch/tests/run.sh
+
+      # 정적 검사(경고 이상) — 맥 작업과 같은 검사를 Windows 줄 끝·경로로 한 번 더
+      - name: shellcheck
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          command -v shellcheck >/dev/null || choco install shellcheck -y --no-progress
+          shellcheck -S warning tools/gitch/gitch tools/gitch/install.sh tools/gitch/tests/*.sh
 
   # 릴리스에 파일을 올려야 해서 쓰기 권한은 태그 실행의 이 작업에만 준다(빌드 작업은 PR 에서도 돈다).
   # 앱의 업데이트 확인은 초안을 보지 않으므로, 관리자가 노트를 쓰고 '게시'해야 사용자에게 간다.
