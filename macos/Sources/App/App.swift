@@ -248,6 +248,8 @@ struct RepoContainer: View {
             case .splitCommits: SplitCommitsSheet()
             case .runPipeline: RunPipelineSheet()
             case .interactiveRebase: InteractiveRebaseSheet()
+            case .graphDiff: GraphDiffSheet()
+            case .graphCheck: GraphCheckSheet()
             }
         }
         .alert("Couldn't complete the operation",

@@ -1,5 +1,5 @@
 import { type Branch, type Commit, isWIP, type RefLabel, short } from "@/entities/git";
-import { gitch, graphRelations } from "@/entities/gitch";
+import { gitch, graphDiffRelations, graphRelations } from "@/entities/gitch";
 import type { RepoStore } from "@/entities/repo";
 import { t } from "@/shared/i18n";
 import { type MenuItem, tip } from "@/shared/ui";
@@ -163,23 +163,48 @@ export function commitMenu(store: RepoStore, c: Commit): MenuItem[] {
 }
 
 /**
- * 저장소 메뉴(툴바 · ≡ 메뉴)의 「Structure graph」: 관계를 고르면 앱에 든 gitch 로 html 을 만들어 기본 브라우저로 연다(gitch graph).
+ * 저장소 메뉴(툴바 · ≡ 메뉴)의 gitch graph 항목들 — 앱에 든 gitch 로 html 을 만들어 기본 브라우저로 연다.
+ * 「Structure graph」(관계를 고름), 「Dependencies changed on this branch」(gitch graph diff), 「Check dependency rules…」(gitch graph check, 결과 창).
  * gitch 계정이 없어도 되는 기능이라, 계정을 만들어 두었을 때만 보이는 커밋 칸 위 ⋯ 메뉴가 아니라 저장소 메뉴에 둔다.
  */
-export function structureGraphMenu(store: RepoStore | null): MenuItem {
+export function structureGraphMenus(store: RepoStore | null): MenuItem[] {
   const summary = t("Draws this repository's imports, modules, files that change together or folders with gitch graph, and opens it in your browser.");
+  const diffSummary = t("Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser.");
+  const checkSummary = t("Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them.");
+  const graph = t("Structure graph");
+  const diff = t("Dependencies changed on this branch");
+  const check = t("Check dependency rules…");
   // 앱에 든 gitch 를 아직 안 봤으면(보통은 저장소를 열 때 봐 둔다) 켜 두고, 누르면 그릴 때 다시 본다
   const reason = gitch.graphReason;
   if (reason === undefined) void gitch.checkGraph();
-  if (!store?.path || reason) return { label: t("Structure graph"), disabled: true, tip: tip(t("Structure graph"), reason ?? summary) };
-  return {
-    label: t("Structure graph"),
-    tip: tip(t("Structure graph"), store.drawingGraph ? t("Drawing the structure graph…") : summary),
-    submenu: graphRelations().map((r) => ({
-      label: r.title,
-      tip: tip(r.title, r.detail),
-      disabled: store.drawingGraph != null,
-      onClick: () => void store.openStructureGraph(r.id),
-    })),
-  };
+  if (!store?.path || reason)
+    return [
+      { label: graph, disabled: true, tip: tip(graph, reason ?? summary) },
+      { label: diff, disabled: true, tip: tip(diff, reason ?? diffSummary) },
+      { label: check, disabled: true, tip: tip(check, reason ?? checkSummary) },
+    ];
+  // 페이지는 한 번에 하나만 만든다(그동안 툴바에 진행 표시)
+  const working = store.graphJob != null;
+  return [
+    {
+      label: graph,
+      tip: tip(graph, store.graphProgress ?? summary),
+      submenu: graphRelations().map((r) => ({ label: r.title, tip: tip(r.title, r.detail), disabled: working, onClick: () => void store.openStructureGraph(r.id) })),
+    },
+    {
+      label: diff,
+      tip: tip(diff, store.graphProgress ?? diffSummary),
+      submenu: [
+        ...graphDiffRelations().map((r): MenuItem => ({ label: r.title, tip: tip(r.title, r.detail), disabled: working, onClick: () => void store.openGraphDiff(r.id) })),
+        "divider",
+        {
+          label: t("Compare with…"),
+          tip: tip(t("Compare with…"), t("Pick a branch or tag. Gitrochi compares with where this branch split off from it.")),
+          disabled: working,
+          onClick: () => store.openSheet({ kind: "graphDiff" }),
+        },
+      ],
+    },
+    { label: check, tip: tip(check, checkSummary), onClick: () => void store.checkGraphRules() },
+  ];
 }

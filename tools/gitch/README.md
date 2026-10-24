@@ -29,6 +29,7 @@ source ~/.zshrc
 - [install.sh](install.sh) 는 [릴리스](https://github.com/Gitrochi/Gitrochi/releases)의 `gitch` 를 `gitch.sha256` 으로 확인한 뒤 `~/.local/share/gitch/gitch` 에 둔다(임시 파일 → mv). 그 자리에 gitch 가 아닌 파일이나 링크가 있으면 덮어쓰지 않고 멈춘다.
 - `gitch install` 은 `~/.zshrc` · `~/.gitconfig` · `~/.claude` · `~/.codex` 를 바꾸므로 설치기가 하지 않고 할 일만 보여 준다.
 - 업데이트: `gitch self-update` — 이렇게 따로 받은 gitch 만 같은 방법으로 바꾼다(바뀐 버전을 보여 줌). 앱에 든 gitch 는 앱과 함께, 저장소의 gitch 는 그 저장소와 함께 바뀐다.
+- `gitch graph files` 가 Swift 파일 사이 참조를 정확히 읽는 Xcode 인덱스 도우미(`gitch-swift-index`)는 앱에만 들어 있다. 없으면 타입 이름으로 추정하고, 쓰려면 저장소에서 `tools/gitch-swift-index/build.sh ~/bin/gitch-swift-index`(Xcode 또는 Command Line Tools 필요) — [gitch-swift-index](../gitch-swift-index/README.md).
 
 **직접**
 
@@ -71,7 +72,7 @@ Git for Windows(Git Bash)만 있으면 된다. gitch 는 bash 스크립트라 Gi
 | `protect` | 사이드바 브랜치 우클릭 — 보호된 브랜치에는 방패 표시 |
 | `c` · `p` · `pl` · `b` · `wt` · `pr` · `ci` · `continue` · `abort` | 앱의 커밋 · push · pull · 브랜치 · 워크트리 · PR · CI 화면(앱도 시스템 git 을 써서 gitch 훅이 그대로 걸린다) |
 | `graph` · `g` | 저장소 메뉴 › 구조 그래프 — 맥: 툴바의 폴더 아이콘 · 메뉴 막대 Repository, Windows: 툴바의 폴더 아이콘 · ≡ 메뉴. 관계를 고르면 html 을 만들어 기본 브라우저로 연다(아래 「구조 그래프」). 이름으로 부르는 `gitch g my-app` 은 앱에서 그 저장소를 골라 여는 것과 같다 |
-
+| `graph diff` · `graph check` | 같은 저장소 메뉴의 「이 브랜치에서 바뀐 의존」 — 관계를 고르면 기본 브랜치와 갈라진 곳과 비교한 페이지를 연다(「다른 기준과 비교…」로 브랜치 · 태그를 고르면 그것과 갈라진 곳과). 「의존 규칙 검사…」 — 결과 창에 위반 · 경고 목록, 그래프로 보기 · 규칙 고치기, `.gitch/graph.rules` 가 없으면 `--init` 으로 만들지 묻는다. `check --base` · `--lang` · `--no-external` 은 터미널에서 |
 ## 예전 이름 gitsw
 
 gitch 는 gitsw 의 새 이름이다. 이미 gitsw 를 쓰던 컴퓨터는 `gitch install` 한 번이면 그대로 이어진다.
@@ -154,6 +155,7 @@ gitch graph modules --out deps.png           # graphviz(dot) 로 그림
 
 - 추정한 연결은 JSON 에 `"heuristic": true`, 그림에서는 점선이다. 같은 두 파일에 정확한 연결이 있으면 더하지 않는다. 주석 · 문자열 속 이름과 `private` 타입은 세지 않는다. 모듈(Swift) · 패키지(Kotlin/Java)로 확인한 추정은 `"checked": true` 다.
 - Swift 의 정확한 참조는 Xcode 인덱스에 있다. 앱이 gitch 옆에 두는 도우미 `gitch-swift-index`(또는 `GITCH_SWIFT_INDEX` 에 적은 실행 파일, 빈 값이면 끔, 그다음 `PATH`)가 있으면 `gitch-swift-index --repo <저장소> --covered <파일>` 의 `원본<TAB>대상<TAB>심볼,…` 줄을 정확한 연결(`"kind": "ref"`)로 쓰고, `--covered` 에 적힌(인덱스에 든) 파일은 추정하지 않는다 — 빌드하지 않은 타깃 · 빌드 뒤 새 파일은 그대로 이름으로 추정한다(목록을 쓰지 않으면 모두 든 것으로). 성공해도 표준오류 첫 줄(오래된 인덱스 경고 등)은 notes 에 적고, 3 으로 끝나면(인덱스 없음 — Xcode 로 한 번 빌드) 추정으로 돌아간다.
+- 도우미가 인덱스를 찾는 곳(DerivedData · 저장소 안 `.build`), 쌍의 이름, 오래된 인덱스 경고, 옵션은 [gitch-swift-index](../gitch-swift-index/README.md) 에.
 - `modules`: Package.swift 는 `swift package describe --type json` 으로 읽고(매니페스트를 컴파일해서 몇 초), 안 되면 파일을 직접 읽는다(`GITSW_SWIFT_DESCRIBE=0` 이면 늘 직접). Tuist 는 Project.swift 의 Target 선언과 의존(`.target` · `.project` · `.external` · `.package` · `.sdk`)을, 도우미 함수로 만든 매니페스트(`Project.module(…)`)는 파일 안의 참조를 모은다. 그 밖에 모든 package.json(작업 공간 구성원은 `workspace`), Cargo 의 `path` · `workspace = true` 의존, Go 패키지 사이 import, Gradle 의 `include` · `project(":x")` · `projects.x`.
 - `changes`: `--since 날짜` · `--max-commits N`(기본 1000) · `--max-files N`(기본 30, 더 큰 커밋은 쌍이 너무 많아 뺀다) · `--min N`(기본 2). merge 커밋과 lock 파일은 뺀다.
 - `--no-external` 은 저장소 밖 패키지 · 모듈을 뺀다. `--lang` 은 고른 언어의 파일(modules 는 그 언어의 생태계)만 남기고, JSON 의 `lang` 에 적는다.
@@ -350,6 +352,7 @@ AI 의 push 마다 손가락 승인을 받고 싶다면 하드웨어 키(Secreti
 tools/gitch/tests/run.sh             # 전체 (실제 ~/.gitconfig, ~/.ssh, ~/.claude 는 건드리지 않음: 임시 HOME + 가짜 ssh/gh/curl/원격)
 tools/gitch/tests/run.sh -k guard    # 이름에 guard 가 들어간 테스트만
 shellcheck -s bash -S warning tools/gitch/gitch tools/gitch/install.sh
+tools/gitch-swift-index/tests/run.sh # Xcode 인덱스 도우미: 예제를 swift build 해서 쌍 · gitch graph files 확인 (30초쯤)
 ```
 
 GitHub Actions 「macOS」의 gitch 테스트가 `tools/gitch/**` 를 바꾼 PR 마다 macOS 기본 bash 3.2 로, 「Windows」가 Git Bash 로 돈다(Windows 전용은 `tests/test_windows.sh`, 가짜 PowerShell 로 실제 사용자 PATH 는 건드리지 않음).

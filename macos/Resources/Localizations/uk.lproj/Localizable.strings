@@ -1,5 +1,33 @@
 /* Gitrochi — uk. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ і ця гілка не мають спільного коміту.";
+"Check again" = "Перевірити знову";
+"Check dependency rules…" = "Перевірити правила залежностей…";
+"Checking dependency rules…" = "Перевіряються правила залежностей…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = "Перевіряє залежності за правилами з .gitch/graph.rules (gitch graph check) і показує, що їх порушує.";
+"Compare" = "Порівняти";
+"Compare dependencies" = "Порівняти залежності";
+"Compare with" = "Порівняти з";
+"Compare with…" = "Порівняти з…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "Порівнює залежності в робочій копії разом із незакоміченими змінами з місцем, де ця гілка відокремилася від гілки за замовчуванням (gitch graph diff), і відкриває зміни в браузері.";
+"Comparing dependencies…" = "Порівнюються залежності…";
+"Couldn't check the rules" = "Не вдалося перевірити правила";
+"Create rules file" = "Створити файл правил";
+"Default branch (where this branch split off)" = "Гілка за замовчуванням (точка відгалуження)";
+"Dependencies changed on this branch" = "Залежності, змінені в цій гілці";
+"Dependency rules" = "Правила залежностей";
+"Edit rules" = "Редагувати правила";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "Gitrochi порівнює з місцем, де ця гілка відокремилася від вибраної гілки або тегу, тож видно лише зміни цієї гілки. Незакомічені зміни у відстежуваних файлах враховуються.";
+"Line %lld" = "Рядок %1$lld";
+"No dependency rules yet" = "Правил залежностей поки немає";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "Правил поки немає. Приберіть # перед прикладами, підлаштуйте їх під цей репозиторій і перевірте знову.";
+"No violations" = "Порушень немає";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "Виберіть гілку або тег. Gitrochi порівнює з місцем, де ця гілка відокремилася від вибраного.";
+"Rules %lld" = "Правил: %1$lld";
+"View as graph" = "Показати у вигляді графа";
+"Violations %lld" = "Порушень: %1$lld";
+"Warnings %lld" = "Попереджень: %1$lld";
+"Warnings are links guessed only from names, so they don't count as violations." = "Попередження — це зв’язки, вгадані лише за назвами, тому вони не вважаються порушеннями.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Зміни були задовгі, тож пояснено лише їхній початок.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nПотрібна автентифікація. Один раз виконайте push/pull у терміналі, щоб зберегти облікові дані (Зв’язка ключів або SSH-ключ), і спробуйте ще раз.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nТокен повинен мати область api, а схвалити цей MR можуть лише ті, хто має право його схвалювати.";
@@ -988,6 +1016,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch не знає, який обліковий запис використовує цей репозиторій. Закріпіть його командою gitch use <обліковий запис>.";
 "gitch found nothing to draw for %@." = "%1$@: gitch не знайшов, що намалювати.";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: файли, які часто комітять разом, і як часто змінюється кожен із них.";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check читає правила з .gitch/graph.rules у цьому репозиторії. Створити файл із закоментованими прикладами (gitch graph check --init) і відкрити його?";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: імпорти, додані й вилучені в цій гілці, і цикли, що з’явилися, зросли, зменшилися або зникли.";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: залежності модулів, додані й вилучені в цій гілці.";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: папки, у яких у цій гілці змінилася кількість файлів або розмір.";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: який файл імпортує який (TypeScript, JavaScript, Python, Go, Rust, Kotlin і Java). Файли Swift пов’язуються за назвами типів, які в них використовуються (пунктир).";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: цілі й пакети з Package.swift, Tuist, package.json, Cargo, Go і Gradle. Читання Package.swift займає кілька секунд.";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: папки з їхнім розміром і кількістю файлів.";

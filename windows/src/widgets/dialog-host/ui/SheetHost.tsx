@@ -4,6 +4,8 @@ import { NewBranchSheet } from "@/features/create-branch";
 import { CreatePullRequestSheet } from "@/features/create-pull-request";
 import { TagSheet } from "@/features/create-tag";
 import { GitchBackupsSheet } from "@/features/gitch-backups";
+import { GraphCheckSheet } from "@/features/graph-check";
+import { GraphDiffSheet } from "@/features/graph-diff";
 import { InteractiveRebaseSheet } from "@/features/interactive-rebase";
 import { RunPipelineSheet } from "@/features/run-pipeline";
 import { SplitCommitsSheet } from "@/features/split-commits";
@@ -46,5 +48,9 @@ function SheetSwitch({ store, sheet, close }: { store: RepoStore; sheet: SheetKi
       return <InteractiveRebaseSheet store={store} close={close} />;
     case "gitchBackups":
       return <GitchBackupsSheet store={store} close={close} />;
+    case "graphDiff":
+      return <GraphDiffSheet store={store} close={close} />;
+    case "graphCheck":
+      return <GraphCheckSheet store={store} close={close} />;
   }
 }

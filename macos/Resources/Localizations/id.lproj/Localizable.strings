@@ -1,5 +1,33 @@
 /* Gitrochi — id. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ tidak punya commit yang sama dengan branch ini.";
+"Check again" = "Periksa lagi";
+"Check dependency rules…" = "Periksa aturan dependensi…";
+"Checking dependency rules…" = "Memeriksa aturan dependensi…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = "Memeriksa dependensi dengan aturan di .gitch/graph.rules (gitch graph check) dan menampilkan yang melanggarnya.";
+"Compare" = "Bandingkan";
+"Compare dependencies" = "Bandingkan dependensi";
+"Compare with" = "Bandingkan dengan";
+"Compare with…" = "Bandingkan dengan…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "Membandingkan dependensi di direktori kerja, termasuk perubahan yang belum di-commit, dengan titik tempat branch ini bercabang dari branch default (gitch graph diff), lalu membuka perubahannya di browser.";
+"Comparing dependencies…" = "Membandingkan dependensi…";
+"Couldn't check the rules" = "Tidak dapat memeriksa aturan";
+"Create rules file" = "Buat file aturan";
+"Default branch (where this branch split off)" = "Branch default (titik percabangan)";
+"Dependencies changed on this branch" = "Dependensi yang berubah di branch ini";
+"Dependency rules" = "Aturan dependensi";
+"Edit rules" = "Edit aturan";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "Gitrochi membandingkan dengan titik tempat branch ini bercabang dari branch atau tag yang dipilih, jadi hanya perubahan branch ini yang tampil. Perubahan yang belum di-commit pada file yang dilacak ikut disertakan.";
+"Line %lld" = "Baris %1$lld";
+"No dependency rules yet" = "Belum ada aturan dependensi";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "Belum ada aturan. Hapus # di depan contoh, sesuaikan dengan repositori ini, lalu periksa lagi.";
+"No violations" = "Tidak ada pelanggaran";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "Pilih branch atau tag. Gitrochi membandingkan dengan titik tempat branch ini bercabang darinya.";
+"Rules %lld" = "%1$lld aturan";
+"View as graph" = "Lihat sebagai grafik";
+"Violations %lld" = "%1$lld pelanggaran";
+"Warnings %lld" = "%1$lld peringatan";
+"Warnings are links guessed only from names, so they don't count as violations." = "Peringatan adalah tautan yang ditebak hanya dari nama, jadi tidak dihitung sebagai pelanggaran.";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n(Diff terlalu panjang, jadi hanya bagian awal yang dijelaskan.)";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\nAutentikasi diperlukan. Lakukan push/pull sekali di terminal untuk menyimpan kredensial Anda (Rantai Kunci atau kunci SSH), lalu coba lagi.";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\nToken memerlukan scope api, dan hanya orang yang berhak menyetujui MR ini yang dapat menyetujuinya.";
@@ -940,6 +968,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch tidak tahu akun mana yang dipakai repositori ini. Kunci dengan gitch use <akun>.";
 "gitch found nothing to draw for %@." = "gitch tidak menemukan apa pun untuk digambar pada %1$@.";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes: file yang sering di-commit bersama, dan seberapa sering tiap file berubah.";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check membaca aturan dari .gitch/graph.rules di repositori ini. Buat file berisi contoh yang dijadikan komentar (gitch graph check --init) lalu buka?";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files: import yang ditambahkan dan dihapus di branch ini, serta siklus yang muncul, membesar, mengecil, atau hilang.";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules: dependensi modul yang ditambahkan dan dihapus di branch ini.";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree: folder yang jumlah file atau ukurannya berubah di branch ini.";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files: file mana yang mengimpor file mana, untuk TypeScript, JavaScript, Python, Go, Rust, Kotlin, dan Java. File Swift dihubungkan lewat nama tipe yang dipakainya (garis putus-putus).";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules: target dan paket dari Package.swift, Tuist, package.json, Cargo, Go, dan Gradle. Membaca Package.swift butuh beberapa detik.";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree: folder beserta ukuran dan jumlah file-nya.";

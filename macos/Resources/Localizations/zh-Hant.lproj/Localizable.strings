@@ -1,5 +1,33 @@
 /* Gitrochi — zh-Hant. 소스의 영어 글자가 키. 새 글자를 넣으면 같은 PR 에서 번역도 채운다(CONTRIBUTING 「화면과 글」). */
 
+"%@ has no commit in common with this branch." = "%1$@ 與此分支沒有共同的提交。";
+"Check again" = "重新檢查";
+"Check dependency rules…" = "檢查相依性規則…";
+"Checking dependency rules…" = "正在檢查相依性規則…";
+"Checks the dependencies against the rules in .gitch/graph.rules (gitch graph check) and lists what breaks them." = "依 .gitch/graph.rules 的規則檢查相依性（gitch graph check），並列出違反規則的項目。";
+"Compare" = "比較";
+"Compare dependencies" = "比較相依性";
+"Compare with" = "比較對象";
+"Compare with…" = "選擇比較對象…";
+"Compares the dependencies in your working tree, uncommitted changes included, with where this branch split off from the default branch (gitch graph diff), and opens what changed in your browser." = "將工作目錄（含未提交的變更）的相依性與此分支從預設分支分出的位置比較（gitch graph diff），並在瀏覽器中開啟變更。";
+"Comparing dependencies…" = "正在比較相依性…";
+"Couldn't check the rules" = "無法檢查規則";
+"Create rules file" = "建立規則檔案";
+"Default branch (where this branch split off)" = "預設分支（分出的位置）";
+"Dependencies changed on this branch" = "此分支中變更的相依性";
+"Dependency rules" = "相依性規則";
+"Edit rules" = "編輯規則";
+"Gitrochi compares with where this branch split off from the branch or tag you pick, so only this branch's changes show. Uncommitted changes to tracked files are included." = "會與此分支從所選分支或標籤分出的位置比較，因此只顯示此分支的變更。已追蹤檔案中未提交的變更也包含在內。";
+"Line %lld" = "第 %1$lld 行";
+"No dependency rules yet" = "還沒有相依性規則";
+"No rules yet. Remove the # in front of the examples and adjust them to this repository, then check again." = "還沒有規則。刪除範例前面的 #，依此存放庫修改後再檢查一次。";
+"No violations" = "沒有違規";
+"Pick a branch or tag. Gitrochi compares with where this branch split off from it." = "選取一個分支或標籤。會與此分支從它分出的位置比較。";
+"Rules %lld" = "%1$lld 條規則";
+"View as graph" = "以圖查看";
+"Violations %lld" = "%1$lld 處違規";
+"Warnings %lld" = "%1$lld 個警告";
+"Warnings are links guessed only from names, so they don't count as violations." = "警告是僅根據名稱推測的連結，因此不算違規。";
 "\n\n(The diff was long, so only the beginning was explained.)" = "\n\n（變更內容較長，僅依開頭部分說明。）";
 "\n\nAuthentication is required. Push/pull once in a terminal to save your credentials (Keychain or SSH key), then try again." = "\n\n需要驗證。請在終端機中執行一次 push/pull 來儲存認證資訊（鑰匙圈或 SSH 金鑰），然後再試一次。";
 "\n\nThe token needs the api scope, and only people who can approve this MR can approve it." = "\n\n權杖需要 api 範圍，而且只有能核准此 MR 的人才能核准。";
@@ -990,6 +1018,10 @@
 "gitch doesn't know which account this repository uses. Lock it with gitch use <account>." = "gitch 不知道此儲存庫使用哪個帳號。請用 gitch use <帳號> 鎖定。";
 "gitch found nothing to draw for %@." = "%1$@：gitch 找不到可繪製的內容。";
 "gitch graph changes: files that are often committed together, and how often each one changes." = "gitch graph changes：經常一起提交的檔案，以及每個檔案的變更次數。";
+"gitch graph check reads its rules from .gitch/graph.rules in this repository. Create the file with commented-out examples (gitch graph check --init) and open it?" = "gitch graph check 會從此存放庫的 .gitch/graph.rules 讀取規則。要建立含有註解範例的檔案（gitch graph check --init）並開啟嗎？";
+"gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away." = "gitch graph diff files：此分支中新增與移除的匯入，以及出現、變大、變小或消失的循環。";
+"gitch graph diff modules: module dependencies added and removed on this branch." = "gitch graph diff modules：此分支中新增與移除的模組相依性。";
+"gitch graph diff tree: folders whose number of files or size changed on this branch." = "gitch graph diff tree：此分支中檔案數或大小有變化的資料夾。";
 "gitch graph files: which file imports which, for TypeScript, JavaScript, Python, Go, Rust, Kotlin and Java. Swift files are linked by the type names they use (dashed lines)." = "gitch graph files：哪個檔案匯入了哪個檔案（TypeScript、JavaScript、Python、Go、Rust、Kotlin、Java）。Swift 檔案依所用的型別名稱連結（虛線）。";
 "gitch graph modules: targets and packages from Package.swift, Tuist, package.json, Cargo, Go and Gradle. Reading Package.swift takes a few seconds." = "gitch graph modules：來自 Package.swift、Tuist、package.json、Cargo、Go 與 Gradle 的目標與套件。讀取 Package.swift 需要幾秒鐘。";
 "gitch graph tree: folders with their size and number of files." = "gitch graph tree：各資料夾的大小與檔案數。";

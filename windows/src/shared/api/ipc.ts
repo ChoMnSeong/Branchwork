@@ -124,5 +124,7 @@ export const ipc = {
   openConsole: (program: string, args: string[], cwd: string) => invoke<void>("open_console", { program, args, cwd }),
   /** 앱이 만든 html 페이지(구조 그래프)를 기본 브라우저로 */
   openHtml: (path: string) => invoke<void>("open_html", { path }),
+  /** 의존 규칙 파일(.gitch/graph.rules)을 메모장으로(.rules 에 묶인 앱이 없어도) */
+  openRules: (path: string) => invoke<void>("open_rules", { path }),
   appReady: () => invoke<void>("app_ready"),
 };

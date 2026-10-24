@@ -4,7 +4,7 @@ import CryptoKit
 /// gitch — 여러 Git 계정을 섞이지 않게 쓰는 셸 도구(tools/gitch, 예전 이름 gitsw).
 /// 앱 안(Contents/Resources/gitch)에 함께 들어 있고 설정 > CLI 에서 셸 명령으로 설치한다.
 /// 저장소 화면은 gitch 가 보는 이 저장소의 계정(잠금)과 커밋·push 전 점검을 보여 주고, 계정을 바꿀 수 있다.
-/// 저장소 메뉴의 구조 그래프도 gitch(gitch graph)가 그린다.
+/// 저장소 메뉴의 구조 그래프 · 이 브랜치에서 바뀐 의존 · 의존 규칙 검사도 gitch(gitch graph)가 한다.
 enum Gitch {
     struct Failure: LocalizedError {
         let message: String
@@ -96,6 +96,44 @@ enum Gitch {
             case .tree: return String(localized: "gitch graph tree: folders with their size and number of files.")
             }
         }
+
+        /// gitch graph diff 가 비교하는 관계(같이 바뀌는 파일은 비교하지 않는다)
+        static let compared: [GraphRelation] = [.files, .modules, .tree]
+
+        /// 「이 브랜치에서 바뀐 의존」 메뉴 항목 설명
+        var diffDetail: String {
+            switch self {
+            case .files: return String(localized: "gitch graph diff files: imports added and removed on this branch, and cycles that appeared, grew, shrank or went away.")
+            case .modules: return String(localized: "gitch graph diff modules: module dependencies added and removed on this branch.")
+            case .tree: return String(localized: "gitch graph diff tree: folders whose number of files or size changed on this branch.")
+            case .changes: return detail
+            }
+        }
+    }
+
+    /// gitch graph check --format json (tools/gitch/README.md 「규칙 검사」)
+    struct GraphCheck: Decodable {
+        struct Violation: Decodable, Hashable {
+            /// files · modules
+            let relation: String
+            /// error(위반) · warning(이름만으로 추정한 연결이라 실패로 세지 않는다)
+            let severity: String
+            /// 어긴 규칙의 줄 번호와 그 줄
+            let line: Int
+            let rule: String
+            /// forbid · layers · no-cycles
+            let kind: String
+            let source: String?
+            let target: String?
+            /// no-cycles: 순환을 이루는 노드
+            let nodes: [String]?
+
+            var isError: Bool { severity == "error" }
+        }
+        /// 규칙 파일(저장소 안이면 상대 경로)
+        let file: String
+        let ok: Bool
+        let violations: [Violation]
     }
 
     /// gitch graph 가 만든 html
@@ -245,21 +283,12 @@ enum Gitch {
         try Launcher.run("/bin/bash", args: [exe] + args, in: path ?? NSHomeDirectory())
     }
 
-    /// 앱에 든 gitch 로 `gitch graph <관계> --format html --out <임시 파일> --no-open` — CDN 없는 한 페이지를 만든다.
+    /// `gitch graph <관계> --format html --out <임시 파일> --no-open` — CDN 없는 한 페이지를 만든다.
     /// modules 는 Package.swift 마다 swift package describe 로 몇 초, 큰 저장소의 files 도 몇 초 걸린다(프로세스를 기다리고 출력을 읽는 일은 메인 스레드 밖에서).
     static func graph(_ relation: GraphRelation, in repo: URL) async throws -> GraphPage {
-        if let reason = graphUnavailableReason { throw Failure(message: reason) }
-        guard let exe = bundled else { throw Failure(message: String(localized: "Couldn't find gitch inside Gitrochi.")) }
-        let file = graphFile(relation, in: repo)
-        let r = try await Shell.run("/bin/bash", [exe, "graph", relation.rawValue, "--format", "html", "--out", file.path, "--no-open"],
-                                    cwd: repo, env: environment, timeout: 600)
-        let out = plain(r.output)
-        guard r.status == 0 else {
-            // 왜 못 그렸는지는 gitch 가 표준오류에 낸다
-            let err = plain(r.stderr)
-            throw Failure(message: !err.isEmpty ? err : !out.isEmpty ? out : "exit \(r.status)")
-        }
-        let lines = out.components(separatedBy: "\n")
+        let file = graphFile(relation.rawValue, in: repo)
+        let r = try await runGraph([relation.rawValue, "--format", "html", "--out", file.path, "--no-open"], in: repo)
+        let lines = plain(r.output).components(separatedBy: "\n")
         // 경로에 빈칸이 있을 수 있어 NODES= 는 끝 줄의 뒤에서 찾는다
         let summary = lines.last { $0.hasPrefix("GRAPH_FILE=") }
         let nodes = summary.flatMap { s in s.range(of: " NODES=", options: .backwards).flatMap { Int(s[$0.upperBound...].prefix { $0.isNumber }) } }
@@ -267,13 +296,75 @@ enum Gitch {
         return GraphPage(file: file, nodes: nodes, hint: hint)
     }
 
-    /// 임시 폴더의 gitch-graph/(터미널의 gitch graph 가 쓰는 곳)에 <저장소 폴더>-<관계>-<경로 해시>.html.
+    /// `gitch graph diff [--base 기준] <관계> --format html --out <임시 파일> --no-open` — 기준과 지금 작업 트리(커밋하지 않은 바꿈 포함)의
+    /// 의존을 비교해 더한 것은 초록, 뺀 것은 빨간 점선으로 그린 페이지. 기준이 nil 이면 gitch 가 고른다(기본 브랜치와 갈라진 곳).
+    /// 기준 커밋을 임시 폴더에 풀어 같은 방법으로 한 번 더 읽으므로 큰 저장소는 몇 초 걸린다.
+    static func graphDiff(_ relation: GraphRelation, base: String?, in repo: URL) async throws -> URL {
+        let file = graphFile("\(relation.rawValue)-diff", in: repo)
+        let since = base.map { ["--base", $0] } ?? []
+        try await runGraph(["diff"] + since + [relation.rawValue, "--format", "html", "--out", file.path, "--no-open"], in: repo)
+        return file
+    }
+
+    /// gitch graph check 가 읽는 규칙 파일
+    static func graphRulesFile(in repo: URL) -> URL {
+        repo.appendingPathComponent(".gitch", isDirectory: true).appendingPathComponent("graph.rules")
+    }
+
+    /// 규칙 파일의 규칙 줄 수(# 뒤 주석 · 빈 줄 · [files] 같은 절 머리는 빼고). --init 이 만든 예시는 모두 주석이라 0
+    static func graphRuleCount(in repo: URL) -> Int {
+        guard let text = try? String(contentsOf: graphRulesFile(in: repo), encoding: .utf8) else { return 0 }
+        return text.split(whereSeparator: \.isNewline).filter { line in
+            let rule = line.prefix { $0 != "#" }.trimmingCharacters(in: .whitespaces)
+            return !rule.isEmpty && !(rule.hasPrefix("[") && rule.hasSuffix("]"))
+        }.count
+    }
+
+    /// `gitch graph check --format json`. 위반이 있으면 gitch 는 1 로 끝나지만 실패가 아니다(결과 JSON 을 낸다).
+    /// 규칙 파일에 틀린 줄이 있으면 JSON 없이 1 로 끝나고, 틀린 줄을 표준오류에 낸다.
+    static func graphCheck(in repo: URL) async throws -> GraphCheck {
+        let r = try await runGraph(["check", "--format", "json"], in: repo, ok: [0, 1])
+        guard let result = try? JSONDecoder().decode(GraphCheck.self, from: r.data) else { throw graphFailure(r) }
+        return result
+    }
+
+    /// `gitch graph check --format html --out <임시 파일> --no-open` — 규칙을 어긴 연결을 빨갛게 그린 페이지(위반이 있어 1 로 끝나도 만든다)
+    static func graphCheckPage(in repo: URL) async throws -> URL {
+        let file = graphFile("check", in: repo)
+        let r = try await runGraph(["check", "--format", "html", "--out", file.path, "--no-open"], in: repo, ok: [0, 1])
+        guard plain(r.output).contains("GRAPH_FILE=") else { throw graphFailure(r) }
+        return file
+    }
+
+    /// `gitch graph check --init` — 예시(모두 # 주석)가 든 규칙 파일을 만든다
+    static func graphRulesInit(in repo: URL) async throws {
+        try await runGraph(["check", "--init"], in: repo)
+    }
+
+    /// 앱에 든 gitch 로 `gitch graph …`. 종료 코드가 ok 에 없으면 gitch 가 낸 까닭으로 던진다.
+    /// 설치한 셸 명령은 따로 받은 예전 gitch 일 수 있어서 앱에 든 것만 쓴다(그래프는 계정 설정이 필요 없다).
+    @discardableResult
+    private static func runGraph(_ args: [String], in repo: URL, ok: Set<Int32> = [0]) async throws -> GitResult {
+        if let reason = graphUnavailableReason { throw Failure(message: reason) }
+        guard let exe = bundled else { throw Failure(message: String(localized: "Couldn't find gitch inside Gitrochi.")) }
+        let r = try await Shell.run("/bin/bash", [exe, "graph"] + args, cwd: repo, env: environment, timeout: 600)
+        guard ok.contains(r.status) else { throw graphFailure(r) }
+        return r
+    }
+
+    /// 왜 못 했는지는 gitch 가 표준오류에 낸다
+    private static func graphFailure(_ r: GitResult) -> Failure {
+        let err = plain(r.stderr), out = plain(r.output)
+        return Failure(message: !err.isEmpty ? err : !out.isEmpty ? out : "exit \(r.status)")
+    }
+
+    /// 임시 폴더의 gitch-graph/(터미널의 gitch graph 가 쓰는 곳)에 <저장소 폴더>-<이름>-<경로 해시>.html(이름: 관계 · <관계>-diff · check).
     /// 다시 그리면 덮어쓰고, 폴더 이름이 같은 다른 저장소 · 워크트리와는 해시로 갈린다.
-    private static func graphFile(_ relation: GraphRelation, in repo: URL) -> URL {
+    private static func graphFile(_ name: String, in repo: URL) -> URL {
         let hash = SHA256.hash(data: Data(repo.path.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined()
         return FileManager.default.temporaryDirectory
             .appendingPathComponent("gitch-graph", isDirectory: true)
-            .appendingPathComponent("\(repo.lastPathComponent)-\(relation.rawValue)-\(hash).html")
+            .appendingPathComponent("\(repo.lastPathComponent)-\(name)-\(hash).html")
     }
 
     private static func json<T: Decodable>(_ args: [String], in repo: URL) async -> T? {
