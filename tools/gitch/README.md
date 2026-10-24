@@ -70,7 +70,7 @@ Git for Windows(Git Bash)만 있으면 된다. gitch 는 bash 스크립트라 Gi
 | `up` · `sync` · `fix` · `rescue` · `ignore` | 커밋 칸 위 ⋯ 메뉴 |
 | `protect` | 사이드바 브랜치 우클릭 — 보호된 브랜치에는 방패 표시 |
 | `c` · `p` · `pl` · `b` · `wt` · `pr` · `ci` · `continue` · `abort` | 앱의 커밋 · push · pull · 브랜치 · 워크트리 · PR · CI 화면(앱도 시스템 git 을 써서 gitch 훅이 그대로 걸린다) |
-| `graph` | 저장소 메뉴 › 구조 그래프 — 맥: 툴바의 폴더 아이콘 · 메뉴 막대 Repository, Windows: 툴바의 폴더 아이콘 · ≡ 메뉴. 관계를 고르면 html 을 만들어 기본 브라우저로 연다(아래 「구조 그래프」) |
+| `graph` · `g` | 저장소 메뉴 › 구조 그래프 — 맥: 툴바의 폴더 아이콘 · 메뉴 막대 Repository, Windows: 툴바의 폴더 아이콘 · ≡ 메뉴. 관계를 고르면 html 을 만들어 기본 브라우저로 연다(아래 「구조 그래프」). 이름으로 부르는 `gitch g my-app` 은 앱에서 그 저장소를 골라 여는 것과 같다 |
 
 ## 예전 이름 gitsw
 
@@ -122,6 +122,9 @@ gitch report --today       # 오늘 누가(사람/claude/codex) 어디에 무엇
 
 ```bash
 gitch graph                                  # 파일 import — 터미널이면 html 을 만들어 브라우저로 연다
+gitch g                                      # graph 의 짧은 이름 (diff · check 도 gitch g diff · gitch g check)
+gitch g my-app                               # 어디서든 이름으로: 계정 폴더 바로 아래(없으면 한 단계 더)의 저장소, 대소문자 무시
+gitch g alice/my-app                         # 이름이 겹치면 계정/이름 — 저장소 밖에서 그냥 gitch g 면 계정 폴더의 저장소를 알려 준다
 gitch graph modules                          # 모듈/타깃 의존
 gitch graph changes --since "6 months ago"   # 같이 바뀌는 파일 · 핫스팟
 gitch graph tree --depth 2                   # 폴더 크기 · 파일 수

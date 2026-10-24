@@ -4045,7 +4045,7 @@ guard_gitsw() {
     publish) g_decide ask "원격 저장소를 새로 만들고 push 합니다." ;;
     ai) case "${rest[0]:-}" in --print|--skill) ;; *) g_decide ask "AI 도구 설정(CLAUDE.md, settings.json 등)을 바꿉니다." ;; esac ;;
     ssh) g_decide ask "~/.ssh/config 를 정리합니다." ;;
-    graph)   # 읽기 명령(허용 목록)이지만 --out(과 check --init 의 --rules)으로 gitch 가 관리하는 파일을 쓰지 못하게
+    graph|g)   # 읽기 명령(허용 목록)이지만 --out(과 check --init 의 --rules)으로 gitch 가 관리하는 파일을 쓰지 못하게 (g 는 graph 의 짧은 이름)
       for ((k = 0; k < ${#rest[@]}; k++)); do
         o=""
         case "${rest[$k]}" in
@@ -4618,8 +4618,8 @@ self_update_standalone() {   # $1 이 파일 — 릴리스의 gitch 를 gitch.sh
 # 추적하는 파일(git ls-files)만 본다. 큰 저장소에서도 파일마다 프로세스를 띄우지 않게 언어 해석은 awk 한 번에 하고,
 # 결과 레코드(0 통계·안내 / 1 노드 / 2 연결, 탭 구분)를 sort 로 순서를 고정한 뒤 json · dot 으로 바꾼다. html 은 json 을 품은 오프라인 한 페이지.
 
-GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|json|svg|png|dot] [--out 파일] [--open|--no-open] [폴더]
-       gitch graph diff [기준] …  ·  gitch graph check …   (각각 --help)
+GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|json|svg|png|dot] [--out 파일] [--open|--no-open] [폴더|저장소]
+       gitch graph diff [기준] …  ·  gitch graph check …   (각각 --help, graph 는 짧게 g)
   files    파일 → 파일 import (TS/JS · Python · Go · Rust · Kotlin/Java, Swift 는 타입 이름으로 추정) — 기본
   modules  모듈/타깃 의존 (Package.swift · Tuist Project.swift · package.json · Cargo.toml · go.mod · Gradle)
   changes  자주 같이 커밋되는 파일 쌍과 바뀐 횟수(핫스팟)
@@ -4627,6 +4627,8 @@ GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|
   --format   기본: 사람이 보는 터미널이면 html(만들고 열기), 아니면 json(표준출력). svg · png 는 graphviz 의 dot
   --out 파일 확장자로 형식을 고른다(- 는 표준출력). 없으면 html · svg · png 는 임시 폴더, json · dot 은 표준출력
   --json = --format json · --no-external 저장소 밖 패키지 · 모듈 빼기 · [폴더] 그 폴더 아래만
+  [저장소]   폴더가 아니면 계정 폴더(설정의 folder) 바로 아래에서 그 이름의 저장소(대소문자 무시, 겹치면 계정/이름) —
+             어디서든 gitch g my-app · 저장소 밖에서 그냥 부르면 계정 폴더의 저장소를 알려 준다
   --lang 언어[,언어]  그 언어만: ts · js · web(ts·js·vue·svelte) · swift · python · go · rust · kotlin · java · jvm(kotlin·java)
   html 은 네 관계를 한 페이지에 담는다(위 탭으로 바꿈) — 파일 · 폴더 단위, 언어, 점 · 상자(다이어그램) 그리기, 필터,
        폴더 원(멀리서 접히고 가까이서 펼쳐짐), 분석(순환 의존 · 영향 범위 · 안 쓰는 것 · 핫스팟 · 숨은 결합 …), 노드 사이 경로
@@ -4643,6 +4645,67 @@ graph_empty_hint() {   # $1 관계 $2 고른 언어
     changes) echo "같이 바뀐 파일이 없습니다 — 커밋이 적거나 조건(--since · --min · --max-files)이 좁습니다." ;;
     *) echo "추적하는 파일이 없습니다." ;;
   esac
+}
+
+graph_find_repos() {   # $1 이름 [$2 계정] → 계정 폴더 바로 아래(없으면 한 단계 더 아래)에서 이름이 같은(대소문자 무시) 저장소, 줄마다 "계정<TAB>경로"
+  local want=$1 only=${2:-} depth i root d out="" nc
+  load_config >/dev/null 2>&1
+  nc=$(shopt -p nocasematch); shopt -s nocasematch
+  for depth in 1 2; do
+    i=0
+    while [ $i -lt ${#F_RAW[@]} ]; do
+      root=$(expand_path "${F_RAW[$i]}"); root=${root%/}
+      if [ -d "$root" ] && { [ -z "$only" ] || [ "${F_ACC[$i]}" = "$only" ]; }; then
+        if [ "$depth" = 1 ]; then set -- "$root"/*; else set -- "$root"/*/*; fi
+        for d in "$@"; do
+          [[ "${d##*/}" == "$want" ]] && [ -e "$d/.git" ] && out="$out${F_ACC[$i]}"$'\t'"$(real_dir "$d")"$'\n'
+        done
+      fi
+      i=$((i + 1))
+    done
+    [ -n "$out" ] && break
+  done
+  eval "$nc"
+  printf '%s' "$out" | awk -F'\t' 'NF == 2 && !seen[$2]++'
+}
+
+graph_find_one() {   # $1 저장소 이름(이름이 겹치면 계정/이름) → GRAPH_FOUND. 없으면 1, 경로처럼 생겼으면 2, 여럿이면 고르는 법을 알리고 멈춘다
+  local name=$1 acct="" hits
+  GRAPH_FOUND=""
+  load_config >/dev/null 2>&1   # 계정 이름 · 계정 폴더
+  case "$name" in ""|.*|-*|*/*/*|/*) return 2 ;; */*) acct=${name%%/*}; name=${name#*/}; is_account "$acct" || return 2 ;; esac
+  hits=$(graph_find_repos "$name" "$acct")
+  [ -n "$hits" ] || return 1
+  if [ "$(printf '%s\n' "$hits" | grep -c .)" -gt 1 ]; then
+    die "이름이 「$name」인 저장소가 여럿입니다 — 계정을 붙이거나 폴더로 주세요:"$'\n'"$(printf '%s\n' "$hits" | while IFS=$'\t' read -r a d; do printf '  gitch g %s/%s   (%s)\n' "$a" "$name" "$(tilde "$d")"; done)"
+  fi
+  GRAPH_FOUND=${hits#*$'\t'}
+}
+
+graph_repo_hint() {   # 저장소 밖에서 폴더 없이 부른 때: 이름으로 부르는 법과 계정 폴더의 저장소 몇 개
+  local names n
+  load_config >/dev/null 2>&1
+  names=$(i=0; while [ $i -lt ${#F_RAW[@]} ]; do root=$(expand_path "${F_RAW[$i]}"); i=$((i + 1)); for d in "${root%/}"/*; do [ -e "$d/.git" ] && printf '%s\n' "${d##*/}"; done; done | LC_ALL=C sort -fu)
+  n=$(printf '%s' "$names" | grep -c .)
+  if [ "$n" -eq 0 ]; then printf '  저장소 안에서 실행하거나 저장소 폴더를 주세요 (예: gitch g ~/code/my-app)'; return 0; fi
+  printf '  저장소 안에서 실행하거나 이름을 주세요 — 예: gitch g %s\n' "$(printf '%s\n' "$names" | head -1)"
+  printf '  계정 폴더의 저장소: %s' "$(printf '%s\n' "$names" | head -12 | paste -sd, - | sed 's/,/, /g')"
+  [ "$n" -gt 12 ] && printf ' 외 %d개' $((n - 12))
+  return 0
+}
+
+graph_pick_dir() {   # $1 [폴더|저장소] 자리의 값(없으면 지금 폴더) → GRAPH_DIR. 폴더가 아니면 계정 폴더에서 그 이름의 저장소 — 어디서든 gitch g 이름
+  local rc
+  GRAPH_DIR=${1:-.}
+  if [ ! -d "$GRAPH_DIR" ]; then
+    graph_find_one "$1"; rc=$?
+    [ $rc -eq 2 ] && die "폴더가 아닙니다: $1"
+    [ $rc -eq 1 ] && die "폴더가 아닙니다 — 계정 폴더에서 찾은 저장소 이름도 아닙니다: $1"$'\n'"$(graph_repo_hint)"
+    GRAPH_DIR=$GRAPH_FOUND
+  fi
+  git -C "$GRAPH_DIR" rev-parse --show-toplevel >/dev/null 2>&1 && return 0
+  [ -n "$1" ] && die "git 저장소 안의 폴더가 아닙니다: $GRAPH_DIR"
+  die "git 저장소 안의 폴더가 아닙니다: $(tilde "$PWD")"$'\n'"$(graph_repo_hint)"
 }
 
 graph_langs() {   # $1 "swift,ts" → 정규화한 목록(언어 이름은 awk 의 langof 와 같다), 모르는 이름이면 실패
@@ -4773,8 +4836,7 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … 
   if [ -n "$langs" ]; then
     langs=$(graph_langs "$langs") && [ -n "$langs" ] || die "--lang 은 ts · js · web · vue · svelte · swift · python · go · rust · kotlin · java · jvm 중에서 고릅니다 (쉼표로 여럿)."
   fi
-  rel=${rel:-files}; dir=${dir:-.}
-  [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
+  rel=${rel:-files}; graph_pick_dir "$dir"; dir=$GRAPH_DIR
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
   prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
   repo=$(graph_repo_name "$dir" "$top")
@@ -4854,13 +4916,13 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … 
   say "GRAPH_FILE=$out NODES=$n_nodes EDGES=$n_edges"
 }
 
-GRAPH_DIFF_USAGE='사용법: gitch graph diff [기준] [files|modules|tree] [--format text|json|html] [--out 파일] [폴더]
+GRAPH_DIFF_USAGE='사용법: gitch graph diff [기준] [files|modules|tree] [--format text|json|html] [--out 파일] [폴더|저장소]
   기준(커밋 · 브랜치)의 그래프와 지금 작업 트리의 그래프를 비교한다 — 더하거나 뺀 연결 · 파일, 새로 생긴 · 커지거나 줄어든 · 없어진 순환
   기준을 주지 않으면 기본 브랜치(upstream > origin)와 갈라진 곳(merge-base)
   --format   기본: 사람이 보는 터미널이면 text(요약), 아니면 json(바뀐 것만). html 은 바뀐 것을 색으로 보여 주는 그래프
   --lang · --no-external 은 gitch graph 와 같다. 양쪽을 같은 방법으로 읽으려고 Package.swift 는 swift 없이 직접 읽고 Xcode 인덱스 도우미는 쓰지 않는다'
 
-GRAPH_CHECK_USAGE='사용법: gitch graph check [--rules 파일] [--base 기준] [--format text|json|html] [--init] [폴더]
+GRAPH_CHECK_USAGE='사용법: gitch graph check [--rules 파일] [--base 기준] [--format text|json|html] [--init] [폴더|저장소]
   규칙 파일(기본: 저장소의 .gitch/graph.rules)대로 의존을 검사한다. 위반이 있으면 종료 코드 1 — CI 에 넣기 좋다
   [files] 나 [modules] 아래에 한 줄에 하나 (# 뒤는 주석):
     forbid  A -> B       A 가 B 에 기대면 위반 (A 와 B 가 같은 패턴이면 같은 곳끼리는 괜찮다)
@@ -4911,7 +4973,8 @@ graph_meta() {   # JSON 머리에 쓰는 awk 변수들 → GRAPH_META 배열
 }
 
 graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
-  local rel="" base="" fmt="" out="" opn=auto dir="" noext="" langs="" a
+  local rel="" base="" fmt="" out="" opn=auto dir="" noext="" langs="" a bpend=""
+  local -a pend=()
   local top prefix repo tmp bsha bname fancy=""
   while [ $# -gt 0 ]; do
     a=$1
@@ -4937,15 +5000,19 @@ graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
       *)
         if [ -z "$base" ] && git rev-parse --verify --quiet "$a^{commit}" >/dev/null 2>&1; then base=$a
         elif [ -z "$dir" ] && [ -d "$a" ]; then dir=$a
-        else die "커밋도 폴더도 아닙니다: $a"$'\n'"$GRAPH_DIFF_USAGE"; fi ;;
+        else pend+=("$a"); fi ;;
     esac
     shift
+  done
+  for a in ${pend[@]+"${pend[@]}"}; do   # 지금 폴더에서 커밋도 폴더도 아닌 것: 계정 폴더의 저장소 이름이면 그 저장소, 아니면 (그 저장소의) 기준
+    if [ -z "$dir" ] && graph_find_one "$a"; then dir=$GRAPH_FOUND
+    elif [ -z "$base" ]; then base=$a; bpend=1
+    else die "커밋도 폴더도 아닙니다: $a"$'\n'"$GRAPH_DIFF_USAGE"; fi
   done
   if [ -n "$langs" ]; then
     langs=$(graph_langs "$langs") && [ -n "$langs" ] || die "--lang 은 ts · js · web · vue · svelte · swift · python · go · rust · kotlin · java · jvm 중에서 고릅니다 (쉼표로 여럿)."
   fi
-  rel=${rel:-files}; dir=${dir:-.}
-  [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
+  rel=${rel:-files}; graph_pick_dir "$dir"; dir=$GRAPH_DIR
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
   prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
   repo=$(graph_repo_name "$dir" "$top")
@@ -4966,7 +5033,7 @@ graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
     graph_default_base || die "비교할 기준을 정하지 못했습니다 — 커밋이나 브랜치를 주세요 (예: gitch graph diff main)."
     base=$GRAPH_BASE; bname=$GRAPH_BASE_NAME
   else bname=$base; fi
-  bsha=$(git rev-parse --short "$base^{commit}" 2>/dev/null) || die "커밋이 아닙니다: $base"
+  bsha=$(git rev-parse --short "$base^{commit}" 2>/dev/null) || { [ -n "$bpend" ] && die "커밋도 폴더도 아닙니다: $base"$'\n'"$GRAPH_DIFF_USAGE"; die "커밋이 아닙니다: $base"; }
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/gitch-graph.XXXXXX") || die "임시 폴더를 만들지 못했습니다."
   GRAPH_TMP=$tmp
   trap 'rm -rf "$GRAPH_TMP"' EXIT
@@ -5032,7 +5099,7 @@ RULES
 }
 
 graph_check_cmd() {   # [--rules 파일] [--base 기준] [--format text|json|html] [--out 파일] [--init] [폴더]
-  local rules="" base="" fmt="" out="" opn=auto dir="" init="" a top prefix repo tmp rel rels bsha="" bname="" fancy="" n_rules shown
+  local rules="" base="" fmt="" out="" opn=auto dir="" init="" a top prefix repo tmp rel rels bsha="" bname="" fancy="" n_rules shown darg
   local n_err=0
   while [ $# -gt 0 ]; do
     a=$1
@@ -5055,15 +5122,14 @@ graph_check_cmd() {   # [--rules 파일] [--base 기준] [--format text|json|htm
     esac
     shift
   done
-  dir=${dir:-.}
-  [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
+  darg=$dir; graph_pick_dir "$dir"; dir=$GRAPH_DIR
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
   prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
   repo=$(graph_repo_name "$dir" "$top")
   rules=$(posix_path "$rules"); out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로
   case "$rules" in "") rules="$top/$GRAPH_RULES_FILE" ;; /*) ;; *) rules="$PWD/$rules" ;; esac
   if [ -n "$init" ]; then graph_rules_init "$rules"; return 0; fi
-  [ -f "$rules" ] || die "규칙 파일이 없습니다: $(tilde "$rules")"$'\n'"  예시로 시작하기: gitch graph check --init"
+  [ -f "$rules" ] || die "규칙 파일이 없습니다: $(tilde "$rules")"$'\n'"  예시로 시작하기: gitch graph check --init${darg:+ $darg}"
   case "$rules" in "$top"/*) shown=${rules#"$top"/} ;; *) shown=$(tilde "$rules") ;; esac   # 결과에 적는 이름 — 저장소 안이면 상대 경로
   case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
   if [ -z "$fmt" ]; then
@@ -9081,8 +9147,9 @@ PR / MR
   gitch prune [--gone] [--yes]             합쳐진 브랜치 정리
   gitch wt [ls|new 브랜치|rm 폴더]          워크트리
   gitch report [--today|--days N]          gitch/AI 작업 기록
-  gitch graph [files|modules|changes|tree] 구조 그래프: import / 모듈 의존 / 같이 바뀌는 파일 / 폴더
-    [--format html|json|svg|png] [--out 파일] [--lang 언어] [폴더]  터미널은 html, 스크립트·AI 는 json (--help)
+  gitch graph [files|modules|changes|tree] 구조 그래프: import / 모듈 의존 / 같이 바뀌는 파일 / 폴더 (짧게 g)
+    [--format html|json|svg|png] [--out 파일] [--lang 언어] [폴더|저장소]  터미널은 html, 스크립트·AI 는 json (--help)
+  gitch g <저장소 이름>        어디서든 그 저장소의 그래프 — 계정 폴더에서 찾는다 (예: gitch g my-app)
   gitch graph diff [기준]      이 브랜치에서 더하거나 뺀 의존 · 새 순환 (기본: 기본 브랜치와 갈라진 곳)
   gitch graph check            .gitch/graph.rules 의 의존 규칙 검사, 위반이면 종료 코드 1 (--init 으로 예시)
 
@@ -9176,7 +9243,7 @@ case "${1:-}" in
   prune) shift; prune_cmd "$@"; exit $? ;;
   wt|worktree) shift; wt_cmd "$@"; exit $? ;;
   report) shift; report_cmd "$@"; exit $? ;;
-  graph) shift; graph_cmd "$@"; exit $? ;;
+  g|graph) shift; graph_cmd "$@"; exit $? ;;
   list|ls) shift; list_cmd "$@"; exit $? ;;
   add) add_cmd; exit $? ;;
   remove|rm) remove_cmd "${2:-}"; exit $? ;;
