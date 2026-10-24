@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # gitch graph — 구조 그래프 (files · modules · changes · tree / json · html · dot · svg · png)
+export GITCH_SWIFT_INDEX=""   # 이 기계에 Xcode 인덱스 도우미가 있어도 시험은 이름 추정으로(도우미 시험만 따로 켠다)
 
 gr_repo() {   # $1 폴더 — 빈 저장소를 만들고 들어간다 (커밋 작성자는 임시 값)
   mkdir -p "$1" && cd "$1" || fail "cd $1"
@@ -266,6 +267,106 @@ EOF
   gr_attr module:Core .local Sources/Core
   [ "$(gr_q '.stats.heuristicEdges')" -ge 2 ] || fail "heuristicEdges 가 2 이상이어야"
   case "$(gr_q '.notes | join(" ")')" in *Swift*) ;; *) fail "Swift 추정 안내가 없음" ;; esac
+}
+
+test_graph_files_swift_index_helper() {
+  gr_repo "$T/swiftidx"
+  printf 'public struct A {}\n' | gr_put Sources/M/A.swift
+  printf 'let b = A()\nlet c = C()\n' | gr_put Sources/M/B.swift
+  printf 'struct C {}\n' | gr_put Sources/M/C.swift
+  printf 'let d = C()\n' | gr_put Sources/M/D.swift          # 빌드 뒤에 만든 파일 — 인덱스에 없다
+  gr_commit
+  # 도우미가 준 쌍은 정확한 연결(ref), 인덱스에 든 파일은 이름으로 추정하지 않는다. 오래된 인덱스 경고는 notes 로
+  cat > "$T/idx-ok" <<'EOF'
+#!/bin/bash
+[ "$1" = --repo ] && [ -d "$2" ] && [ "$3" = --covered ] || exit 9
+printf 'Sources/M/A.swift\nSources/M/B.swift\nSources/M/C.swift\n' > "$4"
+printf 'Sources/M/B.swift\tSources/M/A.swift\tA\n'
+printf 'Sources/M/B.swift\tSources/M/B.swift\tself\n'
+printf 'Sources/M/nope.swift\tSources/M/A.swift\tA\n'
+echo "gitch-swift-index: 경고: 인덱스가 Swift 파일 1개보다 오래됐습니다" >&2
+EOF
+  chmod +x "$T/idx-ok"
+  GITCH_SWIFT_INDEX="$T/idx-ok" gr_json
+  gr_edge Sources/M/B.swift Sources/M/A.swift ref
+  gr_no_edge Sources/M/B.swift Sources/M/C.swift
+  gr_edge Sources/M/D.swift Sources/M/C.swift type-ref                 # 인덱스에 없는 파일은 이름으로
+  assert_eq "$(gr_q '[.edges[] | select(.heuristic)] | length')" "1" "인덱스에 든 파일은 추정하지 않는다"
+  case "$(gr_q '.notes | join(" ")')" in *"Xcode 인덱스(gitch-swift-index)로 읽은 정확한 참조입니다 (연결 1개, 인덱스에 없는 파일 1개는 타입 이름으로 추정)"*) ;; *) fail "인덱스 안내가 없음: $(gr_q '.notes | join(" / ")')" ;; esac
+  case "$(gr_q '.notes | join(" ")')" in *"인덱스가 Swift 파일 1개보다 오래됐습니다"*) ;; *) fail "오래된 인덱스 경고가 notes 에 없음" ;; esac
+  # --covered 를 쓰지 않은 도우미면 모든 파일이 든 것으로 본다
+  printf '#!/bin/bash\nprintf "Sources/M/B.swift\\tSources/M/A.swift\\tA\\n"\n' > "$T/idx-all"; chmod +x "$T/idx-all"
+  GITCH_SWIFT_INDEX="$T/idx-all" gr_json
+  assert_eq "$(gr_q '[.edges[] | select(.heuristic)] | length')" "0" "목록이 없으면 모두 인덱스로"
+  # 인덱스가 없으면(종료 3) 이름 추정
+  printf '#!/bin/bash\nexit 3\n' > "$T/idx-none"; chmod +x "$T/idx-none"
+  GITCH_SWIFT_INDEX="$T/idx-none" gr_json
+  gr_edge Sources/M/B.swift Sources/M/C.swift type-ref
+  case "$(gr_q '.notes | join(" ")')" in *"Xcode 인덱스가 없어"*) ;; *) fail "인덱스 없음 안내가 없음" ;; esac
+  # 실패하면 이유를 적고 이름 추정
+  printf '#!/bin/bash\necho "store is locked" >&2\nexit 1\n' > "$T/idx-bad"; chmod +x "$T/idx-bad"
+  GITCH_SWIFT_INDEX="$T/idx-bad" gr_json
+  gr_edge Sources/M/B.swift Sources/M/A.swift type-ref
+  case "$(gr_q '.notes | join(" ")')" in *"실패해(store is locked)"*) ;; *) fail "도우미 실패 안내가 없음" ;; esac
+  # 빈 값이면 끈다
+  GITCH_SWIFT_INDEX='' gr_json
+  case "$(gr_q '.notes | join(" ")')" in *gitch-swift-index*|*"Xcode 인덱스"*) fail "빈 값인데 도우미를 불렀음" ;; esac
+}
+
+test_graph_files_swift_modules() {
+  gr_repo "$T/swiftmod"
+  # Tuist: 도우미 매니페스트(Sources/** · Tests/**)와 sources 를 적은 타깃, SwiftPM 패키지
+  echo 'let project = Project.framework(name: "Core", dependencies: [])' | gr_put Projects/Core/Project.swift
+  echo 'let project = Project.framework(name: "Kit")' | gr_put Projects/Kit/Project.swift
+  gr_put Projects/App/Project.swift <<'EOF'
+let project = Project(name: "App", targets: [
+    .target(name: "App", destinations: .iOS, product: .app, bundleId: "x.app",
+            sources: ["Sources/**", "../Shared/**"], dependencies: [.project(target: "Core", path: "../Core")]),
+    .target(name: "Widget", destinations: .iOS, product: .appExtension, bundleId: "x.app.widget",
+            sources: .glob("../Widget/**", excluding: ["../Widget/Gen/**"]))
+])
+EOF
+  gr_put Packages/Net/Package.swift <<'EOF'
+let package = Package(name: "Net", targets: [
+    .target(name: "Net"),
+    .target(name: "NetUI", dependencies: ["Net"]),
+])
+EOF
+  printf 'public final class Store {}\nstruct Hidden {}\n' | gr_put Projects/Core/Sources/Store.swift
+  printf 'public final class Store {}\npublic struct Tool {}\n' | gr_put Projects/Kit/Sources/Store.swift
+  printf 'struct Local {}\n' | gr_put Projects/App/Sources/Local.swift
+  printf 'struct Banner {}\n' | gr_put Projects/Shared/Banner.swift
+  gr_put Projects/App/Sources/AppView.swift <<'EOF'
+import Core
+
+let a = Store()      // Core 를 import — Kit 의 같은 이름은 아니다
+let b = Hidden()     // Core 의 internal 타입 — 보이지 않는다
+let c = Tool()       // Kit 은 import 하지 않았다
+let d = Local()      // 같은 모듈
+let e = Banner()     // ../Shared/** 도 App 모듈
+let f = Client()     // Net 은 import 하지 않았다
+EOF
+  printf '@testable import Core\n\nlet h = Hidden()\n' | gr_put Projects/Core/Tests/StoreTests.swift
+  printf 'let w = Banner()\n' | gr_put Projects/Widget/WidgetView.swift
+  printf 'public class Client {}\n' | gr_put Packages/Net/Sources/Net/Client.swift
+  printf 'import Net\n\nlet c = Client()\n' | gr_put Packages/Net/Sources/NetUI/View.swift
+  gr_commit
+  gr_json
+  gr_edge Projects/App/Sources/AppView.swift Projects/Core/Sources/Store.swift type-ref
+  gr_no_edge Projects/App/Sources/AppView.swift Projects/Kit/Sources/Store.swift
+  gr_edge Projects/App/Sources/AppView.swift Projects/App/Sources/Local.swift type-ref
+  gr_edge Projects/App/Sources/AppView.swift Projects/Shared/Banner.swift type-ref
+  gr_no_edge Projects/App/Sources/AppView.swift Packages/Net/Sources/Net/Client.swift
+  assert_eq "$(gr_q '.edges[] | select(.source == "Projects/App/Sources/AppView.swift" and .target == "Projects/Core/Sources/Store.swift") | .via | join(",")')" "Store" "internal 타입(Hidden)은 다른 모듈에서 보이지 않음"
+  gr_edge Projects/Core/Tests/StoreTests.swift Projects/Core/Sources/Store.swift type-ref   # @testable 이면 internal 도
+  gr_no_edge Projects/Widget/WidgetView.swift Projects/Shared/Banner.swift                # Widget 은 Shared 를 소스로 갖지 않는다
+  gr_edge Packages/Net/Sources/NetUI/View.swift Packages/Net/Sources/Net/Client.swift type-ref
+  assert_eq "$(gr_q '[.edges[] | select(.kind == "type-ref") | .checked] | unique | map(tostring) | join(",")')" "true" "모듈로 확인한 추정에는 checked"
+  gr_attr Projects/Shared/Banner.swift '.modules | join(",")' "App"
+  gr_attr Projects/Core/Tests/StoreTests.swift '.modules | join(",")' "CoreTests"
+  gr_attr Packages/Net/Sources/NetUI/View.swift '.modules | join(",")' "NetUI"
+  gr_attr module:Core .local Projects/Core/Sources
+  case "$(gr_q '.notes | join(" ")')" in *"모듈 8개, 그래서 뺀 이름 4개"*) ;; *) fail "모듈 경계 안내가 없음: $(gr_q '.notes | join(" / ")')" ;; esac
 }
 
 gr_spm_fixture() {   # Package.swift + 타깃 폴더(실제 swift package describe 도 되게)
@@ -539,7 +640,7 @@ test_graph_formats_and_output() {
   [ -f "$T/out/g.html" ] || fail "html 파일이 없음"
   grep -q '<script id="graph-data" type="application/json">' "$T/out/g.html" || fail "데이터 블록 없음"
   grep -q '"relation": "files"' "$T/out/g.html" || fail "데이터에 관계가 없음"
-  for id in panel table legend info q ana banner peek; do grep -q "id=\"$id\"" "$T/out/g.html" || fail "html 에 #$id 가 없음"; done   # 설정 창 · 표로 보기 · 범례 · 정보 · 찾기 · 분석 · 강조 알림 · 마스코트
+  for id in panel table legend info q ana banner logo; do grep -q "id=\"$id\"" "$T/out/g.html" || fail "html 에 #$id 가 없음"; done   # 설정 창 · 표로 보기 · 범례 · 정보 · 찾기 · 분석 · 강조 알림 · 표시
   grep -q '<html lang="ko" data-theme="dark">' "$T/out/g.html" || fail "기본은 어두운 화면이어야"
   assert_eq "$(grep -o '</script>' "$T/out/g.html" | wc -l | tr -d ' ')" "2" "데이터 속 </script> 가 그대로 들어감"
   if command -v node >/dev/null 2>&1; then   # 보기 스크립트 문법(브라우저 없이)
@@ -628,4 +729,135 @@ test_graph_lang_filter() {
   gr_no_node npm:web
   run gitch graph --lang cobol; assert_rc 1; assert_out "--lang 은"
   assert_eq "$(gitch graph --json | jq -r '.lang')" "null" "고르지 않으면 lang 은 null"
+}
+
+test_graph_diff() {
+  gr_repo "$T/diff"
+  echo 'import { b } from "./b"' | gr_put src/a.ts
+  echo 'export const b = 1' | gr_put src/b.ts
+  echo 'export const c = 1' | gr_put src/c.ts
+  printf 'import { y } from "./y"\nexport const x = 1\n' | gr_put src/x.ts      # x ↔ y 순환 — 작업 트리에서 z 가 끼어 커진다
+  printf 'import { x } from "./x"\nexport const y = 1\n' | gr_put src/y.ts
+  gr_commit base
+  local base; base=$(git rev-parse --short HEAD)
+  # 작업 트리: a → b 를 a → c 로, b ↔ c 순환, 새 파일 d (커밋 없이 추적만)
+  echo 'import { c } from "./c"' | gr_put src/a.ts
+  printf 'import { c } from "./c"\nexport const b = 1\n' | gr_put src/b.ts
+  printf 'import { b } from "./b"\nexport const c = 1\n' | gr_put src/c.ts
+  echo 'import { a } from "./a"' | gr_put src/d.ts
+  printf 'import { z } from "./z"\nexport const y = 1\n' | gr_put src/y.ts
+  printf 'import { x } from "./x"\nexport const z = 1\n' | gr_put src/z.ts
+  git add -A
+  run gitch graph diff "$base" --json; assert_ok; assert_json "$OUT"
+  assert_eq "$(gr_q '.diff.base + " " + .diff.head')" "$base worktree"
+  assert_eq "$(gr_q '[.stats.addedEdges, .stats.removedEdges, .stats.addedNodes, .stats.removedNodes, .stats.newCycles, .stats.changedCycles, .stats.goneCycles] | map(tostring) | join(" ")')" "6 2 2 0 1 1 0"
+  assert_eq "$(gr_q '.cycles.new[0].nodes | join(",")')" "src/b.ts,src/c.ts" "새 순환"
+  assert_eq "$(gr_q '.cycles.changed[0] | (.before | join(",")) + " > " + (.nodes | join(","))')" "src/x.ts,src/y.ts > src/x.ts,src/y.ts,src/z.ts" "커진 순환은 새 순환이 아니다"
+  assert_eq "$(gr_q '[.edges[] | select(.status == "removed") | .source + ">" + .target] | sort | join(" ")')" "src/a.ts>src/b.ts src/y.ts>src/x.ts"
+  assert_eq "$(gr_q '[.edges[] | select(.status == "added")] | length')" "6"
+  assert_eq "$(gr_q '[.nodes[] | select(.status == "added") | .id] | sort | join(",")')" "src/d.ts,src/z.ts"
+  # 기준을 주지 않으면 기본 브랜치(여기서는 로컬 main)와 갈라진 곳
+  run gitch graph diff --json; assert_ok
+  assert_eq "$(gr_q '.diff.baseName + " " + .diff.base')" "main $base"
+  # 사람용 요약 · html(바뀐 것을 색으로) · 폴더 구조
+  run gitch graph diff "$base" --format text; assert_ok
+  assert_out "연결 +6 −2"; assert_out "새 순환 1개"; assert_out "커지거나 줄어든 순환 1개"; assert_out "~ 2 → 3개"; assert_out "+ src/z.ts"
+  assert_out "+ src/d.ts → src/a.ts"; assert_out "− src/a.ts → src/b.ts"
+  run gitch graph diff "$base" --out "$T/out/d.html"; assert_ok
+  grep -q '"status":"removed"' "$T/out/d.html" || fail "html 에 바뀐 표시가 없음"
+  grep -q '"diff": {"base": "'"$base"'"' "$T/out/d.html" || fail "html 에 기준이 없음"
+  run gitch graph diff "$base" tree --json; assert_ok
+  assert_eq "$(gr_q '.nodes[] | select(.id == "src/") | "\(.status) \(.filesDelta)"')" "changed 2" "폴더의 파일 수 변화"
+  run gitch graph diff "$base" tree --format text; assert_ok; assert_out "~ src/ 파일 +2"
+  run gitch graph diff changes; assert_fail; assert_out "changes 는 비교하지 않습니다"
+  run gitch graph diff no-such-commit; assert_fail; assert_out "커밋도 폴더도 아닙니다"
+  run gitch graph diff --help; assert_ok; assert_out "사용법: gitch graph diff"
+}
+
+test_graph_check() {
+  gr_repo "$T/check"
+  echo 'import { db } from "../db/db"' | gr_put src/ui/view.ts
+  echo 'import { db } from "../../db/db"' | gr_put src/ui/debug/tool.ts
+  echo 'export const db = 1' | gr_put src/db/db.ts
+  printf 'import { y } from "./y"\nexport const x = 1\n' | gr_put src/core/x.ts
+  printf 'import { x } from "./x"\nexport const y = 1\n' | gr_put src/core/y.ts
+  gr_commit
+  run gitch graph check; assert_fail; assert_out "gitch graph check --init"
+  run gitch graph check --init; assert_ok
+  [ -f .gitch/graph.rules ] || fail "--init 이 규칙 파일을 만들지 않음"
+  run gitch graph check --init; assert_fail; assert_out "이미 있습니다"
+  run gitch graph check --format text; assert_ok; assert_out "위반 없음"     # 예시는 모두 주석
+  cat > .gitch/graph.rules <<'RULES'
+# 화면은 DB 를 바로 쓰지 않는다
+[files]
+forbid  src/ui -> src/db
+allow   src/ui/debug -> src/db    # 예외
+no-cycles src/**
+layers  src/ui > src/core > src/db
+RULES
+  run gitch graph check --format text; assert_rc 1
+  assert_out "src/ui/view.ts → src/db/db.ts"; assert_out "순환 src/core/x.ts · src/core/y.ts"; assert_out "위반 2개"
+  case "$OUT" in *tool.ts*) fail "allow 예외가 먹지 않음\n$OUT" ;; esac
+  run gitch graph check --json; assert_rc 1; assert_json "$OUT"
+  assert_eq "$(gr_q '.ok')" "false"
+  assert_eq "$(gr_q '[.violations[].kind] | sort | join(",")')" "forbid,no-cycles"
+  assert_eq "$(gr_q '.violations[] | select(.kind == "no-cycles") | .nodes | join(",")')" "src/core/x.ts,src/core/y.ts"
+  assert_eq "$(gr_q '.violations[] | select(.kind == "forbid") | "\(.line) \(.rule)"')" "3 forbid  src/ui -> src/db"
+  # --base: 기준에도 있던 위반은 「기존」, 새 위반만 실패
+  gr_commit rules
+  local base; base=$(git rev-parse --short HEAD)
+  echo 'import { x } from "../core/x"' | gr_put src/db/up.ts      # db → core: 층을 거스른다
+  git add -A
+  run gitch graph check --base "$base" --json; assert_rc 1
+  assert_eq "$(gr_q '[.violations[] | select(.existing)] | length')" "2" "기준에도 있던 위반"
+  assert_eq "$(gr_q '.violations[] | select(.existing | not) | "\(.kind) \(.source) \(.target)"')" "layers src/db/up.ts src/core/x.ts"
+  git rm -q --cached src/db/up.ts && rm src/db/up.ts
+  run gitch graph check --base "$base" --format text; assert_ok "기존 위반만 있으면 통과"; assert_out "기준에도 있던 위반 2개"
+  # html 에 규칙 결과, 그냥 gitch graph html 에도 (규칙 파일이 있으면)
+  run gitch graph check --out "$T/out/c.html"; assert_rc 1
+  grep -q '"rules":{"tool":"gitch graph check"' "$T/out/c.html" || fail "check html 에 규칙 결과가 없음"
+  run gitch graph files --out "$T/out/g.html"; assert_ok
+  grep -q '"rules":{"tool":"gitch graph check","file":".gitch/graph.rules"' "$T/out/g.html" || fail "graph html 에 규칙 결과가 없음"
+  # 틀린 규칙은 줄 번호와 함께 멈춘다
+  printf '[files]\nforbid src/a\nlayers only\nfrobid a -> b\n[nope]\n' > "$T/bad.rules"
+  run gitch graph check --rules "$T/bad.rules"; assert_fail
+  assert_out "2번 줄: forbid 에는"; assert_out "3번 줄: layers 에는"; assert_out "4번 줄: 모르는 규칙"; assert_out "5번 줄: 모르는 절 [nope]"
+}
+
+test_graph_check_modules() {
+  gr_repo "$T/checkmod"
+  echo 'let project = Project.framework(name: "AFeature", dependencies: [.project(target: "BFeature", path: "../B"), .project(target: "Domain", path: "../Domain")])' | gr_put Projects/A/Project.swift
+  echo 'let project = Project.framework(name: "BFeature", dependencies: [.project(target: "Domain", path: "../Domain")])' | gr_put Projects/B/Project.swift
+  echo 'let project = Project.framework(name: "Domain", dependencies: [.project(target: "AFeature", path: "../A")])' | gr_put Projects/Domain/Project.swift
+  mkdir -p .gitch
+  printf '[modules]\nforbid *Feature -> *Feature   # 기능끼리\nlayers *Feature > Domain\n' > .gitch/graph.rules
+  gr_commit
+  run gitch graph check --json; assert_rc 1; assert_json "$OUT"
+  assert_eq "$(gr_q '[.violations[] | "\(.kind) \(.source) \(.target)"] | sort | join(" | ")')" "forbid tuist:AFeature tuist:BFeature | layers tuist:Domain tuist:AFeature"
+}
+
+gr_chrome() {   # 시험에 쓸 Chrome — GITCH_TEST_CHROME 이 먼저, 없으면 실패(그 시험은 건너뛴다)
+  local c
+  for c in "${GITCH_TEST_CHROME:-}" "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "$(command -v google-chrome 2>/dev/null)" "$(command -v chromium 2>/dev/null)"; do
+    [ -n "$c" ] && [ -x "$c" ] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+
+test_graph_html_in_browser() {   # 헤드리스 Chrome 에서: 오류 없이 그리고, 배치 · 그리기마다 겹친 노드가 없고, PNG 로 저장된다 (Chrome · Node 22 가 없으면 건너뜀)
+  local chrome
+  chrome=$(gr_chrome) || return 0
+  node -e 'process.exit(typeof WebSocket === "function" ? 0 : 1)' 2>/dev/null || return 0
+  gr_repo "$T/browser"
+  printf '{"name":"root","workspaces":["packages/*"]}\n' | gr_put package.json
+  printf '{"name":"@x/a","dependencies":{"@x/b":"1"}}\n' | gr_put packages/a/package.json
+  printf '{"name":"@x/b"}\n' | gr_put packages/b/package.json
+  local i
+  for i in 1 2 3 4 5 6 7 8; do printf 'import { v%s } from "./f%s"\nexport const v%s = 1\n' $(( i % 8 + 1 )) $(( i % 8 + 1 )) "$i" | gr_put "packages/a/src/f$i.ts"; done
+  gr_commit one
+  for i in 2 3; do echo "// $i" >> packages/a/src/f1.ts; echo "// $i" >> packages/a/src/f2.ts; gr_commit "c$i"; done   # 같이 바뀌는 쌍
+  run gitch graph files --out "$T/out/browser.html"; assert_ok
+  run node "$ROOT/tests/graph_browser.mjs" "$chrome" "$T/out/browser.html" "$T"
+  assert_ok "브라우저에서 확인 실패"
+  assert_out '"ok":true'
 }

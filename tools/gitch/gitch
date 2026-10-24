@@ -3532,10 +3532,13 @@ gitch graph modules --json         # 모듈/타깃 의존: Package.swift · Proj
 gitch graph changes --json         # 자주 같이 커밋되는 파일 쌍(weight) + 바뀐 횟수(changes, 핫스팟)
 gitch graph tree --json --depth 2  # 폴더 크기 · 파일 수
 gitch graph files src/feature      # 그 폴더만 (폴더 밖 대상 노드는 outside: true)
+gitch graph diff --json            # 이 브랜치가 더하거나 뺀 연결(status: added · removed) · 순환(cycles.new · changed · gone)
+gitch graph check --json           # .gitch/graph.rules 위반(violations), 위반이면 종료 코드 1
 ```
 
 - 출력은 `nodes` · `edges` JSON 이다. 큰 저장소면 폴더를 주거나 `jq` 로 필요한 부분만 읽는다.
 - 사용자에게 그림으로 보여 줄 때는 `gitch graph --format html --out <파일>` (오프라인 한 페이지).
+- 큰 바꿈을 마치기 전에 `gitch graph diff --json` 으로 새 순환 · 뜻밖의 의존이 생겼는지, 규칙 파일이 있으면 `gitch graph check` 를 본다.
 
 ## 9. 사용자만 하는 것
 
@@ -4042,11 +4045,16 @@ guard_gitsw() {
     publish) g_decide ask "원격 저장소를 새로 만들고 push 합니다." ;;
     ai) case "${rest[0]:-}" in --print|--skill) ;; *) g_decide ask "AI 도구 설정(CLAUDE.md, settings.json 등)을 바꿉니다." ;; esac ;;
     ssh) g_decide ask "~/.ssh/config 를 정리합니다." ;;
-    graph)   # 읽기 명령(허용 목록)이지만 --out 으로 gitch 가 관리하는 파일을 덮어쓰지 못하게
+    graph)   # 읽기 명령(허용 목록)이지만 --out(과 check --init 의 --rules)으로 gitch 가 관리하는 파일을 쓰지 못하게
       for ((k = 0; k < ${#rest[@]}; k++)); do
         o=""
-        case "${rest[$k]}" in --out|-o) o=${rest[$((k + 1))]:-} ;; --out=*) o=${rest[$k]#--out=} ;; esac
-        [ -n "$o" ] && g_protected "$o" && g_decide deny "$(tilde "$(g_path "$o")") 는 gitch 가 관리하는 파일이라 gitch graph --out 으로 덮어쓸 수 없습니다."
+        case "${rest[$k]}" in
+          --out|-o) o=${rest[$((k + 1))]:-} ;;
+          --out=*) o=${rest[$k]#--out=} ;;
+          --rules|-r) case " ${rest[*]} " in *" --init "*) o=${rest[$((k + 1))]:-} ;; esac ;;
+          --rules=*) case " ${rest[*]} " in *" --init "*) o=${rest[$k]#--rules=} ;; esac ;;
+        esac
+        [ -n "$o" ] && g_protected "$o" && g_decide deny "$(tilde "$(g_path "$o")") 는 gitch 가 관리하는 파일이라 gitch graph 로 쓸 수 없습니다."
       done ;;
   esac
   return 0
@@ -4611,6 +4619,7 @@ self_update_standalone() {   # $1 이 파일 — 릴리스의 gitch 를 gitch.sh
 # 결과 레코드(0 통계·안내 / 1 노드 / 2 연결, 탭 구분)를 sort 로 순서를 고정한 뒤 json · dot 으로 바꾼다. html 은 json 을 품은 오프라인 한 페이지.
 
 GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|json|svg|png|dot] [--out 파일] [--open|--no-open] [폴더]
+       gitch graph diff [기준] …  ·  gitch graph check …   (각각 --help)
   files    파일 → 파일 import (TS/JS · Python · Go · Rust · Kotlin/Java, Swift 는 타입 이름으로 추정) — 기본
   modules  모듈/타깃 의존 (Package.swift · Tuist Project.swift · package.json · Cargo.toml · go.mod · Gradle)
   changes  자주 같이 커밋되는 파일 쌍과 바뀐 횟수(핫스팟)
@@ -4620,7 +4629,7 @@ GRAPH_USAGE='사용법: gitch graph [files|modules|changes|tree] [--format html|
   --json = --format json · --no-external 저장소 밖 패키지 · 모듈 빼기 · [폴더] 그 폴더 아래만
   --lang 언어[,언어]  그 언어만: ts · js · web(ts·js·vue·svelte) · swift · python · go · rust · kotlin · java · jvm(kotlin·java)
   html 은 네 관계를 한 페이지에 담는다(위 탭으로 바꿈) — 파일 · 폴더 단위, 언어, 점 · 상자(다이어그램) 그리기, 필터,
-       분석(순환 의존 · 영향 범위 · 안 쓰는 것 · 핫스팟 · 숨은 결합 …), 노드 사이 경로
+       폴더 원(멀리서 접히고 가까이서 펼쳐짐), 분석(순환 의존 · 영향 범위 · 안 쓰는 것 · 핫스팟 · 숨은 결합 …), 노드 사이 경로
   changes: --since 날짜 · --max-commits N(1000) · --max-files N(30, 더 큰 커밋은 뺌) · --min N(2)
   tree: --depth N(0 = 끝까지) · --files(파일도 노드로)'
 
@@ -4681,26 +4690,49 @@ graph_spm_describe() {   # $1 임시 폴더 $2 범위(접두사) $3 고른 언�
   wait
 }
 
+# Swift 파일끼리의 정확한 참조는 Xcode 인덱스에 있다 — 그것을 읽는 도우미(앱이 gitch 옆에 둔다)의 경로, 없으면 빈 값
+# 약속: gitch-swift-index --repo <저장소> --covered <파일> → 표준출력 "원본<TAB>대상<TAB>심볼,…"(저장소 기준 경로), --covered 에는 인덱스에 든 추적 .swift 경로,
+# 종료 0 성공(표준오류 첫 줄은 오래된 인덱스 같은 경고) · 3 인덱스 없음 · 그 밖은 실패
+graph_swift_index() {
+  if [ -n "${GITCH_SWIFT_INDEX+x}" ]; then [ -n "$GITCH_SWIFT_INDEX" ] && [ -x "$GITCH_SWIFT_INDEX" ] && printf '%s' "$GITCH_SWIFT_INDEX"; return 0; fi   # 빈 값이면 끔
+  if [ -x "$(dirname "$(self_path)")/gitch-swift-index" ]; then printf '%s' "$(dirname "$(self_path)")/gitch-swift-index"; return 0; fi
+  command -v gitch-swift-index 2>/dev/null || true
+}
+
 graph_collect() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 since $6 커밋 수 $7 큰 커밋 기준 $8 최소 횟수 $9 깊이 ${10} 파일 포함 ${11} 저장소 이름 ${12} 언어 → 레코드
-  local tmp=$1 rel=$2 scope=$3 repo=${11} langs=${12}
+  local tmp=$1 rel=$2 scope=$3 repo=${11} langs=${12} sx="" sxrc="" sxerr=""
   case "$rel" in
     files|modules)
-      : > "$tmp/spm.list"
+      : > "$tmp/spm.list"; : > "$tmp/swiftidx"
       [ "$rel" = modules ] && graph_spm_describe "$tmp" "$scope" "$langs"
-      awk -v rel="$rel" -v list="$tmp/files" -v scope="$scope" -v noext="$4" -v spm="$tmp/spm.list" -v repo="$repo" -v langs="$langs" \
+      if [ "$rel" = files ] && { [ -z "$langs" ] || in_list swift "${langs//,/ }"; } && grep -q '\.swift$' "$tmp/files" && sx=$(graph_swift_index) && [ -n "$sx" ]; then
+        rm -f "$tmp/swiftidx.covered"
+        "$sx" --repo "$PWD" --covered "$tmp/swiftidx.covered" > "$tmp/swiftidx" 2> "$tmp/swiftidx.err"; sxrc=$?
+        sxerr=$(head -n 1 "$tmp/swiftidx.err" 2>/dev/null)
+      fi
+      GITSW_SWIFTERR="$sxerr" awk -v rel="$rel" -v list="$tmp/files" -v scope="$scope" -v noext="$4" -v spm="$tmp/spm.list" -v repo="$repo" -v langs="$langs" \
+        -v swiftidx="$tmp/swiftidx" -v swiftcov="$tmp/swiftidx.covered" -v swiftrc="$sxrc" \
         "$(graph_awk_lib)$(graph_awk_scan)" ;;
     changes)
       git -c core.quotepath=off log --no-merges --no-renames --name-only --format='%x01%h%x09%cs' ${5:+"--since=$5"} -n "$6" -- ${scope:+"$scope"} 2>/dev/null | \
         GITSW_LOCKRE="$LOCKFILE_RE" awk -v list="$tmp/files" -v scope="$scope" -v maxf="$7" -v min="$8" -v maxc="$6" -v since="$5" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_changes)" ;;
     tree)
       # 크기는 인덱스의 blob 크기(git cat-file 한 번) — 파일마다 stat 하지 않는다. 서브모듈(160000)은 뺀다
-      git ls-files -s -z -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[1] != "160000") print a[2], $2 }' | \
-        git cat-file --batch-check='%(objectname) %(objectsize) %(rest)' | \
+      if [ -n "${GRAPH_REV:-}" ]; then   # diff 의 기준 커밋: 크기까지 git ls-tree 한 번
+        git ls-tree -r -l -z "$GRAPH_REV" -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[2] == "blob") print a[3], a[4], $2 }'
+      else
+        git ls-files -s -z -- ${scope:+"$scope"} | tr '\0' '\n' | awk -F'\t' 'NF == 2 { split($1, a, " "); if (a[1] != "160000") print a[2], $2 }' | \
+          git cat-file --batch-check='%(objectname) %(objectsize) %(rest)'
+      fi | \
         awk -v scope="$scope" -v maxd="$9" -v withfiles="${10}" -v repo="$repo" -v langs="$langs" "$(graph_awk_lib)$(graph_awk_tree)" ;;
   esac
 }
 
-graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
+graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더] · diff … · check …
+  case "${1:-}" in
+    diff) shift; graph_diff_cmd "$@"; return $? ;;
+    check) shift; graph_check_cmd "$@"; return $? ;;
+  esac
   local rel="" fmt="" out="" opn=auto dir="" since="" maxc=1000 maxf=30 min=2 depth=0 withfiles="" noext="" langs="" a
   local top prefix repo tmp n_nodes=0 n_edges=0 n_heur=0 fancy="" rels i
   local -a meta
@@ -4745,8 +4777,7 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
   [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
   top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
   prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
-  repo=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)   # 워크트리여도 본 저장소 이름
-  case "$repo" in */.git) repo=$(basename "${repo%/.git}") ;; *) repo=$(basename "$top") ;; esac
+  repo=$(graph_repo_name "$dir" "$top")
 
   # 형식: --format > --out 의 확장자 > 사람이 보는 터미널이면 html(열기), 아니면 json(표준출력)
   out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로(아니면 저장소 안에 C: 폴더가 생긴다)
@@ -4796,7 +4827,9 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
           [ $i -gt 0 ] && printf ','
           printf '"%s":' "$a"; awk "${meta[@]}" -v rel="$a" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec.$a"; i=$((i + 1))
         done
-        printf '}}\n'; } | graph_html > "$tmp/out" ;;
+        printf '}'
+        [ -f "$GRAPH_RULES_FILE" ] && { printf ',"rules":'; graph_rules_eval "$tmp" "$GRAPH_RULES_FILE"; }   # 분석 창의 「규칙 위반」
+        printf '}\n'; } | graph_html > "$tmp/out" ;;
     dot) awk "${meta[@]}" "$(graph_awk_lib)$(graph_awk_dot)" "$tmp/rec" > "$tmp/out" ;;
     *)
       [ -n "$fancy" ] && [ "$n_nodes" -gt 1500 ] && printf '\r\033[K  %s' "${DIM}노드가 ${n_nodes}개라 dot 이 오래 걸릴 수 있습니다 (빠르게 보려면 --format html)…${RESET}"
@@ -4819,6 +4852,326 @@ graph_cmd() {   # [files|modules|changes|tree] [옵션...] [폴더]
     graph_open "$out" && dim "  열었습니다. (열지 않으려면 --no-open)"
   fi
   say "GRAPH_FILE=$out NODES=$n_nodes EDGES=$n_edges"
+}
+
+GRAPH_DIFF_USAGE='사용법: gitch graph diff [기준] [files|modules|tree] [--format text|json|html] [--out 파일] [폴더]
+  기준(커밋 · 브랜치)의 그래프와 지금 작업 트리의 그래프를 비교한다 — 더하거나 뺀 연결 · 파일, 새로 생긴 · 커지거나 줄어든 · 없어진 순환
+  기준을 주지 않으면 기본 브랜치(upstream > origin)와 갈라진 곳(merge-base)
+  --format   기본: 사람이 보는 터미널이면 text(요약), 아니면 json(바뀐 것만). html 은 바뀐 것을 색으로 보여 주는 그래프
+  --lang · --no-external 은 gitch graph 와 같다. 양쪽을 같은 방법으로 읽으려고 Package.swift 는 swift 없이 직접 읽고 Xcode 인덱스 도우미는 쓰지 않는다'
+
+GRAPH_CHECK_USAGE='사용법: gitch graph check [--rules 파일] [--base 기준] [--format text|json|html] [--init] [폴더]
+  규칙 파일(기본: 저장소의 .gitch/graph.rules)대로 의존을 검사한다. 위반이 있으면 종료 코드 1 — CI 에 넣기 좋다
+  [files] 나 [modules] 아래에 한 줄에 하나 (# 뒤는 주석):
+    forbid  A -> B       A 가 B 에 기대면 위반 (A 와 B 가 같은 패턴이면 같은 곳끼리는 괜찮다)
+    allow   A -> B       위반의 예외
+    layers  A > B > C    왼쪽이 오른쪽에 기대는 것만 된다 (C 가 A 에 기대면 위반)
+    no-cycles [패턴]     순환 의존 금지 (패턴을 주면 그 안에서만)
+  패턴: files 는 경로(* 한 마디 · ** 여러 폴더 · 폴더 이름만 쓰면 그 아래 전부), modules 는 모듈 이름(*Feature)
+  --base 기준  그 커밋에도 있던 위반은 「기존」으로 따로 적고 실패로 세지 않는다 (오래된 저장소에 들일 때)
+  이름만으로 추정한 연결의 위반은 경고다. 모듈 · 패키지로 확인한 추정(checked)과 정확한 연결은 위반으로 센다
+  --init  예시가 든 규칙 파일을 만든다'
+
+GRAPH_RULES_FILE=.gitch/graph.rules
+
+graph_default_base() {   # 기본 브랜치와 갈라진 곳(merge-base): upstream(포크) > origin > 로컬 main · master, 없으면 HEAD → GRAPH_BASE · GRAPH_BASE_NAME
+  local r d
+  for r in upstream origin; do
+    git remote get-url "$r" >/dev/null 2>&1 || continue
+    d=$(default_branch "$r")
+    git show-ref -q --verify "refs/remotes/$r/$d" || continue
+    GRAPH_BASE=$(git merge-base HEAD "refs/remotes/$r/$d" 2>/dev/null) && [ -n "$GRAPH_BASE" ] && { GRAPH_BASE_NAME="$r/$d"; return 0; }
+  done
+  for d in main master; do
+    git show-ref -q --verify "refs/heads/$d" || continue
+    GRAPH_BASE=$(git merge-base HEAD "refs/heads/$d" 2>/dev/null) && [ -n "$GRAPH_BASE" ] && { GRAPH_BASE_NAME=$d; return 0; }
+  done
+  GRAPH_BASE=$(git rev-parse HEAD 2>/dev/null) && [ -n "$GRAPH_BASE" ] && GRAPH_BASE_NAME=HEAD
+}
+
+graph_base_extract() {   # $1 커밋 $2 폴더 → 그 커밋의 추적 파일을 $2/src 에 풀고 목록을 $2/files 에 (저장소는 건드리지 않는다)
+  mkdir -p "$2/src" || return 1
+  git archive --format=tar "$1" | tar -x -C "$2/src" 2>/dev/null || return 1
+  git ls-tree -r --name-only -z "$1" | tr '\0' '\n' > "$2/files"
+}
+
+graph_side() {   # $1 임시 폴더 $2 관계 $3 범위 $4 외부 빼기 $5 저장소 $6 언어 [$7 기준 커밋] → 정렬한 레코드 (diff · check 가 양쪽을 같은 방법으로)
+  local tmp=$1 rel=$2
+  if [ -z "${7:-}" ]; then
+    graph_collect "$tmp" "$rel" "$3" "$4" "" 1000 30 2 0 "" "$5" "$6"
+  elif [ "$rel" = tree ]; then
+    GRAPH_REV=$7 graph_collect "$tmp" tree "$3" "$4" "" 1000 30 2 0 "" "$5" "$6"
+  else
+    ( cd "$tmp/src" && graph_collect "$tmp" "$rel" "$3" "$4" "" 1000 30 2 0 "" "$5" "$6" )
+  fi | LC_ALL=C sort -u
+}
+
+graph_meta() {   # JSON 머리에 쓰는 awk 변수들 → GRAPH_META 배열
+  GRAPH_META=(-v rel="$1" -v repo="$2" -v scope="${3%/}" -v commit="$(git rev-parse --short HEAD 2>/dev/null)" -v ver="$GITSW_VERSION" -v when="$(now_iso)" -v langs="$4")
+}
+
+graph_diff_cmd() {   # [기준] [files|modules|tree] [옵션] [폴더]
+  local rel="" base="" fmt="" out="" opn=auto dir="" noext="" langs="" a
+  local top prefix repo tmp bsha bname fancy=""
+  while [ $# -gt 0 ]; do
+    a=$1
+    case "$a" in
+      files|file) rel=files ;;
+      modules|module) rel=modules ;;
+      tree) rel=tree ;;
+      changes|change) die "changes 는 비교하지 않습니다 — files · modules · tree 중에서 고릅니다." ;;
+      --base) shift; base=${1:-}; [ -n "$base" ] || die "--base 뒤에 커밋이나 브랜치가 필요합니다." ;;
+      --base=*) base=${a#*=} ;;
+      --format|-f) shift; fmt=${1:-} ;;
+      --format=*) fmt=${a#*=} ;;
+      --json) fmt=json ;;
+      --out|-o) shift; out=${1:-}; [ -n "$out" ] || die "--out 뒤에 파일 이름이 필요합니다 (- 는 표준출력)." ;;
+      --out=*) out=${a#*=} ;;
+      --open) opn=1 ;;
+      --no-open) opn=0 ;;
+      --no-external) noext=1 ;;
+      --lang|-l) shift; langs=${1:-}; [ -n "$langs" ] || die "--lang 뒤에 언어가 필요합니다 (예: swift, ts,js)." ;;
+      --lang=*) langs=${a#*=} ;;
+      -h|--help) say "$GRAPH_DIFF_USAGE"; return 0 ;;
+      -*) die "알 수 없는 옵션: $a"$'\n'"$GRAPH_DIFF_USAGE" ;;
+      *)
+        if [ -z "$base" ] && git rev-parse --verify --quiet "$a^{commit}" >/dev/null 2>&1; then base=$a
+        elif [ -z "$dir" ] && [ -d "$a" ]; then dir=$a
+        else die "커밋도 폴더도 아닙니다: $a"$'\n'"$GRAPH_DIFF_USAGE"; fi ;;
+    esac
+    shift
+  done
+  if [ -n "$langs" ]; then
+    langs=$(graph_langs "$langs") && [ -n "$langs" ] || die "--lang 은 ts · js · web · vue · svelte · swift · python · go · rust · kotlin · java · jvm 중에서 고릅니다 (쉼표로 여럿)."
+  fi
+  rel=${rel:-files}; dir=${dir:-.}
+  [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
+  top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
+  prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
+  repo=$(graph_repo_name "$dir" "$top")
+  out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로
+  case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
+  if [ -z "$fmt" ]; then
+    case "$(lower "$out")" in
+      *.json) fmt=json ;; *.html|*.htm) fmt=html ;; *.txt) fmt=text ;;
+      *) if fancy_out; then fmt=text; else fmt=json; fi ;;
+    esac
+  fi
+  fmt=$(lower "$fmt")
+  case "$fmt" in text|json|html) ;; *) die "--format 은 text, json, html 중 하나입니다: $fmt" ;; esac
+  [ -z "$out" ] && case "$fmt" in html) out="${TMPDIR:-/tmp}"; out="${out%/}/gitch-graph/$repo-$rel-diff.html" ;; *) out=- ;; esac
+
+  cd "$top" || die "저장소로 이동하지 못했습니다: $top"
+  if [ -z "$base" ]; then
+    graph_default_base || die "비교할 기준을 정하지 못했습니다 — 커밋이나 브랜치를 주세요 (예: gitch graph diff main)."
+    base=$GRAPH_BASE; bname=$GRAPH_BASE_NAME
+  else bname=$base; fi
+  bsha=$(git rev-parse --short "$base^{commit}" 2>/dev/null) || die "커밋이 아닙니다: $base"
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/gitch-graph.XXXXXX") || die "임시 폴더를 만들지 못했습니다."
+  GRAPH_TMP=$tmp
+  trap 'rm -rf "$GRAPH_TMP"' EXIT
+  fancy_out && [ "$fmt" != json ] && fancy=1
+  [ -n "$fancy" ] && printf '  %s' "${DIM}$(graph_rel_word "$rel") 비교하는 중 ($bname → 작업 트리)…${RESET}"
+  git ls-files -z > "$tmp/files.z" && tr '\0' '\n' < "$tmp/files.z" > "$tmp/files" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
+  mkdir -p "$tmp/b"
+  [ "$rel" = tree ] || graph_base_extract "$bsha" "$tmp/b" || die "기준 커밋의 파일을 풀지 못했습니다: $bsha"
+  # 양쪽을 같은 방법으로: swift package describe · Xcode 인덱스는 지금 쪽에만 있으니 끈다
+  GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' graph_side "$tmp" "$rel" "$prefix" "$noext" "$repo" "$langs" > "$tmp/rec.a" || die "그래프를 만들지 못했습니다 (작업 트리)."
+  GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' graph_side "$tmp/b" "$rel" "$prefix" "$noext" "$repo" "$langs" "$bsha" > "$tmp/rec.b" || die "그래프를 만들지 못했습니다 ($bsha)."
+  awk -v rel="$rel" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_merge)" "$tmp/rec.b" "$tmp/rec.a" | LC_ALL=C sort > "$tmp/rec"
+  [ -n "$fancy" ] && printf '\r\033[K'
+  graph_meta "$rel" "$repo" "$prefix" "$langs"
+  case "$fmt" in
+    text) awk -F'\t' -v rel="$rel" -v relword="$(graph_rel_word "$rel")" -v base="$bname" -v bsha="$bsha" \
+            -v bold="$BOLD" -v green="$GREEN" -v red="$RED" -v yellow="$YELLOW" -v dim="$DIM" -v reset="$RESET" \
+            "$(graph_awk_lib)$(graph_awk_difftext)" "$tmp/rec" > "$tmp/out" ;;
+    json) awk -F'\t' "$(graph_awk_lib)$(graph_awk_diffonly)" "$tmp/rec" | \
+            awk "${GRAPH_META[@]}" -v diffbase="$bsha" -v diffname="$bname" "$(graph_awk_lib)$(graph_awk_json)" > "$tmp/out" ;;
+    html) { printf '{"initial":"%s","views":{"%s":' "$rel" "$rel"
+            awk "${GRAPH_META[@]}" -v diffbase="$bsha" -v diffname="$bname" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec"
+            printf '}}\n'; } | graph_html > "$tmp/out" ;;
+  esac
+  graph_write "$tmp/out" "$out" "$fmt" "$opn" "$fancy" || return 1
+  [ "$out" = - ] || { ok "의존 비교 ($(graph_rel_word "$rel")): $bname($bsha) → 작업 트리"; say "  $(tilde "$out")"; say "GRAPH_FILE=$out"; }
+  return 0
+}
+
+graph_write() {   # $1 만든 파일 $2 쓸 곳(- 는 표준출력) $3 형식 $4 열기(1 · 0 · auto) $5 사람 터미널
+  if [ "$2" = - ]; then cat "$1"; return 0; fi
+  mkdir -p "$(dirname "$2")" 2>/dev/null
+  cat "$1" > "$2" 2>/dev/null || die "쓰지 못했습니다: $2"
+  if [ "$4" = 1 ] || { [ "$4" = auto ] && [ -n "$5" ] && [ "$3" = html ]; }; then graph_open "$2" && dim "  열었습니다. (열지 않으려면 --no-open)"; fi
+  return 0
+}
+
+graph_repo_name() {   # $1 폴더 $2 저장소 뿌리 — 워크트리여도 본 저장소 이름
+  local r
+  r=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  case "$r" in */.git) basename "${r%/.git}" ;; *) basename "$2" ;; esac
+}
+
+graph_rules_init() {   # $1 규칙 파일 — 예시가 든 파일을 만든다 (있으면 그대로)
+  [ -e "$1" ] && die "이미 있습니다: $1"
+  mkdir -p "$(dirname "$1")" || die "폴더를 만들지 못했습니다: $(dirname "$1")"
+  cat > "$1" <<'RULES'
+# gitch graph check 규칙 — 한 줄에 하나, # 뒤는 주석. 확인: gitch graph check
+# 패턴: files 는 경로(* 한 마디 · ** 여러 폴더 · 폴더 이름만 쓰면 그 아래 전부), modules 는 모듈 이름(*Feature)
+
+[modules]
+# no-cycles                              # 모듈끼리 순환 의존 금지
+# forbid  *Feature -> *Feature           # 기능 모듈끼리 서로 기대지 않는다 (같은 모듈 안은 괜찮다)
+# layers  *App > *Feature > Domain* > Core*   # 왼쪽이 오른쪽에 기대는 것만 된다
+
+[files]
+# no-cycles src/**                       # 그 폴더 안 파일끼리 순환 금지
+# forbid  src/ui -> src/db               # 화면 코드가 DB 코드를 바로 쓰지 않는다
+# allow   src/ui/debug -> src/db         # 위 규칙의 예외
+RULES
+  ok "규칙 파일을 만들었습니다: $1"
+  dim "  # 를 지우고 저장소에 맞게 고친 뒤: gitch graph check"
+}
+
+graph_check_cmd() {   # [--rules 파일] [--base 기준] [--format text|json|html] [--out 파일] [--init] [폴더]
+  local rules="" base="" fmt="" out="" opn=auto dir="" init="" a top prefix repo tmp rel rels bsha="" bname="" fancy="" n_rules shown
+  local n_err=0
+  while [ $# -gt 0 ]; do
+    a=$1
+    case "$a" in
+      --rules|-r) shift; rules=${1:-}; [ -n "$rules" ] || die "--rules 뒤에 규칙 파일이 필요합니다." ;;
+      --rules=*) rules=${a#*=} ;;
+      --base) shift; base=${1:-}; [ -n "$base" ] || die "--base 뒤에 커밋이나 브랜치가 필요합니다." ;;
+      --base=*) base=${a#*=} ;;
+      --format|-f) shift; fmt=${1:-} ;;
+      --format=*) fmt=${a#*=} ;;
+      --json) fmt=json ;;
+      --out|-o) shift; out=${1:-}; [ -n "$out" ] || die "--out 뒤에 파일 이름이 필요합니다 (- 는 표준출력)." ;;
+      --out=*) out=${a#*=} ;;
+      --open) opn=1 ;;
+      --no-open) opn=0 ;;
+      --init) init=1 ;;
+      -h|--help) say "$GRAPH_CHECK_USAGE"; return 0 ;;
+      -*) die "알 수 없는 옵션: $a"$'\n'"$GRAPH_CHECK_USAGE" ;;
+      *) [ -z "$dir" ] || die "폴더는 하나만 줄 수 있습니다: $dir, $a"; dir=$a ;;
+    esac
+    shift
+  done
+  dir=${dir:-.}
+  [ -d "$dir" ] || die "폴더가 아닙니다: $dir"
+  top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [ -n "$top" ] || die "git 저장소 안의 폴더가 아닙니다: $dir"
+  prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null)
+  repo=$(graph_repo_name "$dir" "$top")
+  rules=$(posix_path "$rules"); out=$(posix_path "$out")   # Windows 의 C:\… · C:/… 도 절대 경로
+  case "$rules" in "") rules="$top/$GRAPH_RULES_FILE" ;; /*) ;; *) rules="$PWD/$rules" ;; esac
+  if [ -n "$init" ]; then graph_rules_init "$rules"; return 0; fi
+  [ -f "$rules" ] || die "규칙 파일이 없습니다: $(tilde "$rules")"$'\n'"  예시로 시작하기: gitch graph check --init"
+  case "$rules" in "$top"/*) shown=${rules#"$top"/} ;; *) shown=$(tilde "$rules") ;; esac   # 결과에 적는 이름 — 저장소 안이면 상대 경로
+  case "$out" in ""|-|/*) ;; *) out="$PWD/$out" ;; esac
+  if [ -z "$fmt" ]; then
+    case "$(lower "$out")" in
+      *.json) fmt=json ;; *.html|*.htm) fmt=html ;; *.txt) fmt=text ;;
+      *) if fancy_out; then fmt=text; else fmt=json; fi ;;
+    esac
+  fi
+  fmt=$(lower "$fmt")
+  case "$fmt" in text|json|html) ;; *) die "--format 은 text, json, html 중 하나입니다: $fmt" ;; esac
+  [ -z "$out" ] && case "$fmt" in html) out="${TMPDIR:-/tmp}"; out="${out%/}/gitch-graph/$repo-check.html" ;; *) out=- ;; esac
+
+  cd "$top" || die "저장소로 이동하지 못했습니다: $top"
+  # 규칙 글 검사 — 틀린 줄이 있으면 무엇이 틀렸는지 모두 알리고 멈춘다
+  rels=$(awk '{ sub(/#.*/, ""); gsub(/[ \t]/, "") } /^\[[a-z]+\]$/ { s = substr($0, 2, length($0) - 2); next } $0 != "" { u[s == "" ? "files" : s] = 1 } END { for (k in u) print k }' "$rules" | LC_ALL=C sort | tr '\n' ' ')
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/gitch-graph.XXXXXX") || die "임시 폴더를 만들지 못했습니다."
+  GRAPH_TMP=$tmp
+  trap 'rm -rf "$GRAPH_TMP"' EXIT
+  awk -v rules="$rules" -v rel="__syntax__" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_check)" /dev/null > "$tmp/syntax"
+  if grep -q '^X' "$tmp/syntax"; then
+    err "규칙 파일에 틀린 줄이 있습니다: $(tilde "$rules")"
+    awk -F'\t' '$1 == "X" { printf "  %s번 줄: %s\n", $2, $3 }' "$tmp/syntax" >&2
+    exit 1
+  fi
+  if [ -n "$base" ]; then
+    bsha=$(git rev-parse --short "$base^{commit}" 2>/dev/null) || die "커밋이 아닙니다: $base"; bname=$base
+  fi
+  fancy_out && [ "$fmt" != json ] && fancy=1
+  [ -n "$fancy" ] && printf '  %s' "${DIM}의존 규칙 검사하는 중…${RESET}"
+  git ls-files -z > "$tmp/files.z" && tr '\0' '\n' < "$tmp/files.z" > "$tmp/files" || die "추적하는 파일 목록을 읽지 못했습니다 (git ls-files)."
+  [ -n "$bsha" ] && { mkdir -p "$tmp/b"; graph_base_extract "$bsha" "$tmp/b" || die "기준 커밋의 파일을 풀지 못했습니다: $bsha"; }
+  : > "$tmp/v"
+  for rel in $rels; do
+    if [ -n "$bsha" ]; then   # 비교할 때는 양쪽을 같은 방법으로
+      GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' graph_side "$tmp" "$rel" "$prefix" "" "$repo" "" > "$tmp/rec.$rel" || die "그래프를 만들지 못했습니다 ($rel)."
+      GITSW_SWIFT_DESCRIBE=0 GITCH_SWIFT_INDEX='' graph_side "$tmp/b" "$rel" "$prefix" "" "$repo" "" "$bsha" > "$tmp/brec.$rel" || die "그래프를 만들지 못했습니다 ($rel, $bsha)."
+      awk -v rules="$rules" -v rel="$rel" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_check)" "$tmp/brec.$rel" | awk -F'\t' -v r="$rel" '$1 == "V" { print r "\t" $4 "\t" $6 "\t" $7 }' > "$tmp/old.$rel"
+    else
+      graph_side "$tmp" "$rel" "$prefix" "" "$repo" "" > "$tmp/rec.$rel" || die "그래프를 만들지 못했습니다 ($rel)."
+      : > "$tmp/old.$rel"
+    fi
+    # 줄: 관계 세기 줄번호 규칙 종류 시작 끝 상태(new · existing) — 기준에도 있던 위반(같은 규칙 글 · 같은 끝점)은 existing
+    awk -v rules="$rules" -v rel="$rel" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_check)" "$tmp/rec.$rel" | \
+      awk -F'\t' -v r="$rel" -v old="$tmp/old.$rel" 'BEGIN { while ((getline l < old) > 0) O[l] = 1 }
+        $1 == "V" { print r "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7 "\t" (((r "\t" $4 "\t" $6 "\t" $7) in O) ? "existing" : "new") }' >> "$tmp/v"
+  done
+  [ -n "$fancy" ] && printf '\r\033[K'
+  n_rules=$(awk -F'\t' '$1 == "R" { n += $2 } END { print n + 0 }' "$tmp/syntax")
+  n_err=$(awk -F'\t' '$8 != "existing" && $2 == "error" { e++ } END { print e + 0 }' "$tmp/v")   # 기준에도 있던 위반 · 경고는 실패로 세지 않는다
+  case "$fmt" in
+    text) graph_check_text "$tmp/v" "$shown" "$n_rules" "$bname" "$bsha" > "$tmp/out" ;;
+    json) graph_check_json "$tmp/v" "$shown" "$bsha" "$n_err" > "$tmp/out" ;;
+    html)
+      { printf '{"initial":"%s","views":{' "${rels%% *}"; a=0
+        for rel in $rels; do
+          [ $a -gt 0 ] && printf ','
+          graph_meta "$rel" "$repo" "$prefix" ""
+          printf '"%s":' "$rel"; awk "${GRAPH_META[@]}" "$(graph_awk_lib)$(graph_awk_json)" "$tmp/rec.$rel"; a=$((a + 1))
+        done
+        printf '},"rules":'; graph_check_json "$tmp/v" "$shown" "$bsha" "$n_err"; printf '}\n'; } | graph_html > "$tmp/out" ;;
+  esac
+  graph_write "$tmp/out" "$out" "$fmt" "$opn" "$fancy" || return 1
+  [ "$out" = - ] || { say "  $(tilde "$out")"; say "GRAPH_FILE=$out"; }
+  [ "$n_err" -eq 0 ]
+}
+
+graph_rules_eval() {   # $1 임시 폴더(rec.files · rec.modules) $2 규칙 파일 → 규칙 결과 JSON (html 분석 창의 「규칙 위반」)
+  local rel
+  : > "$1/v"
+  for rel in files modules; do
+    [ -f "$1/rec.$rel" ] || continue
+    awk -v rules="$2" -v rel="$rel" "$(graph_awk_lib)$(graph_awk_scc)$(graph_awk_check)" "$1/rec.$rel" | \
+      awk -F'\t' -v r="$rel" '$1 == "V" { print r "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $6 "\t" $7 "\tnew" }' >> "$1/v"
+  done
+  graph_check_json "$1/v" "$2" "" "$(awk -F'\t' '$2 == "error" { n++ } END { print n + 0 }' "$1/v")"
+}
+
+graph_check_text() {   # $1 위반 줄들 $2 규칙 파일 $3 규칙 수 $4 기준 이름 $5 기준 커밋 → 사람이 읽는 결과
+  awk -F'\t' -v rules="$(tilde "$2")" -v nr="$3" -v base="$4" -v bsha="$5" -v green="$GREEN" -v red="$RED" -v yellow="$YELLOW" -v dim="$DIM" -v bold="$BOLD" -v reset="$RESET" '
+    function show(x) { gsub("\034", " · ", x); return x }
+    { line = sprintf("%s · %s번 줄 「%s」: %s", $1, $3, $4, ($5 == "no-cycles" ? "순환 " show($6) : $6 " → " $7)) }
+    $8 == "existing" { O[++no] = line; next }
+    $2 == "error" { E[++ne] = line; next }
+    { W[++nw] = line }
+    END {
+      printf "%s의존 규칙 검사%s (%s · 규칙 %d개%s)\n", bold, reset, rules, nr, (bsha != "" ? " · 기준 " base "(" bsha ")" : "")
+      for (i = 1; i <= ne; i++) printf "  %s✘ %s%s\n", red, E[i], reset
+      for (i = 1; i <= nw; i++) printf "  %s! %s (이름만으로 추정한 연결)%s\n", yellow, W[i], reset
+      if (no) { printf "  %s기준에도 있던 위반 %d개 — 실패로 세지 않음%s\n", dim, no, reset; for (i = 1; i <= no && i <= 20; i++) printf "  %s= %s%s\n", dim, O[i], reset }
+      if (ne) printf "%s✘ 위반 %d개%s%s\n", red, ne, (nw ? sprintf(" · 경고 %d개", nw) : ""), reset
+      else printf "%s✔ 위반 없음%s%s\n", green, (nw ? sprintf(" (경고 %d개)", nw) : ""), reset
+    }' "$1"
+}
+
+graph_check_json() {   # $1 위반 줄들 $2 규칙 파일 $3 기준 커밋 $4 위반 수 → {"file", "base", "ok", "violations": […]}
+  awk -F'\t' -v rules="$2" -v base="$3" -v nerr="$4" "$(graph_awk_lib)"'
+    function list(s,   n, a, i, r) { n = split(s, a, "\034"); r = ""; for (i = 1; i <= n; i++) r = r (i > 1 ? "," : "") jstr(a[i]); return r }
+    {
+      v = "{\"relation\":" jstr($1) ",\"severity\":" jstr($2) ",\"line\":" ($3 + 0) ",\"rule\":" jstr($4) ",\"kind\":" jstr($5)
+      if ($5 == "no-cycles") v = v ",\"nodes\":[" list($6) "]"
+      else v = v ",\"source\":" jstr($6) ",\"target\":" jstr($7)
+      V[++n] = v ",\"existing\":" ($8 == "existing" ? "true" : "false") "}"
+    }
+    END {
+      printf "{\"tool\":\"gitch graph check\",\"file\":%s,\"base\":%s,\"ok\":%s,\"violations\":[", jstr(rules), (base == "" ? "null" : jstr(base)), (nerr + 0 == 0 ? "true" : "false")
+      for (i = 1; i <= n; i++) printf "%s\n  %s", (i > 1 ? "," : ""), V[i]
+      printf "%s]}\n", (n ? "\n" : "")
+    }' "$1"
 }
 
 # awk 프로그램은 함수 안 heredoc 에 둔다 — 최상위 변수로 읽으면 gitch 를 부를 때마다(훅 포함) 수십 KB 를 한 글자씩 읽게 된다
@@ -4861,6 +5214,25 @@ function sortkeys(arr, out,   k, n, i, j, t) {   # 배열 키를 정렬해 out[1
   return n
 }
 function clean(s) { gsub(/[\t\r\n]/, " ", s); return s }
+function jarr(s,   n, a, i, r) { n = split(s, a, "\034"); r = ""; for (i = 1; i <= n; i++) r = r (i > 1 ? "," : "") jstr(a[i]); return r }   # "a\034b" → "a","b"
+function globre(g,   r, i, c, n, br) {   # Tuist glob → 정규식: ** 는 폴더 여럿, * 는 한 마디 안, {a,b} 는 둘 중 하나
+  r = ""; n = length(g); br = 0
+  for (i = 1; i <= n; i++) {
+    c = substr(g, i, 1)
+    if (c == "*") {
+      if (substr(g, i + 1, 2) == "*/") { r = r "(.*/)?"; i += 2 }
+      else if (substr(g, i + 1, 1) == "*") { r = r ".*"; i++ }
+      else r = r "[^/]*"
+    }
+    else if (c == "?") r = r "[^/]"
+    else if (c == "{") { r = r "("; br++ }
+    else if (c == "}" && br) { r = r ")"; br-- }
+    else if (c == "," && br) r = r "|"
+    else if (index(".+()^$|[]{}\\", c)) r = r "\\" c
+    else r = r c
+  }
+  return "^" r "$"
+}
 BEGIN { if (langs != "") { NLS = split(langs, LSA, ","); for (LSI = 1; LSI <= NLS; LSI++) LANGOK[LSA[LSI]] = 1 } }
 function langok(p) { return langs == "" || (langof(p) in LANGOK) }   # --lang 으로 고른 언어의 파일인지
 function ecook(eco) {   # modules 의 생태계가 고른 언어에 맞는지
@@ -4918,6 +5290,7 @@ function emit(   id, i, k, a, n, v, j, at, eco) {
       at = "\"via\":[" at "]"
     }
     if (EXA[k] != "") at = at (at != "" ? "," : "") EXA[k]
+    if (EH[k] && (k in ECHK)) at = at (at != "" ? "," : "") "\"checked\":true"
     printf "2\t%s\t%s\t%s\t%d\t%s\t%s\n", a[1], a[2], a[3], EW[k], (EH[k] ? "h" : ""), at
   }
 }
@@ -4928,6 +5301,7 @@ AWKEOF
 graph_awk_scan() {
   cat <<'AWKEOF'
 BEGIN {
+  swifterr = ENVIRON["GITSW_SWIFTERR"]
   NTSX = split(".ts .tsx .d.ts .js .jsx .mjs .cjs .mts .cts .json .vue .svelte", TSX, " ")
   split(".ts .tsx .mts .cts", TSJ, " ")
   UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -4964,14 +5338,16 @@ function count(s, t,   n, i) { n = 0; while ((i = index(s, t)) > 0) { n++; s = s
 function unquote(s) { s = trim(s); sub(/^["']/, "", s); sub(/["'][ \t]*$/, "", s); return s }
 
 # ---------- files: 파일 노드와 연결 ----------
-function files_main(   i, p, lg, ins, k, n, K) {
+function files_main(   i, p, lg, ins, k, n, K, e) {
   ts_configs(); go_mods(); rs_crates(); py_index()
   for (i = 1; i <= NPKGJ; i++) { pj_read(PKGJ[i]); if (PJN[PKGJ[i]] != "") NPMDIR[PJN[PKGJ[i]]] = dirof(PKGJ[i]) }
+  if (NSPM || NTUIST) swift_modmap()
+  if (swiftrc == "0") swift_covered()
   for (i = 1; i <= NSRC; i++) {
     p = SRC[i]; lg = LANG[p]; ins = inscope(p)
     if (ins) { FREF[p] = 1; LCNT[lg]++ }
     # Swift · Kotlin · Java 는 범위 밖 파일에서도 선언을 모은다 — 다른 폴더에 선언된 타입으로도 이어지게
-    if (lg == "swift") scan_swift(p, ins)
+    if (lg == "swift") { if (MODN) FMOD[p] = swift_mods(p); scan_swift(p, ins) }
     else if (lg == "kotlin" || lg == "java") scan_jvm(p, ins)
     else if (!ins) continue
     else if (lg == "python") scan_py(p)
@@ -4979,13 +5355,20 @@ function files_main(   i, p, lg, ins, k, n, K) {
     else if (lg == "rust") scan_rs(p)
     else scan_ts(p)
   }
-  swift_resolve(); jvm_resolve(); go_contains()
+  if (swiftrc == "0") swift_index()
+  swift_resolve()                                                    # 인덱스에 없는 파일(빌드하지 않은 타깃 · 새 파일)은 이름으로
+  jvm_resolve(); go_contains()
   for (p in FREF) filenode(p)
   n = sortkeys(LCNT, K); k = ""
   for (i = 1; i <= n; i++) k = k (i > 1 ? "," : "") jstr(K[i]) ":" LCNT[K[i]]
   printf "0\tlanguages\t{%s}\n", k
   printf "0\tunresolved\t%d\n", UNRES
+  if (swiftrc == "0") printf "0\tnote\tSwift: Xcode 인덱스(gitch-swift-index)로 읽은 정확한 참조입니다 (연결 %d개%s).\n", SWIDXN, (SWUNCOV ? sprintf(", 인덱스에 없는 파일 %d개는 타입 이름으로 추정", SWUNCOV) : "")
+  if (swiftrc == "0" && swifterr != "") { e = clean(swifterr); sub(/^gitch-swift-index:[ \t]*/, "", e); printf "0\tnote\tSwift: %s\n", e }   # 오래된 인덱스 경고 등
+  else if (swiftrc == "3") print "0\tnote\tSwift: Xcode 인덱스가 없어(Xcode 로 한 번 빌드하면 생긴다) 타입 이름으로 추정했습니다."
+  else if (swiftrc != "") printf "0\tnote\tSwift: gitch-swift-index 가 실패해(%s) 타입 이름으로 추정했습니다.\n", (swifterr != "" ? clean(swifterr) : "종료 코드 " swiftrc)
   if (HEUR["swift"]) print "0\tnote\tSwift: 파일끼리 import 하지 않아서, 다른 파일에 선언된 최상위 타입(class · struct · enum · protocol · actor · typealias) 이름을 쓰면 연결로 추정했습니다 (heuristic: true, 그림에서는 점선)."
+  if (MODN && LCNT["swift"]) printf "0\tnote\tSwift: Tuist · SwiftPM 매니페스트로 파일의 모듈을 정해, 다른 모듈의 타입은 그 모듈을 import 했고 public · open · package 로 선언됐을 때만 이었습니다(@testable 이면 internal 도) (모듈 %d개%s).\n", swift_modcount(), (SWDROP ? sprintf(", 그래서 뺀 이름 %d개", SWDROP) : "")
   if (HEUR["jvm"]) print "0\tnote\tKotlin/Java: 같은 패키지의 타입은 import 없이 쓰므로, 그 이름을 쓰면 연결로 추정했습니다 (heuristic: true, 그림에서는 점선)."
   if (UNRES) printf "0\tnote\t상대 경로 import · mod 중 %d개는 추적하는 파일에서 찾지 못해 뺐습니다 (빌드 때 생기는 파일 등).\n", UNRES
 }
@@ -4994,6 +5377,7 @@ function filenode(p,   lg, a) {
   if (lg == "") lg = "file"
   a = "\"path\":" jstr(p) ",\"lang\":" jstr(lg)
   if (p in LINES) a = a ",\"lines\":" LINES[p]
+  if (FMOD[p] != "") a = a ",\"modules\":[" jlist(FMOD[p]) "]"
   if (!inscope(p)) a = a ",\"outside\":true"
   addnode(p, "file", baseof(p), lg, a)
 }
@@ -5010,13 +5394,15 @@ function medge(s, name,   id, a) {   # Swift 의 import 모듈
   if (noext || name == "") return
   id = "module:" name; a = "\"name\":" jstr(name)
   if (name in SRCMOD) a = a ",\"local\":" jstr(SRCMOD[name])
+  else if (name in MODDIR) a = a ",\"local\":" jstr(MODDIR[name] == "" ? "." : MODDIR[name])
   addnode(id, "module", name, "module", a)
   addedge(s, id, "import", 1, 0, "", "")
 }
-function heur(s, t, w, fam) {   # 이름으로 추정한 연결 — 같은 두 파일에 정확한 연결이 있으면 더하지 않는다
+function heur(s, t, w, fam, chk) {   # 이름으로 추정한 연결 — 같은 두 파일에 정확한 연결이 있으면 더하지 않는다
   if (s == t || ((s "\034" t) in PAIR)) return
   FREF[t] = 1; HEUR[fam]++
   addedge(s, t, "type-ref", 1, 1, w, "")
+  if (chk) ECHK[s "\034" t "\034" "type-ref"] = 1   # 모듈 · 패키지로 확인한 추정(같은 모듈, import 한 모듈의 공개 타입, 같은 패키지)
 }
 function refs(p, s,   w) {   # 대문자로 시작하는 이름들(문자열 · 줄 주석 빼고) — Swift · Kotlin · Java 의 타입 추정용
   if (index(s, "\"")) gsub(/"([^"\\]|\\.)*"/, " ", s)
@@ -5544,7 +5930,7 @@ function jvm_resolve(   i, p, n, a, j, imp, t, k, m, b, w, pk) {
       if (t != "") fedge(p, t, "import", imp); else pedge(p, "maven", jvm_pkgname(imp), "import", imp, "")
     }
     pk = JPKG[p]; n = split(REF[p], a, "\034")
-    for (j = 2; j <= n; j++) { w = a[j]; k = pk "\034" w; if ((k in JPT) && JPT[k] != p) heur(p, JPT[k], w, "jvm") }
+    for (j = 2; j <= n; j++) { w = a[j]; k = pk "\034" w; if ((k in JPT) && JPT[k] != p) heur(p, JPT[k], w, "jvm", 1) }
   }
 }
 
@@ -5560,40 +5946,134 @@ function scan_swift(p, ins,   line, inc, ml, s) {
     if (line ~ /^[ \t]*\/\//) continue
     if (index(line, "\"\"\"") && count(line, "\"\"\"") % 2) { ml = 1; line = substr(line, 1, index(line, "\"\"\"") - 1) }
     if (line ~ /^[ \t]*(@[A-Za-z_]+[ \t]+)*import[ \t]+/) {
-      if (ins) {
-        s = line; sub(/^[ \t]*(@[A-Za-z_]+[ \t]+)*import[ \t]+((typealias|struct|class|enum|protocol|let|var|func|actor)[ \t]+)?/, "", s)
-        if (match(s, /^[A-Za-z_][A-Za-z0-9_]*/)) medge(p, substr(s, 1, RLENGTH))
+      s = line; sub(/^[ \t]*(@[A-Za-z_]+[ \t]+)*import[ \t]+((typealias|struct|class|enum|protocol|let|var|func|actor)[ \t]+)?/, "", s)
+      if (match(s, /^[A-Za-z_][A-Za-z0-9_]*/)) {
+        s = substr(s, 1, RLENGTH)
+        if (!((p "\034" s) in FIMP)) { FIMP[p "\034" s] = 1; FIMPL[p] = FIMPL[p] "\034" s }   # 모듈 경계로 추정을 거를 때 쓴다
+        if (line ~ /@_exported[ \t]/) swift_reexport(p, s)
+        if (line ~ /@testable[ \t]/) FTEST[p "\034" s] = 1             # internal 타입까지 보인다
+        if (ins) medge(p, s)
       }
       continue
     }
     if (line ~ /^[A-Za-z@]/) swift_decl(p, line)
-    if (ins) refs(p, line)
+    if (ins && !swift_indexed(p)) refs(p, line)                  # 인덱스로 읽은 파일은 이름 추정을 하지 않는다
   }
   close(p)
 }
-function swift_decl(p, line,   s, priv) {
-  s = line; priv = 0
+function swift_decl(p, line,   s, priv, pub) {
+  s = line; priv = 0; pub = 0
   while (match(s, /^(@[A-Za-z_][A-Za-z0-9_]*(\([^)]*\))?|public|private|fileprivate|internal|package|open|final|indirect|nonisolated|dynamic|static|override|required|convenience|distributed)[ \t]+/)) {
     if (s ~ /^(private|fileprivate)[ \t]/) priv = 1
+    else if (s ~ /^(public|open|package)[ \t]/) pub = 1
     s = substr(s, RLENGTH + 1)
   }
   if (priv || !match(s, /^(class|struct|enum|protocol|actor|typealias)[ \t]+[A-Za-z_][A-Za-z0-9_]*/)) return
   s = substr(s, 1, RLENGTH); sub(/^[a-z]+[ \t]+/, "", s)
   if (!((p "\034" s) in SWD)) { SWD[p "\034" s] = 1; SWT[s] = SWT[s] "\034" p }
+  if (pub) SWPUB[p "\034" s] = 1                                     # 다른 모듈에서 보이는 선언
 }
-function swift_resolve(   i, p, n, a, j, w, m, b, k, best, bc, c) {
+function swift_resolve(   i, p, n, a, j, w, m, b, k, best, bc, br, c, r) {
   for (i = 1; i <= NSRC; i++) {
     p = SRC[i]
-    if (LANG[p] != "swift" || !inscope(p)) continue
+    if (LANG[p] != "swift" || !inscope(p) || swift_indexed(p)) continue
+    if (swiftrc == "0") SWUNCOV++
     n = split(REF[p], a, "\034")
     for (j = 2; j <= n; j++) {
       w = a[j]
       if (!(w in SWT) || ((p "\034" w) in SWD)) continue     # 같은 파일에 선언된 이름이면 그것을 쓴다
-      m = split(SWT[w], b, "\034"); best = ""; bc = -1
-      for (k = 2; k <= m; k++) { c = closeness(b[k], p); if (c > bc) { bc = c; best = b[k] } }
-      if (best != "") heur(p, best, w, "swift")
+      m = split(SWT[w], b, "\034"); best = ""; bc = -1; br = 0
+      for (k = 2; k <= m; k++) {   # 같은 모듈 > import 한 모듈 > 모듈을 모르는 파일, 그 안에서는 가까운 폴더
+        if (!(r = swift_reach(p, b[k], w))) continue
+        c = closeness(b[k], p)
+        if (r > br || (r == br && c > bc)) { br = r; bc = c; best = b[k] }
+      }
+      if (best != "") heur(p, best, w, "swift", br >= 2)
+      else SWDROP++
     }
   }
+}
+
+function swift_covered(   line, r) {   # 도우미가 --covered 에 적은, 인덱스에 든 파일 — 목록을 쓰지 않았으면 모두 든 것으로
+  while ((r = (getline line < swiftcov)) > 0) if (line != "") SWCOV[line] = 1
+  if (r < 0) SWALL = 1
+  close(swiftcov)
+}
+function swift_indexed(p) { return swiftrc == "0" && (SWALL || (p in SWCOV)) }
+function swift_index(   line, a, n, i, s, t, v, k) {   # Xcode 인덱스 도우미의 "원본<TAB>대상<TAB>심볼,…" → 정확한 연결(ref)
+  while ((getline line < swiftidx) > 0) {
+    n = split(line, a, "\t"); s = a[1]; t = a[2]
+    if (n < 2 || s == t || !(s in EX) || !(t in EX) || LANG[s] != "swift" || !inscope(s)) continue
+    FREF[t] = 1; SWIDXN++
+    k = split(a[3], v, ",")
+    if (!k) addedge(s, t, "ref", 1, 0, "", "")
+    for (i = 1; i <= k; i++) addedge(s, t, "ref", 1, 0, trim(v[i]), "")
+  }
+  close(swiftidx)
+}
+
+# ----- Swift 모듈 경계: Tuist · SwiftPM 매니페스트로 파일 → 모듈을 정하고, 다른 모듈의 타입은 그 모듈을 import 한 파일만 쓴다고 본다 -----
+function swift_modmap(   i, f) {
+  for (i = 1; i <= NSPM; i++) { f = SPM[i]; spm_manifest(f, dirof(f)) }
+  for (i = 1; i <= SPN; i++) if (SPTYPE[i] != "binary" && SPTYPE[i] != "system-target") modsrc(SPNAME[i], joinp(SPPATH[i], "**"), SPDIR[i])
+  for (i = 1; i <= NTUIST; i++) { f = TUIST[i]; tuist_srcs(f, dirof(f)) }
+}
+function tuist_srcs(f, d,   s, proj, e, j, args, n, IT, k, v, name, src, found) {
+  s = swift_text(f); proj = ""; found = 0
+  if (match(s, /Project[ \t]*(\.[A-Za-z_][A-Za-z0-9_]*)?[ \t]*\(/)) proj = strarg(substr(s, RSTART), "name")
+  while (match(s, /(\.target|[^A-Za-z0-9_.]Target(\.target)?)[ \t]*\(/)) {
+    j = RSTART + RLENGTH - 1; e = balanced(s, j)
+    args = substr(s, j + 1, e - j - 1); s = substr(s, e + 1)
+    if (args !~ /(product|bundleId|destinations|platform|sources)[ \t]*:/) continue      # .target(name:) 는 의존 참조
+    name = ""; src = ""
+    n = items(args, IT)
+    for (k = 1; k <= n; k++) {
+      if ((v = argval(IT[k], "name")) != "\001") name = unquote(v)
+      else if ((v = argval(IT[k], "sources")) != "\001") src = v
+    }
+    if (name == "" || index(name, "\\(")) continue
+    found++
+    gsub(/excluding[ \t]*:[ \t]*(\[[^]]*\]|"[^"]*")/, "", src)                       # .glob("…", excluding: […]) 의 뺄 경로는 소스가 아니다
+    while (match(src, /"[^"]*"/)) { modsrc(name, substr(src, RSTART + 1, RLENGTH - 2), d); src = substr(src, RSTART + RLENGTH) }
+  }
+  if (!found && proj != "" && !index(proj, "\\(")) { modsrc(proj, "Sources/**", d); modsrc(proj "Tests", "Tests/**", d) }   # 도우미 매니페스트: Tuist 의 흔한 틀
+}
+function modsrc(name, g, d,   pre) {   # 모듈 name 의 소스 glob(매니페스트 폴더 d 기준)
+  g = normp(d == "" ? g : d "/" g)
+  if (g == "\001" || g == "") return
+  MODN++; MODNAME[MODN] = name; MODG[MODN] = g
+  pre = g; sub(/[*?{[].*$/, "", pre); MODPRE[MODN] = pre                         # 첫 와일드카드 앞까지 — 대부분 이것만으로 거른다
+  MODRE[MODN] = (pre == g) ? "" : globre(g)
+  if (!(name in MODDIR)) { MODDIR[name] = pre; sub(/\/$/, "", MODDIR[name]) }
+}
+function swift_mods(p,   i, out) {   # 파일이 속한 모듈들 "\034A\034B" (여러 타깃이 같은 폴더를 쓰기도 한다)
+  out = ""
+  for (i = 1; i <= MODN; i++) {
+    if (index(p, MODPRE[i]) != 1) continue
+    if (MODRE[i] == "" ? (p == MODG[i] || index(p, MODG[i] "/") == 1) : (p ~ MODRE[i])) {
+      if (!index(out "\034", "\034" MODNAME[i] "\034")) out = out "\034" MODNAME[i]
+    }
+  }
+  return out
+}
+function swift_reexport(p, s,   n, a, i) {   # @_exported import s — 이 파일의 모듈을 가져오면 s 의 타입도 보인다
+  n = split(FMOD[p], a, "\034")
+  for (i = 2; i <= n; i++) if (!index(MREXP[a[i]] "\034", "\034" s "\034")) MREXP[a[i]] = MREXP[a[i]] "\034" s
+}
+function swift_imports(p, m,   n, a, i) {
+  if ((p "\034" m) in FIMP) return 1
+  n = split(FIMPL[p], a, "\034")
+  for (i = 2; i <= n; i++) if (index(MREXP[a[i]] "\034", "\034" m "\034")) return 1
+  return 0
+}
+function swift_modcount(   i, n, seen) { n = 0; for (i = 1; i <= MODN; i++) if (!(MODNAME[i] in seen)) { seen[MODNAME[i]] = 1; n++ }; return n }
+function jlist(s,   n, a, i, r) { n = split(s, a, "\034"); r = ""; for (i = 2; i <= n; i++) r = r (r != "" ? "," : "") jstr(a[i]); return r }   # "\034A\034B" → "A","B"
+function swift_reach(p, t, w,   n, a, i) {   # 3 같은 모듈 · 2 t 의 모듈을 import(공개 선언이거나 @testable) · 1 t 의 모듈을 모름 · 0 닿을 수 없음
+  if (FMOD[t] == "") return 1
+  n = split(FMOD[t], a, "\034")
+  for (i = 2; i <= n; i++) if (index(FMOD[p] "\034", "\034" a[i] "\034")) return 3
+  for (i = 2; i <= n; i++) if (swift_imports(p, a[i]) && (((t "\034" w) in SWPUB) || ((p "\034" a[i]) in FTEST))) return 2
+  return 0
 }
 
 # ---------- modules: 모듈 · 타깃 노드와 의존 ----------
@@ -6104,6 +6584,7 @@ graph_awk_json() {
 BEGIN { FS = "\t" }
 $1 == "0" { if ($2 == "note") NOTE[++NN] = $3; else ST[++NS] = jstr($2) ":" $3; next }
 $1 == "1" { NOD[++NNODE] = "{\"id\":" jstr($2) ",\"kind\":" jstr($3) ",\"label\":" jstr($4) ",\"group\":" jstr($5) ($6 != "" ? "," $6 : "") "}"; next }
+$1 == "3" { CY[$2] = CY[$2] (CY[$2] != "" ? "," : "") "{\"nodes\":[" jarr($4) "]" ($5 != "" ? ",\"before\":[" jarr($5) "]" : "") ($3 == "h" ? ",\"heuristic\":true" : "") "}"; next }
 $1 == "2" {
   EDG[++NEDGE] = "{\"source\":" jstr($2) ",\"target\":" jstr($3) ",\"kind\":" jstr($4) ",\"weight\":" ($5 + 0) ($6 == "h" ? ",\"heuristic\":true" : "") ($7 != "" ? "," $7 : "") "}"
   if ($6 == "h") NH++
@@ -6122,12 +6603,14 @@ END {
   print "  \"lang\": " (langs == "" ? "null" : "[" s "]") ","
   print "  \"commit\": " (commit == "" ? "null" : jstr(commit)) ","
   print "  \"generated\": " jstr(when) ","
+  if (diffbase != "") print "  \"diff\": {\"base\": " jstr(diffbase) ", \"baseName\": " jstr(diffname) ", \"head\": \"worktree\"},"
   s = "\"nodes\":" (NNODE + 0) ",\"edges\":" (NEDGE + 0) ",\"heuristicEdges\":" (NH + 0)
   for (i = 1; i <= NS; i++) s = s "," ST[i]
   print "  \"stats\": {" s "},"
   s = ""
   for (i = 1; i <= NN; i++) s = s (i > 1 ? ", " : "") jstr(NOTE[i])
   print "  \"notes\": [" s "],"
+  if (diffbase != "") print "  \"cycles\": {\"new\": [" CY["new"] "], \"changed\": [" CY["changed"] "], \"gone\": [" CY["gone"] "]},"
   print "  \"nodes\": ["
   for (i = 1; i <= NNODE; i++) print "    " NOD[i] (i < NNODE ? "," : "")
   print "  ],"
@@ -6135,6 +6618,245 @@ END {
   for (i = 1; i <= NEDGE; i++) print "    " EDG[i] (i < NEDGE ? "," : "")
   print "  ]"
   print "}"
+}
+AWKEOF
+}
+
+# 순환 찾기(diff · check 공용): arc(그래프, 시작, 끝) 로 쌓고 scc(그래프) — 반복형 Tarjan, 큰 그래프에서도 재귀 깊이 없이
+graph_awk_scc() {
+  cat <<'AWKEOF'
+function arc(g, s, t) {
+  if (!((g, s) in SEEN)) { SEEN[g, s] = 1; NLS[g, ++NNL[g]] = s }
+  if (!((g, t) in SEEN)) { SEEN[g, t] = 1; NLS[g, ++NNL[g]] = t }
+  ARC[g, s, ++ARCN[g, s]] = t
+}
+function scc(g,   i, r, sp, n, t, cnt, ns, x, c) {
+  cnt = 0; ns = 0; NC[g] = 0
+  for (i = 1; i <= NNL[g]; i++) {
+    r = NLS[g, i]
+    if ((g, r) in IDX) continue
+    sp = 1; SN[1] = r; SJ[1] = 0
+    IDX[g, r] = LOW[g, r] = ++cnt; STK[++ns] = r; ONS[g, r] = 1
+    while (sp > 0) {
+      n = SN[sp]
+      if (SJ[sp] < ARCN[g, n]) {
+        t = ARC[g, n, ++SJ[sp]]
+        if (!((g, t) in IDX)) { IDX[g, t] = LOW[g, t] = ++cnt; STK[++ns] = t; ONS[g, t] = 1; SN[++sp] = t; SJ[sp] = 0 }
+        else if (ONS[g, t] && IDX[g, t] < LOW[g, n]) LOW[g, n] = IDX[g, t]
+      } else {
+        if (LOW[g, n] == IDX[g, n]) {
+          c = ++NC[g]; CS[g, c] = 0
+          do { x = STK[ns--]; ONS[g, x] = 0; COMP[g, x] = c; CM[g, c, ++CS[g, c]] = x } while (x != n)
+        }
+        if (--sp > 0 && LOW[g, n] < LOW[g, SN[sp]]) LOW[g, SN[sp]] = LOW[g, n]
+      }
+    }
+  }
+}
+function ckey(g, c,   i, n, M, j, t, out) {   # 순환의 노드를 정렬해 \034 로 이은 키
+  n = CS[g, c]
+  for (i = 1; i <= n; i++) M[i] = CM[g, c, i]
+  for (i = 2; i <= n; i++) { t = M[i]; for (j = i - 1; j >= 1 && M[j] > t; j--) M[j + 1] = M[j]; M[j + 1] = t }
+  out = M[1]; for (i = 2; i <= n; i++) out = out "\034" M[i]
+  return out
+}
+function cyctrust(g, c, gt,   i, x, cc) {   # 확실한 연결(정확 + 모듈로 확인한 추정)만으로도 한 순환인가
+  cc = ""
+  for (i = 1; i <= CS[g, c]; i++) {
+    x = CM[g, c, i]
+    if (!((gt, x) in COMP)) return 0
+    if (cc == "") cc = COMP[gt, x]; else if (COMP[gt, x] != cc) return 0
+  }
+  return CS[gt, cc] > 1
+}
+function trusted(h, attrs) { return h != "h" || index(attrs, "\"checked\":true") > 0 }
+AWKEOF
+}
+
+# diff: 기준(첫 파일) · 지금(둘째 파일)의 레코드 → 합친 레코드. 바뀐 노드 · 연결에 "status", 순환 비교는 3 레코드(새 · 없어짐)
+graph_awk_merge() {
+  cat <<'AWKEOF'
+BEGIN { FS = "\t" }
+FNR == 1 { side++ }
+$1 == "0" { if (side == 2) print; next }
+$1 == "1" { if (side == 1) BN[$2] = $0; else AN[$2] = $0; next }
+$1 == "2" {
+  k = $2 "\034" $3 "\034" $4
+  if (side == 1) BE[k] = $0; else AE[k] = $0
+  arc(side, $2, $3); if (trusted($6, $7)) arc(side + 2, $2, $3)
+  next
+}
+END {
+  for (k in AN) {
+    if (!(k in BN)) { print stat(AN[k], 6, "added"); NADD++; continue }
+    if (rel == "tree") {   # 폴더는 그대로여도 파일 수 · 크기가 바뀐다
+      df = num(AN[k], "files") - num(BN[k], "files"); db = num(AN[k], "bytes") - num(BN[k], "bytes")
+      if (df || db) { print stat(AN[k], 6, "changed", "\"filesDelta\":" df ",\"bytesDelta\":" db); NCHG++; continue }
+    }
+    print AN[k]
+  }
+  for (k in BN) if (!(k in AN)) { print stat(BN[k], 6, "removed"); NRM++ }
+  for (k in AE) if (k in BE) print AE[k]; else { print stat(AE[k], 7, "added"); EA++; if (fld(AE[k], 6) == "h") EAH++ }
+  for (k in BE) if (!(k in AE)) { print stat(BE[k], 7, "removed"); ER++; if (fld(BE[k], 6) == "h") ERH++ }
+  scc(1); scc(2); scc(3); scc(4)
+  for (c = 1; c <= NC[2]; c++) if (CS[2, c] > 1) AK[ckey(2, c)] = c
+  for (c = 1; c <= NC[1]; c++) if (CS[1, c] > 1) BK[ckey(1, c)] = c
+  for (key in AK) {   # 같은 노드면 그대로, 둘 넘게 겹치는 기준 순환이 있으면 커지거나 줄어든 순환, 아니면 새 순환
+    if (key in BK) continue
+    best = ""; bo = 0
+    for (k2 in BK) if (!(k2 in AK) && !(k2 in USED) && (o = common(key, k2)) > bo) { bo = o; best = k2 }
+    if (bo >= 2) { USED[best] = 1; print "3\tchanged\t" (cyctrust(2, AK[key], 4) ? "" : "h") "\t" key "\t" best; CC++ }
+    else { print "3\tnew\t" (cyctrust(2, AK[key], 4) ? "" : "h") "\t" key; CN++ }
+  }
+  for (key in BK) if (!(key in AK) && !(key in USED)) { print "3\tgone\t" (cyctrust(1, BK[key], 3) ? "" : "h") "\t" key; CG++ }
+  if (rel == "tree") printf "0\tchangedNodes\t%d\n", NCHG
+  printf "0\taddedNodes\t%d\n0\tremovedNodes\t%d\n0\taddedEdges\t%d\n0\tremovedEdges\t%d\n0\taddedGuesses\t%d\n0\tremovedGuesses\t%d\n0\tnewCycles\t%d\n0\tgoneCycles\t%d\n0\tchangedCycles\t%d\n", NADD, NRM, EA, ER, EAH, ERH, CN, CG, CC
+}
+function fld(rec, f,   F) { split(rec, F, "\t"); return F[f] }
+function common(a, b,   n, A, i, c) { n = split(a, A, "\034"); c = 0; for (i = 1; i <= n; i++) if (index("\034" b "\034", "\034" A[i] "\034")) c++; return c }
+function num(rec, key,   F, a) { split(rec, F, "\t"); if (!match(F[6], "\"" key "\":-?[0-9]+")) return 0; a = substr(F[6], RSTART, RLENGTH); sub(/^[^:]*:/, "", a); return a + 0 }
+function stat(rec, f, s, extra,   F, n, i, out) {   # 레코드의 f 번째 칸(속성)에 "status"(와 extra)를 더한다
+  n = split(rec, F, "\t")
+  for (i = n + 1; i <= f; i++) F[i] = ""
+  if (n < f) n = f
+  F[f] = (F[f] == "" ? "" : F[f] ",") "\"status\":\"" s "\"" (extra != "" ? "," extra : "")
+  out = F[1]; for (i = 2; i <= n; i++) out = out "\t" F[i]
+  return out
+}
+AWKEOF
+}
+
+# diff --format json: 바뀐 것만 — status 가 있는 노드 · 연결, 바뀐 연결의 끝점 노드, 통계 · 안내 · 순환
+graph_awk_diffonly() {
+  cat <<'AWKEOF'
+$1 == "0" || $1 == "3" { print; next }
+$1 == "1" { N[$2] = $0; if (index($6, "\"status\":")) KEEP[$2] = 1; next }
+$1 == "2" { if (index($7, "\"status\":")) { print; KEEP[$2] = 1; KEEP[$3] = 1 }; next }
+END { for (k in KEEP) if (k in N) print N[k] }
+AWKEOF
+}
+
+# diff 요약(사람용): 합친 레코드 → 몇 줄
+graph_awk_difftext() {
+  cat <<'AWKEOF'
+$1 == "0" { S[$2] = $3; next }
+$1 == "1" { L[$2] = $4; if (index($6, "\"status\":\"changed\"")) CHG[++NCH] = $2 "\t" jnum($6, "filesDelta") "\t" jnum($6, "bytesDelta"); next }
+$1 == "2" { if (index($7, "\"status\":\"added\"")) ADD[++NAE] = $0; else if (index($7, "\"status\":\"removed\"")) REM[++NRM] = $0; next }
+$1 == "3" { if ($2 == "new") CNEW[++NCN] = $0; else if ($2 == "changed") CCHG[++NCC] = $0; else CGONE[++NCG] = $0; next }
+function nm(id) { return (rel == "modules" && (id in L)) ? L[id] : id }
+function jnum(a, key,   v) { if (!match(a, "\"" key "\":-?[0-9]+")) return 0; v = substr(a, RSTART, RLENGTH); sub(/^[^:]*:/, "", v); return v + 0 }
+function sz(b,   m) { m = b < 0 ? -b : b; return (b < 0 ? "−" : "+") (m >= 1048576 ? sprintf("%.1f MB", m / 1048576) : m >= 1024 ? sprintf("%d KB", m / 1024) : m " B") }
+function kname(k) { return k == "import" ? "import" : k == "type-ref" ? "타입 이름" : k == "ref" ? "참조" : k == "depends" ? "의존" : k == "contains" ? "포함" : k == "reexport" ? "다시 내보내기" : k == "dynamic-import" ? "동적 import" : k }
+function edge(rec, mark, col,   F) { split(rec, F, "\t"); printf "    %s%s %s → %s%s %s(%s%s)%s\n", col, mark, nm(F[2]), nm(F[3]), reset, dim, kname(F[4]), (F[6] != "h" ? "" : index(F[7], "\"checked\":true") ? " · 모듈 확인" : " · 추정"), reset }
+function cycd(rec,   F, n, a, m, b, i, j, add, del) {   # 커지거나 줄어든 순환: 개수 변화와 더해진 · 빠진 노드
+  split(rec, F, "\t"); n = split(F[4], a, "\034"); m = split(F[5], b, "\034"); add = ""; del = ""
+  for (i = 1; i <= n; i++) if (!index("\034" F[5] "\034", "\034" a[i] "\034")) add = add (add != "" ? " · " : "") nm(a[i])
+  for (j = 1; j <= m; j++) if (!index("\034" F[4] "\034", "\034" b[j] "\034")) del = del (del != "" ? " · " : "") nm(b[j])
+  printf "    %s~ %d → %d개%s %s(%s%s%s%s)%s\n", yellow, m, n, reset, dim, (add != "" ? "+ " add : ""), (add != "" && del != "" ? ", " : ""), (del != "" ? "− " del : ""), (F[3] == "h" ? ", 추정 연결 포함" : ""), reset
+}
+function cyc(rec, mark, col,   F, n, a, i, s) {
+  split(rec, F, "\t"); n = split(F[4], a, "\034"); s = ""
+  for (i = 1; i <= n && i <= 8; i++) s = s (i > 1 ? " · " : "") nm(a[i])
+  if (n > 8) s = s " 외 " (n - 8) "개"
+  printf "    %s%s %s%s %s(%d개%s)%s\n", col, mark, s, reset, dim, n, (F[3] == "h" ? ", 추정 연결 포함" : ""), reset
+}
+END {
+  printf "%s의존 비교 (%s)%s: %s(%s) → 지금 작업 트리\n", bold, relword, reset, base, bsha
+  printf "  연결 %s+%d%s %s−%d%s", green, S["addedEdges"], reset, red, S["removedEdges"], reset
+  if (S["addedGuesses"] + S["removedGuesses"]) printf " %s(그중 추정 +%d −%d)%s", dim, S["addedGuesses"], S["removedGuesses"], reset
+  printf " · %s +%d −%d\n", (rel == "modules" ? "모듈" : rel == "tree" ? "폴더 · 파일" : "노드"), S["addedNodes"], S["removedNodes"]
+  if (NCH) {
+    printf "  폴더 크기 변화 %d곳\n", NCH
+    for (i = 1; i <= NCH && i <= 40; i++) { split(CHG[i], C, "\t"); printf "    ~ %s %s파일 %s%d · 크기 %s%s\n", C[1], dim, (C[2] >= 0 ? "+" : ""), C[2], sz(C[3]), reset }
+  }
+  if (NCN) { printf "  %s새 순환 %d개%s\n", red, NCN, reset; for (i = 1; i <= NCN; i++) cyc(CNEW[i], "↻", red) }
+  if (NCC) { printf "  %s커지거나 줄어든 순환 %d개%s\n", yellow, NCC, reset; for (i = 1; i <= NCC; i++) cycd(CCHG[i]) }
+  if (NCG) { printf "  %s없어진 순환 %d개%s\n", green, NCG, reset; for (i = 1; i <= NCG; i++) cyc(CGONE[i], "✓", green) }
+  if (NAE) { printf "  더한 연결\n"; for (i = 1; i <= NAE && i <= 40; i++) edge(ADD[i], "+", green); if (NAE > 40) printf "    %s… %d개 더%s\n", dim, NAE - 40, reset }
+  if (NRM) { printf "  뺀 연결\n"; for (i = 1; i <= NRM && i <= 40; i++) edge(REM[i], "−", red); if (NRM > 40) printf "    %s… %d개 더%s\n", dim, NRM - 40, reset }
+  if (!NAE && !NRM && !NCN && !NCG && !NCC && !NCH && !S["addedNodes"] && !S["removedNodes"]) printf "  %s바뀐 의존이 없습니다%s\n", dim, reset
+  else printf "  %s자세히: --format html (그래프) · --format json (AI · 스크립트)%s\n", dim, reset
+}
+AWKEOF
+}
+
+# check: 규칙 파일(rules)의 [rel] 절을 레코드에 맞춘다. 줄: R<TAB>규칙 수 · V<TAB>세기<TAB>줄<TAB>규칙 글<TAB>종류<TAB>시작(순환이면 노드들)<TAB>끝 · X<TAB>줄<TAB>틀린 까닭
+graph_awk_check() {
+  cat <<'AWKEOF'
+BEGIN {
+  FS = "\t"; sec = "files"
+  while ((getline line < rules) > 0) {
+    ln++
+    sub(/\r$/, "", line); sub(/(^|[ \t])#.*$/, "", line); line = trim(line)
+    if (line == "") continue
+    if (line ~ /^\[[^]]*\]$/) {
+      sec = trim(substr(line, 2, length(line) - 2))
+      if (sec != "files" && sec != "modules") print "X\t" ln "\t모르는 절 [" sec "] — [files] 나 [modules] 를 씁니다"
+      continue
+    }
+    kind = line; sub(/[ \t].*$/, "", kind); rest = trim(substr(line, length(kind) + 1))
+    if (kind == "forbid" || kind == "allow") {
+      if (!index(rest, "->")) { print "X\t" ln "\t" kind " 에는 「A -> B」가 필요합니다"; continue }
+      a = trim(substr(rest, 1, index(rest, "->") - 1)); b = trim(substr(rest, index(rest, "->") + 2))
+      if (a == "" || b == "") { print "X\t" ln "\t" kind " 의 양쪽 패턴이 비었습니다"; continue }
+    } else if (kind == "layers") {
+      n = split(rest, LP, ">")
+      if (n < 2) { print "X\t" ln "\tlayers 에는 「A > B」처럼 두 층 이상이 필요합니다"; continue }
+      for (i = 1; i <= n; i++) if (trim(LP[i]) == "") { print "X\t" ln "\tlayers 에 빈 층이 있습니다"; n = 0; break }
+      if (!n) continue
+    } else if (kind != "no-cycles") { print "X\t" ln "\t모르는 규칙 「" kind "」 — forbid · allow · layers · no-cycles"; continue }
+    nall++
+    if (sec != rel) continue
+    nr++; RK[nr] = kind; RL[nr] = ln; RTX[nr] = line
+    if (kind == "forbid" || kind == "allow") { RA[nr] = a; RB[nr] = b }
+    else if (kind == "layers") { RN[nr] = n; for (i = 1; i <= n; i++) RLY[nr, i] = trim(LP[i]) }
+    else RA[nr] = rest
+  }
+  close(rules)
+  print "R\t" nall
+}
+$1 == "1" { NLB[$2] = $4; next }
+$1 == "2" { if ($4 == "contains") next; ne++; ES[ne] = $2; ET[ne] = $3; ETR[ne] = trusted($6, $7); next }
+END {
+  for (e = 1; e <= ne; e++) {
+    s = ES[e]; t = ET[e]; ok = 0
+    for (r = 1; r <= nr; r++) if (RK[r] == "allow" && pm(RA[r], s) != "" && pm(RB[r], t) != "") { ok = 1; break }
+    if (ok) continue
+    for (r = 1; r <= nr; r++) {
+      if (RK[r] == "forbid") {
+        if ((ia = pm(RA[r], s)) == "" || (ib = pm(RB[r], t)) == "") continue
+        if (RA[r] == RB[r] && ia == ib) continue        # 같은 패턴이면 같은 곳(같은 모듈 · 같은 폴더)끼리는 괜찮다
+        viol(r, e)
+      } else if (RK[r] == "layers") {
+        li = layer(r, s); lj = layer(r, t)
+        if (li && lj && li > lj) viol(r, e)
+      }
+    }
+  }
+  for (r = 1; r <= nr; r++) if (RK[r] == "no-cycles") cycles(r)
+}
+function viol(r, e) { print "V\t" (ETR[e] ? "error" : "warning") "\t" RL[r] "\t" RTX[r] "\t" RK[r] "\t" ES[e] "\t" ET[e] }
+function layer(r, x,   i) { for (i = 1; i <= RN[r]; i++) if (pm(RLY[r, i], x) != "") return i; return 0 }
+function pm(pat, id,   k, re, lb, i, r) {   # 패턴이 맞으면 맞은 부분(같은 곳인지 볼 때), 아니면 ""
+  k = pat SUBSEP id
+  if (k in PMC) return PMC[k]
+  if (!(pat in PRE)) PRE[pat] = globre(pat ~ /\/$/ ? pat "**" : pat)
+  re = PRE[pat]; r = ""
+  if (rel == "modules") {
+    lb = (id in NLB) ? NLB[id] : id
+    if (lb ~ re) r = lb; else if (id ~ re) r = id
+  } else if (id ~ re) r = id
+  else for (i = 1; i <= length(id); i++) if (substr(id, i, 1) == "/" && substr(id, 1, i - 1) ~ re) { r = substr(id, 1, i - 1); break }   # 폴더가 맞으면 그 아래 전부
+  return (PMC[k] = r)
+}
+function cycles(r,   e, g, gt, c) {
+  g = 100 + 2 * r; gt = g + 1
+  for (e = 1; e <= ne; e++) {
+    if (RA[r] != "" && (pm(RA[r], ES[e]) == "" || pm(RA[r], ET[e]) == "")) continue
+    arc(g, ES[e], ET[e]); if (ETR[e]) arc(gt, ES[e], ET[e])
+  }
+  scc(g); scc(gt)
+  for (c = 1; c <= NC[g]; c++) if (CS[g, c] > 1) print "V\t" (cyctrust(g, c, gt) ? "error" : "warning") "\t" RL[r] "\t" RTX[r] "\tno-cycles\t" ckey(g, c) "\t"
 }
 AWKEOF
 }
@@ -6198,12 +6920,13 @@ AWKEOF
 }
 
 # 표준입력 JSON({"initial", "views": {관계: json}}) → 오프라인 한 페이지(CDN 없음).
-# 생김새는 Gitrochi 앱 아이콘을 따른다: 남색 빛 배경, git 노드처럼 가운데가 빈 고리, 고른 것은 초록 빛, 눈 달린 마스코트(커서를 본다).
+# 생김새는 Gitrochi 앱 아이콘의 느낌만 따른다: 검정(밝게는 흰) 바탕, git 노드처럼 가운데가 빈 은색 고리, 고른 것은 초록 빛.
+# 회색은 모두 R=G=B — 바탕 · 창 · 선 어디에도 푸른 기가 없게.
 # 위 탭으로 네 관계(파일 · 모듈 · 같이 바뀜 · 폴더)를 바꾸고, 단위(파일 · 폴더) · 언어 · 그리기(점 · 상자 = tuist 같은 다이어그램) ·
 # 색(언어 · 종류 · 바뀐 횟수) · 크기를 고른다. 분석 창은 순환 의존 · 많이 쓰이는 것 · 안 쓰이는 것 · 가장 긴 사슬 · 핫스팟 ·
 # 숨은 결합(같이 바뀌는데 import 는 없음) 등을 찾아 누르면 그래프에 강조한다. 노드에서는 영향 범위 · 전체 의존 · 경로 찾기.
-# 노드 색은 검증한 범주 색 세 칸(파랑 · 주황 · 청록)만 언어 계열에 주고 나머지는 회색 — 그래프는 어느 두 노드든 붙을 수 있어
-# 세 칸을 넘으면 서로 구별이 안 된다. 바뀐 횟수는 파랑 한 색의 네 단계. JSON 의 < 는 < 로 — 데이터 속 </script> 가 페이지를 끊지 않게
+# 노드 색은 세 칸만 언어 계열에 준다: 가장 많은 언어는 은색(밝게는 흑연색), 다음 둘은 검증한 주황 · 초록, 나머지는 회색 —
+# 그래프는 어느 두 노드든 붙을 수 있어 칸이 많으면 서로 구별이 안 된다. 바뀐 횟수는 주황 한 색의 네 단계. JSON 의 < 는 < 로 — 데이터 속 </script> 가 페이지를 끊지 않게
 graph_html() {
   cat <<'HTMLEOF'
 <!doctype html>
@@ -6215,66 +6938,61 @@ graph_html() {
 <style>
 :root {
   color-scheme: dark;
-  --bg: #0b1020; --glow: rgba(52, 78, 190, .30); --glow2: rgba(72, 224, 122, .07);
-  --panel: rgba(16, 21, 44, .80); --panel-solid: #11162f; --hover: rgba(127, 164, 255, .09); --border: rgba(127, 164, 255, .16);
-  --text: #e8ebf7; --text-2: #b6bedb; --muted: #7f89ab; --halo: rgba(11, 16, 32, .92); --shadow: 0 14px 44px rgba(0, 0, 12, .6);
-  --line: rgba(200, 212, 248, .17); --ink: rgba(200, 212, 248, .5);
-  --accent: #7fa4ff; --accent-soft: rgba(127, 164, 255, .18); --leaf: #6be59a; --leaf-soft: rgba(107, 229, 154, .18); --hl: #e4e9ff;
-  --core: #0b1020; --box: #141b3b;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --node-other: #aab3cf; --node-ext: #5f6a8f;
-  --h1: #1c5cab; --h2: #3987e5; --h3: #6da7ec; --h4: #b7d3f6;
+  --bg: #0a0a0a; --glow: rgba(255, 255, 255, .035);
+  --panel: rgba(22, 22, 22, .88); --panel-solid: #161616; --seg-on: #2c2c2c; --hover: rgba(255, 255, 255, .06); --border: rgba(255, 255, 255, .09); --edge-hl: rgba(255, 255, 255, .05);
+  --text: #f2f2f2; --text-2: #b8b8b8; --muted: #8a8a8a; --halo: rgba(10, 10, 10, .92); --shadow: 0 16px 48px rgba(0, 0, 0, .55);
+  --line: rgba(255, 255, 255, .15); --ink: rgba(255, 255, 255, .46);
+  --accent: #f2f2f2; --accent-soft: rgba(255, 255, 255, .12); --leaf: #4ade80; --leaf-soft: rgba(74, 222, 128, .22); --hl: #ffffff; --hl-glow: rgba(255, 255, 255, .5);
+  --core: #0e0e0e; --box: #151515;
+  --s1: #d6d6d6; --s2: #e0662e; --s3: #1ea672; --node-other: #8f8f8f; --node-ext: #5e5e5e;
+  --h1: #9a3412; --h2: #ea580c; --h3: #fb923c; --h4: #fed7aa;
+  --add: #4ade80; --del: #f87171; --warn: #fbbf24;
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f4f6fb; --glow: rgba(61, 109, 242, .10); --glow2: rgba(31, 157, 85, .06);
-  --panel: rgba(255, 255, 255, .88); --panel-solid: #ffffff; --hover: rgba(61, 109, 242, .07); --border: rgba(20, 30, 70, .12);
-  --text: #141a33; --text-2: #3c4566; --muted: #6b7493; --halo: rgba(244, 246, 251, .92); --shadow: 0 14px 40px rgba(20, 30, 70, .14);
-  --line: rgba(20, 30, 70, .15); --ink: rgba(20, 30, 70, .5);
-  --accent: #3d6df2; --accent-soft: rgba(61, 109, 242, .12); --leaf: #1f9d55; --leaf-soft: rgba(31, 157, 85, .14); --hl: #2c56d6;
+  --bg: #f7f7f7; --glow: rgba(255, 255, 255, .9);
+  --panel: rgba(255, 255, 255, .9); --panel-solid: #ffffff; --seg-on: #ffffff; --hover: rgba(0, 0, 0, .045); --border: rgba(0, 0, 0, .09); --edge-hl: rgba(255, 255, 255, .7);
+  --text: #171717; --text-2: #404040; --muted: #6b6b6b; --halo: rgba(247, 247, 247, .92); --shadow: 0 12px 36px rgba(0, 0, 0, .1);
+  --line: rgba(0, 0, 0, .14); --ink: rgba(0, 0, 0, .42);
+  --accent: #171717; --accent-soft: rgba(0, 0, 0, .07); --leaf: #16a34a; --leaf-soft: rgba(22, 163, 74, .18); --hl: #0a0a0a; --hl-glow: rgba(0, 0, 0, 0);
   --core: #ffffff; --box: #ffffff;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --node-other: #7d86a6; --node-ext: #a9b0c8;
-  --h1: #6da7ec; --h2: #3987e5; --h3: #1c5cab; --h4: #0d366b;
+  --s1: #3d3d3d; --s2: #d4521c; --s3: #0f8a5c; --node-other: #8f8f8f; --node-ext: #ababab;
+  --h1: #fb923c; --h2: #ea580c; --h3: #b8410e; --h4: #7c2d12;
+  --add: #16a34a; --del: #dc2626; --warn: #b45309;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Apple SD Gothic Neo", "Segoe UI", "Noto Sans KR", sans-serif; }
-body { background: radial-gradient(1300px 900px at 62% 32%, var(--glow), transparent 70%), radial-gradient(900px 700px at 12% 96%, var(--glow2), transparent 70%), var(--bg); }
+body { background: radial-gradient(1400px 900px at 50% 40%, var(--glow), transparent 72%), var(--bg); }
 button, input, select { font: inherit; color: inherit; }
 canvas { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
 canvas.dragging { cursor: grabbing; }
 canvas.over { cursor: pointer; }
 canvas.picking { cursor: crosshair; }
-.hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); }
+.hud { position: fixed; z-index: 2; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow), inset 0 1px 0 var(--edge-hl); -webkit-backdrop-filter: blur(20px) saturate(1.1); backdrop-filter: blur(20px) saturate(1.1); }
 [hidden] { display: none !important; }
 .icon-btn { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--text-2); cursor: pointer; }
 .icon-btn:hover { background: var(--hover); color: var(--text); }
 .icon-btn.on { color: var(--accent); background: var(--accent-soft); }
 .icon-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* 마스코트: 앱 아이콘의 검은 몸과 두 눈. 눈동자는 커서를 따라간다 */
-.mascot { display: block; overflow: visible; }
-.mascot .body { fill: url(#gmBody); }
-.mascot .rim { fill: none; stroke: url(#gmRim); stroke-width: 2.6; }
-.mascot .white { fill: url(#gmEye); }
-.mascot .pupil { fill: #0a0e1c; transition: transform .12s ease-out; }
-.mascot .lid { transform-box: fill-box; transform-origin: center; animation: blink 7s infinite; }
-.mascot .e2 .lid { animation-delay: .06s; }
-@keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
-@media (prefers-reduced-motion: reduce) { .mascot .lid { animation: none; } .mascot .pupil { transition: none; } }
-/* 왼쪽 위: 마스코트 · 이름 · 탭 · 수 · 찾기 · 보기 고르기 */
+/* 표시: 앱 아이콘의 가지 — 은색 고리 둘과 초록 고리 하나 */
+.mark { display: block; width: 20px; height: 20px; fill: none; stroke: var(--text); stroke-width: 1.8; stroke-linecap: round; }
+.mark .on { stroke: var(--leaf); filter: drop-shadow(0 0 2.5px var(--leaf)); }
+/* 왼쪽 위: 표시 · 이름 · 탭 · 수 · 찾기 · 보기 고르기 */
 #top { top: 14px; left: 14px; width: min(372px, calc(100vw - 82px)); padding: 12px 12px 10px; }
 #top .row1 { display: flex; align-items: center; gap: 9px; }
-#logo .mascot { width: 34px; height: 28px; margin: -2px 0 -2px -2px; filter: drop-shadow(0 0 8px rgba(80, 120, 255, .35)); }
+#logo { flex: none; }
 #repo { font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #top .row1 .icon-btn { margin-left: auto; width: 26px; height: 26px; }
 .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; margin-top: 10px; padding: 3px; border-radius: 10px; background: var(--hover); }
 .tabs button { padding: 5px 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); font-weight: 600; cursor: pointer; }
-.tabs button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .3), inset 0 0 0 1px var(--border); }
+.tabs button.on { background: var(--seg-on); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .2), inset 0 0 0 1px var(--border); }
 .tabs button:not(.on):hover { color: var(--text); }
 #stats { margin-top: 7px; color: var(--muted); font-size: 12px; }
 #notes { margin: 8px 0 2px; padding: 8px 10px; border-radius: 8px; background: var(--hover); color: var(--text-2); font-size: 12px; }
 #notes p { margin: 0 0 4px; } #notes p:last-child { margin: 0; }
 .search { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 0 10px; height: 34px; border-radius: 9px; background: var(--hover); border: 1px solid transparent; }
-.search:focus-within { border-color: var(--accent); }
+.search:focus-within { border-color: var(--ink); }
 .search svg { flex: none; width: 15px; height: 15px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; }
 .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; }
 .search input::placeholder { color: var(--muted); }
@@ -6286,7 +7004,7 @@ select { min-width: 0; padding: 4px 8px; border: 1px solid var(--border); border
 select option { background: var(--panel-solid); color: var(--text); }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 2px; border-radius: 8px; background: var(--hover); }
 .seg button { padding: 3px 9px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); cursor: pointer; white-space: nowrap; }
-.seg button.on { background: var(--panel-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .25), inset 0 0 0 1px var(--border); }
+.seg button.on { background: var(--seg-on); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, .2), inset 0 0 0 1px var(--border); }
 /* 가운데 위: 지금 강조 중인 것 */
 #banner { top: 14px; left: 400px; display: flex; align-items: center; gap: 10px; max-width: min(620px, calc(100vw - 470px)); padding: 7px 8px 7px 14px; border-color: var(--leaf-soft); }
 #banner .dot { background: var(--leaf); box-shadow: 0 0 10px var(--leaf); }
@@ -6342,7 +7060,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .switch { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 32px; height: 18px; margin: 0; border-radius: 999px; background: var(--border); cursor: pointer; transition: background .15s; }
 .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .15s; }
 .switch:checked { background: var(--accent); }
-.switch:checked::after { transform: translateX(14px); }
+.switch:checked::after { transform: translateX(14px); background: var(--panel-solid); }
 .btn { width: 100%; margin-top: 8px; padding: 7px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--hover); color: var(--text); cursor: pointer; }
 .btn:hover { border-color: var(--accent); }
 .groups { display: grid; gap: 2px; }
@@ -6355,13 +7073,15 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 #legend button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); font-size: 12px; cursor: pointer; }
 #legend button:hover { background: var(--hover); }
 #legend button.off { opacity: .38; }
+.lg { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; color: var(--text-2); font-size: 12px; }
+.lg i { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
+.lg i.dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px) !important; }
 .ramp { display: inline-flex; align-items: center; gap: 8px; padding: 2px 8px; color: var(--text-2); font-size: 12px; }
 .ramp i { display: inline-block; width: 22px; height: 8px; border-radius: 2px; }
 #tools { bottom: 14px; right: 14px; display: flex; gap: 2px; padding: 4px; }
 /* 오른쪽: 목록 · 분석 */
 .drawer { top: 62px; right: 14px; bottom: 66px; width: min(540px, calc(100vw - 28px)); display: flex; flex-direction: column; }
 .drawer .head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px 14px; font-weight: 650; }
-.drawer .head .mascot { width: 30px; height: 25px; }
 .drawer .head span { color: var(--muted); font-weight: 400; font-size: 12px; }
 .drawer .head .icon-btn { margin-left: auto; width: 26px; height: 26px; }
 .drawer .wrap { flex: 1; overflow: auto; padding: 0 8px 10px; }
@@ -6380,17 +7100,15 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .cards button:hover { border-color: var(--accent); }
 .cards b { display: block; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cards span { color: var(--muted); font-size: 11px; }
-.cards .hot b { color: var(--leaf); text-shadow: 0 0 12px var(--leaf-soft); }
+.cards .hot b { color: var(--warn); }
+.cards .bad b { color: var(--del); }
 .sec-note { margin: 0 6px 4px; color: var(--muted); font-size: 11px; }
 /* 마우스를 올린 노드 */
 #tip { position: fixed; z-index: 3; padding: 6px 10px; border-radius: 9px; background: var(--panel-solid); border: 1px solid var(--border); box-shadow: var(--shadow); pointer-events: none; max-width: 380px; }
 #tip b { display: block; font-weight: 600; word-break: break-all; }
 #tip span { color: var(--muted); font-size: 12px; }
-#peek { position: fixed; z-index: 0; top: 76px; right: -46px; width: 230px; height: 192px; pointer-events: none; opacity: .92; }
-#peek .mascot { width: 100%; height: 100%; filter: drop-shadow(0 0 28px rgba(70, 110, 255, .28)); }
-:root[data-theme="light"] #peek { opacity: .85; }
 #empty { position: fixed; inset: 0; z-index: 1; display: grid; place-items: center; align-content: center; gap: 14px; color: var(--muted); font-size: 15px; pointer-events: none; }
-#empty .mascot { width: 150px; height: 125px; filter: drop-shadow(0 0 30px rgba(80, 120, 255, .35)); }
+#empty .mark { width: 40px; height: 40px; stroke: var(--muted); stroke-width: 1.4; }
 @media (max-width: 700px) {
   #legend { max-width: calc(100vw - 28px); bottom: 66px; }
   #info { top: auto !important; bottom: 120px; max-height: 45vh !important; }
@@ -6399,12 +7117,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-  <radialGradient id="gmBody" cx="42%" cy="30%" r="78%"><stop offset="0" stop-color="#27326e"/><stop offset=".55" stop-color="#0e1330"/><stop offset="1" stop-color="#060914"/></radialGradient>
-  <linearGradient id="gmRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9db8ff" stop-opacity=".95"/><stop offset=".45" stop-color="#3d6df2" stop-opacity=".12"/><stop offset="1" stop-color="#7f9cff" stop-opacity=".75"/></linearGradient>
-  <radialGradient id="gmEye" cx="40%" cy="36%" r="72%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#b9c5ff"/></radialGradient>
-</defs></svg>
-<div id="peek" aria-hidden="true"></div>
 <canvas id="c" tabindex="0" aria-label="구조 그래프 — 표로 보기는 오른쪽 아래 목록 단추"></canvas>
 <div class="hud" id="top">
   <div class="row1"><span id="logo"></span><span id="repo">gitch graph</span>
@@ -6416,7 +7128,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   <div class="ctrls">
     <span id="unitLab">단위</span><div class="line" id="unitLine"><div class="seg" id="unit"></div><select id="depth" aria-label="폴더 깊이" title="폴더를 몇 단계까지 나눌지"></select></div>
     <span>언어</span><div class="line"><select id="lang" aria-label="언어"></select></div>
-    <span>그리기</span><div class="line"><div class="seg" id="style"></div></div>
+    <span id="styleLab">그리기</span><div class="line" id="styleLine"><div class="seg" id="style"></div></div>
   </div>
 </div>
 <div class="hud" id="banner" hidden><span class="dot"></span><span id="bannerText"></span><button id="bannerClear" type="button">풀기</button></div>
@@ -6429,6 +7141,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     <label class="row">테스트 파일 · 타깃<input class="switch" type="checkbox" id="tests"></label>
     <label class="row">연결 없는 노드<input class="switch" type="checkbox" id="orph"></label>
     <label class="row">찾은 것만 보이기<input class="switch" type="checkbox" id="onlyFound"></label>
+    <label class="row" id="diffRow" hidden>바뀐 것만(비교)<input class="switch" type="checkbox" id="onlyDiff"></label>
+    <label class="row" id="rulesRow" hidden>규칙 위반 연결 표시<input class="switch" type="checkbox" id="rules"></label>
     <label class="row col"><span class="lab">연결이 이만큼 이상인 노드만<b id="minDegV"></b></span><input type="range" id="minDeg" min="0" max="20" step="1"></label>
     <label class="row">고른 노드 주변만<input class="switch" type="checkbox" id="local"></label>
     <label class="row col sub" id="localRow"><span class="lab">몇 단계까지<b id="localDepthV"></b></span><input type="range" id="localDepth" min="1" max="5" step="1"></label>
@@ -6457,7 +7171,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   <div class="wrap"><table><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table><div class="more" id="tmore" hidden></div></div>
 </aside>
 <aside class="hud drawer" id="ana" hidden>
-  <div class="head"><span id="anaLogo"></span>분석 <span id="anaNote"></span><button class="icon-btn" id="anaClose" type="button" title="닫기" aria-label="분석 닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="head">분석 <span id="anaNote"></span><button class="icon-btn" id="anaClose" type="button" title="닫기" aria-label="분석 닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="wrap" id="anaBody"></div>
 </aside>
 <div class="hud" id="legend"></div>
@@ -6491,16 +7205,17 @@ HTMLEOF
   const RELNAME = { files: "파일 import", modules: "모듈 의존", changes: "같이 바뀌는 파일", tree: "폴더 구조" };
   const TABNAME = { files: "파일", modules: "모듈", changes: "같이 바뀜", tree: "폴더" };
   const KINDNAME = { file: "파일", folder: "폴더", package: "외부 패키지", module: "모듈" };
-  const EDGENAME = { import: "import", reexport: "다시 내보내기", require: "require", "dynamic-import": "동적 import", "type-ref": "타입 이름(추정)", mod: "mod", use: "use", contains: "포함", depends: "의존", cochange: "같이 바뀜" };
-  const KEYNAME = { lang: "언어", lines: "줄", ecosystem: "생태계", name: "이름", local: "저장소 안", outside: "범위 밖", importPath: "import 경로", type: "종류", workspace: "작업 공간", changes: "바뀐 횟수", lastChanged: "마지막 변경", depth: "깊이", files: "파일", bytes: "크기", filesHere: "바로 아래 파일", dirs: "하위 폴더", exts: "확장자" };
+  const EDGENAME = { import: "import", reexport: "다시 내보내기", require: "require", "dynamic-import": "동적 import", "type-ref": "타입 이름(추정)", ref: "참조(Xcode 인덱스)", mod: "mod", use: "use", contains: "포함", depends: "의존", cochange: "같이 바뀜" };
+  const KEYNAME = { lang: "언어", lines: "줄", ecosystem: "생태계", name: "이름", local: "저장소 안", outside: "범위 밖", importPath: "import 경로", type: "종류", workspace: "작업 공간", changes: "바뀐 횟수", lastChanged: "마지막 변경", depth: "깊이", files: "파일", bytes: "크기", filesHere: "바로 아래 파일", dirs: "하위 폴더", exts: "확장자", modules: "모듈", status: "비교", filesDelta: "파일 수 변화", bytesDelta: "크기 변화" };
+  const STATUSNAME = { added: "새로 생김", removed: "없어짐", changed: "바뀜" };
   const LISTS = { files: ["가져오는 것", "가져다 쓰는 곳"], modules: ["의존하는 것", "이것에 의존하는 것"], changes: ["같이 바뀌는 파일", ""], tree: ["안에 든 것", "위 폴더"] };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const hsize = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : b >= 1024 ? Math.round(b / 1024) + " KB" : b + " B");
   const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const MASCOT = (cls) => `<svg class="mascot ${cls || ""}" viewBox="0 0 120 100" aria-hidden="true"><path class="body" d="M16 74C6 46 26 14 62 9C94 5 116 28 114 56C113 82 92 96 62 96C38 96 22 88 16 74Z"/><path class="rim" d="M16 74C6 46 26 14 62 9C94 5 116 28 114 56C113 82 92 96 62 96C38 96 22 88 16 74Z"/><g class="eye e1" transform="translate(48 44) rotate(-16)"><g class="lid"><path class="white" d="M-12 0Q0-16 12 0Q0 16-12 0Z"/><ellipse class="pupil" cx="0" cy="1" rx="2.7" ry="8.2"/></g></g><g class="eye e2" transform="translate(86 62) rotate(14)"><g class="lid"><path class="white" d="M-14 0Q0-17 14 0Q0 17-14 0Z"/><ellipse class="pupil" cx="0" cy="1" rx="3" ry="9.2"/></g></g></svg>`;
+  const MARK = '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8.3v4.2c0 2.6 1.1 4.1 3 4.6M12.4 17.3c1.7.1 3-.4 4.1-1.4"/><circle cx="5" cy="5.6" r="2.7"/><circle cx="9.9" cy="17.4" r="2.6"/><circle class="on" cx="18.8" cy="14.3" r="2.6"/></svg>';
 
-  // ----- 색: 언어 계열은 범주 색 세 칸(노드가 많은 셋, 모든 관계에서 같은 색), 모듈 종류는 앱 · 라이브러리 · 테스트, 바뀐 횟수는 파랑 네 단계 -----
+  // ----- 색: 언어 계열은 세 칸(노드가 많은 셋, 모든 관계에서 같은 색), 모듈 종류는 앱 · 라이브러리 · 테스트, 바뀐 횟수는 주황 네 단계 -----
   const FAMILY = { ts: "web", js: "web", vue: "web", svelte: "web", npm: "web", swift: "swift", tuist: "swift", python: "python", go: "go", rust: "rust", cargo: "rust", kotlin: "jvm", java: "jvm", gradle: "jvm" };
   const EXTFAM = { ts: "web", tsx: "web", js: "web", jsx: "web", mjs: "web", cjs: "web", mts: "web", cts: "web", vue: "web", svelte: "web", swift: "swift", py: "python", pyi: "python", go: "go", rs: "rust", kt: "jvm", kts: "jvm", java: "jvm" };
   const FAMNAME = { web: "TS/JS", swift: "Swift", python: "Python", go: "Go", rust: "Rust", jvm: "Kotlin/Java", lang: "그 밖의 언어", other: "그 밖의 파일", ext: "외부 패키지 · 모듈" };
@@ -6519,10 +7234,10 @@ HTMLEOF
   const famCount = {};
   for (const v of ORDER) for (const d of VIEWS[v].nodes) { const f = famOf(d, v); if (PRIORITY.includes(f)) famCount[f] = (famCount[f] || 0) + 1; }
   const top3 = Object.keys(famCount).sort((a, b) => famCount[b] - famCount[a] || PRIORITY.indexOf(a) - PRIORITY.indexOf(b)).slice(0, 3);
-  const colored = PRIORITY.filter((f) => top3.includes(f));   // 칸 순서는 우선순위대로 — 저장소가 달라도 TS/JS 파랑 · Swift 주황이 되기 쉽게
+  const colored = top3;   // 가장 많은 언어가 첫 칸(은색) — 저장소의 주 언어는 아이콘처럼 무채색, 다른 언어만 색으로 드러난다
   const SLOT = {};
   colored.forEach((f, i) => { SLOT[f] = "s" + (i + 1); });
-  const ROLESLOT = { app: "s1", lib: "s4", test: "s3" };
+  const ROLESLOT = { app: "s2", lib: "s1", test: "s3" };   // 대부분인 라이브러리는 은색, 앱 · 테스트만 색
 
   // ----- 관계 사이에 나눠 쓰는 값: 파일의 바뀐 횟수(같이 바뀜) · 줄 수(파일 import) · import 쌍(숨은 결합 찾기) -----
   const CHG = new Map(), LNS = new Map(), IMP = new Set();
@@ -6532,16 +7247,19 @@ HTMLEOF
   for (const [id, d] of CHG) { const segs = id.split("/"); segs.pop(); let p = ""; DIRCHG.set("./", (DIRCHG.get("./") || 0) + d.changes); for (const s of segs) { p = p ? p + "/" + s : s; DIRCHG.set(p + "/", (DIRCHG.get(p + "/") || 0) + d.changes); } }
 
   // ----- 설정: 필터 · 표시 · 힘은 모든 탭 공통, 단위 · 그리기 · 배치 · 색 · 크기는 탭마다 -----
-  const P = { lang: "all", ext: true, heur: true, tests: true, orph: true, onlyFound: false, minDeg: 0, local: false, localDepth: 1, arrows: false, names: false, size: 1, width: 1, center: 0.4, repel: 10, link: 0.7, dist: 40 };
+  const RULES = RAW.rules || null;   // gitch graph check 결과(규칙 파일이 있을 때)
+  let VIOL = null;                   // 지금 모델에서 규칙을 어긴 연결 → 위반
+  const P = { onlyDiff: true, rules: true, lang: "all", ext: true, heur: true, tests: true, orph: true, onlyFound: false, minDeg: 0, local: false, localDepth: 1, arrows: false, names: false, size: 1, width: 1, center: 0.4, repel: 10, link: 0.7, dist: 40 };
   const hidden = new Set();
   const C = {};
   const VS = {};
   let vs = null, m = null, view = { x: 0, y: 0, k: 1 };
-  const LAYOUTS = { files: [["force", "힘"], ["layers", "층"]], modules: [["layers", "층"], ["force", "힘"]], changes: [["force", "힘"], ["layers", "층"]], tree: [["tidy", "나무"], ["radial", "방사형"], ["layers", "층"], ["force", "힘"]] };
+  const LAYOUTS = { files: [["force", "힘"], ["pack", "폴더 원"], ["layers", "층"]], modules: [["layers", "층"], ["force", "힘"]], changes: [["force", "힘"], ["pack", "폴더 원"], ["layers", "층"]], tree: [["tidy", "나무"], ["pack", "폴더 원"], ["radial", "방사형"], ["layers", "층"], ["force", "힘"]] };
+  const BIG = 600;   // 노드가 이보다 많으면 파일 · 같이 바뀜 탭은 폴더 원으로 시작한다(멀리서 접히고 가까이서 펼쳐진다)
   function stateFor(rel) {
     if (VS[rel]) return VS[rel];
     const roles = VIEWS[rel].nodes.some((d) => d.kind === "module" && (APP_T.test(d.type || "") || TEST_T.test(d.type || "")));
-    return (VS[rel] = { rel, unit: "file", depth: 2, style: rel === "modules" ? "box" : "dot", layout: LAYOUTS[rel][0][0], colorBy: rel === "modules" && roles ? "role" : "family", sizeBy: "auto", models: {} });
+    return (VS[rel] = { rel, unit: "file", depth: 2, style: rel === "modules" ? "box" : "dot", layout: (rel === "files" || rel === "changes") && VIEWS[rel].nodes.length > BIG ? "pack" : LAYOUTS[rel][0][0], colorBy: rel === "modules" && roles ? "role" : "family", sizeBy: "auto", models: {} });
   }
   const heatOk = () => CHG.size > 0 && vs.rel !== "modules";
   const colorMode = () => (vs.colorBy === "role" && vs.rel === "modules" ? "role" : vs.colorBy === "heat" && heatOk() ? "heat" : "family");
@@ -6564,10 +7282,11 @@ HTMLEOF
     return SLOT[n.fam] ? C[SLOT[n.fam]] : n.fam === "ext" ? C.ext : C.other;
   };
   const colorOfKey = (k) => (k[0] === "r" ? (k === "r:ext" ? C.ext : C[ROLESLOT[k.slice(2)]] || C.other) : SLOT[k.slice(2)] ? C[SLOT[k.slice(2)]] : k === "f:ext" ? C.ext : C.other);
+  const neutral = (c) => c === C.s1 || c === C.other || c === C.ext;   // 무채색 칸(은색 · 회색)은 칠을 줄인다
   const keyName = (k) => (k[0] === "r" ? ROLENAME[k.slice(2)] : FAMNAME[k.slice(2)]) || k.slice(2);
   function readTheme() {
     const cs = getComputedStyle(root), g = (k) => cs.getPropertyValue("--" + k).trim();
-    for (const k of ["bg", "text", "text-2", "muted", "line", "ink", "accent", "leaf", "hl", "halo", "core", "box", "s1", "s2", "s3", "s4", "h1", "h2", "h3", "h4", "glow", "glow2"]) C[k] = g(k);
+    for (const k of ["bg", "text", "text-2", "muted", "line", "ink", "accent", "leaf", "hl", "hl-glow", "add", "del", "warn", "halo", "core", "box", "s1", "s2", "s3", "h1", "h2", "h3", "h4", "glow"]) C[k] = g(k);
     C.other = g("node-other"); C.ext = g("node-ext"); C.dim = g("node-ext");
     if (m) { renderGroups(); renderInfo(); if (!$("ana").hidden) renderAna(); }
     request();
@@ -6585,7 +7304,7 @@ HTMLEOF
     const test = d.kind !== "package" && (TEST_T.test(d.type || "") || TEST_PATH.test(d.path || d.id));
     return { d, id: d.id, label: d.label || d.id, kind: d.kind, fam, role: roleOf(d), test, x: 0, y: 0, vx: 0, vy: 0, fx: null, fy: null, out: [], inc: [], deg: 0, r: 4, w: 60, h: 30, lw: 40, fade: 1, vis: true, key: ((d.label || "") + "\n" + d.id).toLowerCase() };
   }
-  function link(s, t, d, kind, w, h) { const e = { s, t, d, kind, w, h, vis: true, len: 40, str: 1, bias: 0.5 }; s.out.push(e); t.inc.push(e); return e; }
+  function link(s, t, d, kind, w, h) { const e = { s, t, d, kind, w, h, u: h && !d.checked, vis: true, len: 40, str: 1, bias: 0.5 }; s.out.push(e); t.inc.push(e); return e; }   // u: 이름만으로 한 추정(점선)
   function finish(md) {
     md.nodes.forEach((n, i) => { n.i = i; n.deg = n.out.length + n.inc.length; });
     md.nodeOf = new Map(md.nodes.map((n) => [n.id, n]));
@@ -6618,12 +7337,14 @@ HTMLEOF
       if (n.d.changes) g.d.changes = (g.d.changes || 0) + n.d.changes;
       g.famCount[n.fam] = (g.famCount[n.fam] || 0) + 1;
       if (n.test) g.tests++;
+      if (n.d.status) { g.st = g.st || {}; g.st[n.d.status] = (g.st[n.d.status] || 0) + 1; }
     }
     for (const g of groups.values()) {
       if (!g.members.length) { g.fam = colored.includes("go") ? "go" : "lang"; delete g.d.lines; continue; }   // 파일 없이 Go 패키지 노드만 든 폴더
       let best = "other", bc = -1;
       for (const [f, c] of Object.entries(g.famCount)) if (c > bc || (c === bc && f < best)) { best = f; bc = c; }
       g.fam = best; g.test = g.tests === g.members.length; g.role = g.test ? "test" : "lib";
+      if (g.st) { const ks = Object.keys(g.st); g.d.status = ks.length === 1 && g.st[ks[0]] === g.members.length ? ks[0] : "changed"; }
       if (!g.d.lines) delete g.d.lines;
     }
     const merged = new Map();
@@ -6633,14 +7354,17 @@ HTMLEOF
       if (!base.directed && t.id < s.id) [s, t] = [t, s];
       const k = s.id + "\u0000" + t.id;
       let a = merged.get(k);
-      if (!a) { a = link(s, t, { kind: e.kind, files: 0 }, e.kind === "cochange" ? "cochange" : "import", 0, true); merged.set(k, a); edges.push(a); }
+      if (!a) { a = link(s, t, { kind: e.kind, files: 0 }, e.kind === "cochange" ? "cochange" : "import", 0, true); a.u = true; merged.set(k, a); edges.push(a); }
       a.w += e.w; a.d.files++;
       if (!e.h) a.h = false;
+      if (!e.u) a.u = false;
+      if (e.d.status) a.d[e.d.status] = (a.d[e.d.status] || 0) + 1;
     }
+    for (const a of edges) if (a.d.added || a.d.removed) a.d.status = a.d.added === a.d.files ? "added" : a.d.removed === a.d.files ? "removed" : "changed";
     return finish({ rel: base.rel, G: base.G, nodes, edges, directed: base.directed, agg: true, depth });
   }
   function modelFor(st) {
-    const key = st.unit === "folder" && (st.rel === "files" || st.rel === "changes") ? "d" + st.depth : "f";
+    const key = st.unit === "folder" && st.layout !== "pack" && (st.rel === "files" || st.rel === "changes") ? "d" + st.depth : "f";
     if (!st.models.f) st.models.f = baseModel(st.rel);
     if (!st.models[key]) st.models[key] = aggregate(st.models.f, st.depth);
     return st.models[key];
@@ -6653,20 +7377,25 @@ HTMLEOF
     if (by === "changes") return heatOf(n);
     return n.members ? n.members.length : m.rel === "changes" ? n.d.changes || 0 : m.rel === "tree" ? n.d.files || 0 : n.deg;
   }
-  function sizeNodes() {
+  function sizeNodes(onlyR) {   // 크기는 보이는 노드 중 가장 큰 것 기준 — 언어 · 필터로 몇 개만 남아도 점처럼 작아지지 않게. onlyR: 필터가 바뀐 때(반지름만)
     let maxM = 1;
-    for (const n of m.nodes) maxM = Math.max(maxM, metric(n));
+    for (const n of m.nodes) if (n.vis) maxM = Math.max(maxM, metric(n));
     heatMax = 1;
     for (const n of m.nodes) heatMax = Math.max(heatMax, heatOf(n));
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.font = `600 13px ${FONT}`;
-    for (const n of m.nodes) { n.r = P.size * (3.4 + 8.5 * Math.sqrt(metric(n) / maxM)); n.w = Math.max(58, ctx.measureText(n.label).width + 26) * Math.sqrt(P.size); n.h = 30 * Math.sqrt(P.size); }
-    ctx.font = `12px ${FONT}`;
-    for (const n of m.nodes) n.lw = ctx.measureText(n.label).width;
-    ctx.restore();
+    if (onlyR && maxM === m.maxM) return;
+    m.maxM = maxM;
+    for (const n of m.nodes) n.r = P.size * (3.4 + 8.5 * Math.sqrt(Math.min(1, metric(n) / maxM)));
+    if (!onlyR) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.font = `600 13px ${FONT}`;
+      for (const n of m.nodes) { n.w = Math.max(58, ctx.measureText(n.label).width + 26) * Math.sqrt(P.size); n.h = 30 * Math.sqrt(P.size); }
+      ctx.font = `12px ${FONT}`;
+      for (const n of m.nodes) n.lw = ctx.measureText(n.label).width;
+      ctx.restore();
+    }
     m.byR = m.nodes.slice().sort((a, b) => (a.id === "./") - (b.id === "./") || b.r - a.r || byId(a, b));   // 이름은 큰 노드부터 자리를 잡는다(뿌리 폴더는 위에 저장소 이름이 있으니 맨 뒤)
   }
-  const box = () => vs.style === "box";
+  const box = () => vs.style === "box" && vs.layout !== "pack";
   const halfW = (n) => (box() ? n.w / 2 : n.r);
   const halfH = (n) => (box() ? n.h / 2 : n.r);
 
@@ -6685,6 +7414,13 @@ HTMLEOF
       const keep = new Set();
       for (const e of m.edges) if (e.vis) { if (e.s.fam !== "ext") keep.add(e.t); if (e.t.fam !== "ext") keep.add(e.s); }
       for (const n of m.nodes) if (n.vis && n.fam === "ext" && !keep.has(n)) n.vis = false;
+      pass();
+    }
+    if (m.G.diff && P.onlyDiff) {   // 비교: 바뀐 노드 · 연결과 그 끝점만
+      const keep = new Set();
+      for (const n of m.nodes) if (n.vis && n.d.status) keep.add(n);
+      for (const e of m.edges) if (e.vis && e.d.status) { keep.add(e.s); keep.add(e.t); }
+      for (const n of m.nodes) if (n.vis && !keep.has(n)) n.vis = false;
       pass();
     }
     const need = Math.max(P.orph ? 0 : 1, P.minDeg);
@@ -6712,7 +7448,6 @@ HTMLEOF
     visEdges = m.edges.filter((e) => e.vis);
     m.ana = null;
     $("empty").hidden = visNodes.length > 0;
-    $("peek").hidden = !visNodes.length;
   }
 
   // ----- 화면 · 보기 -----
@@ -6720,7 +7455,12 @@ HTMLEOF
   let pending = false, tween = null, morph = null, dimT = 0, HL = null, pathFrom = null;
   const clampK = (k) => clamp(k, 0.02, 10);
   function request() { if (!pending) { pending = true; requestAnimationFrame(frame); } }
-  function resize() { dpr = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; canvas.width = Math.max(1, Math.round(W * dpr)); canvas.height = Math.max(1, Math.round(H * dpr)); if (sel) placeInfo(); request(); }
+  function resize() {
+    dpr = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; canvas.width = Math.max(1, Math.round(W * dpr)); canvas.height = Math.max(1, Math.round(H * dpr));
+    if (sel) placeInfo();
+    if (m && !m.userMoved && !running) { const f = fitView(); if (f) Object.assign(view, f); }   // 손대지 않은 보기는 새 크기에 다시 맞춘다
+    request();
+  }
   function bounds(list) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const n of list) { const hw = n.hw != null ? n.hw : halfW(n), hh = n.hh != null ? n.hh : halfH(n); x0 = Math.min(x0, n.x - hw); y0 = Math.min(y0, n.y - hh); x1 = Math.max(x1, n.x + hw); y1 = Math.max(y1, n.y + hh); }
@@ -6731,7 +7471,7 @@ HTMLEOF
     return { l: W > 900 && (sel || W > 1300) ? 400 : 20, r: drawer && W > 1100 ? Math.min(570, W * 0.42) : 40 };
   }
   function fitView(list) {
-    list = list || visNodes;
+    list = list || (vs.layout === "pack" && m.pk ? m.pk.roots.map((h) => ({ x: h.x, y: h.y, hw: h.r, hh: h.r })) : visNodes);
     if (!list.length || !W) return null;
     const [x0, y0, x1, y1] = bounds(list), { l, r } = margins(), padY = 60;
     const k = clampK(Math.min((W - l - r) / Math.max(x1 - x0, 1), (H - padY * 2) / Math.max(y1 - y0, 1), 2));
@@ -6741,7 +7481,7 @@ HTMLEOF
     if (!target) return;
     const from = { x: view.x, y: view.y, k: view.k }, t0 = performance.now(), dur = ms || 420, v = view;
     tween = (now) => {
-      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      const p = clamp((now - t0) / dur, 0, 1), e = 1 - Math.pow(1 - p, 3);
       v.x = from.x + (target.x - from.x) * e; v.y = from.y + (target.y - from.y) * e; v.k = from.k + (target.k - from.k) * e;
       if (p >= 1) tween = null;
     };
@@ -6752,13 +7492,17 @@ HTMLEOF
     m.userMoved = true;
     if (!dur) { v.k = k1; v.x = px - (px - x0) * (k1 / k0); v.y = py - (py - y0) * (k1 / k0); tween = null; request(); return; }
     tween = (now) => {
-      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3), k = k0 + (k1 - k0) * e;
+      const p = clamp((now - t0) / dur, 0, 1), e = 1 - Math.pow(1 - p, 3), k = k0 + (k1 - k0) * e;
       v.k = k; v.x = px - (px - x0) * (k / k0); v.y = py - (py - y0) * (k / k0);
       if (p >= 1) tween = null;
     };
     request();
   }
-  function centerOn(n, k) { const { l, r } = margins(); m.userMoved = true; k = clampK(k); animateTo({ k, x: l + (W - l - r) / 2 - n.x * k, y: H / 2 - n.y * k }); }
+  function centerOn(n, k) {
+    const { l, r } = margins(), h = vs.layout === "pack" && m.pk && m.pk.of.get(n);
+    if (h && h.parent && h.parent.parent) k = Math.max(k, (OPEN_PX * 2.05) / h.parent.r);   // 폴더 원: 그 파일이 든 폴더가 다 펼쳐질 만큼
+    m.userMoved = true; k = clampK(k); animateTo({ k, x: l + (W - l - r) / 2 - n.x * k, y: H / 2 - n.y * k });
+  }
 
   // ----- 힘 배치 (Barnes–Hut) + 겹침 막기 -----
   const THETA2 = 0.81, ALPHA_MIN = 0.003, DECAY = 0.0228;
@@ -6817,9 +7561,10 @@ HTMLEOF
     if (q.n && q.n !== n) push(n, q.n.x, q.n.y, 1, f0);
     if (q.more) for (const o of q.more) if (o !== n) push(n, o.x, o.y, 1, f0);
   }
-  // 겹침 풀기: 격자로 가까운 쌍만 보고, 상자는 덜 겹친 축으로 · 점은 중심선으로 밀어낸다 (pos 가 있으면 그 자리 값을 고친다)
+  // 겹침 풀기: 격자로 가까운 쌍만 보고, 상자는 덜 겹친 축으로 · 점은 중심선으로 밀어낸다 (pos 가 있으면 그 자리 값을 고친다) → 겹친 쌍의 수
   function collide(list, strength, pos) {
     const isBox = box(), pad = isBox ? 12 : 3;
+    let found = 0;
     let cell = 8;
     for (const n of list) cell = Math.max(cell, (isBox ? n.w : n.r * 2) + pad * 2);
     const X = pos ? (n) => pos.get(n)[0] : (n) => n.x, Y = pos ? (n) => pos.get(n)[1] : (n) => n.y;
@@ -6838,16 +7583,55 @@ HTMLEOF
           if (isBox) {
             const ox = (n.w + o.w) / 2 + pad - Math.abs(dx), oy = (n.h + o.h) / 2 + pad - Math.abs(dy);
             if (ox <= 0 || oy <= 0) continue;
+            found++;
             if (ox < oy) { const s = (ox / 2) * strength * Math.sign(dx); move(n, -s, 0); move(o, s, 0); }
             else { const s = (oy / 2) * strength * Math.sign(dy); move(n, 0, -s); move(o, 0, s); }
           } else {
             const d = Math.hypot(dx, dy), min = n.r + o.r + pad;
             if (d >= min) continue;
+            found++;
             const s = ((min - d) / 2 / d) * strength;
             move(n, -dx * s, -dy * s); move(o, dx * s, dy * s);
           }
         }
       }
+    }
+    return found;
+  }
+  function unstack(list) {   // 겹침을 푼다: 밀어내기를 거듭하고, 남으면 가운데서 4% 씩 넓히고(0.3초까지), 그래도 남은 빽빽한 덩어리는 sweep 으로
+    const t0 = performance.now();
+    for (let round = 0; round < 16 && list.length > 1; round++) {
+      let left = 0;
+      for (let i = 0; i < 40 && (left = collide(list, 1)); i++) if (performance.now() - t0 > 300) break;
+      if (!left) return;
+      if (performance.now() - t0 > 300) break;
+      let cx = 0, cy = 0;
+      for (const n of list) { cx += n.x; cy += n.y; }
+      cx /= list.length; cy /= list.length;
+      for (const n of list) if (n.fx === null) { n.x = cx + (n.x - cx) * 1.04; n.y = cy + (n.y - cy) * 1.04; }
+    }
+    sweep(list);
+  }
+  function sweep(list) {   // 위에서부터 차례로 놓으며, 이미 놓인 것과 겹치면 그 바로 아래로 내린다 — 아래로만 움직이니 반드시 끝나고 겹침은 0
+    const isBox = box(), pad = 2, grid = new Map(), key = (gx, gy) => gx * 100003 + gy;
+    let cell = 8;
+    for (const n of list) cell = Math.max(cell, (isBox ? n.w : n.r * 2) + pad * 2);
+    const below = (n, o) => {   // n 이 o 와 겹치면 겹치지 않게 내려갈 y, 아니면 null
+      const dx = n.x - o.x;
+      if (isBox) { const hx = (n.w + o.w) / 2 + pad, hy = (n.h + o.h) / 2 + pad; return Math.abs(dx) < hx && Math.abs(n.y - o.y) < hy ? o.y + hy : null; }
+      const R = n.r + o.r + pad;
+      return Math.hypot(dx, n.y - o.y) < R ? o.y + Math.sqrt(R * R - dx * dx) : null;
+    };
+    for (const n of list.slice().sort((a, b) => a.y - b.y || a.i - b.i)) {
+      for (let guard = 0; n.fx === null && guard < 5000; guard++) {
+        const gx = Math.floor(n.x / cell), gy = Math.floor(n.y / cell);
+        let to = null;
+        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const b = grid.get(key(gx + i, gy + j)); if (b) for (const o of b) { const y = below(n, o); if (y !== null && (to === null || y > to)) to = y; } }
+        if (to === null) break;
+        n.y = to + 0.01; n.vy = 0;
+      }
+      const k = key(Math.floor(n.x / cell), Math.floor(n.y / cell)), b = grid.get(k);
+      if (b) b.push(n); else grid.set(k, [n]);
     }
   }
   function tick() {
@@ -6980,7 +7764,7 @@ HTMLEOF
   }
   function separate(T) {   // 목표 자리에서 겹친 것을 풀어 둔다
     const list = [...T.keys()];
-    for (let i = 0; i < 40; i++) collide(list, 1, T);
+    for (let i = 0; i < 60 && collide(list, 1, T); i++);
     return T;
   }
   function morphTo(T, fit) {
@@ -6988,7 +7772,7 @@ HTMLEOF
     const from = new Map(visNodes.map((n) => [n, [n.x, n.y]])), t0 = performance.now(), dur = 520;
     for (const n of visNodes) if (!T.has(n)) T.set(n, [n.x, n.y]);
     morph = (now) => {
-      const p = Math.min(1, (now - t0) / dur), e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      const p = clamp((now - t0) / dur, 0, 1), e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
       for (const [n, [x1, y1]] of T) { const [x0, y0] = from.get(n) || [x1, y1]; n.x = x0 + (x1 - x0) * e; n.y = y0 + (y1 - y0) * e; n.vx = n.vy = 0; }
       if (p >= 1) morph = null;
     };
@@ -6998,16 +7782,383 @@ HTMLEOF
   const targets = () => separate(vs.layout === "layers" ? layersTargets() : vs.layout === "tidy" ? treeTargets() : radialTargets());
   function applyLayout(reset) {
     $("forces").style.opacity = vs.layout === "force" ? "" : ".45";
+    if (vs.layout === "pack") { running = false; morph = null; buildPack(); if (!m.userMoved || reset) animateTo(fitView(), 420); request(); return; }
     if (vs.layout === "force") { startForce(reset, reset ? 1 : 0.35); return; }
     morphTo(targets(), !m.userMoved || reset);
   }
   function firstLayout() {   // 모델을 처음 보일 때: 힘은 나선에서 움직이고, 층 · 방사형은 바로 그 자리에
     seed();
     if (vs.layout === "force") { m.userMoved = false; startForce(false, 1); return; }
+    if (vs.layout === "pack") { running = false; morph = null; buildPack(); const f = fitView(); if (f) Object.assign(view, f); request(); return; }
     running = false; morph = null;
     for (const [n, [x, y]] of targets()) { n.x = x; n.y = y; }
     const f = fitView(); if (f) Object.assign(view, f);
     request();
+  }
+
+  // ----- 폴더 원: 폴더마다 원, 그 안에 파일과 아래 폴더(d3.pack 과 같은 앞줄 알고리즘이라 원끼리 겹치지 않는다).
+  //       화면에서 원이 작으면 접힌 폴더 하나로 그리고, 커지면 그 자리에서 펼친다. 접힌 폴더로 가는 연결은 합쳐서 하나로 -----
+  const OPEN_PX = 56;   // 폴더 원의 화면 반지름이 이만큼이면 펼치기 시작해 두 배에서 다 펼친다
+  const openT = (h, k) => (h.kids.length ? clamp((h.r * k - OPEN_PX) / OPEN_PX, 0, 1) : 0);
+  let hoverH = null;
+  function lcg(s) { return () => (s = (1664525 * s + 1013904223) % 4294967296) / 4294967296; }
+  function placeC(b, a, c) {
+    const dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
+    if (!d2) { c.x = a.x + c.r; c.y = a.y; return; }
+    let a2 = a.r + c.r, b2 = b.r + c.r;
+    a2 *= a2; b2 *= b2;
+    if (a2 > b2) { const x = (d2 + b2 - a2) / (2 * d2), y = Math.sqrt(Math.max(0, b2 / d2 - x * x)); c.x = b.x - x * dx - y * dy; c.y = b.y - x * dy + y * dx; }
+    else { const x = (d2 + a2 - b2) / (2 * d2), y = Math.sqrt(Math.max(0, a2 / d2 - x * x)); c.x = a.x + x * dx - y * dy; c.y = a.y + x * dy + y * dx; }
+  }
+  const crosses = (a, b) => { const dr = a.r + b.r - 1e-6, dx = b.x - a.x, dy = b.y - a.y; return dr > 0 && dr * dr > dx * dx + dy * dy; };
+  const scoreC = (nd) => { const a = nd._, b = nd.next._, ab = a.r + b.r, dx = (a.x * b.r + b.x * a.r) / ab, dy = (a.y * b.r + b.y * a.r) / ab; return dx * dx + dy * dy; };
+  function packSiblings(cs) {   // 원들을 서로 맞닿게 붙이고(겹치지 않게) (0, 0) 둘레로 옮긴다 → 감싸는 원의 반지름
+    const n = cs.length;
+    if (!n) return 0;
+    let a = cs[0], b, c;
+    a.x = 0; a.y = 0;
+    if (n === 1) return a.r;
+    b = cs[1]; a.x = -b.r; b.x = a.r; b.y = 0;
+    if (n === 2) return a.r + b.r;
+    placeC(b, a, (c = cs[2]));
+    a = { _: a }; b = { _: b }; c = { _: c };
+    a.next = c.prev = b; b.next = a.prev = c; c.next = b.prev = a;
+    pack: for (let i = 3; i < n; ++i) {
+      placeC(a._, b._, (c = cs[i])); c = { _: c };
+      let j = b.next, k = a.prev, sj = b._.r, sk = a._.r;
+      do {   // 앞줄에서 가장 가까운 겹치는 원 — 있으면 그 원과 다시 붙인다
+        if (sj <= sk) {
+          if (crosses(j._, c._)) { b = j; a.next = b; b.prev = a; --i; continue pack; }
+          sj += j._.r; j = j.next;
+        } else {
+          if (crosses(k._, c._)) { a = k; a.next = b; b.prev = a; --i; continue pack; }
+          sk += k._.r; k = k.prev;
+        }
+      } while (j !== k.next);
+      c.prev = a; c.next = b; a.next = b.prev = b = c;
+      let aa = scoreC(a), ca;
+      while ((c = c.next) !== b) if ((ca = scoreC(c)) < aa) { a = c; aa = ca; }
+      b = a.next;
+    }
+    const chain = [b._];
+    for (c = b.next; c !== b; c = c.next) chain.push(c._);
+    const e = enclose(chain);
+    for (const o of cs) { o.x -= e.x; o.y -= e.y; }
+    return e.r;
+  }
+  const enclosesNot = (a, b) => { const dr = a.r - b.r, dx = b.x - a.x, dy = b.y - a.y; return dr < 0 || dr * dr < dx * dx + dy * dy; };
+  const enclosesWeak = (a, b) => { const dr = a.r - b.r + Math.max(a.r, b.r, 1) * 1e-9, dx = b.x - a.x, dy = b.y - a.y; return dr > 0 && dr * dr > dx * dx + dy * dy; };
+  const enclosesWeakAll = (a, B) => B.every((b) => enclosesWeak(a, b));
+  function basis2(a, b) {
+    const x21 = b.x - a.x, y21 = b.y - a.y, r21 = b.r - a.r, l = Math.sqrt(x21 * x21 + y21 * y21);
+    return { x: (a.x + b.x + (x21 / l) * r21) / 2, y: (a.y + b.y + (y21 / l) * r21) / 2, r: (l + a.r + b.r) / 2 };
+  }
+  function basis3(a, b, c) {
+    const x1 = a.x, y1 = a.y, r1 = a.r, x2 = b.x, y2 = b.y, r2 = b.r, x3 = c.x, y3 = c.y, r3 = c.r;
+    const a2 = x1 - x2, a3 = x1 - x3, b2 = y1 - y2, b3 = y1 - y3, c2 = r2 - r1, c3 = r3 - r1;
+    const d1 = x1 * x1 + y1 * y1 - r1 * r1, d2 = d1 - x2 * x2 - y2 * y2 + r2 * r2, d3 = d1 - x3 * x3 - y3 * y3 + r3 * r3;
+    const ab = a3 * b2 - a2 * b3, xa = (b2 * d3 - b3 * d2) / (ab * 2) - x1, xb = (b3 * c2 - b2 * c3) / ab, ya = (a3 * d2 - a2 * d3) / (ab * 2) - y1, yb = (a2 * c3 - a3 * c2) / ab;
+    const A = xb * xb + yb * yb - 1, B = 2 * (r1 + xa * xb + ya * yb), Cc = xa * xa + ya * ya - r1 * r1;
+    const r = -(Math.abs(A) > 1e-6 ? (B + Math.sqrt(B * B - 4 * A * Cc)) / (2 * A) : Cc / B);
+    return { x: x1 + xa + xb * r, y: y1 + ya + yb * r, r };
+  }
+  const basisOf = (B) => (B.length === 1 ? { x: B[0].x, y: B[0].y, r: B[0].r } : B.length === 2 ? basis2(B[0], B[1]) : basis3(B[0], B[1], B[2]));
+  function extendBasis(B, p) {
+    if (enclosesWeakAll(p, B)) return [p];
+    for (let i = 0; i < B.length; ++i) if (enclosesNot(p, B[i]) && enclosesWeakAll(basis2(B[i], p), B)) return [B[i], p];
+    for (let i = 0; i < B.length - 1; ++i) for (let j = i + 1; j < B.length; ++j)
+      if (enclosesNot(basis2(B[i], B[j]), p) && enclosesNot(basis2(B[i], p), B[j]) && enclosesNot(basis2(B[j], p), B[i]) && enclosesWeakAll(basis3(B[i], B[j], p), B)) return [B[i], B[j], p];
+    throw new Error("enclose");
+  }
+  function enclose(circles) {   // 모든 원을 감싸는 가장 작은 원(Welzl) — 섞는 순서는 늘 같게
+    const cs = circles.slice(), rnd = lcg(1);
+    for (let i = cs.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = cs[i]; cs[i] = cs[j]; cs[j] = t; }
+    try {
+      let i = 0, B = [], e = null;
+      while (i < cs.length) { const p = cs[i]; if (e && enclosesWeak(e, p)) ++i; else { B = extendBasis(B, p); e = basisOf(B); i = 0; } }
+      if (e && isFinite(e.x + e.y + e.r)) return e;
+    } catch (err) { /* 수치 문제 — 아래의 넉넉한 원으로 */ }
+    let x = 0, y = 0, r = 0;
+    for (const c of cs) { x += c.x; y += c.y; }
+    x /= cs.length; y /= cs.length;
+    for (const c of cs) r = Math.max(r, Math.hypot(c.x - x, c.y - y) + c.r);
+    return { x, y, r };
+  }
+  function packValue(n) {   // 원 넓이는 크기 고르기를 따른다 — 자동이면 줄 수(폴더 탭은 파일 수), 외부는 쓰는 곳 수
+    const by = vs.sizeBy;
+    if (n.fam === "ext" && by !== "changes") return Math.max(1, n.deg * 12);
+    const v = by === "deg" ? n.deg : by === "changes" ? heatOf(n) : linesOf(n) || (m.rel === "tree" ? n.d.files : 0) || (m.rel === "changes" ? n.d.changes : 0);
+    return Math.max(1, v || 1);
+  }
+  const hfam = (h) => { let best = "other", bc = -1; for (const f in h.fam) if (h.fam[f] > bc || (h.fam[f] === bc && f < best)) { bc = h.fam[f]; best = f; } return best; };
+  function colorH(h) {   // 접힌 폴더의 색: 안에서 가장 많은 언어(바뀐 횟수 색이면 그 폴더의 합)
+    if (h.model && (h.leaf || !h.kids.length)) return colorOf(h.model);
+    if (colorMode() === "heat" && m.pk.heatMax) { const v = h.heat || 0; return v ? C["h" + (1 + Math.min(3, Math.floor((Math.log(v + 1) / Math.log(m.pk.heatMax + 1)) * 4)))] : C.dim; }
+    const f = hfam(h);
+    return colorMode() === "role" ? C.other : SLOT[f] ? C[SLOT[f]] : f === "ext" ? C.ext : C.other;
+  }
+  function buildPack() {   // 보이는 노드 → 폴더 나무(m.pk) · 원 채우기 → 노드 자리
+    let hid = 0;
+    const H0 = (name, path, parent) => { const h = { name, path, parent, kids: [], depth: parent ? parent.depth + 1 : 0, model: null, leaf: false, x: 0, y: 0, r: 0, rx: 0, ry: 0, hid: ++hid, n: 0, fam: {}, add: 0, del: 0, heat: 0 }; if (parent) parent.kids.push(h); return h; };
+    const root = H0(META.repo, "", null), ext = H0("외부 패키지 · 모듈", "\u0001", null), dirs = new Map([["", root]]), groups = new Map();
+    const dir = (p) => { let h = dirs.get(p); if (h) return h; const i = p.lastIndexOf("/"); h = H0(i < 0 ? p : p.slice(i + 1), p, dir(i < 0 ? "" : p.slice(0, i))); dirs.set(p, h); return h; };
+    const of = new Map(), scale = 1.7 * P.size;
+    for (const n of visNodes) {
+      const fp = n.d.path === "." ? "" : n.d.path || "";
+      if (n.kind === "folder" && (m.rel === "tree" || n.d.group === "go")) { const h = n.id === "./" ? root : dir(fp); h.model = n; of.set(n, h); continue; }   // 폴더 노드는 그 폴더의 원
+      let host;
+      if (n.kind === "file" && n.d.path) host = dir(fp.includes("/") ? fp.slice(0, fp.lastIndexOf("/")) : "");
+      else { const g = n.d.ecosystem || (n.kind === "module" ? "모듈" : n.d.group) || "기타"; host = groups.get(g); if (!host) { host = H0(g, "\u0001" + g, ext); groups.set(g, host); } }
+      const leaf = H0(n.label, n.id, host);
+      leaf.leaf = true; leaf.model = n; leaf.r = Math.max(2.4, scale * Math.sqrt(packValue(n)));
+      of.set(n, leaf);
+    }
+    if (m.rel === "tree") for (const h of dirs.values()) {   // 폴더 탭: 아래 폴더만 그리면 바로 든 파일이 빠지니 그만큼의 원을 하나 더
+      const fh = h.model && h.model.d.filesHere;
+      if (fh && h.kids.length && !h.kids.some((c) => c.leaf && c.model && c.model.kind === "file")) { const f = H0(`파일 ${fh}개`, h.path + "/\u0001", h); f.leaf = true; f.pseudo = true; f.r = Math.max(2.4, scale * Math.sqrt(fh)); }
+    }
+    const packH = (h) => {
+      if (!h.kids.length) { if (!h.leaf) h.r = h.model ? Math.max(2.4, scale * Math.sqrt(packValue(h.model))) : 2.4; return; }
+      for (const c of h.kids) packH(c);
+      const pad = h.kids.some((c) => !c.leaf && c.kids.length) ? 6 : 2.5;
+      const cs = h.kids.map((c) => ({ c, r: c.r + pad, x: 0, y: 0 })).sort((a, b) => b.r - a.r || (a.c.name < b.c.name ? -1 : a.c.name > b.c.name ? 1 : 0));
+      h.r = packSiblings(cs) + pad;
+      for (const o of cs) { o.c.rx = o.x; o.c.ry = o.y; }
+    };
+    const place = (h, x, y) => { h.x = x; h.y = y; for (const c of h.kids) place(c, x + c.rx, y + c.ry); };
+    packH(root); place(root, 0, 0);
+    const roots = [root];
+    if (ext.kids.length) { packH(ext); place(ext, root.r + ext.r + 90, 0); roots.push(ext); }
+    let heatMax = 0;
+    const sum = (h) => {   // 파일 수 · 언어 · 바뀐 횟수 · 비교의 더함 · 뺌을 위로 모은다
+      if (!h.kids.length) {
+        const md = h.model;
+        if (md) {
+          h.n = m.rel === "tree" && md.kind === "folder" ? md.d.files || 1 : 1; h.fam[md.fam] = h.n; h.heat = heatOf(md);
+          if (md.d.status === "added") h.add = 1; else if (md.d.status === "removed") h.del = 1;
+        }
+        return;
+      }
+      for (const c of h.kids) { sum(c); h.n += c.n; h.add += c.add; h.del += c.del; h.heat += c.heat; for (const f in c.fam) h.fam[f] = (h.fam[f] || 0) + c.fam[f]; }
+      if (h.model && m.rel === "tree") h.n = h.model.d.files || h.n;
+      if (h.parent) heatMax = Math.max(heatMax, h.heat);
+    };
+    for (const r of roots) sum(r);
+    const folders = [];
+    const collect = (h) => { if (h.kids.length && !h.leaf) { if (h.parent) folders.push(h); for (const c of h.kids) collect(c); } };
+    for (const r of roots) collect(r);
+    folders.sort((a, b) => b.r - a.r);
+    m.pk = { roots, of, folders, heatMax, sig: -1, at: 0, thr: Infinity, agg: [], hot: null };
+    for (const [n, h] of of) { n.x = h.x; n.y = h.y; }
+  }
+  function packRep(h, thr) {   // 이 확대에서 h 를 대신하는 원: 접힌(반쯤 넘게 접힌) 가장 위 폴더, 다 펼쳤으면 자기 자신
+    let r = h;
+    for (let p = h.parent; p && p.parent && p.r < thr; p = p.parent) r = p;
+    return r;
+  }
+  function packBend(a, b) {   // 곡선의 당김점: 두 원의 가장 가까운 공통 폴더 쪽(위계에 따라 묶이게)
+    let x = a, y = b;
+    while (x && y && x.depth > y.depth) x = x.parent;
+    while (x && y && y.depth > x.depth) y = y.parent;
+    while (x && y && x !== y) { x = x.parent; y = y.parent; }
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    if (!x || x !== y) return [mx, my - Math.hypot(b.x - a.x, b.y - a.y) * 0.12];
+    return [mx + (x.x - mx) * 0.4, my + (x.y - my) * 0.4];
+  }
+  function packReps() {   // 열린 폴더가 바뀌었으면 연결을 다시 합친다 — 확대 중에는 120ms 마다만(아직 남았으면 true)
+    const pk = m.pk, thr = (OPEN_PX * 1.5) / view.k;
+    let open = 0;
+    while (open < pk.folders.length && pk.folders[open].r >= thr) open++;   // 큰 폴더부터 줄 세웠으니 앞쪽이 펼친 폴더
+    if (open === pk.sig) return false;
+    const now = performance.now();
+    if (pk.sig !== -1 && now - pk.at < 120) return true;
+    pk.sig = open; pk.at = now; pk.thr = thr; pk.hot = null;
+    const agg = new Map();
+    if (m.rel !== "tree") for (const e of visEdges) {
+      if (e.t.fam === "ext" && !e.d.status) continue;   // 외부로 가는 연결은 올리거나 고를 때만(packHot)
+      const a = packRep(pk.of.get(e.s), thr), b = packRep(pk.of.get(e.t), thr);
+      if (a === b) continue;
+      const st = e.d.status || "", key = a.hid + ":" + b.hid + ":" + st;
+      let g = agg.get(key);
+      if (!g) { g = { a, b, st, n: 0, h: 0, bad: 0 }; agg.set(key, g); }
+      g.n++;
+      if (e.u) g.h++;
+      if (VIOL && VIOL.has(e)) g.bad++;
+    }
+    pk.agg = [...agg.values()];
+    for (const g of pk.agg) [g.cx, g.cy] = packBend(g.a, g.b);
+    return false;
+  }
+  function packPath(a, b, cx, cy) {   // 두 원의 테두리 사이 곡선
+    const ax = cx - a.x, ay = cy - a.y, la = Math.hypot(ax, ay) || 1, bx = cx - b.x, by = cy - b.y, lb = Math.hypot(bx, by) || 1;
+    ctx.moveTo(a.x + (ax / la) * a.r, a.y + (ay / la) * a.r);
+    ctx.quadraticCurveTo(cx, cy, b.x + (bx / lb) * b.r, b.y + (by / lb) * b.r);
+  }
+  function packHot() {   // 올린 · 고른 노드나 강조(분석 · 경로)의 연결을 지금 확대의 원끼리로
+    const pk = m.pk, f = hover || (HL ? null : sel), key = (f ? "n" + f.i : HL ? "h" : hoverH ? "f" + hoverH.hid : "") + ":" + pk.sig;
+    if (pk.hot && pk.hot.key === key && pk.hot.hl === HL) return pk.hot.list;
+    const pairs = new Map(), add = (e) => {
+      const a = packRep(pk.of.get(e.s), pk.thr), b = packRep(pk.of.get(e.t), pk.thr);
+      if (a === b) return;
+      const k2 = a.hid + ":" + b.hid;
+      let g = pairs.get(k2);
+      if (!g) { g = { a, b, n: 0, h: 0 }; [g.cx, g.cy] = packBend(a, b); pairs.set(k2, g); }
+      g.n++; if (e.u) g.h++;
+    };
+    if (f && f.vis) { for (const e of f.out) if (e.vis) add(e); for (const e of f.inc) if (e.vis) add(e); }
+    else if (HL) { if (HL.edges) { for (const e of HL.edges) if (e.vis) add(e); } else for (const e of visEdges) if (HL.nodes.has(e.s) && HL.nodes.has(e.t)) add(e); }
+    else if (hoverH) {   // 폴더: 그 안(펼쳤으면 안의 원들)과 밖을 잇는 연결
+      const inside = (h) => { for (let x = h; x; x = x.parent) if (x === hoverH) return true; return false; };
+      for (const g of pk.agg) { const ia = inside(g.a), ib = inside(g.b); if (ia !== ib) pairs.set(g.a.hid + ":" + g.b.hid + g.st, g); }
+    }
+    pk.hot = { key, hl: HL, list: [...pairs.values()] };
+    return pk.hot.list;
+  }
+  function drawPack() {
+    if (!visNodes.length) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); return false; }   // 보일 것이 없으면 빈 화면 안내만
+    const pk = m.pk, k = view.k, F = focusSet(), litN = F || matchSet, lit0 = !!litN;
+    let busy = packReps();
+    dimT += ((lit0 || hoverH ? 1 : 0) - dimT) * 0.22;
+    if (Math.abs(dimT - (lit0 || hoverH ? 1 : 0)) > 0.01) busy = true;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * view.x, dpr * view.y);
+    const vx0 = -view.x / k, vy0 = -view.y / k, vx1 = vx0 + W / k, vy1 = vy0 + H / k;
+    const on = (h, mg) => h.x + h.r + mg > vx0 && h.x - h.r - mg < vx1 && h.y + h.r + mg > vy0 && h.y - h.r - mg < vy1;
+    const litH = new Set();   // 강조한 노드가 든 폴더 — 접혀 있어도 고리로 알린다
+    if (litN) for (const n of litN) { const h = pk.of.get(n); for (let p = h && h.parent; p && !litH.has(p); p = p.parent) litH.add(p); }
+    const shownF = [], shownL = [];
+    const walk = (h, a) => {
+      for (const c of h.kids) {
+        if (!on(c, 0)) continue;
+        if (c.leaf || !c.kids.length) { shownL.push([c, a]); continue; }
+        const t = openT(c, k);
+        shownF.push([c, a, t]);
+        if (t > 0.02) walk(c, a * t);
+      }
+    };
+    for (const r of pk.roots) if (on(r, 0)) { shownF.push([r, 1, 1]); walk(r, 1); }
+    // 1) 폴더 원: 접힌 만큼 색 원, 펼친 만큼 가는 테두리
+    for (const [h, a, t] of shownF) {
+      const col = colorH(h), closed = 1 - t, dim = lit0 && !litH.has(h) ? 0.35 : 1;
+      ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
+      if (!h.parent) { ctx.globalAlpha = 0.5; ctx.strokeStyle = C.line; ctx.lineWidth = 1.2 / k; ctx.stroke(); continue; }
+      if (closed > 0.01) {
+        ctx.globalAlpha = a * closed * dim; ctx.fillStyle = C.box; ctx.fill();
+        ctx.globalAlpha = a * closed * (neutral(col) ? 0.28 : 0.4) * dim; ctx.fillStyle = col; ctx.fill();
+        ctx.globalAlpha = a * closed * dim; ctx.strokeStyle = col; ctx.lineWidth = 1.6 / k; ctx.stroke();
+      }
+      if (t > 0.01) { ctx.globalAlpha = a * t * 0.05; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = a * t * 0.5 * dim; ctx.strokeStyle = col; ctx.lineWidth = 1 / k; ctx.stroke(); }
+      if (litH.has(h) && closed > 0.3) { ctx.save(); ctx.globalAlpha = a; ctx.shadowColor = HL ? C.leaf : C["hl-glow"]; ctx.shadowBlur = 14; ctx.strokeStyle = HL ? C.leaf : C.hl; ctx.lineWidth = 2.2 / k; ctx.stroke(); ctx.restore(); }
+      if (h === hoverH) { ctx.globalAlpha = 1; ctx.strokeStyle = C.hl; ctx.lineWidth = 2 / k; ctx.stroke(); }
+    }
+    // 2) 연결: 이 확대에서 보이는 원끼리 합친 것(굵기 = 개수), 비교면 더함 · 뺌 색, 규칙 위반은 빨강
+    const alpha0 = clamp(1.3 / Math.sqrt(pk.agg.length / 60 + 0.01), 0.07, 0.55) * (1 - dimT * 0.75);
+    const nPass = { removed: 0, added: 0 };   // 화면에 그릴 비교 색 연결 수 — 많을수록 옅고 가늘게
+    for (const g of pk.agg) if (g.st && (on(g.a, 30 / k) || on(g.b, 30 / k))) nPass[g.st] = (nPass[g.st] || 0) + 1;
+    ctx.lineCap = "round";
+    for (const pass of ["", "removed", "added"]) {
+      for (const g of pk.agg) {
+        if (g.st !== pass || (!on(g.a, 30 / k) && !on(g.b, 30 / k))) continue;
+        const bad = P.rules && g.bad;
+        ctx.globalAlpha = pass ? clamp(1.8 / Math.sqrt(nPass[pass] / 30 + 0.01), 0.3, 0.9) : bad ? 0.85 : alpha0;
+        ctx.strokeStyle = pass === "added" ? C.add : pass === "removed" ? C.del : bad ? C.del : C.ink;
+        ctx.setLineDash(pass === "removed" || g.h === g.n ? [5 / k, 4 / k] : []);
+        ctx.lineWidth = ((pass ? (nPass[pass] > 200 ? 1 : 1.6) : 0.5) + Math.min(3.5, Math.log2(1 + g.n) * 0.45)) * P.width / k;
+        ctx.beginPath(); packPath(g.a, g.b, g.cx, g.cy); ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+    const hot = packHot();
+    if (hot.length) {
+      ctx.save(); ctx.globalAlpha = hot.length > 150 ? 0.6 : 0.95; ctx.strokeStyle = C.hl; if (hot.length <= 300) { ctx.shadowColor = C["hl-glow"]; ctx.shadowBlur = 10; }
+      for (const g of hot) { ctx.lineWidth = (1.4 + Math.min(3, Math.log2(1 + g.n) * 0.6)) * P.width / k; ctx.setLineDash(g.h === g.n ? [5 / k, 3 / k] : []); ctx.beginPath(); packPath(g.a, g.b, g.cx, g.cy); ctx.stroke(); }
+      ctx.restore();
+    }
+    // 3) 파일(잎): 부모가 펼친 만큼 보인다 — git 노드처럼 가운데가 빈 고리
+    for (const [h, a] of shownL) {
+      const n = h.model;
+      if (!n) { if (h.pseudo && a > 0.05) { ctx.globalAlpha = a * 0.35; ctx.fillStyle = C.other; ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2); ctx.fill(); } continue; }
+      const lit = !lit0 || litN.has(n), want = lit ? 1 : 0.15;
+      n.fade += (want - n.fade) * 0.22;
+      if (Math.abs(n.fade - want) > 0.01) busy = true;
+      const al = a * n.fade;
+      if (al < 0.02) continue;
+      const r = Math.max(h.r, 1.4 / k), st = n.d.status;
+      const col = colorOf(n);
+      ctx.globalAlpha = al; ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(h.x, h.y, r, 0, Math.PI * 2); ctx.fill();
+      if (h.r * k >= 5 && n.fam !== "ext") {   // 점 그리기와 같은 고리: 두께는 화면에서 3px 까지
+        const sc = Math.max(0.5, 1 - 3 / (h.r * k));
+        ctx.fillStyle = C.core; ctx.beginPath(); ctx.arc(h.x, h.y, h.r * sc, 0, Math.PI * 2); ctx.fill();
+        if (sc > 0.55) { ctx.globalAlpha = al * 0.12; ctx.fillStyle = col; ctx.fill(); }
+      }
+      if (st && m.G.diff) { ctx.strokeStyle = st === "added" ? C.add : st === "removed" ? C.del : C.warn; ctx.lineWidth = 2.2 / k; ctx.setLineDash(st === "removed" ? [4 / k, 3 / k] : []); ctx.beginPath(); ctx.arc(h.x, h.y, r + 2.5 / k, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+      if (matchSet && matchSet.has(n) && !F) { ctx.strokeStyle = C.accent; ctx.lineWidth = 1.6 / k; ctx.beginPath(); ctx.arc(h.x, h.y, r + 2 / k, 0, Math.PI * 2); ctx.stroke(); }
+    }
+    ctx.globalAlpha = 1;
+    const glowN = new Set([sel, hover, pathFrom].filter((n) => n && n.vis));
+    if (HL && HL.ends) for (const n of HL.ends) if (n.vis) glowN.add(n);
+    for (const n of glowN) {
+      const h = pk.of.get(n);
+      if (!h) continue;
+      ctx.save(); ctx.shadowColor = C.leaf; ctx.shadowBlur = 22; ctx.lineWidth = 2.6 / k; ctx.strokeStyle = C.leaf;
+      ctx.beginPath(); ctx.arc(h.x, h.y, Math.max(h.r, 1.4 / k) + 2.5 / k, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+    // 4) 이름: 접힌 폴더는 가운데(이름 · 파일 수), 펼친 폴더는 위쪽 안, 파일은 아래 — 겹치면 그리지 않는다
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineJoin = "round";
+    const grid = new Map(), GW = 120, GH = 24, gk = (a, b) => a * 100003 + b;
+    let nlab = 0;
+    const free = (r) => {   // 화면 칸으로 나눠 가까운 이름만 본다
+      for (let gx = Math.floor(r[0] / GW); gx <= Math.floor(r[2] / GW); gx++) for (let gy = Math.floor(r[1] / GH); gy <= Math.floor(r[3] / GH); gy++) { const b = grid.get(gk(gx, gy)); if (b) for (const o of b) if (o[0] < r[2] && o[2] > r[0] && o[1] < r[3] && o[3] > r[1]) return false; }
+      for (let gx = Math.floor(r[0] / GW); gx <= Math.floor(r[2] / GW); gx++) for (let gy = Math.floor(r[1] / GH); gy <= Math.floor(r[3] / GH); gy++) { const key = gk(gx, gy), b = grid.get(key); if (b) b.push(r); else grid.set(key, [r]); }
+      return true;
+    };
+    const label = (text, x, y, size, weight, color, maxW, base) => {
+      if (nlab > 1500 || x < -300 || x > W + 300 || y < -40 || y > H + 40) return false;
+      ctx.font = `${weight} ${size}px ${FONT}`;
+      const tw = Math.min(ctx.measureText(text).width, maxW), r = [x - tw / 2 - 2, base === "top" ? y : y - size / 2 - 1, x + tw / 2 + 2, base === "top" ? y + size + 2 : y + size / 2 + 1];
+      if (!free(r)) return false;
+      nlab++;
+      ctx.textAlign = "center"; ctx.textBaseline = base === "top" ? "top" : "middle";
+      ctx.lineWidth = 3.5; ctx.strokeStyle = C.halo; ctx.strokeText(text, x, y, maxW); ctx.fillStyle = color; ctx.fillText(text, x, y, maxW);
+      return true;
+    };
+    const sx = (x) => x * k + view.x, sy = (y) => y * k + view.y;
+    for (const n of glowN) { const h = pk.of.get(n); if (h) { ctx.globalAlpha = 1; label(n.label, sx(h.x), sy(h.y + h.r) + 5, 12, 650, C.text, 260, "top"); } }
+    const fl = shownF.filter(([h]) => h.parent).sort((x, y) => y[0].r - x[0].r);
+    for (const [h, a, t] of fl) {
+      const R = h.r * k;
+      if (a < 0.15) continue;
+      ctx.globalAlpha = a * (lit0 && !litH.has(h) ? 0.45 : 1);
+      if (t < 0.5 && R >= 16) {
+        const sub = `${h.n}개${h.add || h.del ? ` · +${h.add} −${h.del}` : ""}`;
+        if (label(h.name, sx(h.x), sy(h.y) - (R >= 26 ? 7 : 0), 12, 650, C.text, R * 1.8, "mid") && R >= 26) label(sub, sx(h.x), sy(h.y) + 8, 11, 400, C["text-2"], R * 1.8, "mid");
+      } else if (t >= 0.5 && R >= 40) label(h.name, sx(h.x), sy(h.y - h.r) + 5, 12, 650, C.muted, R * 1.4, "top");
+    }
+    const ll = shownL.filter(([h, a]) => h.model && a > 0.3 && h.r * k >= (P.names ? 3 : 10)).sort((x, y) => y[0].r - x[0].r);
+    for (const [h, a] of ll) { ctx.globalAlpha = a * h.model.fade; label(h.model.label, sx(h.x), sy(h.y + h.r) + 3, 11.5, 400, lit0 && !litN.has(h.model) ? C.muted : C.text, 220, "top"); }
+    ctx.globalAlpha = 1;
+    return busy;
+  }
+  function packAt(px, py) {   // 그 점에 보이는 가장 깊은 것: 파일(잎) · 접힌 폴더 · 펼친 폴더의 빈 곳
+    const pk = m.pk, k = view.k, x = (px - view.x) / k, y = (py - view.y) / k, pad = 3 / k;
+    const visit = (h) => {
+      for (const c of h.kids) {
+        const dx = x - c.x, dy = y - c.y, r = c.leaf || !c.kids.length ? Math.max(c.r, 1.4 / k) + pad : c.r;
+        if (dx * dx + dy * dy > r * r) continue;
+        if (c.leaf || !c.kids.length) return c.pseudo ? h : c;
+        return openT(c, k) >= 0.5 ? visit(c) || c : c;
+      }
+      return null;
+    };
+    for (const r of pk.roots) { const dx = x - r.x, dy = y - r.y; if (dx * dx + dy * dy <= r.r * r.r) return visit(r) || (r.parent ? r : null); }
+    return null;
+  }
+  function packFocus(h) {   // 폴더 원을 화면에 맞춘다(펼쳐진다)
+    const { l, r } = margins(), kk = clampK(Math.min((W - l - r) / (h.r * 2.3), (H - 120) / (h.r * 2.3)));
+    m.userMoved = true;
+    animateTo({ k: kk, x: l + (W - l - r) / 2 - h.x * kk, y: H / 2 - h.y * kk });
   }
 
   // ----- 분석: 순환(Tarjan) · 층(가장 긴 경로) · 많이 쓰이는 것 · 안 쓰이는 것 · 사슬 · 핫스팟 · 숨은 결합 -----
@@ -7098,11 +8249,14 @@ HTMLEOF
     if (running) {
       const t0 = performance.now();
       do tick(); while (alpha > ALPHA_MIN && performance.now() - t0 < 12);
-      if (alpha <= ALPHA_MIN) running = false;
+      if (alpha <= ALPHA_MIN) {   // 멈출 때: 아직 겹친 노드 · 상자를 마저 떼어 놓는다
+        running = false;
+        if (box() || visNodes.length <= 4000) unstack(visNodes);
+      }
       if (!m.userMoved) { const f = fitView(); if (f) Object.assign(view, f); }
     }
     if (tween) tween(now);
-    const busy = draw();
+    const busy = vs.layout === "pack" && m.pk ? drawPack() : draw();
     if (running || tween || morph || busy) request();
   }
   function focusSet() {   // 밝게 둘 노드: 올린 노드의 이웃 > 강조(분석 · 경로) > 고른 노드의 이웃
@@ -7169,13 +8323,13 @@ HTMLEOF
     dimT += ((lit0 ? 1 : 0) - dimT) * 0.22;
     if (Math.abs(dimT - (lit0 ? 1 : 0)) > 0.01) busy = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);   // 배경은 페이지의 남색 빛(앱 아이콘처럼)
+    ctx.clearRect(0, 0, W, H);   // 배경은 페이지 것(검정 · 흰 바탕에 가운데만 살짝 밝게)
     ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * view.x, dpr * view.y);
     const vx0 = -view.x / k, vy0 = -view.y / k, vx1 = vx0 + W / k, vy1 = vy0 + H / k;
     const seen = (n, mg) => n.x + halfW(n) + mg > vx0 && n.x - halfW(n) - mg < vx1 && n.y + halfH(n) + mg > vy0 && n.y - halfH(n) - mg < vy1;
     const hot = f ? (e) => e.s === f || e.t === f : HL ? (HL.edges ? (e) => HL.edges.has(e) : (e) => HL.nodes.has(e.s) && HL.nodes.has(e.t)) : () => false;
     const showArrows = m.directed && (P.arrows || isBox);
-    // 연결: 보통은 한 번에(많을수록 옅게), 강조된 것은 파랑 빛
+    // 연결: 보통은 한 번에(많을수록 옅게), 강조된 것은 흰 빛
     const ink = isBox ? C.ink : C.line;
     ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineCap = "round";
     const base = (isBox ? 0.9 : clamp(1.6 / Math.sqrt(visEdges.length / 400 + 0.01), 0.22, 1)) * (1 - dimT * 0.75);
@@ -7184,7 +8338,7 @@ HTMLEOF
       ctx.setLineDash(dashed ? [4 / k, 3 / k] : []);
       if (m.rel === "changes" || isBox) {
         for (const e of visEdges) {
-          if (e.h !== dashed || hot(e)) continue;
+          if (e.u !== dashed || hot(e)) continue;
           ctx.lineWidth = (P.width * (m.rel === "changes" ? 0.8 + Math.log2(Math.max(e.w, 1)) * 0.8 : 1.2)) / k;
           const g = geom(e); ctx.beginPath(); strokeEdge(g); ctx.stroke();
           if (showArrows && (seen(e.t, 10) || seen(e.s, 10))) { ctx.beginPath(); arrowHead(g, 8 / k); ctx.fill(); }
@@ -7192,20 +8346,36 @@ HTMLEOF
       } else {
         ctx.lineWidth = P.width / k; ctx.beginPath();
         const curvy = vs.layout === "tidy" || vs.layout === "radial";
-        for (const e of visEdges) if (e.h === dashed && !hot(e)) { if (curvy) strokeEdge(geom(e)); else { ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); } }
+        for (const e of visEdges) if (e.u === dashed && !hot(e)) { if (curvy) strokeEdge(geom(e)); else { ctx.moveTo(e.s.x, e.s.y); ctx.lineTo(e.t.x, e.t.y); } }
         ctx.stroke();
-        if (showArrows && visEdges.length < 6000) { ctx.beginPath(); for (const e of visEdges) if (e.h === dashed && !hot(e) && seen(e.t, 10)) arrowHead(geom(e), 6 / k); ctx.fill(); }
+        if (showArrows && visEdges.length < 6000) { ctx.beginPath(); for (const e of visEdges) if (e.u === dashed && !hot(e) && seen(e.t, 10)) arrowHead(geom(e), 6 / k); ctx.fill(); }
       }
     }
     ctx.setLineDash([]);
+    if (m.G.diff || (VIOL && VIOL.size && P.rules)) {   // 비교의 더함 · 뺌과 규칙 위반은 늘 위에 — 많을수록 옅고 가늘게
+      let nd = 0;
+      for (const e of visEdges) if ((m.G.diff && e.d.status) || (VIOL && P.rules && VIOL.get(e))) nd++;
+      const aD = clamp(1.8 / Math.sqrt(nd / 30 + 0.01), 0.3, 0.92);
+      for (const e of visEdges) {
+        const st = m.G.diff ? e.d.status : "", bad = VIOL && P.rules ? VIOL.get(e) : null;
+        if (!st && !bad) continue;
+        ctx.globalAlpha = aD * (1 - dimT * 0.6);
+        ctx.strokeStyle = ctx.fillStyle = st === "added" ? C.add : st === "removed" ? C.del : st ? C.warn : C.del;
+        ctx.setLineDash(st === "removed" || (!st && bad.severity !== "error") ? [5 / k, 4 / k] : []);
+        ctx.lineWidth = ((nd > 200 ? 1.3 : 2) * P.width) / k;
+        const g = geom(e); ctx.beginPath(); strokeEdge(g); ctx.stroke();
+        if (m.directed) { ctx.setLineDash([]); ctx.beginPath(); arrowHead(g, 8 / k); ctx.fill(); }
+      }
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
     if (f || HL) {
       const hots = visEdges.filter(hot);
-      ctx.globalAlpha = 0.95; ctx.strokeStyle = C.hl; ctx.fillStyle = C.hl;
-      if (hots.length <= 400) { ctx.shadowColor = C.accent; ctx.shadowBlur = 10; }
+      ctx.globalAlpha = hots.length > 150 ? 0.55 : 0.95; ctx.strokeStyle = C.hl; ctx.fillStyle = C.hl;
+      if (hots.length <= 400) { ctx.shadowColor = C["hl-glow"]; ctx.shadowBlur = 10; }
       const wHL = hots.length > 150 ? 1.1 : hots.length > 40 ? 1.5 : HL && !f ? 2.4 : 1.8;   // 많이 강조할수록 가늘게
       for (const e of hots) {
         ctx.lineWidth = (P.width * (m.rel === "changes" ? 1.2 + Math.log2(Math.max(e.w, 1)) : wHL)) / k;
-        ctx.setLineDash(e.h ? [5 / k, 3 / k] : []);
+        ctx.setLineDash(e.u ? [5 / k, 3 / k] : []);
         const g = geom(e); ctx.beginPath(); strokeEdge(g); ctx.stroke();
         if (m.directed) { ctx.beginPath(); arrowHead(g, 9 / k); ctx.fill(); }
       }
@@ -7219,18 +8389,33 @@ HTMLEOF
       if (Math.abs(n.fade - want) > 0.01) busy = true;
       if (!seen(n, 0)) continue;
       const col = colorOf(n);
-      if (isBox) {   // 상자: 남색 바탕에 그 색 테두리 · 살짝 그 색, 글자는 본문 색
+      if (isBox) {   // 상자: 어두운 바탕에 그 색 테두리 · 살짝 그 색, 글자는 본문 색
         ctx.globalAlpha = n.fade;
         ctx.fillStyle = C.box; ctx.beginPath(); shape(n, 0); ctx.fill();
-        ctx.globalAlpha = n.fade * 0.2; ctx.fillStyle = col; ctx.fill();
+        ctx.globalAlpha = n.fade * (neutral(col) ? 0.1 : 0.2); ctx.fillStyle = col; ctx.fill();
         ctx.globalAlpha = n.fade; ctx.strokeStyle = col; ctx.lineWidth = 1.7 / k;
         if (n.fam === "ext" || n.role === "ext") ctx.setLineDash([4 / k, 3 / k]);
         ctx.stroke(); ctx.setLineDash([]);
       } else {
         ctx.globalAlpha = n.fade; ctx.fillStyle = col;
         ctx.beginPath(); shape(n, 0); ctx.fill();
-        if (n.r * k >= 3.4 && n.fam !== "ext") { ctx.fillStyle = C.core; ctx.beginPath(); core(n, 0.5); ctx.fill(); }
+        if (n.r * k >= 3.4 && n.fam !== "ext") {   // 고리 두께는 화면에서 3px 까지 — 크게 보면 가는 고리와 옅은 속
+          const sc = Math.max(0.5, 1 - 3 / (n.r * k));
+          ctx.fillStyle = C.core; ctx.beginPath(); core(n, sc); ctx.fill();
+          if (sc > 0.55) { ctx.globalAlpha = n.fade * 0.12; ctx.fillStyle = col; ctx.fill(); }
+        }
       }
+    }
+    if (m.G.diff) {   // 비교: 새로 생김(초록) · 없어짐(빨강 점선) · 바뀜(호박색) 고리
+      ctx.lineWidth = 2.2 / k;
+      for (const n of visNodes) {
+        const st = n.d.status;
+        if (!st || !seen(n, 4)) continue;
+        ctx.globalAlpha = Math.max(0.4, n.fade); ctx.strokeStyle = st === "added" ? C.add : st === "removed" ? C.del : C.warn;
+        ctx.setLineDash(st === "removed" ? [4 / k, 3 / k] : []);
+        ctx.beginPath(); shape(n, 2.5 / k); ctx.stroke();
+      }
+      ctx.setLineDash([]);
     }
     ctx.globalAlpha = 1;
     // 고른 노드 · 올린 노드: 앱 아이콘의 초록 노드처럼 빛나게
@@ -7319,14 +8504,15 @@ HTMLEOF
   function select(n) {
     const was = sel;
     sel = n && n.vis ? n : null;
-    if (P.local && was !== sel) { refreshVisible(); if (vs.layout === "force") startForce(false, 0.5); else applyLayout(false); }
+    if (P.local && was !== sel) { refreshVisible(); sizeNodes(true); if (vs.layout === "force") startForce(false, 0.5); else applyLayout(false); }
     renderInfo(); request();
   }
   function edgeNote(e) {
     if (m.agg) return `${e.d.files}개${e.kind === "cochange" ? " · " + e.w + "번" : ""}`;
     if (e.kind === "cochange") return `${e.w}번${e.d.degree != null ? " · " + e.d.degree + "%" : ""}`;
-    let s = e.d.scope || EDGENAME[e.kind] || e.kind;
+    let s = e.d.scope || (e.kind === "type-ref" && e.d.checked ? "타입 이름(모듈 확인)" : EDGENAME[e.kind]) || e.kind;
     if (e.w > 1 && e.kind !== "depends") s += ` ×${e.w}`;
+    if (m.G.diff && e.d.status) s = (e.d.status === "added" ? "＋ " : e.d.status === "removed" ? "− " : "~ ") + s;
     return s;
   }
   function list(title, pairs, arrowCh) {
@@ -7351,7 +8537,7 @@ HTMLEOF
     const n = sel, a = analyze(), rows = [];
     for (const [k, v] of Object.entries(n.d)) {
       if (k === "id" || k === "label" || k === "kind" || k === "group" || k === "path" || !(k in KEYNAME)) continue;
-      const val = k === "bytes" ? hsize(v) : k === "exts" ? Object.entries(v).map(([x, y]) => `${x} ${y}`).join(" · ") : typeof v === "boolean" ? (v ? "예" : "아니오") : typeof v === "object" ? JSON.stringify(v) : v;
+      const val = k === "bytes" ? hsize(v) : k === "status" ? STATUSNAME[v] || v : k === "bytesDelta" ? (v < 0 ? "−" : "+") + hsize(Math.abs(v)) : k === "filesDelta" ? (v > 0 ? "+" : "") + v : Array.isArray(v) ? v.join(", ") : k === "exts" ? Object.entries(v).map(([x, y]) => `${x} ${y}`).join(" · ") : typeof v === "boolean" ? (v ? "예" : "아니오") : typeof v === "object" ? JSON.stringify(v) : v;
       rows.push(`<tr><th>${esc(KEYNAME[k] || k)}</th><td>${esc(val)}</td></tr>`);
     }
     const c = CHG.get(n.id);
@@ -7401,7 +8587,7 @@ HTMLEOF
   function setQuery(s) {
     query = s.trim().toLowerCase();
     matchSet = null;
-    if (P.onlyFound) { matchSet = query ? new Set(m.nodes.filter((n) => n.key.includes(query))) : null; refreshVisible(); if (vs.layout === "force") startForce(false, 0.3); }
+    if (P.onlyFound) { matchSet = query ? new Set(m.nodes.filter((n) => n.key.includes(query))) : null; refreshVisible(); sizeNodes(true); if (vs.layout === "force") startForce(false, 0.3); else applyLayout(false); }
     matches = query ? visNodes.filter((n) => n.key.includes(query)) : [];
     matchSet = query ? new Set(matches) : null; matchIdx = -1;
     $("hits").textContent = query ? `${matches.length}` : "";
@@ -7441,6 +8627,41 @@ HTMLEOF
     const cards = [], S = [];
     const card = (v, t, hot, pick) => cards.push({ v, t, hot, pick });
     const add = (title, note, items) => { if (items.length) S.push({ title, note, items }); };
+    const idLabel = (id) => { const n = m.nodeOf.get(id); return n ? nm(n) : id.replace(/^[a-z]+:/, ""); };
+    if (RULES && (m.rel === "files" || m.rel === "modules")) {   // 규칙 파일의 위반(gitch graph check 와 같다)
+      const here = RULES.violations.filter((v) => v.relation === m.rel), other = RULES.violations.filter((v) => v.relation !== m.rel && v.severity === "error" && !v.existing);
+      const errs = here.filter((v) => v.severity === "error" && !v.existing);
+      const vl = (v) => `${v.rule.replace(/\s+/g, " ")} — ${v.kind === "no-cycles" ? v.nodes.slice(0, 3).map(idLabel).join(" ⇄ ") + (v.nodes.length > 3 ? ` 외 ${v.nodes.length - 3}` : "") : idLabel(v.source) + " → " + idLabel(v.target)}`;
+      const show1 = (list, title) => {
+        if (m.agg) setUnit("file");
+        const ns = new Set(), es = [];
+        for (const v of list) {
+          for (const id of v.kind === "no-cycles" ? v.nodes : [v.source, v.target]) { const n = m.nodeOf.get(id); if (n) ns.add(n); }
+          if (v.kind !== "no-cycles") { const e = m.edges.find((x) => x.s.id === v.source && x.t.id === v.target); if (e) es.push(e); }
+        }
+        highlight([...ns], es.length ? es : null, title, list.length === 1 && list[0].kind !== "no-cycles" ? [...ns] : []);
+      };
+      card(errs.length, "규칙 위반", errs.length > 0 ? "bad" : false, here.length ? () => show1(here, `규칙 위반 ${here.length}개 (${RULES.file})`) : null);
+      add(`규칙 위반 · ${RULES.file}`, "gitch graph check 와 같은 결과 — 누르면 그 연결(순환이면 그 노드들)을 강조한다." + (other.length ? ` ${TABNAME[other[0].relation]} 탭에도 ${other.length}개.` : ""),
+        here.map((v) => ({ label: vl(v), title: v.rule, v: 1, txt: v.existing ? "기존" : v.severity === "error" ? "위반" : "경고", pick: () => show1([v], `규칙 위반: ${vl(v)}`) })));
+    }
+    if (m.G.diff) {   // 비교(gitch graph diff): 기준 → 작업 트리
+      const D = m.G, st = D.stats || {}, cyc = D.cycles || { new: [], gone: [] }, ids2 = (ids) => ids.map((id) => m.nodeOf.get(id)).filter(Boolean);
+      const added = m.edges.filter((e) => e.vis && e.d.status === "added"), removed = m.edges.filter((e) => e.vis && e.d.status === "removed");
+      const ends = (es) => [...new Set(es.flatMap((e) => [e.s, e.t]))];
+      card(st.addedEdges || 0, "더한 연결", false, added.length ? () => highlight(ends(added), added, `더한 연결 ${added.length}개`) : null);
+      card(st.removedEdges || 0, "뺀 연결", false, removed.length ? () => highlight(ends(removed), removed, `뺀 연결 ${removed.length}개`) : null);
+      card(st.newCycles || 0, "새 순환", (st.newCycles || 0) > 0 ? "bad" : false, cyc.new.length ? () => highlight(ids2(cyc.new.flatMap((c) => c.nodes)), null, `새 순환 ${cyc.new.length}개`) : null);
+      const cycItem = (c, word) => { const ns = ids2(c.nodes); return { label: ns.slice(0, 3).map(nm).join(" ⇄ ") + (ns.length > 3 ? ` 외 ${ns.length - 3}` : ""), title: c.nodes.join("\n"), v: c.nodes.length, txt: `${c.nodes.length}개${c.heuristic ? " · 추정" : ""}`, pick: () => highlight(ns, null, `${word}: ${ns.slice(0, 4).map(nm).join(" ⇄ ")}`) }; };
+      const eItem = (e, sign) => ({ n: e.s, label: `${sign} ${nm(e.s)} → ${nm(e.t)}`, title: `${e.s.id}\n${e.t.id}`, v: e.w, txt: e.d.scope || (e.kind === "type-ref" && e.d.checked ? "타입 이름(모듈 확인)" : EDGENAME[e.kind]) || e.kind, pick: () => highlight([e.s, e.t], [e], `${sign === "+" ? "더한" : "뺀"} 연결: ${nm(e.s)} → ${nm(e.t)}`, [e.s, e.t]) });
+      add("새 순환", `${D.diff.baseName}(${D.diff.base}) 에 없던 순환 의존 — 이 브랜치에서 생겼다.`, cyc.new.map((c) => cycItem(c, "새 순환")));
+      add("커지거나 줄어든 순환", "기준에도 있던 순환에 노드가 더해지거나 빠졌다.", (cyc.changed || []).map((c) => { const it = cycItem(c, "바뀐 순환"); it.txt = `${(c.before || []).length} → ${c.nodes.length}개${c.heuristic ? " · 추정" : ""}`; return it; }));
+      add("없어진 순환", "기준에 있던 순환이 풀렸다.", cyc.gone.map((c) => cycItem(c, "없어진 순환")));
+      add("더한 연결", "기준에 없던 연결(초록).", added.slice(0, 60).map((e) => eItem(e, "+")));
+      add("뺀 연결", "기준에만 있던 연결(빨간 점선).", removed.slice(0, 60).map((e) => eItem(e, "−")));
+      if (m.rel === "tree") add("크기가 바뀐 폴더", "파일 수 · 크기 변화.", m.nodes.filter((n) => n.vis && n.d.status === "changed").sort((x, y) => Math.abs(y.d.filesDelta || 0) - Math.abs(x.d.filesDelta || 0) || byId(x, y)).slice(0, 30)
+        .map((n) => item(n, Math.abs(n.d.filesDelta || 0) || 1, `파일 ${(n.d.filesDelta || 0) >= 0 ? "+" : ""}${n.d.filesDelta || 0} · ${(n.d.bytesDelta || 0) >= 0 ? "+" : "−"}${hsize(Math.abs(n.d.bytesDelta || 0))}`)));
+    }
     if (m.rel === "tree") {
       const folders = vis.filter((n) => n.kind === "folder"), root = folders.find((n) => n.id === "./"), sub = folders.filter((n) => n !== root);
       card(folders.length, "폴더", false, null);
@@ -7497,10 +8718,11 @@ HTMLEOF
         .map((e) => ({ x: m.nodeOf.get(e.source), y: m.nodeOf.get(e.target), w: e.weight })).filter((h) => h.x && h.y && h.x.vis && h.y.vis).slice(0, 12);
       add("숨은 결합", "import 로는 이어지지 않는데 자주 같이 바뀐다 — 보이지 않는 의존이나 복사된 코드일 수 있다.", hid.map((h) => ({ n: h.x, label: `${nm(h.x)} ↔ ${nm(h.y)}`, title: `${h.x.id}\n${h.y.id}`, v: h.w, txt: `${h.w}번 같이`, pick: () => highlight([h.x, h.y], [], `숨은 결합: ${nm(h.x)} ↔ ${nm(h.y)} (${h.w}번 같이 바뀜, import 없음)`, [h.x, h.y]) })));
     }
-    let html = `<div class="cards">${cards.map((c, i) => (c.pick ? `<button type="button" data-c="${i}" class="${c.hot ? "hot" : ""}">` : `<div class="${c.hot ? "hot" : ""}">`) + `<b>${c.v}</b><span>${esc(c.t)}</span>${c.pick ? "</button>" : "</div>"}`).join("")}</div>`;
+    const cls = (c) => (c.hot === "bad" ? "bad" : c.hot ? "hot" : "");
+    let html = `<div class="cards">${cards.map((c, i) => (c.pick ? `<button type="button" data-c="${i}" class="${cls(c)}">` : `<div class="${cls(c)}">`) + `<b>${c.v}</b><span>${esc(c.t)}</span>${c.pick ? "</button>" : "</div>"}`).join("")}</div>`;
     S.forEach((s, si) => {
-      const max = Math.max(1, ...s.items.map((it) => it.v));
-      html += `<h3 class="sec-title">${esc(s.title)}</h3><p class="sec-note">${esc(s.note)}</p><ul class="rows" data-s="${si}">` + s.items.map((it, i) => `<li data-k="${i}" title="${esc(it.title || it.label)}">${it.n ? dotHtml(it.n) : ""}<span class="name">${esc(it.label)}</span><small>${esc(it.txt)}</small><span class="bar"><i style="width:${Math.max(6, Math.round((it.v / max) * 100))}%"></i></span></li>`).join("") + "</ul>";
+      const max = Math.max(1, ...s.items.map((it) => it.v)), varied = s.items.some((it) => it.v !== s.items[0].v);   // 값이 다 같으면 막대는 뜻이 없다
+      html += `<h3 class="sec-title">${esc(s.title)}</h3>${s.note ? `<p class="sec-note">${esc(s.note)}</p>` : ""}<ul class="rows" data-s="${si}">` + s.items.map((it, i) => `<li data-k="${i}" title="${esc(it.title || it.label)}">${it.n ? dotHtml(it.n) : ""}<span class="name">${esc(it.label)}</span><small>${esc(it.txt)}</small>${varied ? `<span class="bar"><i style="width:${Math.max(6, Math.round((it.v / max) * 100))}%"></i></span>` : ""}</li>`).join("") + "</ul>";
     });
     if (!S.length) html += `<p class="sec-note">이 보기에서 더 볼 것이 없습니다.</p>`;
     body.innerHTML = html;
@@ -7516,11 +8738,12 @@ HTMLEOF
     $("groups").innerHTML = order.map(item).join("");
     if (colorMode() === "heat") $("legend").innerHTML = `<span class="ramp">바뀐 횟수 <span>적음</span><i style="background:${C.h1}"></i><i style="background:${C.h2}"></i><i style="background:${C.h3}"></i><i style="background:${C.h4}"></i><span>많음(${heatMax})</span></span>`;
     else $("legend").innerHTML = order.length > 1 ? order.map(item).join("") : "";
+    if (m.G.diff) $("legend").innerHTML = `<span class="lg"><i style="background:${C.add}"></i>새로 생김</span><span class="lg" style="color:${C.del}"><i class="dash"></i>없어짐</span>${m.rel === "tree" ? `<span class="lg"><i style="background:${C.warn}"></i>크기 바뀜</span>` : ""}` + $("legend").innerHTML;
     $("legend").hidden = !$("legend").innerHTML;
     for (const b of document.querySelectorAll("#groups button, #legend button")) b.onclick = () => { const g = b.dataset.k; if (hidden.has(g)) hidden.delete(g); else hidden.add(g); filtersChanged(); renderGroups(); };
   }
   function filtersChanged() {
-    refreshVisible();
+    refreshVisible(); sizeNodes(true);
     if (sel && !sel.vis) sel = null;
     if (hover && !hover.vis) hover = null;
     renderInfo(); setQuery($("q").value);
@@ -7536,13 +8759,19 @@ HTMLEOF
   function renderControls() {
     seg($("tabs"), ORDER.map((v) => [v, TABNAME[v]]), REL, (v) => { if (v !== REL) show(v); });
     for (const b of $("tabs").querySelectorAll("button")) { b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(b.dataset.v === REL)); b.title = `${RELNAME[b.dataset.v]} · 노드 ${VIEWS[b.dataset.v].nodes.length}`; }
-    const unitOk = REL === "files" || REL === "changes";
+    const packed = vs.layout === "pack", unitOk = (REL === "files" || REL === "changes") && !packed;
+    $("styleLab").hidden = packed; $("styleLine").hidden = packed;
+    $("diffRow").hidden = !m.G.diff; $("rulesRow").hidden = !(VIOL && VIOL.size);
     $("unitLab").hidden = !unitOk; $("unitLine").hidden = !unitOk;
     seg($("unit"), [["file", "파일"], ["folder", "폴더"]], vs.unit, setUnit);
     $("depth").hidden = vs.unit !== "folder";
     $("depth").value = String(vs.depth);
     seg($("style"), [["dot", "점"], ["box", "상자"]], vs.style, (v) => { vs.style = v; if (v === "box" && vs.layout === "radial") vs.layout = "tidy"; renderControls(); sizeNodes(); m.userMoved = false; applyLayout(true); });
-    seg($("layout"), LAYOUTS[REL], vs.layout, (v) => { vs.layout = v; renderControls(); m.userMoved = false; applyLayout(true); });
+    seg($("layout"), LAYOUTS[REL], vs.layout, (v) => {
+      vs.layout = v;
+      if (v === "pack" && vs.unit !== "file") { vs.unit = "file"; switchModel(); }   // 폴더 원은 파일 단위로 — 접고 펼치기가 폴더 묶음을 대신한다
+      renderControls(); m.userMoved = false; applyLayout(true);
+    });
     const colors = [["family", "언어"], ...(REL === "modules" ? [["role", "종류"]] : []), ...(heatOk() ? [["heat", "바뀐 횟수"]] : [])];
     seg($("colorBy"), colors, colorMode(), (v) => { vs.colorBy = v; hidden.clear(); renderControls(); filtersChanged(); });
     seg($("sizeBy"), SIZES(), vs.sizeBy, (v) => { vs.sizeBy = v; sizeNodes(); renderControls(); applyLayout(false); });
@@ -7553,7 +8782,9 @@ HTMLEOF
     const fade = $("fade"); fade.value = m.fade; $("fadeV").textContent = m.fade.toFixed(2) + "×";
     renderGroups();
     const G = m.G, st = G.stats || {};
-    $("stats").textContent = `${RELNAME[REL]}${m.agg ? ` · 폴더 ${m.depth}단계` : ""} · 노드 ${m.nodes.length} · 연결 ${m.edges.length}${st.heuristicEdges && !m.agg ? ` (추정 ${st.heuristicEdges})` : ""}${G.lang ? " · " + G.lang.join(",") : ""}`;
+    const D = G.diff, nv = RULES ? RULES.violations.filter((v) => v.relation === REL && v.severity === "error" && !v.existing).length : 0;
+    $("stats").textContent = (D ? `비교 ${D.baseName}(${D.base}) → 작업 트리 · 연결 +${st.addedEdges || 0} −${st.removedEdges || 0}${st.newCycles ? ` · 새 순환 ${st.newCycles}` : ""}${st.changedCycles ? ` · 바뀐 순환 ${st.changedCycles}` : ""}`
+      : `${RELNAME[REL]}${m.agg ? ` · 폴더 ${m.depth}단계` : ""} · 노드 ${m.nodes.length} · 연결 ${m.edges.length}${st.heuristicEdges && !m.agg ? ` (추정 ${st.heuristicEdges})` : ""}${G.lang ? " · " + G.lang.join(",") : ""}`) + (nv ? ` · 규칙 위반 ${nv}` : "");
     $("stats").title = `${G.commit ? G.commit + " · " : ""}gitch ${G.version} · ${G.generated || ""}`;
     const notes = G.notes || [];
     $("notes").innerHTML = notes.map((t) => `<p>${esc(t)}</p>`).join("");
@@ -7564,8 +8795,17 @@ HTMLEOF
   function switchModel() {
     sel = null; hover = null; morph = null; tween = null; running = false; HL = null; pathFrom = null;
     $("banner").hidden = true; canvas.classList.remove("picking");
-    m = modelFor(vs); view = m.view;
-    sizeNodes(); refreshVisible(); renderControls(); renderInfo(); setQuery($("q").value);
+    m = modelFor(vs); view = m.view; hoverH = null;
+    VIOL = null;
+    if (RULES && !m.agg) {   // 규칙을 어긴 연결(순환은 분석 창에서)
+      VIOL = new Map();
+      for (const v of RULES.violations) {
+        if (v.relation !== m.rel || v.kind === "no-cycles") continue;
+        const s0 = m.nodeOf.get(v.source);
+        if (s0) for (const e of s0.out) if (e.t.id === v.target) VIOL.set(e, v);
+      }
+    }
+    refreshVisible(); sizeNodes(); renderControls(); renderInfo(); setQuery($("q").value);
     if (!$("ana").hidden) renderAna();
     if (!m.laid) { m.laid = true; firstLayout(); } else request();
     if (!$("table").hidden) renderTable();
@@ -7583,6 +8823,13 @@ HTMLEOF
   const pointers = new Map();
   let down = null, pinch = null;
   const tip = $("tip");
+  function showTipH(h, px, py) {   // 폴더 원
+    const opened = openT(h, view.k) >= 0.5;
+    tip.innerHTML = `<b>${esc(h.path || h.name)}</b><span>파일 ${h.n}개${h.add || h.del ? ` · 새로 생김 ${h.add} · 없어짐 ${h.del}` : ""} · ${opened ? "누르면 이 폴더에 맞춤" : "누르면 펼침"}</span>`;
+    tip.hidden = false;
+    const w = tip.offsetWidth, hh = tip.offsetHeight;
+    tip.style.left = Math.min(px + 16, W - w - 8) + "px"; tip.style.top = Math.min(py + 16, H - hh - 8) + "px";
+  }
   function showTip(n, px, py) {
     if (!n) { tip.hidden = true; return; }
     const [mName, mFn] = METRIC(), c = heatOf(n);
@@ -7613,17 +8860,20 @@ HTMLEOF
       pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, k: view.k, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, vx: view.x, vy: view.y };
       down = null; return;
     }
-    down = { x: ev.clientX, y: ev.clientY, n: nodeAt(ev.clientX, ev.clientY), moved: false, vx: view.x, vy: view.y };
+    const ph = vs.layout === "pack" && m.pk ? packAt(ev.clientX, ev.clientY) : null;
+    down = { x: ev.clientX, y: ev.clientY, h: ph, n: ph ? (ph.model && (ph.leaf || !ph.kids.length) ? ph.model : null) : vs.layout === "pack" ? null : nodeAt(ev.clientX, ev.clientY), moved: false, vx: view.x, vy: view.y };
     tween = null;
     canvas.classList.add("dragging");
   });
   canvas.addEventListener("pointermove", (ev) => {
     const px = ev.clientX, py = ev.clientY;
     if (!pointers.has(ev.pointerId)) {
-      const n = nodeAt(px, py);
-      if (n !== hover) { hover = n; request(); }
-      canvas.classList.toggle("over", !!n);
-      showTip(n, px, py);
+      let n, h = null;
+      if (vs.layout === "pack" && m.pk) { h = packAt(px, py); n = h && h.model && (h.leaf || !h.kids.length) ? h.model : null; if (n || (h && !h.parent)) h = null; }
+      else n = nodeAt(px, py);
+      if (n !== hover || h !== hoverH) { hover = n; hoverH = h; request(); }
+      canvas.classList.toggle("over", !!(n || h));
+      if (h) showTipH(h, px, py); else showTip(n, px, py);
       return;
     }
     pointers.set(ev.pointerId, { x: px, y: py });
@@ -7636,7 +8886,7 @@ HTMLEOF
     const dx = px - down.x, dy = py - down.y;
     if (!down.moved && dx * dx + dy * dy < 16) return;
     down.moved = true; m.userMoved = true;
-    if (down.n) {
+    if (down.n && vs.layout !== "pack") {   // 폴더 원은 자리가 정해져 있어 끌지 않는다(화면을 옮긴다)
       const n = down.n;
       n.x = (px - view.x) / view.k; n.y = (py - view.y) / view.k;
       hover = n;
@@ -7648,32 +8898,27 @@ HTMLEOF
     pointers.delete(ev.pointerId);
     if (pointers.size < 2) pinch = null;
     canvas.classList.remove("dragging");
-    if (down && !down.moved) pick(down.n);
+    if (down && !down.moved) {
+      if (vs.layout === "pack" && down.h && !down.n && down.h.parent) { packFocus(down.h); if (down.h.model) select(down.h.model); }   // 폴더 원: 누르면 그 폴더로(펼쳐진다)
+      else pick(down.n);
+    }
     if (down && down.n) { down.n.fx = null; down.n.fy = null; }
     down = null;
   };
   canvas.addEventListener("pointerup", up);
   canvas.addEventListener("pointercancel", up);
-  canvas.addEventListener("pointerleave", () => { if (!down) { hover = null; tip.hidden = true; request(); } });
+  canvas.addEventListener("pointerleave", () => { if (!down) { hover = null; hoverH = null; tip.hidden = true; request(); } });
   canvas.addEventListener("wheel", (ev) => {
     ev.preventDefault(); tip.hidden = true;
     const step = ev.deltaMode === 1 ? ev.deltaY * 18 : ev.deltaY;
     zoomAt(ev.clientX, ev.clientY, Math.exp(-step * (ev.ctrlKey ? 0.01 : 0.0016)), 0);
   }, { passive: false });
   canvas.addEventListener("dblclick", (ev) => {
-    const n = nodeAt(ev.clientX, ev.clientY);
+    const ph = vs.layout === "pack" && m.pk ? packAt(ev.clientX, ev.clientY) : null;
+    const n = vs.layout === "pack" ? (ph && ph.model && (ph.leaf || !ph.kids.length) ? ph.model : null) : nodeAt(ev.clientX, ev.clientY);
     if (n && n.members) { setUnit("file"); return; }   // 폴더를 두 번 누르면 파일 단위로
     if (n) { select(n); centerOn(n, Math.max(view.k * 1.8, 1.5)); } else zoomAt(ev.clientX, ev.clientY, 1.8, 300);
   });
-  // 마스코트 눈동자는 커서 쪽을 본다
-  document.addEventListener("pointermove", (ev) => {
-    for (const p of document.querySelectorAll(".mascot .pupil")) {
-      const r = p.closest(".eye").getBoundingClientRect();
-      if (!r.width) continue;
-      const dx = ev.clientX - (r.left + r.width / 2), dy = ev.clientY - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1, f = Math.min(1, d / 180);
-      p.style.transform = `translate(${((dx / d) * 4.4 * f).toFixed(2)}px, ${((dy / d) * 2 * f).toFixed(2)}px)`;
-    }
-  }, { passive: true });
   const q = $("q");
   q.addEventListener("input", () => setQuery(q.value));
   q.addEventListener("keydown", (ev) => {
@@ -7711,16 +8956,16 @@ HTMLEOF
   $("zout").onclick = () => zoomAt(W / 2, H / 2, 1 / 1.4, 260);
   $("fit").onclick = () => { m.userMoved = false; animateTo(fitView()); };
   $("theme").onclick = () => setTheme(root.dataset.theme === "dark" ? "light" : "dark", true);
-  $("png").onclick = () => {   // 지금 보이는 그래프만(설정 창 · 목록 없이) 남색 배경과 함께 그림으로
+  $("png").onclick = () => {   // 지금 보이는 그래프만(설정 창 · 목록 없이) 페이지 배경과 함께 그림으로
     const out = document.createElement("canvas"); out.width = canvas.width; out.height = canvas.height;
-    const o = out.getContext("2d"), g1 = o.createRadialGradient(out.width * 0.62, out.height * 0.32, 0, out.width * 0.62, out.height * 0.32, out.width * 0.7);
+    const o = out.getContext("2d"), g1 = o.createRadialGradient(out.width * 0.5, out.height * 0.4, 0, out.width * 0.5, out.height * 0.4, out.width * 0.7);
     o.fillStyle = C.bg; o.fillRect(0, 0, out.width, out.height);
     g1.addColorStop(0, C.glow); g1.addColorStop(1, "rgba(0,0,0,0)"); o.fillStyle = g1; o.fillRect(0, 0, out.width, out.height);
     o.drawImage(canvas, 0, 0);
     out.toBlob((b) => {
       if (!b) return;
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(b); a.download = `${META.repo}-${REL}${m.agg ? "-folders" : ""}.png`;
+      a.href = URL.createObjectURL(b); a.download = `${META.repo}-${REL}${m.G.diff ? "-diff" : ""}${m.agg ? "-folders" : vs.layout === "pack" ? "-pack" : ""}.png`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }, "image/png");
@@ -7738,6 +8983,8 @@ HTMLEOF
   bindSwitch("local", "local", () => { $("localRow").hidden = !P.local; m.userMoved = false; filtersChanged(); });
   bindSwitch("arrows", "arrows", request);
   bindSwitch("names", "names", request);
+  bindSwitch("onlyDiff", "onlyDiff", () => { m.userMoved = false; filtersChanged(); });
+  bindSwitch("rules", "rules", () => { if (m.pk) m.pk.sig = -1; request(); });
   const fmt = { fade: (v) => v.toFixed(2) + "×", size: (v) => v.toFixed(2) + "×", width: (v) => v.toFixed(1) + "×", center: (v) => v.toFixed(2), repel: (v) => v.toFixed(1), link: (v) => v.toFixed(2), dist: (v) => String(v), minDeg: (v) => (v ? v + "개" : "모두"), localDepth: (v) => v + "단계" };
   for (const key of Object.keys(fmt)) {
     const el = $(key), out = $(key + "V");
@@ -7758,7 +9005,7 @@ HTMLEOF
   // ----- 시작 -----
   document.title = `${META.repo}${META.scope ? "/" + META.scope : ""} — gitch graph`;
   $("repo").textContent = META.repo + (META.scope ? " / " + META.scope : "");
-  $("logo").innerHTML = MASCOT(); $("emptyLogo").innerHTML = MASCOT(); $("anaLogo").innerHTML = MASCOT(); $("peek").innerHTML = MASCOT("big");
+  $("logo").innerHTML = MARK; $("emptyLogo").innerHTML = MARK;
   let saved = null;
   try { saved = localStorage.getItem("gitch-graph-theme"); } catch (e) { /* 저장소를 못 쓰면 기본(어둡게) */ }
   setTheme(saved === "light" ? "light" : "dark", false);
@@ -7766,6 +9013,23 @@ HTMLEOF
   resize();
   buildLang();
   show(REL);
+  if (location.hash === "#test") window.gitchGraphTest = {
+    state: () => ({ rel: REL, layout: vs.layout, style: vs.style, unit: vs.unit, k: view.k, running, alpha: +alpha.toFixed(4), nodes: visNodes.length, edges: visEdges.length, pack: vs.layout === "pack" && m.pk ? { folders: m.pk.folders.length, agg: m.pk.agg.length, open: m.pk.sig } : null }),
+    overlaps: () => {   // 겹친 쌍의 수(폴더 원은 형제 원끼리 · 부모 밖으로 나간 원)
+      let bad = 0;
+      if (vs.layout === "pack" && m.pk) {
+        const chk = (h) => { for (let i = 0; i < h.kids.length; i++) { const a = h.kids[i]; if (Math.hypot(a.x - h.x, a.y - h.y) + a.r > h.r + 0.5) bad++; for (let j = i + 1; j < h.kids.length; j++) { const b = h.kids[j]; if (Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r - 0.5) bad++; } chk(a); } };
+        m.pk.roots.forEach(chk); return bad;
+      }
+      const L = visNodes;
+      for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) { const a = L[i], b = L[j]; if (box() ? Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 0.5 && Math.abs(a.y - b.y) < (a.h + b.h) / 2 - 0.5 : Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r - 0.5) bad++; }
+      return bad;
+    },
+    zoom: (k) => { const c = { x: W / 2, y: H / 2 }; zoomAt(c.x, c.y, k / view.k, 0); return view.k; },
+    settle: (n) => { for (let i = 0; i < n; i++) collide(visNodes, 1); return window.gitchGraphTest.overlaps(); },
+    pairs: () => { const out = [], L = visNodes; for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) { const a = L[i], b = L[j]; if (Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 0.5 && Math.abs(a.y - b.y) < (a.h + b.h) / 2 - 0.5) out.push([a.id, b.id, +(a.x - b.x).toFixed(1), +(a.y - b.y).toFixed(1), a.w, b.w, a.fx, b.fx]); } return out.slice(0, 5); },
+    redraw: (n) => { for (let i = 0; i < (n || 1); i++) { if (tween) tween(performance.now() + 1e4); if (m.pk) m.pk.at = 0; pending = false; frame(performance.now()); } return true; },   // 창이 가려져 그리기가 멈춘 때
+  };
 })();
 </script>
 </body>
@@ -7819,6 +9083,8 @@ PR / MR
   gitch report [--today|--days N]          gitch/AI 작업 기록
   gitch graph [files|modules|changes|tree] 구조 그래프: import / 모듈 의존 / 같이 바뀌는 파일 / 폴더
     [--format html|json|svg|png] [--out 파일] [--lang 언어] [폴더]  터미널은 html, 스크립트·AI 는 json (--help)
+  gitch graph diff [기준]      이 브랜치에서 더하거나 뺀 의존 · 새 순환 (기본: 기본 브랜치와 갈라진 곳)
+  gitch graph check            .gitch/graph.rules 의 의존 규칙 검사, 위반이면 종료 코드 1 (--init 으로 예시)
 
 계정/설정
   gitch list [--check] [--json]            등록된 계정

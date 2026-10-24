@@ -147,9 +147,10 @@ gitch graph modules --out deps.png           # graphviz(dot) 로 그림
 | Go | `import` | `go.mod` 의 모듈 안이면 패키지 폴더, 밖이면 모듈(`require` 기준) |
 | Rust | `mod` · `use crate::/self::/super::` · 다른 crate | `a.rs` · `a/mod.rs`, 같은 저장소 crate 는 그 crate 의 파일 |
 | Kotlin/Java | `package` + `import` | 그 이름을 선언한 파일. 같은 패키지 타입은 import 없이 쓰므로 이름으로 추정 |
-| Swift | 파일끼리 import 가 없다 | 다른 파일에 선언된 최상위 타입(class · struct · enum · protocol · actor · typealias) 이름을 쓰면 추정, `import 모듈` 은 모듈 노드 |
+| Swift | 파일끼리 import 가 없다 | 다른 파일에 선언된 최상위 타입(class · struct · enum · protocol · actor · typealias) 이름을 쓰면 추정, `import 모듈` 은 모듈 노드. Tuist(`Project.swift` 의 `sources` · 도우미 매니페스트는 `Sources/**` · `Tests/**`) · SwiftPM 으로 파일의 모듈(`modules`)을 정해, 같은 모듈이거나 import 한 모듈의 공개(public · open · package) 타입만 잇는다(`@testable import` 면 internal 도) |
 
-- 추정한 연결은 JSON 에 `"heuristic": true`, 그림에서는 점선이다. 같은 두 파일에 정확한 연결이 있으면 더하지 않는다. 주석 · 문자열 속 이름과 `private` 타입은 세지 않는다.
+- 추정한 연결은 JSON 에 `"heuristic": true`, 그림에서는 점선이다. 같은 두 파일에 정확한 연결이 있으면 더하지 않는다. 주석 · 문자열 속 이름과 `private` 타입은 세지 않는다. 모듈(Swift) · 패키지(Kotlin/Java)로 확인한 추정은 `"checked": true` 다.
+- Swift 의 정확한 참조는 Xcode 인덱스에 있다. 앱이 gitch 옆에 두는 도우미 `gitch-swift-index`(또는 `GITCH_SWIFT_INDEX` 에 적은 실행 파일, 빈 값이면 끔, 그다음 `PATH`)가 있으면 `gitch-swift-index --repo <저장소> --covered <파일>` 의 `원본<TAB>대상<TAB>심볼,…` 줄을 정확한 연결(`"kind": "ref"`)로 쓰고, `--covered` 에 적힌(인덱스에 든) 파일은 추정하지 않는다 — 빌드하지 않은 타깃 · 빌드 뒤 새 파일은 그대로 이름으로 추정한다(목록을 쓰지 않으면 모두 든 것으로). 성공해도 표준오류 첫 줄(오래된 인덱스 경고 등)은 notes 에 적고, 3 으로 끝나면(인덱스 없음 — Xcode 로 한 번 빌드) 추정으로 돌아간다.
 - `modules`: Package.swift 는 `swift package describe --type json` 으로 읽고(매니페스트를 컴파일해서 몇 초), 안 되면 파일을 직접 읽는다(`GITSW_SWIFT_DESCRIBE=0` 이면 늘 직접). Tuist 는 Project.swift 의 Target 선언과 의존(`.target` · `.project` · `.external` · `.package` · `.sdk`)을, 도우미 함수로 만든 매니페스트(`Project.module(…)`)는 파일 안의 참조를 모은다. 그 밖에 모든 package.json(작업 공간 구성원은 `workspace`), Cargo 의 `path` · `workspace = true` 의존, Go 패키지 사이 import, Gradle 의 `include` · `project(":x")` · `projects.x`.
 - `changes`: `--since 날짜` · `--max-commits N`(기본 1000) · `--max-files N`(기본 30, 더 큰 커밋은 쌍이 너무 많아 뺀다) · `--min N`(기본 2). merge 커밋과 lock 파일은 뺀다.
 - `--no-external` 은 저장소 밖 패키지 · 모듈을 뺀다. `--lang` 은 고른 언어의 파일(modules 는 그 언어의 생태계)만 남기고, JSON 의 `lang` 에 적는다.
@@ -158,7 +159,8 @@ gitch graph modules --out deps.png           # graphviz(dot) 로 그림
 | 형식 | |
 |---|---|
 | 기본 | 사람이 보는 터미널이면 `html` 을 만들어 열고, 아니면(스크립트 · AI) `json` 을 표준출력. `--format` 이나 `--out` 의 확장자(`.json` · `.html` · `.svg` · `.png` · `.dot`)로 바꾼다 |
-| `html` | Gitrochi 앱 아이콘을 따른 오프라인 한 페이지(CDN 없음): 남색 화면, git 노드처럼 가운데가 빈 고리, 고른 것은 초록 빛, 커서를 보는 마스코트. 네 관계를 모두 담아 위 탭(파일 · 모듈 · 같이 바뀜 · 폴더, 키 1~4)으로 바꾸고, 단위(파일 · 폴더 1~8단계로 묶기) · 언어 · 그리기(점 = 옵시디언 그래프 보기, 상자 = tuist graph 같은 다이어그램)를 고른다. 배치는 힘 · 층(위 → 아래, 모듈 탭 기본) · 나무(왼쪽 → 오른쪽, 폴더 탭 기본) · 방사형이고, 노드와 상자가 겹치지 않게 놓는다(이름은 겹치면 그리지 않는다). 찾기(`/`), 설정 창(필터 · 묶음 · 표시 · 힘), 표로 보기(정렬), 지금 화면을 PNG 로 저장, 어둡게 · 밝게(기억) |
+| `html` | Gitrochi 앱 아이콘의 느낌을 따른 오프라인 한 페이지(CDN 없음): 검정 화면(밝게는 흰 화면, 회색은 모두 무채색), git 노드처럼 가운데가 빈 은색 고리(가장 많은 언어는 은색, 다른 언어만 색), 고른 것은 초록 빛. 네 관계를 모두 담아 위 탭(파일 · 모듈 · 같이 바뀜 · 폴더, 키 1~4)으로 바꾸고, 단위(파일 · 폴더 1~8단계로 묶기) · 언어 · 그리기(점 = 옵시디언 그래프 보기, 상자 = tuist graph 같은 다이어그램)를 고른다. 배치는 힘 · 층(위 → 아래, 모듈 탭 기본) · 나무(왼쪽 → 오른쪽, 폴더 탭 기본) · 방사형 · 폴더 원이고, 노드와 상자가 겹치지 않게 놓는다(이름은 겹치면 그리지 않는다). 폴더 원은 폴더마다 원, 그 안에 파일(넓이 = 줄 수)을 채운 것으로, 멀리서는 폴더가 접힌 원 하나(파일 수 · 비교의 +/−)로 보이고 가까이 가거나 누르면 그 자리에서 펼쳐진다. 접힌 폴더끼리의 연결은 합쳐서 굵기로, 공통 폴더 쪽으로 휘어 묶인다. 노드가 600개를 넘는 파일 · 같이 바뀜 탭은 폴더 원으로 시작한다. 찾기(`/`), 설정 창(필터 · 묶음 · 표시 · 힘), 표로 보기(정렬), 지금 화면을 PNG 로 저장, 어둡게 · 밝게(기억) |
+| `html` 비교 · 규칙 | `gitch graph diff --format html` 은 새로 생긴 노드 · 연결을 초록, 없어진 것을 빨간 점선으로(「바뀐 것만」이 기본), 분석 창 맨 위에 새 순환 · 없어진 순환 · 더한 연결 · 뺀 연결. 규칙 파일이 있으면 어긴 연결을 빨갛게, 분석 창에 「규칙 위반」 |
 | `html` 분석 (`A`) | 순환 의존 · 가장 긴 의존 사슬 · 많이 쓰이는 것 · 많이 쓰는 것 · 많이 쓰이는데 불안정한 것 · 아무도 안 쓰는 것 · 많이 쓰는 외부 패키지 · 폴더 사이 연결 · 핫스팟(바뀐 횟수 × 줄) · 숨은 결합(같이 바뀌는데 import 는 없음). 폴더 탭은 큰 폴더 · 파일이 바로 많이 든 폴더 · 가장 깊은 경로 · 자주 바뀌는 폴더 · 확장자, 같이 바뀜 탭은 자주 같이 바뀌는 쌍. 줄을 누르면 그래프에서 강조한다(`Esc` 로 풀기) |
 | `html` 노드 | 누르면 들어옴 · 나감 · 불안정도 · 영향 범위(바꾸면 흔들리는 것 전부) · 전체 의존 · 순환과, 가져오는 것 · 가져다 쓰는 곳(폴더면 안의 파일) 목록. 단추로 영향 범위 보기 · 전체 의존 보기 · 경로 찾기(다음에 누른 노드까지 가장 짧은 길) · 주변만(로컬 그래프). 색은 언어 · 종류(모듈: 앱 · 라이브러리 · 테스트) · 바뀐 횟수, 크기는 연결 · 줄 · 바뀐 횟수. 언어 색은 노드가 많은 계열 셋(TS/JS · Swift · Python · Go · Rust · Kotlin/Java)에만 주고 나머지는 회색 — 색 세 가지를 넘으면 서로 잘 구별되지 않는다 |
 | `svg` · `png` | graphviz 의 `dot` 으로 그린다(`brew install graphviz`, Windows 는 `winget install Graphviz.Graphviz`, 없으면 그렇게 알린다). `--format dot` 은 DOT 원문 |
@@ -196,7 +198,51 @@ JSON (노드 · 연결이 한 줄에 하나):
 }
 ```
 
-연결 `kind`: `import` · `reexport` · `require` · `dynamic-import` · `mod` · `use` · `type-ref`(추정) · `contains` · `depends` · `cochange`. `via` 는 근거(import 한 글 · 쓴 타입 이름, 다섯 개까지), `weight` 는 횟수다.
+연결 `kind`: `import` · `reexport` · `require` · `dynamic-import` · `mod` · `use` · `type-ref`(추정) · `ref`(Xcode 인덱스) · `contains` · `depends` · `cochange`. `via` 는 근거(import 한 글 · 쓴 타입 이름, 다섯 개까지), `weight` 는 횟수다.
+
+### 비교 (`gitch graph diff`)
+
+```bash
+gitch graph diff                 # 기본 브랜치(upstream > origin)와 갈라진 곳 → 지금 작업 트리 (files)
+gitch graph diff main modules    # 기준을 주면 그 커밋 · 브랜치와
+gitch graph diff --json          # AI · 스크립트: 바뀐 것만 (status: added · removed, cycles.new · changed · gone)
+gitch graph diff --format html   # 전체 그래프에 더한 것 · 뺀 것을 색으로
+```
+
+- 기준 커밋의 추적 파일을 `git archive` 로 임시 폴더에 풀어 같은 방법으로 그래프를 만들고(저장소는 건드리지 않는다), 노드 · 연결 · 순환을 비교한다. 커밋하지 않은 바꿈도 들어간다(추적하는 파일만).
+- 터미널에서는 요약: 연결 +/−(그중 추정), 노드 +/−, 새로 생긴 · 커지거나 줄어든(노드가 둘 넘게 겹침) · 없어진 순환, 더하고 뺀 연결. `tree` 는 폴더마다 파일 수 · 크기 변화(`"status": "changed"`, `filesDelta` · `bytesDelta`).
+- 양쪽을 같은 방법으로 읽으려고 Package.swift 는 swift 없이 직접 읽고, Xcode 인덱스 도우미는 쓰지 않는다. `changes` 는 비교하지 않는다.
+
+### 규칙 검사 (`gitch graph check`)
+
+```bash
+gitch graph check --init         # 예시가 든 .gitch/graph.rules 를 만든다
+gitch graph check                # 위반이 있으면 종료 코드 1 — CI 에 그대로 넣는다
+gitch graph check --base main    # main 에도 있던 위반은 「기존」으로 따로 적고 실패로 세지 않는다
+```
+
+```
+[modules]
+no-cycles
+forbid  *Feature -> *Feature            # 기능 모듈끼리 기대지 않는다 (같은 모듈 안은 괜찮다)
+layers  *App > *Feature > Domain* > Core*   # 왼쪽이 오른쪽에 기대는 것만 된다
+
+[files]
+no-cycles src/**
+forbid  src/ui -> src/db
+allow   src/ui/debug -> src/db          # 위반의 예외
+```
+
+| 규칙 | 뜻 |
+|---|---|
+| `forbid A -> B` | A 가 B 에 기대면 위반. A 와 B 가 같은 패턴이면 같은 곳(같은 모듈 · 같은 폴더)끼리는 괜찮다 |
+| `allow A -> B` | `forbid` · `layers` 위반의 예외 |
+| `layers A > B > …` | 노드는 처음 맞는 층에 속하고, 오른쪽 층이 왼쪽 층에 기대면 위반 |
+| `no-cycles [패턴]` | 순환 의존(패턴을 주면 그 안에서만) |
+
+- 패턴: `files` 는 경로 glob(`*` 한 마디, `**` 여러 폴더, 폴더 이름만 쓰면 그 아래 전부, 외부는 `pkg:npm/react`), `modules` 는 모듈 이름(`*Feature`) 또는 id(`tuist:App`).
+- 정확한 연결과 모듈 · 패키지로 확인한 추정(`checked`)은 위반, 이름만으로 한 추정은 경고(실패 아님)다. 틀린 규칙 줄은 줄 번호와 까닭을 알리고 멈춘다.
+- 규칙 파일이 있으면 `gitch graph` 의 html 분석 창에 「규칙 위반」이 같이 나온다. JSON: `{"ok", "violations": [{"relation", "severity", "line", "rule", "kind", "source", "target" | "nodes", "existing"}]}`.
 
 ## 검사 훅이 막는 것
 

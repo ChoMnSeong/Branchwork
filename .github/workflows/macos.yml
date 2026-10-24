@@ -48,6 +48,13 @@ jobs:
         with:
           persist-credentials: false
 
+      # gitch graph 의 svg · png(graphviz dot)도 시험하려고 — dot 이 없으면 그 시험은 설치 안내 경로만 본다
+      - name: graphviz
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: command -v dot >/dev/null || brew install graphviz
+
       - name: 테스트
         run: tools/gitch/tests/run.sh
 
